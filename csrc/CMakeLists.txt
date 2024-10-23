@@ -1,10 +1,14 @@
 set(CMAKE_INSTALL_PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/../output)
+set(FUNC_INJECTION_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../platform/func_injection/)
 
 add_library(ascend_leaks SHARED dummy.cpp)
 
 target_include_directories(
     ascend_leaks PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+                        ${FUNC_INJECTION_DIR}
 )
+
+target_link_libraries(ascend_leaks pthread)
 
 add_subdirectory(framework)
 add_subdirectory(event_trace)
