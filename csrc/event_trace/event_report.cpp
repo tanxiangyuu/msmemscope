@@ -12,7 +12,7 @@ EventReport& EventReport::Instance(void)
 
 EventReport::EventReport()
 {
-    (void)LocalProcess::GetInstance(); // 连接server
+    (void)LocalProcess::GetInstance(CommType::SOCKET); // 连接server
     return;
 }
 
