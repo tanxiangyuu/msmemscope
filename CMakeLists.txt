@@ -13,12 +13,20 @@ add_compile_options("-Wall")
 add_compile_options("-D_FORTIFY_SOURCE=2")
 add_compile_options("-fno-strict-aliasing")
 add_compile_options("-O2")
- 
+
 add_link_options("-Wl,-z,now")
 add_link_options("-Wl,-z,relro")
 add_link_options("-Wl,-z,noexecstack")
 add_link_options("-pie")
 add_link_options("-s") #strip
 
+option(BUILD_TESTS "build unit tests" OFF)
+
 add_subdirectory(csrc)
-add_subdirectory(test)
+
+if (${BUILD_TESTS})
+  message(STATUS "enable unit tests build")
+  enable_testing()
+  add_subdirectory(opensource)
+  add_subdirectory(test)
+endif()
