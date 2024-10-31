@@ -1,4 +1,5 @@
 add_executable(leaks_test)
+add_subdirectory(framework)
 
 set(leaks_header ../csrc/analysis
                  ../csrc/framework
