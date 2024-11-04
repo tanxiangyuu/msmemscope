@@ -7,7 +7,7 @@
 #include <vector>
 #include <sys/stat.h>
 
-namespace Leaks {
+namespace Utility {
 
 class Path {
 public:
@@ -51,6 +51,6 @@ private:
     std::vector<std::string> route_;
 };
 
-}  // namespace Leaks
+}  // namespace Utility
 
-#endif  // !CORE_FRAMEWORK_UTILITY_PATH_H
+#endif
