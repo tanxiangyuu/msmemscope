@@ -21,11 +21,24 @@ public:
     void Launch(const std::vector<std::string> &execParams);
     void RegisterAnalysisFuc(const ANALYSIS_FUNC& analysisFunc);
 private:
+    void SetPreloadEnv();
     void DoLaunch(const std::vector<std::string> &execParams);
     void PostProcess();
 private:
     ANALYSIS_FUNC analysisFunc_;
     std::unique_ptr<RemoteProcess> server_;
+};
+
+struct ExecCmd {
+    explicit ExecCmd(std::vector<std::string> const &args);
+    std::string const &ExecPath(void) const;
+    char *const *ExecArgv(void) const;
+
+private:
+    std::string path_;
+    int argc_;
+    std::vector<char*> argv_;
+    std::vector<std::string> args_;
 };
 
 }

@@ -15,7 +15,8 @@ namespace Leaks {
 class EventReport {
 public:
     static EventReport& Instance(void);
-
+    bool ReportMalloc(uint64_t addr, uint64_t size, uint64_t memInfoSrc);
+    bool ReportFree(uint64_t addr);
 private:
     EventReport();
 };
