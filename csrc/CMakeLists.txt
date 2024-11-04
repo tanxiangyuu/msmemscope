@@ -3,6 +3,7 @@ set(FUNC_INJECTION_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../platform/func_injection/)
 set(FUNC_HOSTINJECTION_DIR ${FUNC_INJECTION_DIR}/host_injection/)
 get_filename_component(FRAMEWORK_INC_DIR ./framework ABSOLUTE)
 get_filename_component(EVENT_TRACE_INC_DIR ./event_trace ABSOLUTE)
+get_filename_component(UTILITY_INC_DIR ./utility ABSOLUTE)
 
 add_library(ascend_leaks SHARED dummy.cpp)
 
@@ -24,4 +25,8 @@ add_executable(leaks ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
 
 target_link_libraries(leaks ascend_leaks)
 
-set_target_properties(leaks PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_INSTALL_PREFIX}/bin")
+set_target_properties(leaks PROPERTIES
+    OUTPUT_NAME "leaks.bin"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_INSTALL_PREFIX}/bin"
+)
+set_target_properties(ascend_hal_hook PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_INSTALL_PREFIX}/lib64")
