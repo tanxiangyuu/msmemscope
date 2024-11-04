@@ -9,7 +9,7 @@
 
 #include "utility/path.h"
 
-using namespace Leaks;
+using namespace Utility;
 
 TEST(Path, default_construction_expect_current_path)
 {

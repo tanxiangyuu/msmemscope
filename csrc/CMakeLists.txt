@@ -16,6 +16,7 @@ target_include_directories(
 target_link_libraries(ascend_leaks pthread stdc++fs)
 
 add_subdirectory(framework)
+add_subdirectory(utility)
 add_subdirectory(event_trace)
 add_subdirectory(analysis)
 

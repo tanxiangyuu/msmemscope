@@ -8,9 +8,7 @@
 
 #include "ustring.h"
 
-namespace Leaks {
-
-using namespace Utility;
+namespace Utility {
 
 constexpr char const *PATH_SEP = "/";
 constexpr char const *CURRENT_SEGMENT = ".";
@@ -162,4 +160,4 @@ bool Path::Exists(void) const
     return stat(this->ToString().c_str(), &st) == 0;
 }
 
-}  // namespace Leaks
+}  // namespace Utility

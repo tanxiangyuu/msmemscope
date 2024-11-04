@@ -7,6 +7,8 @@
 
 namespace Utility {
 
+constexpr int16_t LOG_BUF_SIZE = 32;
+
 enum class LogLv { DEBUG = 0, INFO, WARN, ERROR, COUNT };
 
 inline bool operator<(LogLv a, LogLv b)

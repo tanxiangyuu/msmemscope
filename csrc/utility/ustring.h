@@ -75,4 +75,4 @@ inline bool EndWith(std::string const &str, std::string const &target)
 
 }  // namespace Utility
 
-#endif  // __CORE_FRAMEWORK_UTILITY_USTRING_H__
+#endif
