@@ -25,7 +25,7 @@ TEST(Sample, sample)
     analyzer.Do(record);
 
     std::string testString = "test";
-    Protocol protocol(config);
+    Protocol protocol {};
     protocol.Feed(testString);
     (void)protocol.GetPacket();
 

@@ -8,13 +8,13 @@ namespace Leaks {
 void Command::Exec(const std::vector<std::string> &execParams) const
 {
     Process process;
-    Protocol protocol(config_);
+    Protocol protocol {};
     Analyzer analyzer(config_);
 
     auto analysisFuc = [&protocol, &analyzer](const std::string &manyMsg) {
         protocol.Feed(manyMsg);
         auto packet = protocol.GetPacket();
-        analyzer.Do(packet.record);
+        analyzer.Do(packet.GetPacketBody());
 
         return;
     };
