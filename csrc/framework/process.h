@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <string>
+#include <thread>
 #include "host_injection/core/RemoteProcess.h"
 #include "config_info.h"
 
@@ -18,15 +19,20 @@ class Process {
 public:
     using ANALYSIS_FUNC = std::function<void(std::string)>;
     Process();
+    ~Process();
     void Launch(const std::vector<std::string> &execParams);
     void RegisterAnalysisFuc(const ANALYSIS_FUNC& analysisFunc);
+    void StartListen();
 private:
     void SetPreloadEnv();
     void DoLaunch(const std::vector<std::string> &execParams);
     void PostProcess();
+    void WaitForMsg();
 private:
+    std::thread recvThread_;
     ANALYSIS_FUNC analysisFunc_;
     std::unique_ptr<RemoteProcess> server_;
+    bool onListen_ {false};
 };
 
 struct ExecCmd {
