@@ -5,7 +5,9 @@
 
 #include <memory>
 #include <string>
+#include <mutex>
 #include "host_injection/core/LocalProcess.h"
+#include "record_info.h"
 
 namespace Leaks {
 /*
@@ -15,10 +17,13 @@ namespace Leaks {
 class EventReport {
 public:
     static EventReport& Instance(void);
-    bool ReportMalloc(uint64_t addr, uint64_t size, uint64_t memInfoSrc);
+    bool ReportMalloc(uint64_t addr, uint64_t size, MemOpSpace space);
     bool ReportFree(uint64_t addr);
 private:
     EventReport();
+
+    uint64_t recordIndex_ = 0;
+    std::mutex mutex_;
 };
 
 }

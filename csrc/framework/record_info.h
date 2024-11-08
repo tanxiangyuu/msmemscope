@@ -17,6 +17,7 @@ enum class MemOpType : uint8_t {
 enum class MemOpSpace : uint8_t {
     DEVICE = 0U,
     HOST,
+    INVALID,
 };
 
 enum class StepType : uint8_t {

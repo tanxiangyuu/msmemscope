@@ -13,13 +13,23 @@ void Command::Exec(const std::vector<std::string> &execParams) const
 
     auto analysisFuc = [&protocol, &analyzer](const std::string &manyMsg) {
         protocol.Feed(manyMsg);
-        auto packet = protocol.GetPacket();
-        analyzer.Do(packet.GetPacketBody());
+        while (true) {
+            auto packet = protocol.GetPacket();
+            switch (packet.GetPacketHead().type) {
+                case PacketType::RECORD:
+                    analyzer.Do(packet.GetPacketBody());
+                    break;
+                case PacketType::INVALID:
+                default:
+                    return;
+            }
+        }
 
         return;
     };
 
     process.RegisterAnalysisFuc(analysisFuc);
+    process.StartListen();
     process.Launch(execParams);
 
     return;
