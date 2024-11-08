@@ -31,7 +31,8 @@ drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long fl
     // report to leaks here
     uint64_t addr = reinterpret_cast<uint64_t>(*pp);
     int32_t moduleId = GetMallocModuleId(flag);
-    if (!EventReport::Instance().ReportMalloc(addr, size, moduleId)) {
+    MemOpSpace space = (moduleId == MEM_HOST ? MemOpSpace::HOST : MemOpSpace::DEVICE);
+    if (!EventReport::Instance().ReportMalloc(addr, size, space)) {
         Utility::LogError("Report FAILED");
     }
 
