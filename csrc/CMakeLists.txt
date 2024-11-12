@@ -1,6 +1,8 @@
 set(CMAKE_INSTALL_PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/../output)
 set(FUNC_INJECTION_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../platform/func_injection/)
+set(SECUREC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../platform/securec/)
 set(FUNC_HOSTINJECTION_DIR ${FUNC_INJECTION_DIR}/host_injection/)
+get_filename_component(SECUREC_INC_DIR ../platform/securec/include ABSOLUTE)
 get_filename_component(FRAMEWORK_INC_DIR ./framework ABSOLUTE)
 get_filename_component(EVENT_TRACE_INC_DIR ./event_trace ABSOLUTE)
 get_filename_component(UTILITY_INC_DIR ./utility ABSOLUTE)
@@ -12,6 +14,7 @@ target_include_directories(
                         ${FUNC_INJECTION_DIR}
                         ${FRAMEWORK_INC_DIR}
                         ${FUNC_HOSTINJECTION_DIR}
+                        ${SECUREC_INC_DIR}
 )
 
 target_link_libraries(ascend_leaks pthread stdc++fs)
@@ -29,4 +32,4 @@ set_target_properties(leaks PROPERTIES
     OUTPUT_NAME "leaks.bin"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_INSTALL_PREFIX}/bin"
 )
-set_target_properties(ascend_hal_hook PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_INSTALL_PREFIX}/lib64")
+set_target_properties(ascend_hal_hook ascend_mstx_hook PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_INSTALL_PREFIX}/lib64")

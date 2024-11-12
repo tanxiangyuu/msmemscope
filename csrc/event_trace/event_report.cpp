@@ -18,15 +18,15 @@ MemOpRecord CreateMemRecord(MemOpType type, MemOpSpace space, uint64_t addr, uin
     return record;
 }
 
-EventReport& EventReport::Instance(void)
+EventReport& EventReport::Instance(CommType type)
 {
-    static EventReport instance;
+    static EventReport instance(type);
     return instance;
 }
 
-EventReport::EventReport()
+EventReport::EventReport(CommType type)
 {
-    (void)LocalProcess::GetInstance(CommType::SOCKET); // 连接server
+    (void)LocalProcess::GetInstance(type); // 连接server
     return;
 }
 
@@ -55,6 +55,13 @@ bool EventReport::ReportFree(uint64_t addr)
     auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
     Utility::LogInfo("client free record, index: %u, addr: 0x%lx", recordIndex_, addr);
     return (sendNums >= 0);
+}
+
+bool EventReport::ReportMark(MstxRecord& mstxRecord)
+{
+    Utility::LogInfo("this mark point message is %s", mstxRecord.markMessage);
+    Utility::LogInfo("this mark point id is %llu", mstxRecord.rangeId);
+    return true;
 }
 
 }
