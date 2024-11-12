@@ -8,19 +8,6 @@
 
 using namespace Leaks;
 
-constexpr uint64_t MEM_VIRT_BIT = 10;
-constexpr uint64_t MEM_VIRT_WIDTH = 4;
-constexpr uint64_t MEM_DEV_VAL = 0x1;
-constexpr uint64_t MEM_HOST_VAL = 0x2;
-constexpr uint64_t MEM_HOST = MEM_HOST_VAL << MEM_VIRT_BIT;
-constexpr uint64_t MEM_DEV = MEM_DEV_VAL << MEM_VIRT_BIT;
-constexpr uint64_t MEM_VIRT_MASK = ((1U << MEM_VIRT_WIDTH) - 1) << MEM_VIRT_BIT;
-
-inline int32_t GetMallocModuleId(unsigned long long flag)
-{
-    return flag & MEM_VIRT_MASK;
-}
-
 drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long flag)
 {
     drvError_t ret = halMemAllocInner(pp, size, flag);
@@ -32,7 +19,7 @@ drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long fl
     uint64_t addr = reinterpret_cast<uint64_t>(*pp);
     int32_t moduleId = GetMallocModuleId(flag);
     MemOpSpace space = (moduleId == MEM_HOST ? MemOpSpace::HOST : MemOpSpace::DEVICE);
-    if (!EventReport::Instance().ReportMalloc(addr, size, space)) {
+    if (!EventReport::Instance(CommType::SOCKET).ReportMalloc(addr, size, space)) {
         Utility::LogError("Report FAILED");
     }
 
@@ -43,7 +30,7 @@ drvError_t halMemFree(void *pp)
 {
     // report to leaks here
     uint64_t addr = reinterpret_cast<uint64_t>(pp);
-    if (!EventReport::Instance().ReportFree(addr)) {
+    if (!EventReport::Instance(CommType::SOCKET).ReportFree(addr)) {
         Utility::LogError("Report FAILED");
     }
 

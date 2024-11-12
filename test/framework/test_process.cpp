@@ -45,11 +45,11 @@ TEST(Process, process_setpreloadenv_expect_success)
     Process process;
     process.SetPreloadEnv();
     char* env = getenv("LD_PRELOAD");
-    ASSERT_STREQ(env, "libascend_hal_hook.so");
+    ASSERT_STREQ(env, "libascend_hal_hook.so:libascend_mstx_hook.so");
     setenv("LD_PRELOAD", "test.so", 1);
     process.SetPreloadEnv();
     env = getenv("LD_PRELOAD");
-    ASSERT_STREQ(env, "libascend_hal_hook.so:test.so");
+    ASSERT_STREQ(env, "libascend_hal_hook.so:libascend_mstx_hook.so:test.so");
 }
  
 TEST(Process, process_postprocess_exit_signal_expect_success)
