@@ -16,12 +16,12 @@ namespace Leaks {
 */
 class EventReport {
 public:
-    static EventReport& Instance(void);
+    static EventReport& Instance(CommType type);
     bool ReportMalloc(uint64_t addr, uint64_t size, MemOpSpace space);
     bool ReportFree(uint64_t addr);
+    bool ReportMark(MstxRecord& mstxRecord);
 private:
-    EventReport();
-
+    explicit EventReport(CommType type);
     uint64_t recordIndex_ = 0;
     std::mutex mutex_;
 };
