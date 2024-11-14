@@ -28,6 +28,8 @@ ExecCmd::ExecCmd(std::vector<std::string> const &args) : path_{}, argc_{0}, args
     if (absPath) {
         path_ = std::string(absPath);
         free(absPath);
+    } else {
+        path_ = args[0];
     }
 
     argc_ = static_cast<int>(args.size());
@@ -64,6 +66,7 @@ Process::~Process()
 
 void Process::Launch(const std::vector<std::string> &execParams)
 {
+    ExecCmd cmd(execParams);
     ::pid_t pid = ::fork();
     if (pid == -1) {
         std::cout << "fork fail" << std::endl;
@@ -72,9 +75,9 @@ void Process::Launch(const std::vector<std::string> &execParams)
 
     if (pid == 0) {
         SetPreloadEnv();
-        DoLaunch(execParams);  // 执行被检测程序
+        DoLaunch(cmd);  // 执行被检测程序
     } else {
-        PostProcess();  // 等待子进程结束，期间不断将client发回的数据转发给分析模块
+        PostProcess(cmd);  // 等待子进程结束，期间不断将client发回的数据转发给分析模块
     }
 
     return;
@@ -94,7 +97,7 @@ void Process::SetPreloadEnv()
         hookLibDir = preloadPath;
     }
 
-    std::vector<string> hookLibNames{"libascend_hal_hook.so", "libascend_mstx_hook.so"};
+    std::vector<string> hookLibNames{"libascend_hal_hook.so", "libascend_mstx_hook.so", "libascend_kernel_hook.so"};
 
     for (string &hookLib : hookLibNames) {
         Path hookLibPath = (Path(hookLibDir) / Path(hookLib)).Resolved();
@@ -137,21 +140,21 @@ void Process::StartListen()
     recvThread_ = std::thread(std::bind(&Process::WaitForMsg, this));
 }
 
-void Process::DoLaunch(const std::vector<std::string> &execParams)
+void Process::DoLaunch(const ExecCmd &cmd)
 {
     // pass all env-vars from global variable "environ"
-    ExecCmd cmd(execParams);
-    execve(cmd.ExecPath().c_str(), cmd.ExecArgv(), environ);
+    execvpe(cmd.ExecPath().c_str(), cmd.ExecArgv(), environ);
     _exit(EXIT_FAILURE);
 }
 
-void Process::PostProcess()
+void Process::PostProcess(const ExecCmd &cmd)
 {
     auto status = int32_t{};
     wait(&status);
+
     if (WIFEXITED(status)) {
         if (WEXITSTATUS(status) != EXIT_SUCCESS) {
-            std::cout << "[leaks] user program exited abnormally" << std::endl;
+            std::cout << "[leaks] user program " << cmd.ExecPath() << " exited abnormally" << std::endl;
         }
     } else if (WIFSIGNALED(status)) {
         int sig = WTERMSIG(status);

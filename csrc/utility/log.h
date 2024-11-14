@@ -4,6 +4,7 @@
 
 #include <type_traits>
 #include <string>
+#include <mutex>
 
 namespace Utility {
 
@@ -35,11 +36,13 @@ private:
 private:
     LogLv lv_{LogLv::INFO};
     FILE *fp_{stdout};
+    mutable std::mutex mtx_;
 };
 
 template <typename... Args>
 void Log::Printf(const std::string &format, LogLv lv, Args &&...args) const
 {
+    std::lock_guard<std::mutex> lock(mtx_);
     if (fp_ == nullptr) {
         return;
     }
@@ -48,6 +51,7 @@ void Log::Printf(const std::string &format, LogLv lv, Args &&...args) const
     }
     std::string f = AddPrefixInfo(format, lv).append("\n");
     fprintf(fp_, f.c_str(), std::forward<Args>(args)...);
+    fflush(fp_);
 }
 
 template <typename... Args>
