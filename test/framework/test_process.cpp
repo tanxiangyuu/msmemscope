@@ -1,4 +1,4 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2023-2023. All rights reserved.
+// Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
  
 #include <gtest/gtest.h>
 #include <vector>
@@ -30,7 +30,7 @@ TEST(Process, process_launch_empty_expect_success)
     std::stringstream buffer;
     std::streambuf *sbuf = std::cout.rdbuf();
     std::cout.rdbuf(buffer.rdbuf());
-    std::string outputInfo = "user program exited abnormally";
+    std::string outputInfo = "exited abnormally";
 
     Process process;
     process.Launch(execParams);
@@ -44,16 +44,19 @@ TEST(Process, process_setpreloadenv_expect_success)
     setenv("LD_PRELOAD_PATH", "/lib64/", 1);
     Process process;
     process.SetPreloadEnv();
-    char* env = getenv("LD_PRELOAD");
-    ASSERT_STREQ(env, "libascend_hal_hook.so:libascend_mstx_hook.so");
+    char *env = getenv("LD_PRELOAD");
+    std::string hooksSo = "libascend_hal_hook.so:libascend_mstx_hook.so:libascend_kernel_hook.so";
+    EXPECT_EQ(std::string(env), hooksSo);
     setenv("LD_PRELOAD", "test.so", 1);
     process.SetPreloadEnv();
     env = getenv("LD_PRELOAD");
-    ASSERT_STREQ(env, "libascend_hal_hook.so:libascend_mstx_hook.so:test.so");
+    EXPECT_EQ(std::string(env), hooksSo + ":test.so");
 }
  
 TEST(Process, process_postprocess_exit_signal_expect_success)
 {
+    std::vector<std::string> execParams = {"ls"};
+    ExecCmd cmd(execParams);
     ::pid_t pid = ::fork();
     Process process;
     if (pid == 0) {
@@ -66,7 +69,7 @@ TEST(Process, process_postprocess_exit_signal_expect_success)
         std::streambuf *sbuf = std::cout.rdbuf();
         std::cout.rdbuf(buffer.rdbuf());
         std::string outputInfo = "user program exited by signal";
-        process.PostProcess();
+        process.PostProcess(cmd);
         std::string captureInfo = buffer.str();
         EXPECT_NE(captureInfo.find(outputInfo), std::string::npos);
         std::cout.rdbuf(sbuf);
@@ -75,6 +78,8 @@ TEST(Process, process_postprocess_exit_signal_expect_success)
 
 TEST(Process, process_postprocess_exit_abnormal_expect_success)
 {
+    std::vector<std::string> execParams = {""};
+    ExecCmd cmd(execParams);
     ::pid_t pid = ::fork();
     Process process;
     if (pid == 0) {
@@ -83,8 +88,8 @@ TEST(Process, process_postprocess_exit_abnormal_expect_success)
         std::stringstream buffer;
         std::streambuf *sbuf = std::cout.rdbuf();
         std::cout.rdbuf(buffer.rdbuf());
-        std::string outputInfo = "user program exited abnormally";
-        process.PostProcess();
+        std::string outputInfo = "exited abnormally";
+        process.PostProcess(cmd);
         std::string captureInfo = buffer.str();
         EXPECT_NE(captureInfo.find(outputInfo), std::string::npos);
         std::cout.rdbuf(sbuf);

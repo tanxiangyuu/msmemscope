@@ -20,7 +20,7 @@ drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long fl
     int32_t moduleId = GetMallocModuleId(flag);
     MemOpSpace space = (moduleId == MEM_HOST ? MemOpSpace::HOST : MemOpSpace::DEVICE);
     if (!EventReport::Instance(CommType::SOCKET).ReportMalloc(addr, size, space)) {
-        Utility::LogError("Report FAILED");
+        Utility::LogError("%s report FAILED", __func__);
     }
 
     return ret;
@@ -31,7 +31,7 @@ drvError_t halMemFree(void *pp)
     // report to leaks here
     uint64_t addr = reinterpret_cast<uint64_t>(pp);
     if (!EventReport::Instance(CommType::SOCKET).ReportFree(addr)) {
-        Utility::LogError("Report FAILED");
+        Utility::LogError("%s report FAILED", __func__);
     }
 
     drvError_t ret = halMemFreeInner(pp);

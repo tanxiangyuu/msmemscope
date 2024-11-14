@@ -32,4 +32,6 @@ set_target_properties(leaks PROPERTIES
     OUTPUT_NAME "leaks.bin"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_INSTALL_PREFIX}/bin"
 )
-set_target_properties(ascend_hal_hook ascend_mstx_hook PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_INSTALL_PREFIX}/lib64")
+set_target_properties(ascend_hal_hook ascend_mstx_hook ascend_kernel_hook PROPERTIES 
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_INSTALL_PREFIX}/lib64"
+)
