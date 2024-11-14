@@ -41,3 +41,13 @@ TEST(EventReportTest, ReportMarkTest) {
     record.rangeId = 123;
     EXPECT_TRUE(instance.ReportMark(record));
 }
+
+TEST(EventReportTest, ReportKernelLaunchTest) {
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EXPECT_TRUE(instance.ReportKernelLaunch(KernelLaunchType::NORMAL));
+}
+
+TEST(EventReportTest, ReportAclItfTest) {
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EXPECT_TRUE(instance.ReportAclItf(AclOpType::INIT));
+}
