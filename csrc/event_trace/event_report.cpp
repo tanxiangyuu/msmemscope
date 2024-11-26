@@ -30,17 +30,18 @@ EventReport::EventReport()
     return;
 }
 
-bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, MemOpSpace space)
+bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, MemOpSpace space, unsigned long long flag)
 {
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord {};
+    eventRecord.flag = flag;
     eventRecord.type = RecordType::MEMORY_RECORD;
     eventRecord.record.memoryRecord = CreateMemRecord(MemOpType::MALLOC, space, addr, size);
     std::lock_guard<std::mutex> guard(mutex_);
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
-    Utility::LogInfo("client malloc record, index: %u, addr: 0x%lx, size: %u, space: %u",
-        recordIndex_, addr, size, space);
+    Utility::LogInfo("client malloc record, index: %u, addr: 0x%lx, size: %u, space: %u, flag: %llu",
+        recordIndex_, addr, size, space, flag);
     return (sendNums >= 0);
 }
 

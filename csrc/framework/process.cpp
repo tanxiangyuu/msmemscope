@@ -158,6 +158,8 @@ void Process::PostProcess()
         std::cout << "[leaks] user program exited by signal: " << sig << std::endl;
     }
 
+    //传入终止命令
+    analysisFunc_(PROCESS_EXIT_MSG);
     onListen_ = false;
     return;
 }

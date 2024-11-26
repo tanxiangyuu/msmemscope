@@ -15,6 +15,9 @@ namespace Leaks {
  * 1. Launch用于拉起被检测程序进程，并对client传回的数据进行转发
  * 2. 注册分析回调函数
 */
+
+const std::string PROCESS_EXIT_MSG = "exit_process";
+
 class Process {
 public:
     using ANALYSIS_FUNC = std::function<void(std::string)>;

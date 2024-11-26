@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <vector>
 #include <string>
+#include <unordered_map>
 
 namespace Leaks {
 
@@ -15,8 +16,10 @@ enum class MemOpType : uint8_t {
 };
 
 enum class MemOpSpace : uint8_t {
-    DEVICE = 0U,
+    SVM = 0U,
+    DEVICE,
     HOST,
+    DVPP,
     INVALID,
 };
 
@@ -70,9 +73,90 @@ enum class RecordType {
     KERNEL_LAUNCH_RECORD,
 };
 
+//Module id
+enum class ModuleID{
+    SLOG,          /**< Slog */
+    IDEDD,         /**< IDE daemon device */
+    IDEDH,         /**< IDE daemon host */
+    HCCL,          /**< HCCL */
+    FMK,           /**< Adapter */
+    HIAIENGINE,    /**< Matrix */
+    DVPP,          /**< DVPP */
+    RUNTIME,       /**< Runtime */
+    CCE,           /**< CCE */
+    HDC,           /**< HDC */
+    DRV,           /**< Driver */
+    MDCFUSION,     /**< Mdc fusion */
+    MDCLOCATION,   /**< Mdc location */
+    MDCPERCEPTION, /**< Mdc perception */
+    MDCFSM,
+    MDCCOMMON,
+    MDCMONITOR,
+    MDCBSWP,    /**< MDC base software platform */
+    MDCDEFAULT, /**< MDC undefine */
+    MDCSC,      /**< MDC spatial cognition */
+    MDCPNC,
+    MLL,      /**< abandon */
+    DEVMM,    /**< Dlog memory managent */
+    KERNEL,   /**< Kernel */
+    LIBMEDIA, /**< Libmedia */
+    CCECPU,   /**< aicpu shedule */
+    ASCENDDK, /**< AscendDK */
+    ROS,      /**< ROS */
+    HCCP,
+    ROCE,
+    TEFUSION,
+    PROFILING, /**< Profiling */
+    DP,        /**< Data Preprocess */
+    APP,       /**< User Application */
+    TS,        /**< TS module */
+    TSDUMP,    /**< TSDUMP module */
+    AICPU,     /**< AICPU module */
+    LP,        /**< LP module */
+    TDT,       /**< tsdaemon or aicpu shedule */
+    FE,
+    MD,
+    MB,
+    ME,
+    IMU,
+    IMP,
+    GE, /**< Fmk */
+    MDCFUSA,
+    CAMERA,
+    ASCENDCL,
+    TEEOS,
+    ISP,
+    SIS,
+    HSM,
+    DSS,
+    PROCMGR,     // Process Manager, Base Platform
+    BBOX,
+    AIVECTOR,
+    TBE,
+    FV,
+    MDCMAP,
+    TUNE,
+    HSS, /**< helper */
+    FFTS,
+    OP,
+    UDF,
+    HICAID,
+    TSYNC,
+    AUDIO,
+    TPRT,
+    ASCENDCKERNEL,
+    ASYS,
+    ATRACE,
+    RTC,
+    SYSMONITOR,
+    AML,
+    INVLID_MOUDLE_ID    // add new module before INVLID_MOUDLE_ID
+};
+
 // 事件记录载体
 struct EventRecord {
     RecordType type;
+    unsigned long long flag;
     union {
         MemOpRecord memoryRecord;
         StepRecord stepRecord;

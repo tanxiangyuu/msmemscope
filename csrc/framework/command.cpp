@@ -12,6 +12,10 @@ void Command::Exec(const std::vector<std::string> &execParams) const
     Analyzer analyzer(config_);
 
     auto analysisFuc = [&protocol, &analyzer](const std::string &manyMsg) {
+        if (manyMsg == PROCESS_EXIT_MSG) {
+            analyzer.LeakAnalyze();
+            return;
+        }
         protocol.Feed(manyMsg);
         while (true) {
             auto packet = protocol.GetPacket();
@@ -24,7 +28,8 @@ void Command::Exec(const std::vector<std::string> &execParams) const
                     return;
             }
         }
-
+        analyzer.LeakAnalyze();
+        
         return;
     };
 
