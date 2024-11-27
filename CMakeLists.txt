@@ -22,6 +22,7 @@ add_link_options("-s") #strip
 
 option(BUILD_TESTS "build unit tests" OFF)
 
+add_subdirectory(platform)
 add_subdirectory(csrc)
 
 if (${BUILD_TESTS})

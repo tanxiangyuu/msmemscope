@@ -6,7 +6,6 @@ ${FUNC_INJECTION_CORE_DIR}/Communication.cpp
 ${FUNC_INJECTION_CORE_DIR}/DomainSocket.cpp
 ${FUNC_HOSTINJECTION_DIR}/utils/FileSystem.cpp
 ${FUNC_HOSTINJECTION_DIR}/utils/Ustring.cpp
-${SECUREC_DIR}/utils/src/strncpy_s.c
 )
 
 list(SORT SOURCE)
