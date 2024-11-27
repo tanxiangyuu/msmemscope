@@ -13,3 +13,5 @@ target_include_directories(ascend_mstx_hook PUBLIC
   ${UTILITY_INC_DIR}
   ${SECUREC_INC_DIR}
 )
+
+target_link_libraries(ascend_mstx_hook c_sec)
