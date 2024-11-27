@@ -1,6 +1,5 @@
 set(CMAKE_INSTALL_PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/../output)
 set(FUNC_INJECTION_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../platform/func_injection/)
-set(SECUREC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../platform/securec/)
 set(FUNC_HOSTINJECTION_DIR ${FUNC_INJECTION_DIR}/host_injection/)
 get_filename_component(SECUREC_INC_DIR ../platform/securec/include ABSOLUTE)
 get_filename_component(FRAMEWORK_INC_DIR ./framework ABSOLUTE)

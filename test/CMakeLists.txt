@@ -13,8 +13,7 @@ set(gtest_header ../opensource/googletest/googletest/include/)
 
 file(GLOB_RECURSE TEST_ORIGINAL_SOURCE ../csrc/framework/*.cpp
                                        ../csrc/analysis/*.cpp
-                                       ../csrc/event_trace/*.cpp
-                                       ../platform/securec/src/strncpy_s.c)
+                                       ../csrc/event_trace/*.cpp)
 
 list(SORT TEST_ORIGINAL_SOURCE)
 file(GLOB_RECURSE TEST_SOURCE ./test.cpp)
@@ -23,6 +22,6 @@ target_sources(leaks_test PRIVATE ${TEST_SOURCE})
 target_sources(leaks_test PRIVATE ${TEST_ORIGINAL_SOURCE})
 
 include_directories(leaks_test ${leaks_header} ${gtest_header})
-target_link_libraries(leaks_test ascend_leaks gtest_main dl)
+target_link_libraries(leaks_test ascend_leaks c_sec gtest_main dl)
  
 add_test(NAME leaks_test COMMAND leaks_test)
