@@ -59,3 +59,10 @@ TEST(ProtocolTest, test_protocol_parse_step_record)
     ASSERT_EQ(body.record.stepRecord.recordIndex, stepRecord.recordIndex);
     ASSERT_EQ(body.record.stepRecord.type, stepRecord.type);
 }
+
+TEST(ProtocolTest, test_protocol_branch_cov)
+{
+    std::string str;
+    Protocol protocol {};
+    protocol.Feed(str);
+}

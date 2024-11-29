@@ -1,8 +1,7 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
-
-#include "event_trace/event_report.h"
-
 #include <gtest/gtest.h>
+#include "event_trace/event_report.h"
+#include "event_trace/vallina_symbol.h"
 
 using namespace Leaks;
 
@@ -50,4 +49,19 @@ TEST(EventReportTest, ReportKernelLaunchTest) {
 TEST(EventReportTest, ReportAclItfTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     EXPECT_TRUE(instance.ReportAclItf(AclOpType::INIT));
+}
+
+struct TestLoader {
+    static void *Load(void)
+    {
+        void *ptr = nullptr;
+        return ptr;
+    }
+};
+
+TEST(EventReportTest, VallinaSymbolTest) {
+
+    using va = VallinaSymbol<TestLoader>;
+    char const *symbol;
+    va::Instance().Get(symbol);
 }

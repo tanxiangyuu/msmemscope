@@ -5,13 +5,14 @@
 
 #include "framework/config_info.h"
 #include "framework/record_info.h"
+#include "host_injection/core/Communication.h"
 
 namespace Leaks {
 // Analyzer类主要用于将单条解析信息分发给合适的分析工具
 class Analyzer {
 public:
     explicit Analyzer(const AnalysisConfig &config);
-    void Do(const EventRecord &record);
+    void Do(const ClientId &clientId, const EventRecord &record);
 private:
     AnalysisConfig config_;
 };
