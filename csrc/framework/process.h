@@ -8,7 +8,7 @@
 #include <thread>
 #include "host_injection/core/RemoteProcess.h"
 #include "config_info.h"
-
+ 
 namespace Leaks {
 struct ExecCmd {
     explicit ExecCmd(std::vector<std::string> const &args);
@@ -28,26 +28,19 @@ private:
  * 2. 注册分析回调函数
 */
 
-const std::string PROCESS_EXIT_MSG = "exit_process";
 
 class Process {
 public:
-    using ANALYSIS_FUNC = std::function<void(std::string)>;
     Process();
-    ~Process();
+    ~Process() = default;
     void Launch(const std::vector<std::string> &execParams);
-    void RegisterAnalysisFuc(const ANALYSIS_FUNC& analysisFunc);
-    void StartListen();
+    void RegisterMsgHandlerHook(ClientMsgHandlerHook msgHandler);
 private:
     void SetPreloadEnv();
     void DoLaunch(const ExecCmd &cmd);
     void PostProcess(const ExecCmd &cmd);
-    void WaitForMsg();
 private:
-    std::thread recvThread_;
-    ANALYSIS_FUNC analysisFunc_;
     std::unique_ptr<RemoteProcess> server_;
-    bool onListen_ {false};
 };
 
 }

@@ -29,12 +29,14 @@ TEST(Analyzer, do_memory_record_expect_success)
     memRecordMalloc.timeStamp = 1234567;
     memRecordMalloc.memType = MemOpType::MALLOC;
     record.record.memoryRecord = memRecordMalloc;
-    analyzer.Do(record);
+    ClientId clientId = 0;
+    analyzer.Do(clientId, record);
 
     auto memRecordFree = memRecordMalloc;
     memRecordFree.memType = MemOpType::FREE;
     record.record.memoryRecord = memRecordFree;
-    analyzer.Do(record);
+    analyzer.Do(clientId, record);
+    analyzer.LeakAnalyze();
 }
 
 TEST(Analyzer, do_kernellaunch_record_expect_success)
@@ -44,7 +46,20 @@ TEST(Analyzer, do_kernellaunch_record_expect_success)
 
     auto record = EventRecord{};
     record.type = RecordType::KERNEL_LAUNCH_RECORD;
-    analyzer.Do(record);
+    ClientId clientId = 0;
+    analyzer.Do(clientId, record);
+
+    auto record2 = EventRecord{};
+    record2.type = RecordType::MEMORY_RECORD;
+    record2.flag = 2377900603261207558;
+    auto memRecordMalloc = MemOpRecord {};
+    memRecordMalloc.recordIndex = 123;
+    memRecordMalloc.addr = 0x7958;
+    memRecordMalloc.memSize = 1024;
+    memRecordMalloc.timeStamp = 1234567;
+    memRecordMalloc.memType = MemOpType::MALLOC;
+    record2.record.memoryRecord = memRecordMalloc;
+    analyzer.Do(clientId, record2);
 }
 
 TEST(Analyzer, do_aclitf_record_expect_success)
@@ -54,14 +69,27 @@ TEST(Analyzer, do_aclitf_record_expect_success)
 
     auto record = EventRecord{};
     record.type = RecordType::ACL_ITF_RECORD;
-    analyzer.Do(record);
+    ClientId clientId = 0;
+    analyzer.Do(clientId, record);
 
+    auto record2 = EventRecord{};
+    record2.type = RecordType::MEMORY_RECORD;
+    record2.flag = 2377900603261207558;
+    auto memRecordMalloc = MemOpRecord {};
+    memRecordMalloc.recordIndex = 123;
+    memRecordMalloc.addr = 0x7958;
+    memRecordMalloc.memSize = 1024;
+    memRecordMalloc.timeStamp = 1234567;
+    memRecordMalloc.memType = MemOpType::MALLOC;
+    record2.record.memoryRecord = memRecordMalloc;
+    analyzer.Do(clientId, record2);
 }
 
 TEST(AnalyzerTest, AnalyzerLeakAnalyze) {
     AnalysisConfig config;
     Analyzer analyzer(config);
 
+    ClientId clientId = 0;
     auto record = EventRecord{};
     record.flag = 2377900603261207558;
     record.type = RecordType::MEMORY_RECORD;
@@ -73,13 +101,14 @@ TEST(AnalyzerTest, AnalyzerLeakAnalyze) {
     memRecordMalloc.memType = MemOpType::MALLOC;
     record.record.memoryRecord = memRecordMalloc;
 
-    analyzer.Do(record);
+    analyzer.Do(clientId, record);
     analyzer.LeakAnalyze();
 }
 
-TEST(MemoryHashTableTest,BasicOperations) {
+TEST(MemoryHashTableTest, do_record_leaks) {
     MemoryHashTable memhashteble;
 
+    ClientId clientId = 0;
     auto record1 = EventRecord{};
     record1.flag = 2377900603261207558;
     record1.type = RecordType::MEMORY_RECORD;
@@ -94,7 +123,7 @@ TEST(MemoryHashTableTest,BasicOperations) {
     MemOpRecordKey memkey1(memRecordMalloc1.addr);
 
     auto record2 = EventRecord{};
-    record2.flag = 504403158308635654;
+    record2.flag = 18374686480754951175;
     record2.type = RecordType::MEMORY_RECORD;
     auto memRecordMalloc2 = MemOpRecord {};
     memRecordMalloc2.recordIndex = 2;
@@ -105,16 +134,6 @@ TEST(MemoryHashTableTest,BasicOperations) {
     memRecordMalloc2.timeStamp = 1234568;
     record2.record.memoryRecord = memRecordMalloc2;
     MemOpRecordKey memkey2(memRecordMalloc2.addr);
-
-    auto record3 = EventRecord{};
-    record3.type = RecordType::MEMORY_RECORD;
-    auto memRecordFree = MemOpRecord {};
-    memRecordFree.recordIndex = 3;
-    memRecordFree.space = MemOpSpace::INVALID;
-    memRecordFree.memType = MemOpType::FREE;
-    memRecordFree.addr = 0x7958;
-    memRecordFree.memSize = 0;
-    record3.record.memoryRecord = memRecordFree;
 
     auto record4 = EventRecord{};
     record4.flag = 504403158275081222;
@@ -129,9 +148,173 @@ TEST(MemoryHashTableTest,BasicOperations) {
     record4.record.memoryRecord = memRecordMalloc4;
     MemOpRecordKey memkey4(memRecordMalloc4.addr);
 
-    memhashteble.Record(record1);
-    memhashteble.Record(record2);
-    memhashteble.Record(record3);
-    memhashteble.Record(record4);
-    memhashteble.CheckLeak();
+    memhashteble.Record(clientId, record1);
+    memhashteble.Record(clientId, record2);
+    memhashteble.Record(clientId, record4);
+    memhashteble.CheckLeak(clientId);
+}
+
+TEST(MemoryHashTableTest, do_record_no_leaks) {
+    MemoryHashTable memhashteble;
+
+    ClientId clientId = 0;
+    auto record1 = EventRecord{};
+    record1.flag = 2377900603261207558;
+    record1.type = RecordType::MEMORY_RECORD;
+    auto memRecordMalloc1 = MemOpRecord {};
+    memRecordMalloc1.recordIndex = 1;
+    memRecordMalloc1.space = MemOpSpace::DEVICE;
+    memRecordMalloc1.memType = MemOpType::MALLOC;
+    memRecordMalloc1.addr = 0x7958;
+    memRecordMalloc1.memSize = 1024;
+    memRecordMalloc1.timeStamp = 1234567;
+    record1.record.memoryRecord = memRecordMalloc1;
+    MemOpRecordKey memkey1(memRecordMalloc1.addr);
+
+    auto record3 = EventRecord{};
+    record3.type = RecordType::MEMORY_RECORD;
+    auto memRecordFree = MemOpRecord {};
+    memRecordFree.recordIndex = 3;
+    memRecordFree.space = MemOpSpace::INVALID;
+    memRecordFree.memType = MemOpType::FREE;
+    memRecordFree.addr = 0x7958;
+    memRecordFree.memSize = 0;
+    record3.record.memoryRecord = memRecordFree;
+
+    memhashteble.Record(clientId, record1);
+    memhashteble.Record(clientId, record3);
+    memhashteble.CheckLeak(clientId);
+}
+
+TEST(MemoryHashTableTest, do_record_double_free) {
+    MemoryHashTable memhashteble;
+
+    ClientId clientId = 0;
+    auto record1 = EventRecord{};
+    record1.flag = 2377900603261207558;
+    record1.type = RecordType::MEMORY_RECORD;
+    auto memRecordMalloc1 = MemOpRecord {};
+    memRecordMalloc1.recordIndex = 1;
+    memRecordMalloc1.space = MemOpSpace::DEVICE;
+    memRecordMalloc1.memType = MemOpType::MALLOC;
+    memRecordMalloc1.addr = 0x7958;
+    memRecordMalloc1.memSize = 1024;
+    memRecordMalloc1.timeStamp = 1234567;
+    record1.record.memoryRecord = memRecordMalloc1;
+    MemOpRecordKey memkey1(memRecordMalloc1.addr);
+
+    auto record2 = EventRecord{};
+    record2.type = RecordType::MEMORY_RECORD;
+    auto memRecordFree1 = MemOpRecord {};
+    memRecordFree1.recordIndex = 2;
+    memRecordFree1.space = MemOpSpace::INVALID;
+    memRecordFree1.memType = MemOpType::FREE;
+    memRecordFree1.addr = 0x7958;
+    memRecordFree1.memSize = 0;
+    record2.record.memoryRecord = memRecordFree1;
+
+    auto record3 = EventRecord{};
+    record3.type = RecordType::MEMORY_RECORD;
+    auto memRecordFree2 = MemOpRecord {};
+    memRecordFree2.recordIndex = 3;
+    memRecordFree2.space = MemOpSpace::INVALID;
+    memRecordFree2.memType = MemOpType::FREE;
+    memRecordFree2.addr = 0x7958;
+    memRecordFree2.memSize = 0;
+    record3.record.memoryRecord = memRecordFree2;
+
+    memhashteble.Record(clientId, record1);
+    memhashteble.Record(clientId, record2);
+    memhashteble.Record(clientId, record3);
+    memhashteble.CheckLeak(clientId);
+}
+
+TEST(MemoryHashTableTest, do_record_double_malloc) {
+    MemoryHashTable memhashteble;
+
+    ClientId clientId = 0;
+    auto record1 = EventRecord{};
+    record1.flag = 2377900603261207558;
+    record1.type = RecordType::MEMORY_RECORD;
+    auto memRecordMalloc1 = MemOpRecord {};
+    memRecordMalloc1.recordIndex = 1;
+    memRecordMalloc1.space = MemOpSpace::DEVICE;
+    memRecordMalloc1.memType = MemOpType::MALLOC;
+    memRecordMalloc1.addr = 0x7958;
+    memRecordMalloc1.memSize = 1024;
+    memRecordMalloc1.timeStamp = 1234567;
+    record1.record.memoryRecord = memRecordMalloc1;
+    MemOpRecordKey memkey1(memRecordMalloc1.addr);
+
+    auto record2 = EventRecord{};
+    record2.flag = 2377900603261207558;
+    record2.type = RecordType::MEMORY_RECORD;
+    auto memRecordMalloc2 = MemOpRecord {};
+    memRecordMalloc2.recordIndex = 2;
+    memRecordMalloc2.space = MemOpSpace::DEVICE;
+    memRecordMalloc2.memType = MemOpType::MALLOC;
+    memRecordMalloc2.addr = 0x7958;
+    memRecordMalloc2.memSize = 1024;
+    memRecordMalloc2.timeStamp = 1234567;
+    record2.record.memoryRecord = memRecordMalloc2;
+    MemOpRecordKey memkey2(memRecordMalloc2.addr);
+
+    memhashteble.Record(clientId, record1);
+    memhashteble.Record(clientId, record2);
+    memhashteble.CheckLeak(clientId);
+}
+
+TEST(MemoryHashTableTest, do_record_free_null) {
+    MemoryHashTable memhashteble;
+
+    ClientId clientId = 0;
+    auto record1 = EventRecord{};
+    record1.type = RecordType::MEMORY_RECORD;
+    auto memRecordFree1 = MemOpRecord {};
+    memRecordFree1.recordIndex = 1;
+    memRecordFree1.space = MemOpSpace::INVALID;
+    memRecordFree1.memType = MemOpType::FREE;
+    memRecordFree1.addr = 0x7958;
+    memRecordFree1.memSize = 0;
+    record1.record.memoryRecord = memRecordFree1;
+
+    memhashteble.Record(clientId, record1);
+    memhashteble.CheckLeak(clientId);
+}
+
+TEST(MemoryHashTableTest, do_record_fail) {
+    MemoryHashTable memhashteble;
+
+    ClientId clientId = 0;
+    auto record1 = EventRecord{};
+    record1.type = RecordType::MEMORY_RECORD;
+    auto memRecordFree1 = MemOpRecord {};
+    memRecordFree1.recordIndex = 1;
+    memRecordFree1.space = MemOpSpace::INVALID;
+    memRecordFree1.memType = MemOpType::FREE;
+    memRecordFree1.addr = 0x7958;
+    memRecordFree1.memSize = 0;
+    record1.record.memoryRecord = memRecordFree1;
+
+    memhashteble.Record(clientId, record1);
+    memhashteble.CheckLeak(clientId);
+}
+
+TEST(MemoryHashTableTest, do_memory_record_nulltable)
+{
+    AnalysisConfig config;
+    Analyzer analyzer(config);
+
+    auto record = EventRecord{};
+    record.type = RecordType::MEMORY_RECORD;
+    record.flag = 2377900603261207558;
+    auto memRecordFree = MemOpRecord {};
+    memRecordFree.recordIndex = 123;
+    memRecordFree.addr = 0x7958;
+    ClientId clientId = 0;
+    memRecordFree.memType = MemOpType::FREE;
+    record.record.memoryRecord = memRecordFree;
+    analyzer.Do(clientId, record);
+
+    analyzer.LeakAnalyze();
 }
