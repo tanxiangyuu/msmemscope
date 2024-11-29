@@ -2,14 +2,11 @@
 
 #include "analyzer.h"
 #include "log.h"
+#include <iostream>
 
 namespace Leaks {
 
-
-
 constexpr uint64_t MEM_MODULE_ID_BIT = 56;
-constexpr uint64_t MEM_MODULE_ID_WIDTH = 8;
-constexpr uint64_t MEM_MODULE_ID_MASK = ((1UL << MEM_MODULE_ID_WIDTH) - 1) << MEM_MODULE_ID_BIT;
 
 //Module id
 const char* ModuleNames[] = {
@@ -93,15 +90,14 @@ const char* ModuleNames[] = {
 
 inline int32_t GetMallocModuleId(unsigned long long flag)
 {   
+    // bit56~63: model id
     return (flag & 0xFF00000000000000) >> MEM_MODULE_ID_BIT;
-    //return flag & MEM_MODULE_ID_MASK;
 }
 
 
 MemOpRecordKey::MemOpRecordKey(const uint64_t &addr)
 {
     addr_ = addr;
-
 } 
 
 bool MemOpRecordKey::operator==(const MemOpRecordKey& other) const {
@@ -109,7 +105,7 @@ bool MemOpRecordKey::operator==(const MemOpRecordKey& other) const {
 }
 
 std::size_t MemOpRecordKeyHash::operator()(const MemOpRecordKey& memrecordkey) const {
-        return std::hash<uint64_t>()(memrecordkey.addr_);
+    return std::hash<uint64_t>()(memrecordkey.addr_);
 }
 
 
@@ -121,34 +117,40 @@ void MemoryHashTable::Record(const EventRecord &record)
 
         // malloc操作需解析当前moduleId
         auto flag = record.flag;
-        //Utility::LogInfo("flag: %llu", flag);
         int32_t flagId = GetMallocModuleId(flag);
         bool found_module = false;
+        std::string modulename = "INVLID_MOUDLE_ID";
         for (int i = static_cast<int>(ModuleID::SLOG); i<= static_cast<int>(ModuleID::INVLID_MOUDLE_ID); ++i) {
+
+            // 找到对应Module名称
             if(flagId == i){
                 found_module = true;
-                Utility::LogInfo("Malloc operator in %s Module.", ModuleNames[i]);
+                modulename = ModuleNames[i];
                 break;
             }
         }
         if(!found_module){
-            Utility::LogError("Malloc operator did not find %d Module.", flagId);
+            Utility::LogError("Malloc operator did not find %d Module in index %u malloc record.", 
+            flagId , memrecord.recordIndex);
         }
-
-        Utility::LogInfo("server malloc record, index: %u, addr: 0x%lx, size: %u, space: %u",
-        memrecord.recordIndex, memrecord.addr, memrecord.memSize, memrecord.space);
-
+  
+        Utility::LogInfo("server malloc record, index: %u, addr: 0x%lx, size: %u, space: %u, module: %s",
+        memrecord.recordIndex, memrecord.addr, memrecord.memSize, memrecord.space, modulename.c_str());
+   
         //检测是否该地址是否已有申请
         if (table.find(memkey) != table.end()) {
             Utility::LogError("server already has malloc record in addr: 0x%lx , but now malloc again in index: ",
             "%u, addr: 0x%lx, size: %u, space: %u",memrecord.addr,  memrecord.recordIndex, memrecord.addr, 
             memrecord.memSize, memrecord.space);
         }
+
         // malloc，插入记录
         table[memkey] = memrecord.memType;
+
     } else if (memrecord.memType == MemOpType::FREE){
         Utility::LogInfo("server free record, index: %u, addr: 0x%lx", 
         memrecord.recordIndex, memrecord.addr);
+
         // free, 删除记录
         auto it = table.find(memkey);
         if (it != table.end() && it->second == MemOpType::MALLOC){
@@ -181,8 +183,33 @@ Analyzer::Analyzer(const AnalysisConfig &config)
 }
 
 void Analyzer::Do(const EventRecord &record)
-{   
-    memhashtable.Record(record);
+{
+    switch (record.type) {
+        case RecordType::MEMORY_RECORD: {
+            memhashtable.Record(record);           
+            break;
+        }
+        case RecordType::KERNEL_LAUNCH_RECORD: {
+            auto kernelLaunchRecord = record.record.kernelLaunchRecord;
+            Utility::LogInfo("server kernelLaunch record, index: %u, type: %u, time: %u",
+                kernelLaunchRecord.recordIndex,
+                kernelLaunchRecord.type,
+                kernelLaunchRecord.timeStamp);
+            break;
+        }
+        case RecordType::ACL_ITF_RECORD: {
+            auto aclItfRecord = record.record.aclItfRecord;
+            Utility::LogInfo("server aclItf record, index: %u, type: %u, time: %u",
+                aclItfRecord.recordIndex,
+                aclItfRecord.type,
+                aclItfRecord.timeStamp);
+            break;
+        }
+        default:
+            break;
+
+    }
+
     return;
 }
 
@@ -190,6 +217,5 @@ void Analyzer::LeakAnalyze()
 {
     memhashtable.CheckLeak();
 }
-
 
 }
