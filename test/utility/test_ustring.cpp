@@ -85,6 +85,16 @@ TEST(UString, split_string_end_with_delims_expect_list_end_with_empty_string)
     ASSERT_EQ(items[1], "");
 }
 
+TEST(UString, split_string_with_muti_delims_test_strict_except_correct_list)
+{
+    std::vector<std::string> items;
+    Split("aaa::bbb", std::back_inserter(items), ":", true);
+    ASSERT_EQ(items.size(), 3UL);
+    ASSERT_EQ(items[0], "aaa");
+    ASSERT_EQ(items[1], "");
+    ASSERT_EQ(items[2], "bbb");
+}
+
 TEST(UString, split_string_with_several_delims_expect_correct_list)
 {
     std::vector<std::string> items;

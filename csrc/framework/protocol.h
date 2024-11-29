@@ -5,6 +5,7 @@
 
 #include <string>
 #include <memory>
+#include <mutex>
 #include "config_info.h"
 #include "record_info.h"
 
@@ -55,6 +56,25 @@ private:
 
     class Extractor;
     std::shared_ptr<Extractor> extractor_;
+};
+
+class Protocol::Extractor {
+public:
+    Extractor() = default;
+    ~Extractor() = default;
+    inline void Feed(const std::string &msg);
+    template<typename T>
+    inline bool Read(T &val);
+    inline bool Read(uint64_t size, std::string &buffer);
+
+private:
+    static constexpr uint64_t MAX_STRING_LEN = 1024UL;
+    inline void DropUsedBytes(void);
+
+private:
+    std::string bytes_;
+    std::string::size_type offset_{0UL};
+    std::mutex mutex_;
 };
 
 }

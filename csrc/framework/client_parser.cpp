@@ -37,13 +37,6 @@ std::string GetShortOptString(const std::vector<option> &longOptArray)
         }
         if ((opt.flag == nullptr) && (opt.val >= 'a') && (opt.val <= 'z')) {
             shortOpt.append(1, static_cast<char>(opt.val));
-            if (opt.has_arg == optional_argument) {
-                shortOpt.append(2, ':'); // 可不跟参数使用2个冒号，如 "a::"
-            } else if (opt.has_arg == required_argument) {
-                shortOpt.append(1, ':'); // 必须紧跟参数使用1个冒号，如 "t:"
-            } else {
-                // do nothing
-            }
         }
     }
     return shortOpt;
@@ -87,8 +80,8 @@ UserCommand ClientParser::Parse(int32_t argc, char **argv)
             param = optarg;
         }
         ParseUserCommand(opt, param, userCommand);
-        // 需打印help或version时，不进行其他操作
-        if (userCommand.printHelpInfo || userCommand.printVersionInfo) {
+        // 打印help时不进行其他操作
+        if (userCommand.printHelpInfo) {
             std::cout << "-h --help" << std::endl;
             return userCommand;
         }

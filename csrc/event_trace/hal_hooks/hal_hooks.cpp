@@ -34,8 +34,9 @@ drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long fl
             space = MemOpSpace::DVPP;
             break;
         default:
-            Utility::LogError("No matching memType for %d .", memType);   
+            Utility::LogError("No matching memType for %d .", memType);
     }
+
     if (!EventReport::Instance(CommType::SOCKET).ReportMalloc(addr, size, space, flag)) {
         Utility::LogError("Report FAILED");
     }
