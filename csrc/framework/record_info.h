@@ -66,11 +66,24 @@ struct KernelLaunchRecord {
     uint64_t timeStamp; // 时间戳
 };
 
+enum class MarkType : int32_t {
+    MARK_A = 0,
+    RANGE_START_A,
+    RANGE_END,
+};
+
+struct MstxRecord {
+    MarkType markType;
+    uint64_t rangeId; // 只有Range才会存在ID，纯mark默认为0
+    char markMessage[64U];
+};
+
 enum class RecordType {
     MEMORY_RECORD = 0,
     STEP_RECORD,
     ACL_ITF_RECORD,
     KERNEL_LAUNCH_RECORD,
+    MSTX_MARK_RECORD,
 };
 
 //Module id
@@ -79,7 +92,7 @@ enum class ModuleID{
     IDEDD,         /**< IDE daemon device */
     IDEDH,         /**< IDE daemon host */
     HCCL,          /**< HCCL */
-    FMK,           /**< Adapter */
+    FMK,           /**< Adapter */ 
     HIAIENGINE,    /**< Matrix */
     DVPP,          /**< DVPP */
     RUNTIME,       /**< Runtime */
@@ -162,6 +175,7 @@ struct EventRecord {
         StepRecord stepRecord;
         AclItfRecord aclItfRecord;
         KernelLaunchRecord kernelLaunchRecord;
+        MstxRecord mstxRecord;
     } record;
 };
 

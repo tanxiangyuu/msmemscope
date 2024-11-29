@@ -1,0 +1,64 @@
+set(SECUREC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../securec)
+
+set(securec_src
+    "${SECUREC_DIR}/src/fscanf_s.c"
+    "${SECUREC_DIR}/src/fwscanf_s.c"
+    "${SECUREC_DIR}/src/gets_s.c"
+    "${SECUREC_DIR}/src/memcpy_s.c"
+    "${SECUREC_DIR}/src/memmove_s.c"
+    "${SECUREC_DIR}/src/memset_s.c"
+    "${SECUREC_DIR}/src/scanf_s.c"
+    "${SECUREC_DIR}/src/securecutil.c"
+    "${SECUREC_DIR}/src/secureinput_a.c"
+    "${SECUREC_DIR}/src/secureinput_w.c"
+    "${SECUREC_DIR}/src/secureprintoutput_a.c"
+    "${SECUREC_DIR}/src/secureprintoutput_w.c"
+    "${SECUREC_DIR}/src/snprintf_s.c"
+    "${SECUREC_DIR}/src/sprintf_s.c"
+    "${SECUREC_DIR}/src/sscanf_s.c"
+    "${SECUREC_DIR}/src/strcat_s.c"
+    "${SECUREC_DIR}/src/strcpy_s.c"
+    "${SECUREC_DIR}/src/strncpy_s.c"
+    "${SECUREC_DIR}/src/strncat_s.c"
+    "${SECUREC_DIR}/src/strtok_s.c"
+    "${SECUREC_DIR}/src/swprintf_s.c"
+    "${SECUREC_DIR}/src/swscanf_s.c"
+    "${SECUREC_DIR}/src/vfscanf_s.c"
+    "${SECUREC_DIR}/src/vfwscanf_s.c"
+    "${SECUREC_DIR}/src/vscanf_s.c"
+    "${SECUREC_DIR}/src/vsnprintf_s.c"
+    "${SECUREC_DIR}/src/vsprintf_s.c"
+    "${SECUREC_DIR}/src/vsscanf_s.c"
+    "${SECUREC_DIR}/src/vswprintf_s.c"
+    "${SECUREC_DIR}/src/vswscanf_s.c"
+    "${SECUREC_DIR}/src/vwscanf_s.c"
+    "${SECUREC_DIR}/src/wcscat_s.c"
+    "${SECUREC_DIR}/src/wcscpy_s.c"
+    "${SECUREC_DIR}/src/wcsncat_s.c"
+    "${SECUREC_DIR}/src/wcsncpy_s.c"
+    "${SECUREC_DIR}/src/wcstok_s.c"
+    "${SECUREC_DIR}/src/wmemcpy_s.c"
+    "${SECUREC_DIR}/src/wmemmove_s.c"
+    "${SECUREC_DIR}/src/wscanf_s.c"
+)
+set(securec_inc
+    ${SECUREC_DIR}/include
+)
+add_library(c_sec SHARED
+    ${securec_src}
+)
+include_directories(c_sec
+    ${securec_inc}
+)
+target_compile_options(c_sec PRIVATE
+    -fPIC
+    -fstack-protector-all
+    -fno-common
+    -fno-strict-aliasing
+    -Wfloat-equal
+    -Wextra
+)
+target_link_options(c_sec PRIVATE
+    -Wl,-z,relro,-z,now,-z,noexecstack
+    -s
+)

@@ -10,6 +10,18 @@
 #include "config_info.h"
 
 namespace Leaks {
+struct ExecCmd {
+    explicit ExecCmd(std::vector<std::string> const &args);
+    std::string const &ExecPath(void) const;
+    char *const *ExecArgv(void) const;
+
+private:
+    std::string path_;
+    int argc_;
+    std::vector<char*> argv_;
+    std::vector<std::string> args_;
+};
+
 /*
  * Process类主要功能：
  * 1. Launch用于拉起被检测程序进程，并对client传回的数据进行转发
@@ -28,26 +40,14 @@ public:
     void StartListen();
 private:
     void SetPreloadEnv();
-    void DoLaunch(const std::vector<std::string> &execParams);
-    void PostProcess();
+    void DoLaunch(const ExecCmd &cmd);
+    void PostProcess(const ExecCmd &cmd);
     void WaitForMsg();
 private:
     std::thread recvThread_;
     ANALYSIS_FUNC analysisFunc_;
     std::unique_ptr<RemoteProcess> server_;
     bool onListen_ {false};
-};
-
-struct ExecCmd {
-    explicit ExecCmd(std::vector<std::string> const &args);
-    std::string const &ExecPath(void) const;
-    char *const *ExecArgv(void) const;
-
-private:
-    std::string path_;
-    int argc_;
-    std::vector<char*> argv_;
-    std::vector<std::string> args_;
 };
 
 }

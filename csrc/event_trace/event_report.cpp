@@ -1,6 +1,7 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
 #include "event_report.h"
+#include <chrono>
 #include "log.h"
 #include "protocol.h"
 #include "serializer.h"
@@ -18,15 +19,35 @@ MemOpRecord CreateMemRecord(MemOpType type, MemOpSpace space, uint64_t addr, uin
     return record;
 }
 
-EventReport& EventReport::Instance(void)
+AclItfRecord CreateAclItfRecord(AclOpType type)
 {
-    static EventReport instance;
+    auto record = AclItfRecord {};
+    record.type = type;
+    auto now = std::chrono::system_clock::now();
+    std::time_t time = std::chrono::system_clock::to_time_t(now);
+    record.timeStamp = time;
+    return record;
+}
+
+KernelLaunchRecord CreateKernelLaunchRecord(KernelLaunchType type)
+{
+    auto record = KernelLaunchRecord {};
+    record.type = type;
+    auto now = std::chrono::system_clock::now();
+    std::time_t time = std::chrono::system_clock::to_time_t(now);
+    record.timeStamp = time;
+    return record;
+}
+
+EventReport& EventReport::Instance(CommType type)
+{
+    static EventReport instance(type);
     return instance;
 }
 
-EventReport::EventReport()
+EventReport::EventReport(CommType type)
 {
-    (void)LocalProcess::GetInstance(CommType::SOCKET); // 连接server
+    (void)LocalProcess::GetInstance(type); // 连接server
     return;
 }
 
@@ -58,4 +79,42 @@ bool EventReport::ReportFree(uint64_t addr)
     return (sendNums >= 0);
 }
 
+bool EventReport::ReportMark(MstxRecord& mstxRecord)
+{
+    Utility::LogInfo("this mark point message is %s", mstxRecord.markMessage);
+    Utility::LogInfo("this mark point id is %llu", mstxRecord.rangeId);
+    return true;
+}
+
+bool EventReport::ReportKernelLaunch(KernelLaunchType kernelLaunchType)
+{
+    PacketHead head = {PacketType::RECORD};
+    auto eventRecord = EventRecord{};
+    eventRecord.type = RecordType::KERNEL_LAUNCH_RECORD;
+    eventRecord.record.kernelLaunchRecord = CreateKernelLaunchRecord(kernelLaunchType);
+    std::lock_guard<std::mutex> guard(mutex_);
+    eventRecord.record.kernelLaunchRecord.recordIndex = ++kernelLaunchRecordIndex_;
+    auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+    Utility::LogInfo("client kernelLaunch record, index: %u, type: %u, time: %u",
+        kernelLaunchRecordIndex_,
+        kernelLaunchType,
+        eventRecord.record.kernelLaunchRecord.timeStamp);
+    return (sendNums >= 0);
+}
+
+bool EventReport::ReportAclItf(AclOpType aclOpType)
+{
+    PacketHead head = {PacketType::RECORD};
+    auto eventRecord = EventRecord{};
+    eventRecord.type = RecordType::ACL_ITF_RECORD;
+    eventRecord.record.aclItfRecord = CreateAclItfRecord(aclOpType);
+    std::lock_guard<std::mutex> guard(mutex_);
+    eventRecord.record.aclItfRecord.recordIndex = ++aclItfRecordIndex_;
+    auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+    Utility::LogInfo("client aclItf record, index: %u, type: %u, time: %u",
+        aclItfRecordIndex_,
+        aclOpType,
+        eventRecord.record.aclItfRecord.timeStamp);
+    return (sendNums >= 0);
+}
 }
