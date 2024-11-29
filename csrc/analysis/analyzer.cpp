@@ -10,7 +10,7 @@ Analyzer::Analyzer(const AnalysisConfig &config)
     config_ = config;
 }
 
-void Analyzer::Do(const EventRecord &record)
+void Analyzer::Do(const ClientId &clientId, const EventRecord &record)
 {
     switch (record.type) {
         case RecordType::MEMORY_RECORD: {

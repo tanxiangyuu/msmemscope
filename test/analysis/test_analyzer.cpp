@@ -28,12 +28,13 @@ TEST(Analyzer, do_memory_record_expect_success)
     memRecordMalloc.timeStamp = 1234567;
     memRecordMalloc.memType = MemOpType::MALLOC;
     record.record.memoryRecord = memRecordMalloc;
-    analyzer.Do(record);
+    ClientId clientId = 0;
+    analyzer.Do(clientId, record);
 
     auto memRecordFree = memRecordMalloc;
     memRecordFree.memType = MemOpType::FREE;
     record.record.memoryRecord = memRecordFree;
-    analyzer.Do(record);
+    analyzer.Do(clientId, record);
 }
 
 TEST(Analyzer, do_kernellaunch_record_expect_success)
@@ -43,7 +44,8 @@ TEST(Analyzer, do_kernellaunch_record_expect_success)
 
     auto record = EventRecord{};
     record.type = RecordType::KERNEL_LAUNCH_RECORD;
-    analyzer.Do(record);
+    ClientId clientId = 0;
+    analyzer.Do(clientId, record);
 }
 
 TEST(Analyzer, do_aclitf_record_expect_success)
@@ -53,5 +55,6 @@ TEST(Analyzer, do_aclitf_record_expect_success)
 
     auto record = EventRecord{};
     record.type = RecordType::ACL_ITF_RECORD;
-    analyzer.Do(record);
+    ClientId clientId = 0;
+    analyzer.Do(clientId, record);
 }

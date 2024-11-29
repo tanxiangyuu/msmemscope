@@ -22,7 +22,7 @@ TEST(Sample, sample)
     AnalysisConfig config;
     EventRecord record;
     Analyzer analyzer(config);
-    analyzer.Do(record);
+    analyzer.Do(0, record);
 
     std::string testString = "test";
     Protocol protocol {};
