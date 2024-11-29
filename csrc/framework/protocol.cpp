@@ -1,29 +1,9 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 #include "protocol.h"
-#include <mutex>
 #include <limits>
 #include "serializer.h"
 
 namespace Leaks {
-
-class Protocol::Extractor {
-public:
-    Extractor() = default;
-    ~Extractor() = default;
-    inline void Feed(const std::string &msg);
-    template<typename T>
-    inline bool Read(T &val);
-    inline bool Read(uint64_t size, std::string &buffer);
-
-private:
-    static constexpr uint64_t MAX_STRING_LEN = 1024UL;
-    inline void DropUsedBytes(void);
-
-private:
-    std::string bytes_;
-    std::string::size_type offset_{0UL};
-    std::mutex mutex_;
-};
 
 void Protocol::Extractor::Feed(const std::string &msg)
 {
@@ -80,7 +60,7 @@ void Protocol::Feed(std::string const &msg)
 
 Packet Protocol::GetPacket(void)
 {
-    static PacketHead head{PacketType::INVALID};
+    thread_local static PacketHead head{PacketType::INVALID};
     if (head.type == PacketType::INVALID) {
         if (!extractor_->Read(head)) {
             return Packet {};
