@@ -29,22 +29,16 @@ private:
 */
 class Process {
 public:
-    using ANALYSIS_FUNC = std::function<void(std::string)>;
     Process();
-    ~Process();
+    ~Process() = default;
     void Launch(const std::vector<std::string> &execParams);
-    void RegisterAnalysisFuc(const ANALYSIS_FUNC& analysisFunc);
-    void StartListen();
+    void RegisterMsgHandlerHook(ClientMsgHandlerHook msgHandler);
 private:
     void SetPreloadEnv();
     void DoLaunch(const ExecCmd &cmd);
     void PostProcess(const ExecCmd &cmd);
-    void WaitForMsg();
 private:
-    std::thread recvThread_;
-    ANALYSIS_FUNC analysisFunc_;
     std::unique_ptr<RemoteProcess> server_;
-    bool onListen_ {false};
 };
 
 }

@@ -51,17 +51,8 @@ char *const *ExecCmd::ExecArgv(void) const
 
 Process::Process()
 {
-    analysisFunc_ = nullptr;
     server_ = std::unique_ptr<RemoteProcess>(new RemoteProcess(CommType::SOCKET));
     server_->Start();
-}
-
-Process::~Process()
-{
-    onListen_ = false;
-    if (recvThread_.joinable()) {
-        recvThread_.join();
-    }
 }
 
 void Process::Launch(const std::vector<std::string> &execParams)
@@ -83,9 +74,9 @@ void Process::Launch(const std::vector<std::string> &execParams)
     return;
 }
 
-void Process::RegisterAnalysisFuc(const ANALYSIS_FUNC &analysisFunc)
+void Process::RegisterMsgHandlerHook(ClientMsgHandlerHook msgHandler)
 {
-    analysisFunc_ = analysisFunc;
+    server_->SetMsgHandlerHook(std::move(msgHandler));
     return;
 }
 
@@ -119,27 +110,6 @@ void Process::SetPreloadEnv()
     setenv(envName.c_str(), preloadEnv.c_str(), 1);
 }
 
-void Process::WaitForMsg()
-{
-    std::string msg;
-    while (onListen_ || msg.size() != 0) {
-        msg.clear();
-        if (server_->Wait(0, msg) <= 0) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(DELAY_TIME_FOR_READ_FROM_SOCKET));
-            continue;
-        }
-        if (analysisFunc_ != nullptr) {
-            analysisFunc_(msg);
-        }
-    }
-}
-
-void Process::StartListen()
-{
-    onListen_ = true;
-    recvThread_ = std::thread(std::bind(&Process::WaitForMsg, this));
-}
-
 void Process::DoLaunch(const ExecCmd &cmd)
 {
     // pass all env-vars from global variable "environ"
@@ -161,7 +131,6 @@ void Process::PostProcess(const ExecCmd &cmd)
         std::cout << "[leaks] user program exited by signal: " << sig << std::endl;
     }
 
-    onListen_ = false;
     return;
 }
 
