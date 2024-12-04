@@ -8,7 +8,7 @@
 #include <thread>
 #include "host_injection/core/RemoteProcess.h"
 #include "config_info.h"
- 
+
 namespace Leaks {
 struct ExecCmd {
     explicit ExecCmd(std::vector<std::string> const &args);
@@ -27,8 +27,6 @@ private:
  * 1. Launch用于拉起被检测程序进程，并对client传回的数据进行转发
  * 2. 注册分析回调函数
 */
-
-
 class Process {
 public:
     Process();

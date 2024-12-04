@@ -4,21 +4,15 @@
 #include <string>
 #include <dlfcn.h>
 
-#include "event_report.h"
+
 #include "log.h"
 
 using namespace Leaks;
 
-drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long flag)
+MemOpSpace GetMemOpSpace(unsigned long long flag)
 {
-    drvError_t ret = halMemAllocInner(pp, size, flag);
-    if (ret != DRV_ERROR_NONE) {
-        return ret;
-    }
-
-    // report to leaks here
-    uint64_t addr = reinterpret_cast<uint64_t>(*pp);
-    int32_t memType = GetMallocMemType(flag);
+    // bit10~13: virt mem type(svm\dev\host\dvpp)
+    int32_t memType = (flag & 0b11110000000000) >> MEM_VIRT_BIT;
     MemOpSpace space = MemOpSpace::INVALID;
     switch (memType) {
         case MEM_SVM_VAL:
@@ -36,9 +30,21 @@ drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long fl
         default:
             Utility::LogError("No matching memType for %d .", memType);
     }
+    return space;
+}
 
+drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long flag)
+{
+    drvError_t ret = halMemAllocInner(pp, size, flag);
+    if (ret != DRV_ERROR_NONE) {
+        return ret;
+    }
+
+    // report to leaks here
+    uint64_t addr = reinterpret_cast<uint64_t>(*pp);
+    MemOpSpace space = GetMemOpSpace(flag);
     if (!EventReport::Instance(CommType::SOCKET).ReportMalloc(addr, size, space, flag)) {
-        Utility::LogError("Report FAILED");
+        Utility::LogError("%s report FAILED", __func__);
     }
 
     return ret;
