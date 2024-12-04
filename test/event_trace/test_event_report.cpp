@@ -15,16 +15,18 @@ TEST(EventReportTest, ReportMallocTestDEVICE) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     uint64_t testAddr = 0x12345678;
     uint64_t testSize = 1024;
+    unsigned long long testFlag = 2377900603261207558;
     MemOpSpace space = MemOpSpace::DEVICE;
-    EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, space));
+    EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, space, testFlag));
 }
 
 TEST(EventReportTest, ReportMallocTestHost) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     uint64_t testAddr = 0x12345678;
     uint64_t testSize = 1024;
+    unsigned long long testFlag = 504403158274934784;
     MemOpSpace space = MemOpSpace::HOST;
-    EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, space));
+    EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, space, testFlag));
 }
 
 TEST(EventReportTest, ReportFreeTest) {
