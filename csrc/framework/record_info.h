@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <vector>
 #include <string>
+#include <unordered_map>
 
 namespace Leaks {
 
@@ -15,8 +16,10 @@ enum class MemOpType : uint8_t {
 };
 
 enum class MemOpSpace : uint8_t {
-    DEVICE = 0U,
+    SVM = 0U,
+    DEVICE,
     HOST,
+    DVPP,
     INVALID,
 };
 
@@ -38,6 +41,7 @@ enum class KernelLaunchType : uint8_t {
 
 struct MemOpRecord {
     uint64_t recordIndex; // 记录索引
+    unsigned long long flag; // flag信息
     MemOpType memType; // 内存操作类型：malloc还是free
     MemOpSpace space; // 内存操作空间：device还是host
     uint64_t addr; // 地址

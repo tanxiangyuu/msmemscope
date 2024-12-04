@@ -8,9 +8,12 @@
 
 namespace Leaks {
 
-MemOpRecord CreateMemRecord(MemOpType type, MemOpSpace space, uint64_t addr, uint64_t size)
+constexpr unsigned long long FLAG_INVALID = UINT64_MAX;
+
+MemOpRecord CreateMemRecord(MemOpType type, unsigned long long flag, MemOpSpace space, uint64_t addr, uint64_t size)
 {
     auto record = MemOpRecord {};
+    record.flag = flag;
     record.memType = type;
     record.space = space;
     record.addr = addr;
@@ -51,17 +54,17 @@ EventReport::EventReport(CommType type)
     return;
 }
 
-bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, MemOpSpace space)
+bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, MemOpSpace space, unsigned long long flag)
 {
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord {};
     eventRecord.type = RecordType::MEMORY_RECORD;
-    eventRecord.record.memoryRecord = CreateMemRecord(MemOpType::MALLOC, space, addr, size);
+    eventRecord.record.memoryRecord = CreateMemRecord(MemOpType::MALLOC, flag, space, addr, size);
     std::lock_guard<std::mutex> guard(mutex_);
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
-    Utility::LogInfo("client malloc record, index: %u, addr: 0x%lx, size: %u, space: %u",
-        recordIndex_, addr, size, space);
+    Utility::LogInfo("client malloc record, index: %u, addr: 0x%lx, size: %u, space: %u, flag: %llu",
+        recordIndex_, addr, size, space, flag);
     return (sendNums >= 0);
 }
 
@@ -70,7 +73,7 @@ bool EventReport::ReportFree(uint64_t addr)
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord {};
     eventRecord.type = RecordType::MEMORY_RECORD;
-    eventRecord.record.memoryRecord = CreateMemRecord(MemOpType::FREE, MemOpSpace::INVALID, addr, 0);
+    eventRecord.record.memoryRecord = CreateMemRecord(MemOpType::FREE, FLAG_INVALID, MemOpSpace::INVALID, addr, 0);
     std::lock_guard<std::mutex> guard(mutex_);
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));

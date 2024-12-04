@@ -17,7 +17,7 @@ namespace Leaks {
 class EventReport {
 public:
     static EventReport& Instance(CommType type);
-    bool ReportMalloc(uint64_t addr, uint64_t size, MemOpSpace space);
+    bool ReportMalloc(uint64_t addr, uint64_t size, MemOpSpace space, unsigned long long flag);
     bool ReportFree(uint64_t addr);
     bool ReportKernelLaunch(KernelLaunchType kernelLaunchType);
     bool ReportAclItf(AclOpType aclOpType);
