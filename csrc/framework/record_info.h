@@ -41,6 +41,7 @@ enum class KernelLaunchType : uint8_t {
 
 struct MemOpRecord {
     uint64_t recordIndex; // 记录索引
+    unsigned long long flag; // flag信息
     MemOpType memType; // 内存操作类型：malloc还是free
     MemOpSpace space; // 内存操作空间：device还是host
     uint64_t addr; // 地址
@@ -89,7 +90,6 @@ enum class RecordType {
 // 事件记录载体
 struct EventRecord {
     RecordType type;
-    unsigned long long flag;
     union {
         MemOpRecord memoryRecord;
         StepRecord stepRecord;

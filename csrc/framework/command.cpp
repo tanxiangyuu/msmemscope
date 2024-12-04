@@ -30,12 +30,13 @@ void Command::Exec(const std::vector<std::string> &execParams) const
                     return;
             }
         }
-        
+
         return;
     };
 
     process.RegisterMsgHandlerHook(msgHandler);
     process.Launch(execParams);
+
     return;
 }
 

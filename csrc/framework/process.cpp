@@ -130,7 +130,7 @@ void Process::PostProcess(const ExecCmd &cmd)
         int sig = WTERMSIG(status);
         std::cout << "[leaks] user program exited by signal: " << sig << std::endl;
     }
-    
+
     return;
 }
 
