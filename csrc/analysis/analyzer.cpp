@@ -129,6 +129,10 @@ void Analyzer::Do(const ClientId &clientId, const EventRecord &record)
                 aclItfRecord.timeStamp);
             break;
         }
+        case RecordType::TORCH_NPU_RECORD: {
+            /* process func */
+            break;
+        }
         default:
             break;
     }

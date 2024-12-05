@@ -10,6 +10,34 @@
 
 namespace Leaks {
 
+enum class MemoryDataType {
+    MEMORY_MALLOC = 0,
+    MEMORY_FREE,
+    MEMORY_BLOCK_FREE,
+    MEMORY_INVALID
+};
+
+enum class MemoryAllocatorType {
+    ALLOCATOR_INNER = 0,
+    ALLOCATOR_EXTERNAL,
+    ALLOCATOR_INVALID,
+};
+struct MemoryUsage {
+    int8_t device_type;
+    int8_t device_index;
+    uint8_t data_type;
+    uint8_t allocator_type;
+    int64_t ptr;
+    int64_t alloc_size;
+    int64_t total_allocated;
+    int64_t total_reserved;
+    int64_t total_active;
+    int64_t stream_ptr;
+};
+struct TorchNpuRecord {
+    MemoryUsage memoryUsage;
+};
+
 enum class MemOpType : uint8_t {
     MALLOC = 0U,
     FREE,
@@ -85,12 +113,14 @@ enum class RecordType {
     ACL_ITF_RECORD,
     KERNEL_LAUNCH_RECORD,
     MSTX_MARK_RECORD,
+    TORCH_NPU_RECORD,
 };
 
 // 事件记录载体
 struct EventRecord {
     RecordType type;
     union {
+        TorchNpuRecord torchNpuRecord;
         MemOpRecord memoryRecord;
         StepRecord stepRecord;
         AclItfRecord aclItfRecord;
