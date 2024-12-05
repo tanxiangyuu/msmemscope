@@ -315,3 +315,18 @@ TEST(MemoryHashTableTest, do_memory_record_nulltable) {
 
     analyzer.LeakAnalyze();
 }
+
+TEST(TorchnputraceTest, do_npu_trace_record_success)
+{
+    AnalysisConfig config;
+    Analyzer analyzer(config);
+    
+    auto record = EventRecord{};
+    record.type = RecordType::TORCH_NPU_RECORD;
+    TorchNpuRecord torchNpuRecord;
+    MemoryUsage memoryUsage;
+    torchNpuRecord.memoryUsage = memoryUsage;
+    record.record.torchNpuRecord = torchNpuRecord;
+    ClientId clientId = 0;
+    analyzer.Do(clientId, record);
+}
