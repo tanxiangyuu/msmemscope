@@ -25,8 +25,8 @@ enum class MemoryAllocatorType {
 struct MemoryUsage {
     int8_t device_type;
     int8_t device_index;
-    uint8_t data_type;
-    uint8_t allocator_type;
+    uint8_t data_type; // MemoryDataType
+    uint8_t allocator_type; // MemoryAllocatorType
     int64_t ptr;
     int64_t alloc_size;
     int64_t total_allocated;
