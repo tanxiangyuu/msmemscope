@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <mutex>
+#include <cstring>
 #include "host_injection/core/LocalProcess.h"
 #include "record_info.h"
 
@@ -19,7 +20,7 @@ public:
     static EventReport& Instance(CommType type);
     bool ReportMalloc(uint64_t addr, uint64_t size, MemOpSpace space, unsigned long long flag);
     bool ReportFree(uint64_t addr);
-    bool ReportKernelLaunch(KernelLaunchType kernelLaunchType);
+    bool ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord);
     bool ReportAclItf(AclOpType aclOpType);
     bool ReportMark(MstxRecord& mstxRecord);
 private:

@@ -88,19 +88,25 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord)
     return true;
 }
 
-bool EventReport::ReportKernelLaunch(KernelLaunchType kernelLaunchType)
+bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord)
 {
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord{};
     eventRecord.type = RecordType::KERNEL_LAUNCH_RECORD;
-    eventRecord.record.kernelLaunchRecord = CreateKernelLaunchRecord(kernelLaunchType);
+    eventRecord.record.kernelLaunchRecord = kernelLaunchRecord;
+    auto now = std::chrono::system_clock::now();
+    std::time_t time = std::chrono::system_clock::to_time_t(now);
+    eventRecord.record.kernelLaunchRecord.timeStamp = time;
     std::lock_guard<std::mutex> guard(mutex_);
     eventRecord.record.kernelLaunchRecord.recordIndex = ++kernelLaunchRecordIndex_;
     auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
-    Utility::LogInfo("client kernelLaunch record, index: %u, type: %u, time: %u",
+    Utility::LogInfo("client kernelLaunch record, name: %s, index: %u, type: %u, time: %u, stream: %d, blockDim: %u",
+        eventRecord.record.kernelLaunchRecord.kernelName,
         kernelLaunchRecordIndex_,
-        kernelLaunchType,
-        eventRecord.record.kernelLaunchRecord.timeStamp);
+        eventRecord.record.kernelLaunchRecord.type,
+        eventRecord.record.kernelLaunchRecord.timeStamp,
+        eventRecord.record.kernelLaunchRecord.streamId,
+        eventRecord.record.kernelLaunchRecord.blockDim);
     return (sendNums >= 0);
 }
 
