@@ -115,10 +115,14 @@ void Analyzer::Do(const ClientId &clientId, const EventRecord &record)
         }
         case RecordType::KERNEL_LAUNCH_RECORD: {
             auto kernelLaunchRecord = record.record.kernelLaunchRecord;
-            Utility::LogInfo("server kernelLaunch record, index: %u, type: %u, time: %u",
+            Utility::LogInfo(
+                "server kernelLaunch record, name: %s, index: %u, type: %u, time: %u, streamId: %d, blockDim: %u",
+                kernelLaunchRecord.kernelName,
                 kernelLaunchRecord.recordIndex,
                 kernelLaunchRecord.type,
-                kernelLaunchRecord.timeStamp);
+                kernelLaunchRecord.timeStamp,
+                kernelLaunchRecord.streamId,
+                kernelLaunchRecord.blockDim);
             break;
         }
         case RecordType::ACL_ITF_RECORD: {
