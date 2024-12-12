@@ -20,22 +20,11 @@
 
 using namespace Leaks;
 
-namespace {
-
-struct RuntimeLibLoader {
-    static void *Load(void)
-    {
-        return dlopen("libruntime.so", RTLD_NOW | RTLD_GLOBAL);
-    }
-};
-using RuntimeSymbol = VallinaSymbol<RuntimeLibLoader>;
-}  // namespace
-
 RTS_API rtError_t rtKernelLaunch(
     const void *stubFunc, uint32_t blockDim, void *args, uint32_t argsSize, rtSmDesc_t *smDesc, rtStream_t stm)
 {
     using RtKernelLaunch = decltype(&rtKernelLaunch);
-    auto vallina = RuntimeSymbol::Instance().Get<RtKernelLaunch>(__func__);
+    auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtKernelLaunch>(__func__);
     if (vallina == nullptr) {
         Utility::LogError("vallina func get FAILED");
         return RT_ERROR_RESERVED;
@@ -53,7 +42,7 @@ RTS_API rtError_t rtKernelLaunchWithHandleV2(void *hdl, const uint64_t tilingKey
     rtArgsEx_t *argsInfo, rtSmDesc_t *smDesc, rtStream_t stm, const rtTaskCfgInfo_t *cfgInfo)
 {
     using RtKernelLaunchWithHandleV2 = decltype(&rtKernelLaunchWithHandleV2);
-    auto vallina = RuntimeSymbol::Instance().Get<RtKernelLaunchWithHandleV2>(__func__);
+    auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtKernelLaunchWithHandleV2>(__func__);
     if (vallina == nullptr) {
         Utility::LogError("vallina func get FAILED");
         return RT_ERROR_RESERVED;
@@ -71,7 +60,7 @@ RTS_API rtError_t rtKernelLaunchWithFlagV2(const void *stubFunc, uint32_t blockD
     rtSmDesc_t *smDesc, rtStream_t stm, uint32_t flags, const rtTaskCfgInfo_t *cfgInfo)
 {
     using RtKernelLaunchWithFlagV2 = decltype(&rtKernelLaunchWithFlagV2);
-    auto vallina = RuntimeSymbol::Instance().Get<RtKernelLaunchWithFlagV2>(__func__);
+    auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtKernelLaunchWithFlagV2>(__func__);
     if (vallina == nullptr) {
         Utility::LogError("vallina func get FAILED");
         return RT_ERROR_RESERVED;

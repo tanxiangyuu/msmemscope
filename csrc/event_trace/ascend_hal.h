@@ -16,25 +16,25 @@ typedef enum tagDrvError {
     DRV_ERROR_INNER_ERR = 7,           /**< driver inside error */
     DRV_ERROR_PARA_ERROR = 8,          /**< driver wrong parameter */
     DRV_ERROR_UNINIT = 9,              /**< driver uninit */
-    DRV_ERROR_REPEATED_INIT = 10,          /**< driver repeated init */
-    DRV_ERROR_NOT_EXIST = 11,        /**< there is resource*/
+    DRV_ERROR_REPEATED_INIT = 10,      /**< driver repeated init */
+    DRV_ERROR_NOT_EXIST = 11,          /**< there is resource*/
     DRV_ERROR_REPEATED_USERD = 12,
-    DRV_ERROR_BUSY = 13,                /**< task already running */
-    DRV_ERROR_NO_RESOURCES = 14,        /**< driver short of resouces */
+    DRV_ERROR_BUSY = 13,         /**< task already running */
+    DRV_ERROR_NO_RESOURCES = 14, /**< driver short of resouces */
     DRV_ERROR_OUT_OF_CMD_SLOT = 15,
-    DRV_ERROR_WAIT_TIMEOUT = 16,       /**< driver wait timeout*/
-    DRV_ERROR_IOCRL_FAIL = 17,         /**< driver ioctl fail*/
+    DRV_ERROR_WAIT_TIMEOUT = 16, /**< driver wait timeout*/
+    DRV_ERROR_IOCRL_FAIL = 17,   /**< driver ioctl fail*/
 
-    DRV_ERROR_SOCKET_CREATE = 18,      /**< driver create socket error*/
-    DRV_ERROR_SOCKET_CONNECT = 19,     /**< driver connect socket error*/
-    DRV_ERROR_SOCKET_BIND = 20,        /**< driver bind socket error*/
-    DRV_ERROR_SOCKET_LISTEN = 21,      /**< driver listen socket error*/
-    DRV_ERROR_SOCKET_ACCEPT = 22,      /**< driver accept socket error*/
-    DRV_ERROR_CLIENT_BUSY = 23,        /**< driver client busy error*/
-    DRV_ERROR_SOCKET_SET = 24,         /**< driver socket set error*/
-    DRV_ERROR_SOCKET_CLOSE = 25,       /**< driver socket close error*/
-    DRV_ERROR_RECV_MESG = 26,          /**< driver recv message error*/
-    DRV_ERROR_SEND_MESG = 27,          /**< driver send message error*/
+    DRV_ERROR_SOCKET_CREATE = 18,  /**< driver create socket error*/
+    DRV_ERROR_SOCKET_CONNECT = 19, /**< driver connect socket error*/
+    DRV_ERROR_SOCKET_BIND = 20,    /**< driver bind socket error*/
+    DRV_ERROR_SOCKET_LISTEN = 21,  /**< driver listen socket error*/
+    DRV_ERROR_SOCKET_ACCEPT = 22,  /**< driver accept socket error*/
+    DRV_ERROR_CLIENT_BUSY = 23,    /**< driver client busy error*/
+    DRV_ERROR_SOCKET_SET = 24,     /**< driver socket set error*/
+    DRV_ERROR_SOCKET_CLOSE = 25,   /**< driver socket close error*/
+    DRV_ERROR_RECV_MESG = 26,      /**< driver recv message error*/
+    DRV_ERROR_SEND_MESG = 27,      /**< driver send message error*/
     DRV_ERROR_SERVER_BUSY = 28,
     DRV_ERROR_CONFIG_READ_FAIL = 29,
     DRV_ERROR_STATUS_FAIL = 30,
@@ -66,16 +66,16 @@ typedef enum tagDrvError {
     DRV_ERROR_NO_MODEL_RESOURCES = 50,
     DRV_ERROR_TRY_AGAIN = 51,
 
-    DRV_ERROR_DST_PATH_ILLEGAL = 52,                    /**< send file dst path illegal*/
-    DRV_ERROR_OPEN_FAILED = 53,                         /**< send file open failed */
-    DRV_ERROR_NO_FREE_SPACE = 54,                       /**< send file no free space */
-    DRV_ERROR_LOCAL_ABNORMAL_FILE = 55,                 /**< send file local file abnormal*/
-    DRV_ERROR_DST_PERMISSION_DENIED = 56,               /**< send file dst Permission denied*/
-    DRV_ERROR_DST_NO_SUCH_FILE = 57,                    /**< pull file no such file or directory*/
+    DRV_ERROR_DST_PATH_ILLEGAL = 52,      /**< send file dst path illegal*/
+    DRV_ERROR_OPEN_FAILED = 53,           /**< send file open failed */
+    DRV_ERROR_NO_FREE_SPACE = 54,         /**< send file no free space */
+    DRV_ERROR_LOCAL_ABNORMAL_FILE = 55,   /**< send file local file abnormal*/
+    DRV_ERROR_DST_PERMISSION_DENIED = 56, /**< send file dst Permission denied*/
+    DRV_ERROR_DST_NO_SUCH_FILE = 57,      /**< pull file no such file or directory*/
 
     DRV_ERROR_MEMORY_OPT_FAIL = 58,
     DRV_ERROR_RUNTIME_ON_OTHER_PLAT = 59,
-    DRV_ERROR_SQID_FULL = 60,                           /**< driver SQ   is full */
+    DRV_ERROR_SQID_FULL = 60, /**< driver SQ   is full */
 
     DRV_ERROR_SERVER_HAS_BEEN_CREATED = 61,
     DRV_ERROR_NO_PROCESS = 62,
@@ -96,8 +96,8 @@ typedef enum tagDrvError {
     DRV_ERROR_RUN_IN_ILLEGAL_CPU = 77,
     DRV_ERROR_SUBSCRIBE_THREAD_TIMEOUT = 78,
     DRV_ERROR_BAD_ADDRESS = 79,
-    DRV_ERROR_DST_FILE_IS_BEING_WRITTEN = 80,           /**< send file The dts file is being written */
-    DRV_ERROR_EPOLL_CLOSE = 81,                         /**< epoll close */
+    DRV_ERROR_DST_FILE_IS_BEING_WRITTEN = 80, /**< send file The dts file is being written */
+    DRV_ERROR_EPOLL_CLOSE = 81,               /**< epoll close */
     DRV_ERROR_CDQ_ABNORMAL = 82,
     DRV_ERROR_CDQ_NOT_EXIST = 83,
     DRV_ERROR_NO_CDQ_RESOURCES = 84,

@@ -3,12 +3,9 @@
 #ifndef ANALYZER_H
 #define ANALYZER_H
 
-#include <vector>
 #include <iostream>
-#include <unordered_map>
+#include "dump_record.h"
 #include "framework/config_info.h"
-#include "framework/record_info.h"
-#include "host_injection/core/Communication.h"
 
 namespace Leaks {
 
@@ -23,19 +20,18 @@ using MemoryRecordTable = std::unordered_map<uint64_t, AddrStatus>;
 class Analyzer {
 public:
     explicit Analyzer(const AnalysisConfig &config);
+    ~Analyzer();
     void Do(const ClientId &clientId, const EventRecord &record);
     void LeakAnalyze();
-    ~Analyzer();
 private:
     AnalysisConfig config_;
+    DumpRecord dump_;
     std::unordered_map<ClientId, MemoryRecordTable> memtables_{};
     void CreateMemTables(const ClientId &clientId);
     void Record(const ClientId &clientId, const EventRecord &record);
-    void RecordMalloc(const ClientId &clientId, const MemOpRecord memrecord);
-    void RecordFree(const ClientId &clientId, const MemOpRecord memrecord);
+    void RecordMalloc(const ClientId &clientId, const MemOpRecord &memrecord);
+    void RecordFree(const ClientId &clientId, const MemOpRecord &memrecord);
     void CheckLeak(const size_t clientId);
 };
-
 }
-
 #endif
