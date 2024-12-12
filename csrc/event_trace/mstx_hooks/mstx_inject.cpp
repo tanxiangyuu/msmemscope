@@ -2,16 +2,21 @@
 #include "mstx_inject.h"
 #include "log.h"
 #include "mstx_manager.h"
+#include "kernel_hooks/runtime_hooks.h"
 
 namespace Leaks {
 void MstxMarkAFunc(const char* msg, aclrtStream stream)
 {
-    MstxManager::GetInstance().ReportMarkA(msg);
+    int32_t streamId;
+    rtGetStreamId(stream, &streamId);
+    MstxManager::GetInstance().ReportMarkA(msg, streamId);
 }
 
 uint64_t MstxRangeStartAFunc(const char* msg, aclrtStream stream)
 {
-    return MstxManager::GetInstance().ReportRangeStart(msg);
+    int32_t streamId;
+    rtGetStreamId(stream, &streamId);
+    return MstxManager::GetInstance().ReportRangeStart(msg, streamId);
 }
 
 void  MstxRangeEndFunc(uint64_t id)

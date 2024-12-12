@@ -18,15 +18,15 @@ struct BinKernel {
 };
 
 // 使用单例而不是全局变量维护两个映射表，避免neo场景的segmentation fault，后续劫持接口处的所有全局变量统一用该单例例维护
-class GlobalHandle {
+class HandleMapping {
 public:
-    static GlobalHandle &GetInstance()
+    static HandleMapping &GetInstance()
     {
-        static GlobalHandle instance;
+        static HandleMapping instance;
         return instance;
     }
 
-    ~GlobalHandle()
+    ~HandleMapping()
     {
         /// 预期在UnRegister函数中，通过erase删去映射关系
         /// 某些情况下，单例在UnRegister函数调用前被析构，析构后仍然可以访问，属于非法访问内存
@@ -46,9 +46,9 @@ public:
     StubHandleMapType stubHandleMap_;
 
 private:
-    GlobalHandle() = default;
-    GlobalHandle(const GlobalHandle&) = delete;
-    GlobalHandle& operator=(const GlobalHandle&) = delete;
+    HandleMapping() = default;
+    HandleMapping(const HandleMapping&) = delete;
+    HandleMapping& operator=(const HandleMapping&) = delete;
 };
 
 }

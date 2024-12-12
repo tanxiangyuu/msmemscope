@@ -6,20 +6,11 @@
 
 namespace Leaks {
 
-constexpr uint64_t MEM_MODULE_ID_BIT = 56;
-
-inline int32_t GetMallocModuleId(unsigned long long flag)
-{
-    // bit56~63: model id
-    return (flag & 0xFF00000000000000) >> MEM_MODULE_ID_BIT;
-}
-
-void Analyzer::RecordMalloc(const ClientId &clientId, const MemOpRecord memrecord)
+void Analyzer::RecordMalloc(const ClientId &clientId, const MemOpRecord &memrecord)
 {
     uint64_t memkey = memrecord.addr;
     // malloc操作需解析当前moduleId
-    auto flag = memrecord.flag;
-    int32_t flagId = GetMallocModuleId(flag);
+    int32_t flagId = memrecord.modid;
     bool foundModule = false;
     std::string modulename = "INVLID_MOUDLE_ID";
     if (g_ModuleHashTable.find(flagId) != g_ModuleHashTable.end()) {
@@ -41,9 +32,10 @@ void Analyzer::RecordMalloc(const ClientId &clientId, const MemOpRecord memrecor
             clientId, memrecord.addr,  memrecord.recordIndex, memrecord.addr, memrecord.memSize, memrecord.space);
     }
     memtables_[clientId][memkey] = AddrStatus::FREE_WAIT;
+    return;
 }
 
-void Analyzer::RecordFree(const ClientId &clientId, const MemOpRecord memrecord)
+void Analyzer::RecordFree(const ClientId &clientId, const MemOpRecord &memrecord)
 {
     uint64_t memkey = memrecord.addr;
     Utility::LogInfo("[client %u]: server free record, index: %u, addr: 0x%lx",
@@ -58,9 +50,10 @@ void Analyzer::RecordFree(const ClientId &clientId, const MemOpRecord memrecord)
                 clientId, memrecord.addr);
         }
     } else {
-            Utility::LogError("[client %u]: No matching malloc operation found for free operator: addr: 0x%lx",
-                clientId, memrecord.addr);
+        Utility::LogError("[client %u]: No matching malloc operation found for free operator: addr: 0x%lx",
+            clientId, memrecord.addr);
     }
+    return;
 }
 
 void Analyzer::Record(const ClientId &clientId, const EventRecord &record)
@@ -98,7 +91,7 @@ void Analyzer::CreateMemTables(const ClientId &clientId)
 {
     if (memtables_.find(clientId) != memtables_.end()) {
         return;
-    }   else {
+    } else {
         Utility::LogInfo("[client %u]: Start Record Memory.", clientId);
         MemoryRecordTable memrecordtable{};
         memtables_[clientId] = memrecordtable;
@@ -108,6 +101,9 @@ void Analyzer::CreateMemTables(const ClientId &clientId)
 
 void Analyzer::Do(const ClientId &clientId, const EventRecord &record)
 {
+    if (!dump_.DumpData(clientId, record)) {
+        Utility::LogError("dump data fail");
+    }
     switch (record.type) {
         case RecordType::MEMORY_RECORD: {
             Record(clientId, record);
@@ -140,7 +136,6 @@ void Analyzer::Do(const ClientId &clientId, const EventRecord &record)
         default:
             break;
     }
-
     return;
 }
 
@@ -153,7 +148,6 @@ void Analyzer::LeakAnalyze()
             CheckLeak(pair.first);
         }
     }
-
     return;
 }
 
@@ -161,5 +155,4 @@ Analyzer::~Analyzer()
 {
     LeakAnalyze();
 }
-
 }

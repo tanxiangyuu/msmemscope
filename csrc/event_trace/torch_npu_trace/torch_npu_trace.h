@@ -10,10 +10,11 @@
 #include "serializer.h"
 #include "protocol.h"
 #include "record_info.h"
+#include "event_report.h"
 
 namespace Leaks {
 extern "C" {
-bool GetTorchNpuMemData(MemoryUsage memoryUsage);
+bool ReportTorchNpuMemData(MemoryUsage memoryUsage);
 }
 }
 
