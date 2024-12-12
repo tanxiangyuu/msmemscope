@@ -1,11 +1,11 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
-#include "event_trace/hal_hooks/hal_hooks.h"
-
 #include <gtest/gtest.h>
+#include "event_trace/hal_hooks/hal_hooks.h"
+#include "event_trace/event_report.h"
 
 TEST(HalHooksTest, GetMallocMemTypeTest) {
     unsigned long long flag = 2377900603261207558;
-    Leaks::MemOpSpace result = GetMemOpSpace(flag);
+    Leaks::MemOpSpace result = Leaks::GetMemOpSpace(flag);
     EXPECT_EQ(result, Leaks::MemOpSpace::DEVICE);
 }
 
