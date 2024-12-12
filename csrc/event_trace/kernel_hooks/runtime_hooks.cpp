@@ -24,20 +24,11 @@
 #include "ustring.h"
 #include "umask_guard.h"
 #include "securec.h"
-#include "global_handle.h"
+#include "handle_mapping.h"
 
 using namespace Leaks;
 
 namespace {
-
-struct RuntimeLibLoader {
-    static void *Load(void)
-    {
-        return dlopen("libruntime.so", RTLD_NOW | RTLD_GLOBAL);
-    }
-};
-using RuntimeSymbol = VallinaSymbol<RuntimeLibLoader>;
-
 std::vector<char *> ToRawCArgv(std::vector<std::string> const &argv)
 {
     std::vector<char *> rawArgv;
@@ -47,7 +38,7 @@ std::vector<char *> ToRawCArgv(std::vector<std::string> const &argv)
     rawArgv.emplace_back(nullptr);
     return rawArgv;
 }
-}  // namespace
+}
 
 bool PipeCall(std::vector<std::string> const &cmd, std::string &output)
 {
@@ -142,8 +133,8 @@ std::string ParseNameFromOutput(std::string output)
 std::string GetNameFromBinary(void *hdl)
 {
     std::string kernelName;
-    auto it = GlobalHandle::GetInstance().GlobalHandle::GetInstance().handleBinKernelMap_.find(hdl);
-    if (it == GlobalHandle::GetInstance().GlobalHandle::GetInstance().handleBinKernelMap_.end()) {
+    auto it = HandleMapping::GetInstance().handleBinKernelMap_.find(hdl);
+    if (it == HandleMapping::GetInstance().handleBinKernelMap_.end()) {
         Utility::LogError("kernel handle NOT registered in map");
         return kernelName;
     }
@@ -171,8 +162,8 @@ std::string GetNameFromBinary(void *hdl)
 std::string GetKernelNameByStubFunc(const void *stubFunc)
 {
     std::string kernelName;
-    auto it = GlobalHandle::GetInstance().stubHandleMap_.find(stubFunc);
-    if (it == GlobalHandle::GetInstance().stubHandleMap_.end()) {
+    auto it = HandleMapping::GetInstance().stubHandleMap_.find(stubFunc);
+    if (it == HandleMapping::GetInstance().stubHandleMap_.end()) {
         Utility::LogError("stubFunc NOT registered in map");
         return kernelName;
     }
@@ -183,12 +174,11 @@ std::string GetKernelNameByStubFunc(const void *stubFunc)
 KernelLaunchRecord CreateKernelLaunchRecord(uint32_t blockDim, rtStream_t stm, KernelLaunchType type)
 {
     auto record = KernelLaunchRecord {};
-    int32_t *streamId = (int32_t*) malloc(sizeof(int32_t));
-    rtGetStreamId(stm, streamId);
+    int32_t streamId;
+    rtGetStreamId(stm, &streamId);
     record.type = type;
     record.blockDim = blockDim;
-    record.streamId = *streamId;
-    free(streamId);
+    record.streamId = streamId;
     return record;
 }
 
@@ -196,7 +186,7 @@ RTS_API rtError_t rtKernelLaunch(
     const void *stubFunc, uint32_t blockDim, void *args, uint32_t argsSize, rtSmDesc_t *smDesc, rtStream_t stm)
 {
     using RtKernelLaunch = decltype(&rtKernelLaunch);
-    auto vallina = RuntimeSymbol::Instance().Get<RtKernelLaunch>(__func__);
+    auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtKernelLaunch>(__func__);
     if (vallina == nullptr) {
         Utility::LogError("vallina func get FAILED");
         return RT_ERROR_RESERVED;
@@ -205,8 +195,8 @@ RTS_API rtError_t rtKernelLaunch(
     rtError_t ret = vallina(stubFunc, blockDim, args, argsSize, smDesc, stm);
     auto record = KernelLaunchRecord {};
     record = CreateKernelLaunchRecord(blockDim, stm, KernelLaunchType::NORMAL);
-    if (EOK != strncpy_s(record.kernelName, sizeof(record.kernelName),
-        GetKernelNameByStubFunc(stubFunc).c_str(), sizeof(record.kernelName) - 1)) {
+    if (strncpy_s(record.kernelName, sizeof(record.kernelName),
+        GetKernelNameByStubFunc(stubFunc).c_str(), sizeof(record.kernelName) - 1) != EOK) {
         Utility::LogError("strncpy_s FAILED");
     }
     if (!EventReport::Instance(CommType::SOCKET).ReportKernelLaunch(record)) {
@@ -219,7 +209,7 @@ RTS_API rtError_t rtKernelLaunchWithHandleV2(void *hdl, const uint64_t tilingKey
     rtArgsEx_t *argsInfo, rtSmDesc_t *smDesc, rtStream_t stm, const rtTaskCfgInfo_t *cfgInfo)
 {
     using RtKernelLaunchWithHandleV2 = decltype(&rtKernelLaunchWithHandleV2);
-    auto vallina = RuntimeSymbol::Instance().Get<RtKernelLaunchWithHandleV2>(__func__);
+    auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtKernelLaunchWithHandleV2>(__func__);
     if (vallina == nullptr) {
         Utility::LogError("vallina func get FAILED");
         return RT_ERROR_RESERVED;
@@ -228,8 +218,8 @@ RTS_API rtError_t rtKernelLaunchWithHandleV2(void *hdl, const uint64_t tilingKey
     rtError_t ret = vallina(hdl, tilingKey, blockDim, argsInfo, smDesc, stm, cfgInfo);
     auto record = KernelLaunchRecord {};
     record = CreateKernelLaunchRecord(blockDim, stm, KernelLaunchType::HANDLEV2);
-    if (EOK != strncpy_s(record.kernelName, sizeof(record.kernelName),
-        GetNameFromBinary(hdl).c_str(), sizeof(record.kernelName) - 1)) {
+    if (strncpy_s(record.kernelName, sizeof(record.kernelName),
+        GetNameFromBinary(hdl).c_str(), sizeof(record.kernelName) - 1) != EOK) {
         Utility::LogError("strncpy_s FAILED");
     }
     if (!EventReport::Instance(CommType::SOCKET).ReportKernelLaunch(record)) {
@@ -242,7 +232,7 @@ RTS_API rtError_t rtKernelLaunchWithFlagV2(const void *stubFunc, uint32_t blockD
     rtSmDesc_t *smDesc, rtStream_t stm, uint32_t flags, const rtTaskCfgInfo_t *cfgInfo)
 {
     using RtKernelLaunchWithFlagV2 = decltype(&rtKernelLaunchWithFlagV2);
-    auto vallina = RuntimeSymbol::Instance().Get<RtKernelLaunchWithFlagV2>(__func__);
+    auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtKernelLaunchWithFlagV2>(__func__);
     if (vallina == nullptr) {
         Utility::LogError("vallina func get FAILED");
         return RT_ERROR_RESERVED;
@@ -251,8 +241,8 @@ RTS_API rtError_t rtKernelLaunchWithFlagV2(const void *stubFunc, uint32_t blockD
     rtError_t ret = vallina(stubFunc, blockDim, argsInfo, smDesc, stm, flags, cfgInfo);
     auto record = KernelLaunchRecord {};
     record = CreateKernelLaunchRecord(blockDim, stm, KernelLaunchType::FLAGV2);
-    if (EOK != strncpy_s(record.kernelName, sizeof(record.kernelName),
-        GetKernelNameByStubFunc(stubFunc).c_str(), sizeof(record.kernelName) - 1)) {
+    if (strncpy_s(record.kernelName, sizeof(record.kernelName),
+        GetKernelNameByStubFunc(stubFunc).c_str(), sizeof(record.kernelName) - 1) != EOK) {
         Utility::LogError("strncpy_s FAILED");
     }
     if (!EventReport::Instance(CommType::SOCKET).ReportKernelLaunch(record)) {
@@ -264,7 +254,7 @@ RTS_API rtError_t rtKernelLaunchWithFlagV2(const void *stubFunc, uint32_t blockD
 RTS_API rtError_t rtGetStreamId(rtStream_t stm, int32_t *streamId)
 {
     using rtGetStreamId = decltype(&rtGetStreamId);
-    auto vallina = RuntimeSymbol::Instance().Get<rtGetStreamId>(__func__);
+    auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<rtGetStreamId>(__func__);
     if (vallina == nullptr) {
         Utility::LogError("vallina func get FAILED");
         return RT_ERROR_RESERVED;
@@ -277,20 +267,20 @@ RTS_API rtError_t rtFunctionRegister(
     void *binHandle, const void *stubFunc, const char *stubName, const void *kernelInfoExt, uint32_t funcMode)
 {
     using RtFunctionRegister = decltype(&rtFunctionRegister);
-    auto vallina = RuntimeSymbol::Instance().Get<RtFunctionRegister>(__func__);
+    auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtFunctionRegister>(__func__);
     if (vallina == nullptr) {
         Utility::LogError("vallina func get FAILED");
         return RT_ERROR_RESERVED;
     }
     rtError_t result = vallina(binHandle, stubFunc, stubName, kernelInfoExt, funcMode);
-    GlobalHandle::GetInstance().stubHandleMap_[stubFunc] = binHandle;
+    HandleMapping::GetInstance().stubHandleMap_[stubFunc] = binHandle;
     return result;
 }
 
 RTS_API rtError_t rtDevBinaryRegister(const rtDevBinary_t *bin, void **hdl)
 {
     using RtDevBinaryRegister = decltype(&rtDevBinaryRegister);
-    auto vallina = RuntimeSymbol::Instance().Get<RtDevBinaryRegister>(__func__);
+    auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtDevBinaryRegister>(__func__);
     if (vallina == nullptr) {
         Utility::LogError("vallina func get FAILED");
         return RT_ERROR_RESERVED;
@@ -307,7 +297,7 @@ RTS_API rtError_t rtDevBinaryRegister(const rtDevBinary_t *bin, void **hdl)
         auto binData = static_cast<char const *>(bin->data);
         BinKernel binKernel {};
         binKernel.bin = std::vector<char>(binData, binData + bin->length);
-        GlobalHandle::GetInstance().handleBinKernelMap_[*hdl] = std::move(binKernel);
+        HandleMapping::GetInstance().handleBinKernelMap_[*hdl] = std::move(binKernel);
     }
     return result;
 }
@@ -315,7 +305,7 @@ RTS_API rtError_t rtDevBinaryRegister(const rtDevBinary_t *bin, void **hdl)
 RTS_API rtError_t rtRegisterAllKernel(const rtDevBinary_t *bin, void **hdl)
 {
     using RtRegisterAllKernel = decltype(&rtRegisterAllKernel);
-    auto vallina = RuntimeSymbol::Instance().Get<RtRegisterAllKernel>(__func__);
+    auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtRegisterAllKernel>(__func__);
     if (vallina == nullptr) {
         Utility::LogError("vallina func get FAILED");
         return RT_ERROR_RESERVED;
@@ -331,7 +321,7 @@ RTS_API rtError_t rtRegisterAllKernel(const rtDevBinary_t *bin, void **hdl)
         auto binData = static_cast<char const *>(bin->data);
         BinKernel binKernel {};
         binKernel.bin = std::vector<char>(binData, binData + bin->length);
-        GlobalHandle::GetInstance().handleBinKernelMap_[*hdl] = std::move(binKernel);
+        HandleMapping::GetInstance().handleBinKernelMap_[*hdl] = std::move(binKernel);
     }
     return result;
 }
@@ -339,7 +329,7 @@ RTS_API rtError_t rtRegisterAllKernel(const rtDevBinary_t *bin, void **hdl)
 RTS_API rtError_t rtDevBinaryUnRegister(void *hdl)
 {
     using RtDevBinaryUnRegister = decltype(&rtDevBinaryUnRegister);
-    auto vallina = RuntimeSymbol::Instance().Get<RtDevBinaryUnRegister>(__func__);
+    auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtDevBinaryUnRegister>(__func__);
     if (vallina == nullptr) {
         Utility::LogError("vallina func get FAILED");
         return RT_ERROR_RESERVED;
@@ -348,15 +338,15 @@ RTS_API rtError_t rtDevBinaryUnRegister(void *hdl)
     rtError_t result = vallina(hdl);
     if (result == RT_ERROR_NONE) {
         // unregister handle bin map
-        auto it = GlobalHandle::GetInstance().handleBinKernelMap_.find(hdl);
-        if (it != GlobalHandle::GetInstance().handleBinKernelMap_.end()) {
-            GlobalHandle::GetInstance().handleBinKernelMap_.erase(hdl);
+        auto it = HandleMapping::GetInstance().handleBinKernelMap_.find(hdl);
+        if (it != HandleMapping::GetInstance().handleBinKernelMap_.end()) {
+            HandleMapping::GetInstance().handleBinKernelMap_.erase(hdl);
         }
         // unregister stub handle map
-        for (auto it = GlobalHandle::GetInstance().stubHandleMap_.begin();
-             it != GlobalHandle::GetInstance().stubHandleMap_.end();) {
+        for (auto it = HandleMapping::GetInstance().stubHandleMap_.begin();
+             it != HandleMapping::GetInstance().stubHandleMap_.end();) {
             if (it->second == hdl) {
-                it = GlobalHandle::GetInstance().stubHandleMap_.erase(it);
+                it = HandleMapping::GetInstance().stubHandleMap_.erase(it);
             } else {
                 ++it;
             }

@@ -10,6 +10,7 @@
 #include <string>
 #include <fstream>
 #include <cstring>
+#include <dlfcn.h>
 
 constexpr uint64_t MAX_BINARY_SIZE = 32ULL * 1024 * 1024 * 1024; // 32GB
 constexpr mode_t REGULAR_MODE_MASK = 0177;
@@ -21,6 +22,13 @@ extern "C" {
 #ifndef RTS_API
 #define RTS_API
 #endif  // RTS_API
+
+struct RuntimeLibLoader {
+    static void *Load(void)
+    {
+        return dlopen("libruntime.so", RTLD_NOW | RTLD_GLOBAL);
+    }
+};
 
 typedef enum tagRtError {
     RT_ERROR_NONE = 0x0,                      // success

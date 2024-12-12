@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <dlfcn.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,6 +33,12 @@ static const int ACL_ERROR_INTERNAL_ERROR = 500000;
 ACL_FUNC_VISIBILITY aclError aclInit(const char *configPath);
 ACL_FUNC_VISIBILITY aclError aclFinalize();
 
+struct AclLibLoader {
+    static void *Load(void)
+    {
+        return dlopen("libascendcl.so", RTLD_NOW | RTLD_GLOBAL);
+    }
+};
 #ifdef __cplusplus
 }
 #endif

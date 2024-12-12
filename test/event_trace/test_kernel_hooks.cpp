@@ -5,7 +5,7 @@
 #include "kernel_hooks/runtime_hooks.h"
 #include "kernel_hooks/acl_hooks.h"
 #include "vallina_symbol.h"
-#include "global_handle.h"
+#include "handle_mapping.h"
 
 using namespace testing;
 
@@ -324,8 +324,8 @@ TEST(RuntimeHooks, do_rtDevBinaryUnRegister_expect_success)
     void *stubFunc = handleData.data();
     Leaks::BinKernel binkernel {};
     binkernel.bin = {0x01, 0x02, 0x03, 0x04};
-    Leaks::GlobalHandle::GetInstance().handleBinKernelMap_.insert({hdl, binkernel});
-    Leaks::GlobalHandle::GetInstance().stubHandleMap_.insert({stubFunc, hdl});
+    Leaks::HandleMapping::GetInstance().handleBinKernelMap_.insert({hdl, binkernel});
+    Leaks::HandleMapping::GetInstance().stubHandleMap_.insert({stubFunc, hdl});
     EXPECT_EQ(rtDevBinaryUnRegister(hdl), RT_ERROR_NONE);
 }
 
@@ -414,9 +414,9 @@ TEST(KernelNameFunc, getNameFromBinary_with_hdl_return_empty_kernelName)
     Leaks::BinKernel binData {};
     binData.bin = {0x01, 0x02, 0x03, 0x04};
     std::string kernelName;
-    Leaks::GlobalHandle::GetInstance().handleBinKernelMap_.insert({hdl, binData});
+    Leaks::HandleMapping::GetInstance().handleBinKernelMap_.insert({hdl, binData});
     kernelName = GetNameFromBinary(hdl);
-    Leaks::GlobalHandle::GetInstance().handleBinKernelMap_.erase(hdl);
+    Leaks::HandleMapping::GetInstance().handleBinKernelMap_.erase(hdl);
     ASSERT_EQ(kernelName, "");
 }
 
@@ -426,8 +426,8 @@ TEST(KernelNameFunc, getKernelNameByStubFunc_with_stubfunc_return_empty_kernelNa
     std::vector<uint8_t> handleData{1, 2, 3};
     void *hdl = handleData.data();
     void *stubFunc = handleData.data();
-    Leaks::GlobalHandle::GetInstance().stubHandleMap_.insert({stubFunc, hdl});
+    Leaks::HandleMapping::GetInstance().stubHandleMap_.insert({stubFunc, hdl});
     kernelName = GetKernelNameByStubFunc(stubFunc);
-    Leaks::GlobalHandle::GetInstance().stubHandleMap_.erase(stubFunc);
+    Leaks::HandleMapping::GetInstance().stubHandleMap_.erase(stubFunc);
     ASSERT_EQ(kernelName, "");
 }
