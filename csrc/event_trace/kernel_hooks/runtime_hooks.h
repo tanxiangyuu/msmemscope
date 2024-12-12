@@ -5,7 +5,7 @@
 
 #include <cstdint>
 #include <cstddef>
-
+#include <dlfcn.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13,6 +13,13 @@ extern "C" {
 #ifndef RTS_API
 #define RTS_API
 #endif  // RTS_API
+
+struct RuntimeLibLoader {
+    static void *Load(void)
+    {
+        return dlopen("libruntime.so", RTLD_NOW | RTLD_GLOBAL);
+    }
+};
 
 typedef enum tagRtError {
     RT_ERROR_NONE = 0x0,                      // success
@@ -105,7 +112,6 @@ RTS_API rtError_t rtKernelLaunchWithHandleV2(void *hdl, const uint64_t tilingKey
     rtArgsEx_t *argsInfo, rtSmDesc_t *smDesc, rtStream_t stm, const rtTaskCfgInfo_t *cfgInfo);
 RTS_API rtError_t rtKernelLaunchWithFlagV2(const void *stubFunc, uint32_t blockDim, rtArgsEx_t *argsInfo,
     rtSmDesc_t *smDesc, rtStream_t stm, uint32_t flags, const rtTaskCfgInfo_t *cfgInfo);
-
 #ifdef __cplusplus
 }  // extern "C"
 #endif

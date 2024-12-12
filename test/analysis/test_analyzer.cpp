@@ -13,7 +13,6 @@ TEST(AnalyzerTest, AnalyzerConstruct) {
     Analyzer analyzer(analysisConfig);
 }
 
-
 TEST(Analyzer, do_memory_record_expect_success)
 {
     AnalysisConfig config;
@@ -22,7 +21,8 @@ TEST(Analyzer, do_memory_record_expect_success)
     auto record = EventRecord{};
     record.type = RecordType::MEMORY_RECORD;
     auto memRecordMalloc = MemOpRecord {};
-    memRecordMalloc.flag = 2377900603261207558;
+    memRecordMalloc.flag = 0xFF00000000000000;
+    memRecordMalloc.modid = 99;
     memRecordMalloc.recordIndex = 123;
     memRecordMalloc.addr = 0x7958;
     memRecordMalloc.memSize = 1024;
@@ -31,11 +31,24 @@ TEST(Analyzer, do_memory_record_expect_success)
     record.record.memoryRecord = memRecordMalloc;
     ClientId clientId = 0;
     analyzer.Do(clientId, record);
+    
+    memRecordMalloc.space = Leaks::MemOpSpace::HOST;
+    memRecordMalloc.addr = 0x7959;
+    record.record.memoryRecord = memRecordMalloc;
+    analyzer.Do(clientId, record);
 
     auto memRecordFree = memRecordMalloc;
     memRecordFree.memType = MemOpType::FREE;
+    memRecordFree.addr = 0x7958;
     record.record.memoryRecord = memRecordFree;
+
     analyzer.Do(clientId, record);
+
+    memRecordFree.addr = 0x7959;
+    record.record.memoryRecord = memRecordFree;
+
+    analyzer.Do(clientId, record);
+    
     analyzer.LeakAnalyze();
 }
 
@@ -320,7 +333,7 @@ TEST(TorchnputraceTest, do_npu_trace_record_success)
 {
     AnalysisConfig config;
     Analyzer analyzer(config);
-    
+
     auto record = EventRecord{};
     record.type = RecordType::TORCH_NPU_RECORD;
     TorchNpuRecord torchNpuRecord;

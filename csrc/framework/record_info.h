@@ -7,6 +7,8 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <sys/types.h>
+#include <unistd.h>
 
 namespace Leaks {
 
@@ -35,6 +37,7 @@ struct MemoryUsage {
     int64_t stream_ptr;
 };
 struct TorchNpuRecord {
+    uint64_t recordIndex;
     MemoryUsage memoryUsage;
 };
 
@@ -69,7 +72,12 @@ enum class KernelLaunchType : uint8_t {
 
 struct MemOpRecord {
     uint64_t recordIndex; // 记录索引
-    unsigned long long flag; // flag信息
+    uint64_t kernelIndex; // 当前所属kernellaunch索引
+    unsigned long long flag;  // 内存属性
+    int32_t modid; // moduleID
+    uint64_t pid;     // 进程号
+    uint64_t tid; // 线程号
+    int32_t devid; // 所属deviceid
     MemOpType memType; // 内存操作类型：malloc还是free
     MemOpSpace space; // 内存操作空间：device还是host
     uint64_t addr; // 地址
@@ -84,12 +92,18 @@ struct StepRecord {
 };
 
 struct AclItfRecord {
+    uint64_t pid; // 进程号
+    uint64_t tid; // 线程号
     uint64_t recordIndex; // 记录索引
+    uint64_t aclItfRecord; // aclItf索引
     AclOpType type; // 资源申请还是释放
     uint64_t timeStamp; // 时间戳
 };
 
 struct KernelLaunchRecord {
+    uint64_t pid; // 进程号
+    uint64_t tid; // 线程号
+    uint64_t kernelLaunchIndex; // kernelLaunch索引
     uint64_t recordIndex; // 记录索引
     KernelLaunchType type; // KernelLaunch类型
     uint64_t timeStamp; // 时间戳

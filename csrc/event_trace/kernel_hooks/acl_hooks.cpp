@@ -18,23 +18,10 @@
 
 using namespace Leaks;
 
-namespace {
-
-struct AclLibLoader {
-    static void *Load(void)
-    {
-        return dlopen("libascendcl.so", RTLD_NOW | RTLD_GLOBAL);
-    }
-};
-
-using AclSymbol = VallinaSymbol<AclLibLoader>;
-
-}  // namespace
-
 ACL_FUNC_VISIBILITY aclError aclInit(const char *configPath)
 {
     using AclInit = decltype(&aclInit);
-    auto vallina = AclSymbol::Instance().Get<AclInit>("aclInit");
+    auto vallina = VallinaSymbol<AclLibLoader>::Instance().Get<AclInit>("aclInit");
     if (vallina == nullptr) {
         Utility::LogError("vallina func get FAILED");
         return ACL_ERROR_INTERNAL_ERROR;
@@ -50,7 +37,7 @@ ACL_FUNC_VISIBILITY aclError aclInit(const char *configPath)
 ACL_FUNC_VISIBILITY aclError aclFinalize()
 {
     using AclFinalize = decltype(&aclFinalize);
-    auto vallina = AclSymbol::Instance().Get<AclFinalize>("aclFinalize");
+    auto vallina = VallinaSymbol<AclLibLoader>::Instance().Get<AclFinalize>("aclFinalize");
     if (vallina == nullptr) {
         Utility::LogError("vallina func get FAILED");
         return ACL_ERROR_INTERNAL_ERROR;

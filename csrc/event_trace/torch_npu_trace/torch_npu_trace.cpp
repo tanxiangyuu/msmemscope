@@ -4,16 +4,13 @@
 
 namespace Leaks {
 
-    bool GetTorchNpuMemData(MemoryUsage memoryUsage)
+    bool ReportTorchNpuMemData(MemoryUsage memoryUsage)
     {
-        PacketHead head = {PacketType::RECORD};
-        EventRecord eventrecord;
-        eventrecord.type = RecordType::TORCH_NPU_RECORD;
         TorchNpuRecord torchNpuRecord;
         torchNpuRecord.memoryUsage = memoryUsage;
-        eventrecord.record.torchNpuRecord = torchNpuRecord;
-        auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventrecord));
-        return (sendNums >= 0);
+        if (!EventReport::Instance(CommType::SOCKET).ReportTorchNpu(torchNpuRecord)) {
+            return false;
+        }
+        return true;
     }
 }
-
