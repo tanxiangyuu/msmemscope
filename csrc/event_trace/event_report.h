@@ -21,7 +21,7 @@ public:
     static EventReport& Instance(CommType type);
     bool ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag);
     bool ReportFree(uint64_t addr);
-    bool ReportKernelLaunch(KernelLaunchType kernelLaunchType);
+    bool ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord);
     bool ReportAclItf(AclOpType aclOpType);
     bool ReportMark(MstxRecord &mstxRecord);
     bool ReportTorchNpu(TorchNpuRecord &torchNpuRecord);

@@ -16,5 +16,6 @@ target_include_directories(ascend_kernel_hook PUBLIC
   ${FUNC_INJECTION_DIR}
   ${FUNC_HOSTINJECTION_DIR}
   ${UTILITY_INC_DIR}
+  ${SECUREC_INC_DIR}
 )
-target_link_libraries(ascend_kernel_hook ascend_hal dl pthread stdc++fs)
+target_link_libraries(ascend_kernel_hook ascend_hal dl pthread stdc++fs c_sec)

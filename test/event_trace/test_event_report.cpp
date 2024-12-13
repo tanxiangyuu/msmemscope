@@ -35,7 +35,6 @@ TEST(EventReportTest, ReportFreeTest) {
     EXPECT_TRUE(instance.ReportFree(testAddr));
 }
 
-
 TEST(EventReportTest, ReportMarkTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     MstxRecord record;
@@ -45,7 +44,8 @@ TEST(EventReportTest, ReportMarkTest) {
 
 TEST(EventReportTest, ReportKernelLaunchTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
-    EXPECT_TRUE(instance.ReportKernelLaunch(KernelLaunchType::NORMAL));
+    KernelLaunchRecord record;
+    EXPECT_TRUE(instance.ReportKernelLaunch(record));
 }
 
 TEST(EventReportTest, ReportAclItfTest) {
