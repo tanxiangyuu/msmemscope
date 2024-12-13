@@ -19,8 +19,8 @@ public:
     MstxManager(const MstxManager&) = delete;
     MstxManager& operator=(const MstxManager&) = delete;
 
-    void ReportMarkA(const char* msg);
-    uint64_t ReportRangeStart(const char* msg);
+    void ReportMarkA(const char* msg, int32_t stream);
+    uint64_t ReportRangeStart(const char* msg, int32_t stream);
     void ReportRangeEnd(uint64_t id);
 
 private:

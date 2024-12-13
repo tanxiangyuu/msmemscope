@@ -5,7 +5,16 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <vector>
+#include <map>
+#include <string>
+#include <fstream>
+#include <cstring>
 #include <dlfcn.h>
+
+constexpr uint64_t MAX_BINARY_SIZE = 32ULL * 1024 * 1024 * 1024; // 32GB
+constexpr mode_t REGULAR_MODE_MASK = 0177;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -106,14 +115,44 @@ typedef struct tagRtTaskCfgInfo {
     uint8_t res[1];     // res
 } rtTaskCfgInfo_t;
 
+typedef struct tagRtDevBinary {
+    uint32_t magic;    // magic number
+    uint32_t version;  // version of binary
+    const void *data;  // binary data
+    uint64_t length;   // binary length
+} rtDevBinary_t;
+
 RTS_API rtError_t rtKernelLaunch(
     const void *stubFunc, uint32_t blockDim, void *args, uint32_t argsSize, rtSmDesc_t *smDesc, rtStream_t stm);
 RTS_API rtError_t rtKernelLaunchWithHandleV2(void *hdl, const uint64_t tilingKey, uint32_t blockDim,
     rtArgsEx_t *argsInfo, rtSmDesc_t *smDesc, rtStream_t stm, const rtTaskCfgInfo_t *cfgInfo);
 RTS_API rtError_t rtKernelLaunchWithFlagV2(const void *stubFunc, uint32_t blockDim, rtArgsEx_t *argsInfo,
     rtSmDesc_t *smDesc, rtStream_t stm, uint32_t flags, const rtTaskCfgInfo_t *cfgInfo);
+RTS_API rtError_t rtGetStreamId(rtStream_t stm, int32_t *streamId);
+RTS_API rtError_t rtFunctionRegister(
+    void *binHandle, const void *stubFunc, const char *stubName, const void *kernelInfoExt, uint32_t funcMode);
+RTS_API rtError_t rtDevBinaryRegister(const rtDevBinary_t *bin, void **hdl);
+RTS_API rtError_t rtRegisterAllKernel(const rtDevBinary_t *bin, void **hdl);
+RTS_API rtError_t rtDevBinaryUnRegister(void *hdl);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif
+
+inline bool WriteBinary(std::string const &filename, char const *data, uint64_t length)
+{
+    if (!data) {
+        return false;
+    }
+    std::ofstream ofs(filename, std::ios::out | std::ios::binary);
+    ofs.write(data, length);
+    return ofs.good();
+}
+
+bool PipeCall(std::vector<std::string> const &cmd, std::string &output);
+std::string ParseLine(std::string const &line);
+std::string ParseNameFromOutput(std::string output);
+std::string GetNameFromBinary(void *hdl);
+std::string GetKernelNameByStubFunc(const void *stubFunc);
 
 #endif

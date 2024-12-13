@@ -92,10 +92,10 @@ AclItfRecord CreateAclItfRecord(AclOpType type)
     return record;
 }
 
-KernelLaunchRecord CreateKernelLaunchRecord(KernelLaunchType type)
+KernelLaunchRecord CreateKernelLaunchRecord(KernelLaunchRecord kernelLaunchRecord)
 {
     auto record = KernelLaunchRecord {};
-    record.type = type;
+    record = kernelLaunchRecord;
     auto now = std::chrono::system_clock::now();
     std::time_t time = std::chrono::system_clock::to_time_t(now);
     record.timeStamp = time;
@@ -172,25 +172,32 @@ bool EventReport::ReportFree(uint64_t addr)
 
 bool EventReport::ReportMark(MstxRecord& mstxRecord)
 {
-    Utility::LogInfo("this mark point message is %s", mstxRecord.markMessage);
+    if (mstxRecord.streamId == -1) { // range end打点无需输出streamId信息，通过rangeId与start匹配
+        Utility::LogInfo("this mark point message is %s", mstxRecord.markMessage);
+    } else {
+        Utility::LogInfo("this mark point message is %s, streamId is %d", mstxRecord.markMessage, mstxRecord.streamId);
+    }
     Utility::LogInfo("this mark point id is %llu", mstxRecord.rangeId);
     return true;
 }
 
-bool EventReport::ReportKernelLaunch(KernelLaunchType kernelLaunchType)
+bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord)
 {
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord{};
     eventRecord.type = RecordType::KERNEL_LAUNCH_RECORD;
-    eventRecord.record.kernelLaunchRecord = CreateKernelLaunchRecord(kernelLaunchType);
+    eventRecord.record.kernelLaunchRecord = CreateKernelLaunchRecord(kernelLaunchRecord);
     std::lock_guard<std::mutex> guard(mutex_);
     eventRecord.record.kernelLaunchRecord.kernelLaunchIndex = ++kernelLaunchRecordIndex_;
     eventRecord.record.kernelLaunchRecord.recordIndex = ++recordIndex_;
     auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
-    Utility::LogInfo("client kernelLaunch record, index: %u, type: %u, time: %u",
+    Utility::LogInfo("client kernelLaunch record, name: %s, index: %u, type: %u, time: %u, streamId: %d, blockDim: %u",
+        eventRecord.record.kernelLaunchRecord.kernelName,
         kernelLaunchRecordIndex_,
-        kernelLaunchType,
-        eventRecord.record.kernelLaunchRecord.timeStamp);
+        eventRecord.record.kernelLaunchRecord.type,
+        eventRecord.record.kernelLaunchRecord.timeStamp,
+        eventRecord.record.kernelLaunchRecord.streamId,
+        eventRecord.record.kernelLaunchRecord.blockDim);
     return (sendNums >= 0);
 }
 

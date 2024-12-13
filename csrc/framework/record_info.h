@@ -107,6 +107,9 @@ struct KernelLaunchRecord {
     uint64_t recordIndex; // 记录索引
     KernelLaunchType type; // KernelLaunch类型
     uint64_t timeStamp; // 时间戳
+    int32_t streamId; // streamId
+    uint32_t blockDim; // 算子核函数运行所需核数
+    char kernelName[64U]; // kernel名称
 };
 
 enum class MarkType : int32_t {
@@ -118,6 +121,7 @@ enum class MarkType : int32_t {
 struct MstxRecord {
     MarkType markType;
     uint64_t rangeId; // 只有Range才会存在ID，纯mark默认为0
+    int32_t streamId; // streamId, range end对应的值为-1
     char markMessage[64U];
 };
 
