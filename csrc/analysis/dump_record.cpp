@@ -1,6 +1,5 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
-#include <iostream>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
@@ -12,9 +11,12 @@ constexpr uint32_t DIRMOD = 0777;
 bool DumpRecord::CreateFile(const ClientId &clientId, FILE *clientfp, std::string type)
 {
     std::string dirPath = "leaksDumpResults";
-    if (opendir(dirPath.c_str()) == nullptr && mkdir(dirPath.c_str(), DIRMOD) != 0) {
-        Utility::LogError("cannot create dir %s", dirPath.c_str());
-        return false;
+    if (access(dirPath.c_str(), F_OK) == -1) {
+        Utility::LogInfo("dir %s does not exist", dirPath.c_str());
+        if (mkdir(dirPath.c_str(), DIRMOD) != 0) {
+            Utility::LogError("cannot create dir %s", dirPath.c_str());
+            return false;
+        }
     }
     if (clientfp == nullptr) {
         auto now = std::chrono::system_clock::now();
