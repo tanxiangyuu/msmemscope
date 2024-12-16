@@ -1,8 +1,9 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
-#include <iostream>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <dirent.h>
 #include "log.h"
 #include "dump_record.h"
@@ -12,9 +13,14 @@ constexpr uint32_t DIRMOD = 0777;
 bool DumpRecord::CreateFile(const ClientId &clientId, FILE *clientfp, std::string type)
 {
     std::string dirPath = "leaksDumpResults";
-    if (opendir(dirPath.c_str()) == nullptr && mkdir(dirPath.c_str(), DIRMOD) != 0) {
-        Utility::LogError("cannot create dir %s", dirPath.c_str());
-        return false;
+    if (access(dirPath.c_str(), F_OK) == -1) {
+        Utility::LogInfo("dir %s does not exist", dirPath.c_str());
+        if (mkdir(dirPath.c_str(), DIRMOD) != 0) {
+            Utility::LogError("cannot create dir %s", dirPath.c_str());
+            return false;
+        } else {
+            Utility::LogInfo("dir %s is created", dirPath.c_str());
+        }
     }
     if (clientfp == nullptr) {
         auto now = std::chrono::system_clock::now();
@@ -79,41 +85,40 @@ bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRec
     if (!CreateFile(clientId, leaksDataFile[clientId], "msleaks")) {
         return false;
     }
-    std::string space;
-    uint64_t totalMem;
+    MemOpSpace space;
+    uint64_t totalMemSize;
+    uint64_t memSize;
     if (memRecord.memType == MemOpType::MALLOC) {
+        memSizeMap[clientId][memRecord.addr] = memRecord.memSize;
+        memOpMap[clientId][memRecord.addr] = memRecord.space;
+        space = memRecord.space;
+        memSize = memRecord.memSize;
         if (memRecord.space == MemOpSpace::HOST) {
             memHost[clientId] += memRecord.memSize;
-            memSizeMap[clientId][memRecord.addr] += memRecord.memSize;
-            memOpMap[clientId][memRecord.addr] = MemOpSpace::HOST;
-            space = "host";
-            totalMem = memHost[clientId];
+            totalMemSize = memHost[clientId];
         } else if (memRecord.space == MemOpSpace::DEVICE) {
             memDevice[clientId] += memRecord.memSize;
-            memSizeMap[clientId][memRecord.addr] += memRecord.memSize;
-            memOpMap[clientId][memRecord.addr] = MemOpSpace::DEVICE;
-            space = "device";
-            totalMem = memDevice[clientId];
+            totalMemSize = memDevice[clientId];
         }
     } else {
+        space = memOpMap[clientId][memRecord.addr];
+        memSize = memSizeMap[clientId][memRecord.addr];
         if (memOpMap[clientId][memRecord.addr] == MemOpSpace::HOST) {
             memHost[clientId] -= memSizeMap[clientId][memRecord.addr];
-            space = "host";
-            totalMem = memHost[clientId];
+            totalMemSize = memHost[clientId];
         } else if (memOpMap[clientId][memRecord.addr] == MemOpSpace::DEVICE) {
             memDevice[clientId] -= memSizeMap[clientId][memRecord.addr];
-            space = "device";
-            totalMem = memDevice[clientId];
+            totalMemSize = memDevice[clientId];
         }
         memOpMap[clientId][memRecord.addr] = MemOpSpace::INVALID;
         memSizeMap[clientId][memRecord.addr] = 0;
     }
     std::string memOp = memRecord.memType == MemOpType::MALLOC ? "malloc" : "free";
 
-    fprintf(leaksDataFile[clientId], "%s,%lu,%lu,%lu,%d,%lu,%lu,%lu,%llu,%d,%s,%lu,%lu,%lu\n",
+    fprintf(leaksDataFile[clientId], "%s,%lu,%lu,%lu,%d,%lu,%lu,%lu,%llu,%d,%d,%lu,%lu,%lu\n",
             memOp.c_str(), memRecord.pid, memRecord.tid, clientId, memRecord.devid, memRecord.recordIndex,
-            memRecord.timeStamp, memRecord.kernelIndex, memRecord.flag, memRecord.modid, space.c_str(),
-            memRecord.addr, memSizeMap[clientId][memRecord.addr], totalMem);
+            memRecord.timeStamp, memRecord.kernelIndex, memRecord.flag, memRecord.modid, int(space),
+            memRecord.addr, memSize, totalMemSize);
     return true;
 }
 bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchRecord &kernelLaunchRecord)
