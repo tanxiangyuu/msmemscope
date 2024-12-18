@@ -11,6 +11,7 @@ namespace Leaks {
 
 // 内存分析算法配置
 struct AnalysisConfig {
+    bool parseKernelName; // 解析kernelname的开关
 };
 
 // 用于承载用户命令行参数的解析结果

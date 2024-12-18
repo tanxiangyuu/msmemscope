@@ -13,162 +13,24 @@
 #include <unordered_map>
 #include <map>
 
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
 #include "event_report.h"
 #include "vallina_symbol.h"
 #include "serializer.h"
 #include "log.h"
 #include "record_info.h"
-#include "ustring.h"
-#include "umask_guard.h"
-#include "securec.h"
 #include "handle_mapping.h"
 
 using namespace Leaks;
 
-namespace {
-std::vector<char *> ToRawCArgv(std::vector<std::string> const &argv)
+// 通过stubFunc获取二进制文件的句柄
+const void* GetHandleByStubFunc(const void *stubFunc)
 {
-    std::vector<char *> rawArgv;
-    for (auto const &arg: argv) {
-        rawArgv.emplace_back(const_cast<char *>(arg.data()));
-    }
-    rawArgv.emplace_back(nullptr);
-    return rawArgv;
-}
-}
-
-bool PipeCall(std::vector<std::string> const &cmd, std::string &output)
-{
-    int pipeStdout[2];
-    if (pipe(pipeStdout) != 0) {
-        Utility::LogError("PipeCall: get pipe failed");
-        return false;
-    }
-
-    pid_t pid = fork();
-    if (pid < 0) {
-        Utility::LogError("PipeCall: create subprocess failed");
-        return false;
-    } else if (pid == 0) {
-        dup2(pipeStdout[1], STDOUT_FILENO);
-        close(pipeStdout[0]);
-        close(pipeStdout[1]);
-        execvp(cmd[0].c_str(), ToRawCArgv(cmd).data());
-        _exit(EXIT_FAILURE);
-    } else {
-        close(pipeStdout[1]);
-        static constexpr std::size_t bufLen = 256UL;
-        char buf[bufLen] = {'\0'};
-        ssize_t nBytes = 0L;
-        for (; (nBytes = read(pipeStdout[0], buf, bufLen)) > 0L;) {
-            output.append(buf, static_cast<std::size_t>(nBytes));
-        }
-        close(pipeStdout[0]);
-        int status;
-        waitpid(pid, &status, 0);
-        return WIFEXITED(status) && WEXITSTATUS(status) == 0;
-    }
-    return true;
-}
-
-std::string ParseLine(std::string const &line)
-{
-    std::vector<std::string> items;
-    Utility::Split(line, std::back_inserter(items), " ");
-    if (items.size() < 5UL) {
-        return "";
-    }
-    constexpr std::size_t scopeIdx = 1UL;
-    constexpr std::size_t symbolKindIdx = 2UL;
-    if (items[scopeIdx] != "g" || items[symbolKindIdx] != "F") {
-        return "";
-    }
-    constexpr std::size_t kernelNameIdx = 4UL;
-    std::string kernelName = items[kernelNameIdx];
-    if (Utility::EndWith(kernelName, "_mix_aic") ||
-        Utility::EndWith(kernelName, "_mix_aiv")) {
-        kernelName = kernelName.substr(0UL, kernelName.length() - 8UL);
-    }
-
-    items.clear();
-    Utility::Split(kernelName, std::back_inserter(items), "_");
-    if (items.size() < 2UL) {
-        return "";
-    }
-    std::string kernelNamePrefix = items[0] + "_" + items[1];
-    return kernelNamePrefix;
-}
-
-std::string ParseNameFromOutput(std::string output)
-{
-    std::string kernelName;
-    std::vector<std::string> lines;
-    Utility::Split(output, std::back_inserter(lines), "\n");
-
-    // skip headers
-    auto it = lines.cbegin();
-    for (; it != lines.cend(); ++it) {
-        if (it->find("SYMBOL TABLE:") != std::string::npos) {
-            break;
-        }
-    }
-
-    if (it == lines.cend()) {
-        return kernelName;
-    }
-    ++it;
-
-    for (; it != lines.cend(); ++it) {
-        kernelName = ParseLine(*it);
-        if (!kernelName.empty()) {
-            return kernelName;
-        }
-    }
-    return kernelName;
-}
-
-std::string GetNameFromBinary(void *hdl)
-{
-    std::string kernelName;
-    auto it = HandleMapping::GetInstance().handleBinKernelMap_.find(hdl);
-    if (it == HandleMapping::GetInstance().handleBinKernelMap_.end()) {
-        Utility::LogError("kernel handle NOT registered in map");
-        return kernelName;
-    }
-    std::vector<char> binary = it->second.bin;
-    std::string kernelPath = "./kernel.o." + std::to_string(getpid());
-    {
-        Utility::UmaskGuard umaskGuard(REGULAR_MODE_MASK);
-        if (!WriteBinary(kernelPath, binary.data(), binary.size())) {
-            return kernelName;
-        }
-    }
-    std::vector<std::string> cmd = {
-        "llvm-objdump",
-        "-t",
-        kernelPath
-    };
-
-    std::string output;
-    bool ret = PipeCall(cmd, output);
-    kernelName = ParseNameFromOutput(output);
-    remove(kernelPath.c_str());
-    return kernelName;
-}
-
-std::string GetKernelNameByStubFunc(const void *stubFunc)
-{
-    std::string kernelName;
     auto it = HandleMapping::GetInstance().stubHandleMap_.find(stubFunc);
     if (it == HandleMapping::GetInstance().stubHandleMap_.end()) {
         Utility::LogError("stubFunc NOT registered in map");
-        return kernelName;
+        return nullptr;
     }
-    kernelName = GetNameFromBinary(const_cast<void *>(it->second));
-    return kernelName;
+    return const_cast<void *>(it->second);
 }
 
 KernelLaunchRecord CreateKernelLaunchRecord(uint32_t blockDim, rtStream_t stm, KernelLaunchType type)
@@ -195,11 +57,8 @@ RTS_API rtError_t rtKernelLaunch(
     rtError_t ret = vallina(stubFunc, blockDim, args, argsSize, smDesc, stm);
     auto record = KernelLaunchRecord {};
     record = CreateKernelLaunchRecord(blockDim, stm, KernelLaunchType::NORMAL);
-    if (strncpy_s(record.kernelName, sizeof(record.kernelName),
-        GetKernelNameByStubFunc(stubFunc).c_str(), sizeof(record.kernelName) - 1) != EOK) {
-        Utility::LogError("strncpy_s FAILED");
-    }
-    if (!EventReport::Instance(CommType::SOCKET).ReportKernelLaunch(record)) {
+    auto hdl = GetHandleByStubFunc(stubFunc);
+    if (!EventReport::Instance(CommType::SOCKET).ReportKernelLaunch(record, hdl)) {
         Utility::LogError("%s report FAILED", __func__);
     }
     return ret;
@@ -218,11 +77,7 @@ RTS_API rtError_t rtKernelLaunchWithHandleV2(void *hdl, const uint64_t tilingKey
     rtError_t ret = vallina(hdl, tilingKey, blockDim, argsInfo, smDesc, stm, cfgInfo);
     auto record = KernelLaunchRecord {};
     record = CreateKernelLaunchRecord(blockDim, stm, KernelLaunchType::HANDLEV2);
-    if (strncpy_s(record.kernelName, sizeof(record.kernelName),
-        GetNameFromBinary(hdl).c_str(), sizeof(record.kernelName) - 1) != EOK) {
-        Utility::LogError("strncpy_s FAILED");
-    }
-    if (!EventReport::Instance(CommType::SOCKET).ReportKernelLaunch(record)) {
+    if (!EventReport::Instance(CommType::SOCKET).ReportKernelLaunch(record, hdl)) {
         Utility::LogError("%s report FAILED", __func__);
     }
     return ret;
@@ -241,11 +96,8 @@ RTS_API rtError_t rtKernelLaunchWithFlagV2(const void *stubFunc, uint32_t blockD
     rtError_t ret = vallina(stubFunc, blockDim, argsInfo, smDesc, stm, flags, cfgInfo);
     auto record = KernelLaunchRecord {};
     record = CreateKernelLaunchRecord(blockDim, stm, KernelLaunchType::FLAGV2);
-    if (strncpy_s(record.kernelName, sizeof(record.kernelName),
-        GetKernelNameByStubFunc(stubFunc).c_str(), sizeof(record.kernelName) - 1) != EOK) {
-        Utility::LogError("strncpy_s FAILED");
-    }
-    if (!EventReport::Instance(CommType::SOCKET).ReportKernelLaunch(record)) {
+    auto hdl = GetHandleByStubFunc(stubFunc);
+    if (!EventReport::Instance(CommType::SOCKET).ReportKernelLaunch(record, hdl)) {
         Utility::LogError("%s report FAILED", __func__);
     }
     return ret;

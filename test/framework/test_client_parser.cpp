@@ -39,6 +39,36 @@ TEST(ClientParser, pass_help_parameter_expect_get_print_help_info)
     UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_TRUE(cmd.printHelpInfo);
 }
+
+TEST(ClientParser, pass_help_parameter_expect_show_help_info)
+{
+    std::vector<const char*> argv = {
+        "asan",
+        "--help"
+    };
+
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    testing::internal::CaptureStdout();
+    cliParser.Interpretor(argv.size(), const_cast<char**>(argv.data()));
+    std::string capture = testing::internal::GetCapturedStdout();
+    ASSERT_NE(capture.find("Usage"), std::string::npos);
+}
+
+TEST(ClientParser, pass_parse_kernel_name_parameter_expect_get_kernel_name)
+{
+    std::vector<const char*> argv = {
+        "leaks",
+        "-p"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.config.parseKernelName);
+}
  
 TEST(ClientParser, pass_empty_prog_name_expect_get_empty_bin_cmd)
 {

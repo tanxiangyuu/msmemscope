@@ -1,12 +1,19 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
 #include "event_report.h"
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <chrono>
 #include "log.h"
 #include "protocol.h"
 #include "serializer.h"
 #include "utils.h"
 #include "vallina_symbol.h"
+#include "ustring.h"
+#include "handle_mapping.h"
+#include "umask_guard.h"
+#include "securec.h"
 
 namespace Leaks {
 
@@ -113,8 +120,16 @@ EventReport& EventReport::Instance(CommType type)
 EventReport::EventReport(CommType type)
 {
     (void)LocalProcess::GetInstance(type); // 连接server
+    // 接受server端发送的消息
+    std::string msg;
+    // 默认10次重试
+    LocalProcess::GetInstance(type).Wait(msg);
+    AnalysisConfig config;
+    Deserialize(msg, config);
+    parseKernelName = config.parseKernelName;
     return;
 }
+
 bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord)
 {
     PacketHead head = {PacketType::RECORD};
@@ -127,6 +142,7 @@ bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord)
     Utility::LogInfo("TorchNpu Record, index: %u", recordIndex_);
     return (sendNums >= 0);
 }
+
 bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag)
 {
     int32_t devid = GD_INVALID_NUM;
@@ -181,11 +197,16 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord)
     return true;
 }
 
-bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord)
+bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, const void *hdl)
 {
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord{};
     eventRecord.type = RecordType::KERNEL_LAUNCH_RECORD;
+    // 解析kernelname信息，默认不解析，打开-p开关后才解析
+    if (parseKernelName && strncpy_s(kernelLaunchRecord.kernelName, sizeof(kernelLaunchRecord.kernelName),
+        GetNameFromBinary(hdl).c_str(), sizeof(kernelLaunchRecord.kernelName) - 1) != EOK) {
+        Utility::LogError("strncpy_s FAILED");
+    }
     eventRecord.record.kernelLaunchRecord = CreateKernelLaunchRecord(kernelLaunchRecord);
     std::lock_guard<std::mutex> guard(mutex_);
     eventRecord.record.kernelLaunchRecord.kernelLaunchIndex = ++kernelLaunchRecordIndex_;
@@ -217,4 +238,136 @@ bool EventReport::ReportAclItf(AclOpType aclOpType)
         eventRecord.record.aclItfRecord.timeStamp);
     return (sendNums >= 0);
 }
+
+std::vector<char *> ToRawCArgv(std::vector<std::string> const &argv)
+{
+    std::vector<char *> rawArgv;
+    for (auto const &arg: argv) {
+        rawArgv.emplace_back(const_cast<char *>(arg.data()));
+    }
+    rawArgv.emplace_back(nullptr);
+    return rawArgv;
+}
+
+bool PipeCall(std::vector<std::string> const &cmd, std::string &output)
+{
+    int pipeStdout[2];
+    if (pipe(pipeStdout) != 0) {
+        Utility::LogError("PipeCall: get pipe failed");
+        return false;
+    }
+
+    pid_t pid = fork();
+    if (pid < 0) {
+        Utility::LogError("PipeCall: create subprocess failed");
+        return false;
+    } else if (pid == 0) {
+        dup2(pipeStdout[1], STDOUT_FILENO);
+        close(pipeStdout[0]);
+        close(pipeStdout[1]);
+        // llvm-objdump解析kernel.o文件中的二进制数据
+        execvp(cmd[0].c_str(), ToRawCArgv(cmd).data());
+        _exit(EXIT_FAILURE);
+    } else {
+        close(pipeStdout[1]);
+        static constexpr std::size_t bufLen = 256UL;
+        char buf[bufLen] = {'\0'};
+        ssize_t nBytes = 0L;
+        for (; (nBytes = read(pipeStdout[0], buf, bufLen)) > 0L;) {
+            output.append(buf, static_cast<std::size_t>(nBytes));
+        }
+        close(pipeStdout[0]);
+        int status;
+        waitpid(pid, &status, 0);
+        return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+    }
+    return true;
+}
+
+std::string ParseLine(std::string const &line)
+{
+    std::vector<std::string> items;
+    Utility::Split(line, std::back_inserter(items), " ");
+    if (items.size() < 5UL) {
+        return "";
+    }
+    constexpr std::size_t scopeIdx = 1UL;
+    constexpr std::size_t symbolKindIdx = 2UL;
+    if (items[scopeIdx] != "g" || items[symbolKindIdx] != "F") {
+        return "";
+    }
+    constexpr std::size_t kernelNameIdx = 4UL;
+    std::string kernelName = items[kernelNameIdx];
+    if (Utility::EndWith(kernelName, "_mix_aic") ||
+        Utility::EndWith(kernelName, "_mix_aiv")) {
+        kernelName = kernelName.substr(0UL, kernelName.length() - 8UL);
+    }
+
+    items.clear();
+    Utility::Split(kernelName, std::back_inserter(items), "_");
+    if (items.size() < 2UL) {
+        return "";
+    }
+    std::string kernelNamePrefix = items[0] + "_" + items[1];
+    return kernelNamePrefix;
+}
+
+std::string ParseNameFromOutput(std::string output)
+{
+    std::string kernelName;
+    std::vector<std::string> lines;
+    Utility::Split(output, std::back_inserter(lines), "\n");
+
+    // skip headers
+    auto it = lines.cbegin();
+    for (; it != lines.cend(); ++it) {
+        if (it->find("SYMBOL TABLE:") != std::string::npos) {
+            break;
+        }
+    }
+
+    if (it == lines.cend()) {
+        return kernelName;
+    }
+    ++it;
+
+    for (; it != lines.cend(); ++it) {
+        // 解析每一行符号表数据，取出kernelname
+        kernelName = ParseLine(*it);
+        if (!kernelName.empty()) {
+            return kernelName;
+        }
+    }
+    return kernelName;
+}
+
+std::string GetNameFromBinary(const void *hdl)
+{
+    std::string kernelName;
+    auto it = HandleMapping::GetInstance().handleBinKernelMap_.find(hdl);
+    if (it == HandleMapping::GetInstance().handleBinKernelMap_.end()) {
+        Utility::LogError("kernel handle NOT registered in map");
+        return kernelName;
+    }
+    std::vector<char> binary = it->second.bin;
+    std::string kernelPath = "./kernel.o." + std::to_string(getpid());
+    {
+        Utility::UmaskGuard umaskGuard(REGULAR_MODE_MASK);
+        if (!WriteBinary(kernelPath, binary.data(), binary.size())) {
+            return kernelName;
+        }
+    }
+    std::vector<std::string> cmd = {
+        "llvm-objdump",
+        "-t",
+        kernelPath
+    };
+
+    std::string output;
+    bool ret = PipeCall(cmd, output);
+    kernelName = ParseNameFromOutput(output);
+    remove(kernelPath.c_str());
+    return kernelName;
+}
+
 }

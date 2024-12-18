@@ -2,6 +2,8 @@
 #include <gtest/gtest.h>
 #include "event_trace/event_report.h"
 #include "event_trace/vallina_symbol.h"
+#include "handle_mapping.h"
+#include "securec.h"
 
 using namespace Leaks;
 
@@ -45,7 +47,8 @@ TEST(EventReportTest, ReportMarkTest) {
 TEST(EventReportTest, ReportKernelLaunchTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     KernelLaunchRecord record;
-    EXPECT_TRUE(instance.ReportKernelLaunch(record));
+    void *hdl = nullptr;
+    EXPECT_TRUE(instance.ReportKernelLaunch(record, hdl));
 }
 
 TEST(EventReportTest, ReportAclItfTest) {
@@ -66,4 +69,85 @@ TEST(EventReportTest, VallinaSymbolTest) {
     using va = VallinaSymbol<TestLoader>;
     char const *symbol;
     va::Instance().Get(symbol);
+}
+
+TEST(KernelNameFunc, PipeCallGivenLsCommandReturnFalse)
+{
+    std::vector<std::string> argv = {"/bin/ls", "/tmp"};
+    std::string output;
+    ASSERT_TRUE(PipeCall(argv, output));
+    ASSERT_FALSE(output.empty());
+}
+
+TEST(KernelNameFunc, PipeCallGivenTestCommandReturnFalse)
+{
+    std::vector<std::string> argv = {"test-command"};
+    std::string output;
+    ASSERT_FALSE(PipeCall(argv, output));
+}
+
+TEST(KernelNameFunc, WriteBinaryGivenValidDataReturnSuccess)
+{
+    std::string fileName = "./test.bin";
+    char wbuf[] = "123456789";
+    ASSERT_TRUE(WriteBinary(fileName, wbuf, sizeof(wbuf)));
+
+    std::ifstream ifs;
+    ifs.open(fileName, std::ios::binary);
+    ASSERT_TRUE(ifs.is_open());
+    char rbuf[sizeof(wbuf)];
+    ifs.read(rbuf, sizeof(rbuf));
+    ifs.close();
+    ASSERT_EQ(std::string(wbuf), std::string(rbuf));
+
+    std::remove(fileName.c_str());
+}
+
+TEST(KernelNameFunc, ParseLineGivenValidKernelNameLineReturnTrueName)
+{
+    std::string line = "0000 g F .text ReduceSum_7a09f_high_performance_123_mix_aiv";
+    std::string kernelName;
+    kernelName = ParseLine(line);
+    ASSERT_EQ(kernelName, "ReduceSum_7a09f");
+}
+
+TEST(KernelNameFunc, ParseLineGivenInvalidKernelNameLineReturnEmptyName)
+{
+    std::string line = "000 g O .data g_opSystemRunCfg";
+    std::string kernelName;
+    kernelName = ParseLine(line);
+    ASSERT_EQ(kernelName, "");
+}
+
+TEST(KernelNameFunc, ParseNameFromOutputGivenValidSymbolTableReturnTrueName)
+{
+    std::string output = ("SYMBOL TABLE:\n"
+    "000 g F .text test_000_mix_aic"
+    "000 g O .data g_opSystemRunCfg\n");
+    std::string kernelName;
+    kernelName = ParseNameFromOutput(output);
+    ASSERT_EQ(kernelName, "test_000");
+}
+
+TEST(KernelNameFunc, ParseNameFromOutputGivenInValidSymbolTableReturnEmptyName)
+{
+    std::string output = ("TEST TABLE:\n"
+    "000 g F .text test_000_mix_aic"
+    "000 g O .data g_opSystemRunCfg\n");
+    std::string kernelName;
+    kernelName = ParseNameFromOutput(output);
+    ASSERT_EQ(kernelName, "");
+}
+
+TEST(KernelNameFunc, GetNameFromBinaryGivenHdlReturnEmptyName)
+{
+    std::vector<uint8_t> handleData{1, 2, 3};
+    void *hdl = handleData.data();
+    Leaks::BinKernel binData {};
+    binData.bin = {0x01, 0x02, 0x03, 0x04};
+    std::string kernelName;
+    Leaks::HandleMapping::GetInstance().handleBinKernelMap_.insert({hdl, binData});
+    kernelName = GetNameFromBinary(hdl);
+    Leaks::HandleMapping::GetInstance().handleBinKernelMap_.erase(hdl);
+    ASSERT_EQ(kernelName, "");
 }

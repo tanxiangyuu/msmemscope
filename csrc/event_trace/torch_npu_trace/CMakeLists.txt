@@ -18,4 +18,6 @@ target_include_directories(leaks_torch_npu_trace PUBLIC
   ${FUNC_HOSTINJECTION_DIR}
   ${UTILITY_INC_DIR}
   ${TORCH_NPU_TRACE_DIR}
+  ${SECUREC_INC_DIR}
 )
+target_link_libraries(leaks_torch_npu_trace c_sec)

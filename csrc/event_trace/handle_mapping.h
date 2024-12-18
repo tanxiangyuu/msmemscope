@@ -1,7 +1,7 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
-#ifndef __HOOK_GLOBAL_HANDLE_H__
-#define __HOOK_GLOBAL_HANDLE_H__
+#ifndef __HOOK_HANDLE_MAPPING_H__
+#define __HOOK_HANDLE_MAPPING_H__
 
 namespace Leaks {
 

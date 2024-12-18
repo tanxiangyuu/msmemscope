@@ -9,7 +9,7 @@ namespace Leaks {
 
 void Command::Exec(const std::vector<std::string> &execParams) const
 {
-    Process process;
+    Process process(config_);
     std::map<ClientId, Protocol> protocolList;
     Analyzer analyzer(config_);
 
@@ -33,7 +33,6 @@ void Command::Exec(const std::vector<std::string> &execParams) const
 
         return;
     };
-
     process.RegisterMsgHandlerHook(msgHandler);
     process.Launch(execParams);
 

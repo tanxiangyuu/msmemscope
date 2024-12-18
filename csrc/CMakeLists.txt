@@ -16,7 +16,7 @@ target_include_directories(
                         ${SECUREC_INC_DIR}
 )
 
-target_link_libraries(ascend_leaks pthread stdc++fs dl)
+target_link_libraries(ascend_leaks pthread stdc++fs dl c_sec)
 
 add_subdirectory(framework)
 add_subdirectory(utility)
