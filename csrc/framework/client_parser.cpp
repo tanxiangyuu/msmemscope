@@ -10,18 +10,45 @@
 
 namespace Leaks {
 
+void ShowDescription()
+{
+    std::cout <<
+        "msleaks(MindStudio Leaks) is part of MindStudio Memory analysis Tools." << std::endl;
+}
+
+void ShowHelpInfo()
+{
+    ShowDescription();
+    std::cout <<
+        std::endl <<
+        "Usage: msleaks <option(s)> prog-and-args" << std::endl <<
+        std::endl <<
+        "  basic user options, with default in [ ]:" << std::endl <<
+        "    -h --help                      show this message" << std::endl <<
+        "    -p --parse-kernel-name         enable parse kernelLaunchName" << std::endl;
+}
+
+void DoUserCommand(const UserCommand &userCommand)
+{
+    if (userCommand.printHelpInfo) {
+        ShowHelpInfo();
+        return ;
+    }
+    Command command {userCommand.config};
+    command.Exec(userCommand.cmd);
+}
+
 void ClientParser::Interpretor(int32_t argc, char **argv)
 {
     auto userCommand = Parse(argc, argv);
-    Command command {userCommand.config};
-    command.Exec(userCommand.cmd);
-    return;
+    DoUserCommand(userCommand);
 }
 
 std::vector<option> GetLongOptArray()
 {
     std::vector<option> longOpts = {
         {"help", no_argument, nullptr, 'h'},
+        {"parse-kernel-name", no_argument, nullptr, 'p'},
         {nullptr, 0, nullptr, 0},
     };
     return longOpts;
@@ -51,6 +78,9 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
             break;
         case 'h': // for --help
             userCommand.printHelpInfo = true;
+            break;
+        case 'p': // parse kernel name
+            userCommand.config.parseKernelName = true;
             break;
         default:
             ;
@@ -82,7 +112,6 @@ UserCommand ClientParser::Parse(int32_t argc, char **argv)
         ParseUserCommand(opt, param, userCommand);
         // 打印help时不进行其他操作
         if (userCommand.printHelpInfo) {
-            std::cout << "-h --help" << std::endl;
             return userCommand;
         }
     }

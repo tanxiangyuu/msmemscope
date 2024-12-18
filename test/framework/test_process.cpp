@@ -16,8 +16,8 @@ TEST(Process, process_launch_ls_expect_success)
     std::streambuf *sbuf = std::cout.rdbuf();
     std::cout.rdbuf(buffer.rdbuf());
     std::string outputInfo = "user program exited";
-
-    Process process;
+    AnalysisConfig config;
+    Process process(config);
     process.Launch(execParams);
     std::string captureInfo = buffer.str();
     EXPECT_EQ(captureInfo.find(outputInfo), std::string::npos);
@@ -32,7 +32,8 @@ TEST(Process, process_launch_empty_expect_success)
     std::cout.rdbuf(buffer.rdbuf());
     std::string outputInfo = "exited abnormally";
 
-    Process process;
+    AnalysisConfig config;
+    Process process(config);
     process.Launch(execParams);
     std::string captureInfo = buffer.str();
     EXPECT_NE(captureInfo.find(outputInfo), std::string::npos);
@@ -42,7 +43,8 @@ TEST(Process, process_launch_empty_expect_success)
 TEST(Process, process_setpreloadenv_expect_success)
 {
     setenv("LD_PRELOAD_PATH", "/lib64/", 1);
-    Process process;
+    AnalysisConfig config;
+    Process process(config);
     process.SetPreloadEnv();
     char *env = getenv("LD_PRELOAD");
     std::string hooksSo = "libascend_hal_hook.so:libascend_mstx_hook.so:libascend_kernel_hook.so";
@@ -58,7 +60,8 @@ TEST(Process, process_postprocess_exit_signal_expect_success)
     std::vector<std::string> execParams = {"ls"};
     ExecCmd cmd(execParams);
     ::pid_t pid = ::fork();
-    Process process;
+    AnalysisConfig config;
+    Process process(config);
     if (pid == 0) {
         sleep(200);
         _exit(EXIT_SUCCESS);
@@ -81,7 +84,8 @@ TEST(Process, process_postprocess_exit_abnormal_expect_success)
     std::vector<std::string> execParams = {""};
     ExecCmd cmd(execParams);
     ::pid_t pid = ::fork();
-    Process process;
+    AnalysisConfig config;
+    Process process(config);
     if (pid == 0) {
         _exit(EXIT_FAILURE);
     } else {

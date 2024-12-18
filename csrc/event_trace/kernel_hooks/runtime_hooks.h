@@ -13,7 +13,6 @@
 #include <dlfcn.h>
 
 constexpr uint64_t MAX_BINARY_SIZE = 32ULL * 1024 * 1024 * 1024; // 32GB
-constexpr mode_t REGULAR_MODE_MASK = 0177;
 
 #ifdef __cplusplus
 extern "C" {
@@ -139,20 +138,6 @@ RTS_API rtError_t rtDevBinaryUnRegister(void *hdl);
 }  // extern "C"
 #endif
 
-inline bool WriteBinary(std::string const &filename, char const *data, uint64_t length)
-{
-    if (!data) {
-        return false;
-    }
-    std::ofstream ofs(filename, std::ios::out | std::ios::binary);
-    ofs.write(data, length);
-    return ofs.good();
-}
-
-bool PipeCall(std::vector<std::string> const &cmd, std::string &output);
-std::string ParseLine(std::string const &line);
-std::string ParseNameFromOutput(std::string output);
-std::string GetNameFromBinary(void *hdl);
-std::string GetKernelNameByStubFunc(const void *stubFunc);
+const void* GetHandleByStubFunc(const void *stubFunc);
 
 #endif

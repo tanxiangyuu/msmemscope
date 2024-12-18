@@ -336,98 +336,13 @@ TEST(RuntimeHooks, do_rtDevBinaryUnRegister_expect_error)
     EXPECT_EQ(rtDevBinaryUnRegister(hdl), RT_ERROR_RESERVED);
 }
 
-TEST(KernelNameFunc, do_pipe_call_with_ls_return_correct_output)
+TEST(KernelNameFunc, getHandleByStubFunc_with_stubfunc_return_empty_kernelName)
 {
-    std::vector<std::string> argv = {"/bin/ls", "/tmp"};
-    std::string output;
-    ASSERT_TRUE(PipeCall(argv, output));
-    ASSERT_FALSE(output.empty());
-}
-
-TEST(KernelNameFunc, pipe_call_with_test_command_return_false)
-{
-    std::vector<std::string> argv = {"test-command"};
-    std::string output;
-    ASSERT_FALSE(PipeCall(argv, output));
-}
-
-TEST(KernelNameFunc, write_binary_with_vaild_data_return_success_and_read_correct_data)
-{
-    std::string fileName = "./test.bin";
-    char wbuf[] = "123456789";
-    ASSERT_TRUE(WriteBinary(fileName, wbuf, sizeof(wbuf)));
-
-    std::ifstream ifs;
-    ifs.open(fileName, std::ios::binary);
-    ASSERT_TRUE(ifs.is_open());
-    char rbuf[sizeof(wbuf)];
-    ifs.read(rbuf, sizeof(rbuf));
-    ifs.close();
-    ASSERT_EQ(std::string(wbuf), std::string(rbuf));
-
-    std::remove(fileName.c_str());
-}
-
-TEST(KernelNameFunc, parseLine_with_kernelName_line_return_true_kernelName)
-{
-    std::string line = "0000 g F .text ReduceSum_7a09f_high_performance_123_mix_aiv";
-    std::string kernelName;
-    kernelName = ParseLine(line);
-    ASSERT_EQ(kernelName, "ReduceSum_7a09f");
-}
-
-TEST(KernelNameFunc, do_parseLine_with_not_kernelName_line_return_empty_name)
-{
-    std::string line = "000 g O .data g_opSystemRunCfg";
-    std::string kernelName;
-    kernelName = ParseLine(line);
-    ASSERT_EQ(kernelName, "");
-}
-
-TEST(KernelNameFunc, parseNameFromOutput_with_symbol_table_output_return_true_kernelName)
-{
-    std::string output = ("SYMBOL TABLE:\n"
-    "000 g F .text test_000_mix_aic"
-    "000 g O .data g_opSystemRunCfg\n");
-    std::string kernelName;
-    kernelName = ParseNameFromOutput(output);
-    ASSERT_EQ(kernelName, "test_000");
-}
-
-TEST(KernelNameFunc, parseNameFromOutput_with_invaild_symbol_table_output_return_empty_name)
-{
-    std::string output = ("TEST TABLE:\n"
-    "000 g F .text test_000_mix_aic"
-    "000 g O .data g_opSystemRunCfg\n");
-    std::string kernelName;
-    kernelName = ParseNameFromOutput(output);
-    ASSERT_EQ(kernelName, "");
-}
-
-TEST(KernelNameFunc, getNameFromBinary_with_hdl_return_empty_kernelName)
-{
-    std::string output = ("SYMBOL TABLE:\n"
-    "000 g F .text test_000_mix_aic"
-    "000 g O .data g_opSystemRunCfg\n");
     std::vector<uint8_t> handleData{1, 2, 3};
-    void *hdl = handleData.data();
-    Leaks::BinKernel binData {};
-    binData.bin = {0x01, 0x02, 0x03, 0x04};
-    std::string kernelName;
-    Leaks::HandleMapping::GetInstance().handleBinKernelMap_.insert({hdl, binData});
-    kernelName = GetNameFromBinary(hdl);
-    Leaks::HandleMapping::GetInstance().handleBinKernelMap_.erase(hdl);
-    ASSERT_EQ(kernelName, "");
-}
-
-TEST(KernelNameFunc, getKernelNameByStubFunc_with_stubfunc_return_empty_kernelName)
-{
-    std::string kernelName;
-    std::vector<uint8_t> handleData{1, 2, 3};
-    void *hdl = handleData.data();
+    const void *hdl = handleData.data();
     void *stubFunc = handleData.data();
     Leaks::HandleMapping::GetInstance().stubHandleMap_.insert({stubFunc, hdl});
-    kernelName = GetKernelNameByStubFunc(stubFunc);
+    auto result = GetHandleByStubFunc(stubFunc);
     Leaks::HandleMapping::GetInstance().stubHandleMap_.erase(stubFunc);
-    ASSERT_EQ(kernelName, "");
+    ASSERT_EQ(hdl, result);
 }

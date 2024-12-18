@@ -7,6 +7,7 @@
 #include "path.h"
 #include "ustring.h"
 #include "log.h"
+#include "serializer.h"
 
 namespace {
 constexpr int64_t DELAY_TIME_FOR_READ_FROM_SOCKET = 100; // 单位毫秒
@@ -49,9 +50,13 @@ char *const *ExecCmd::ExecArgv(void) const
     return argv_.data();
 }
 
-Process::Process()
+Process::Process(const AnalysisConfig &config)
 {
-    server_ = std::unique_ptr<RemoteProcess>(new RemoteProcess(CommType::SOCKET));
+    server_ = std::unique_ptr<ServerProcess>(new ServerProcess(CommType::SOCKET));
+    // 设置clienthook函数, server端向client端发送消息
+    server_->SetClientConnectHook([this, config](ClientId clientId) {
+            this->server_->Notify(clientId, Serialize<AnalysisConfig>(config));
+        });
     server_->Start();
 }
 
