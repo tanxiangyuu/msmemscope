@@ -51,28 +51,27 @@ TEST(Analyzer, do_memory_record_expect_success)
     
     analyzer.LeakAnalyze();
 }
-
 TEST(Analyzer, do_kernellaunch_record_expect_success)
 {
     AnalysisConfig config;
     Analyzer analyzer(config);
 
+    ClientId clientId = 0;
     auto record = EventRecord{};
     record.type = RecordType::KERNEL_LAUNCH_RECORD;
-    ClientId clientId = 0;
+    auto kernelLaunchRecord = KernelLaunchRecord{};
+    
+    kernelLaunchRecord.pid = 2344;
+    kernelLaunchRecord.tid = 23445;
+    kernelLaunchRecord.kernelLaunchIndex = 123;
+    kernelLaunchRecord.recordIndex = 123;
+    kernelLaunchRecord.type = KernelLaunchType::NORMAL;
+    kernelLaunchRecord.timeStamp = 1234567;
+    kernelLaunchRecord.streamId = 123;
+    kernelLaunchRecord.blockDim = 123;
+    record.record.kernelLaunchRecord = kernelLaunchRecord;
+    
     analyzer.Do(clientId, record);
-
-    auto record2 = EventRecord{};
-    record2.type = RecordType::MEMORY_RECORD;
-    auto memRecordMalloc = MemOpRecord {};
-    memRecordMalloc.flag = 2377900603261207558;
-    memRecordMalloc.recordIndex = 123;
-    memRecordMalloc.addr = 0x7958;
-    memRecordMalloc.memSize = 1024;
-    memRecordMalloc.timeStamp = 1234567;
-    memRecordMalloc.memType = MemOpType::MALLOC;
-    record2.record.memoryRecord = memRecordMalloc;
-    analyzer.Do(clientId, record2);
 }
 
 TEST(Analyzer, do_aclitf_record_expect_success)
@@ -83,19 +82,15 @@ TEST(Analyzer, do_aclitf_record_expect_success)
     auto record = EventRecord{};
     record.type = RecordType::ACL_ITF_RECORD;
     ClientId clientId = 0;
+    auto aclItfRecord = AclItfRecord {};
+    aclItfRecord.pid = 23;
+    aclItfRecord.tid = 123;
+    aclItfRecord.recordIndex = 123;
+    aclItfRecord.type = AclOpType::INIT;
+    aclItfRecord.timeStamp = 1234567;
+    
+    record.record.aclItfRecord = aclItfRecord;
     analyzer.Do(clientId, record);
-
-    auto record2 = EventRecord{};
-    record2.type = RecordType::MEMORY_RECORD;
-    auto memRecordMalloc = MemOpRecord {};
-    memRecordMalloc.flag = 2377900603261207558;
-    memRecordMalloc.recordIndex = 123;
-    memRecordMalloc.addr = 0x7958;
-    memRecordMalloc.memSize = 1024;
-    memRecordMalloc.timeStamp = 1234567;
-    memRecordMalloc.memType = MemOpType::MALLOC;
-    record2.record.memoryRecord = memRecordMalloc;
-    analyzer.Do(clientId, record2);
 }
 
 TEST(AnalyzerTest, AnalyzerLeakAnalyze) {
@@ -329,7 +324,32 @@ TEST(MemoryHashTableTest, do_memory_record_nulltable) {
     analyzer.LeakAnalyze();
 }
 
-TEST(TorchnputraceTest, do_npu_trace_record_success)
+TEST(TorchnputraceTest, do_npu_trace_record)
+{
+    AnalysisConfig config;
+    Analyzer analyzer(config);
+
+    auto record = EventRecord{};
+    record.type = RecordType::TORCH_NPU_RECORD;
+    TorchNpuRecord torchNpuRecord;
+    MemoryUsage memoryUsage;
+    memoryUsage.allocator_type = 12;
+    memoryUsage.device_type = 34;
+    memoryUsage.device_index = 3;
+    memoryUsage.data_type = 1;
+    memoryUsage.ptr = 34;
+    memoryUsage.alloc_size = 123;
+    memoryUsage.total_allocated = 123;
+    memoryUsage.total_reserved = 123;
+    memoryUsage.total_active = 123;
+    memoryUsage.stream_ptr = 123;
+    torchNpuRecord.memoryUsage = memoryUsage;
+    record.record.torchNpuRecord = torchNpuRecord;
+    ClientId clientId = 0;
+    analyzer.Do(clientId, record);
+}
+
+TEST(TorchnputraceTest, do_npu_trace_empty_record)
 {
     AnalysisConfig config;
     Analyzer analyzer(config);
@@ -340,6 +360,7 @@ TEST(TorchnputraceTest, do_npu_trace_record_success)
     MemoryUsage memoryUsage;
     torchNpuRecord.memoryUsage = memoryUsage;
     record.record.torchNpuRecord = torchNpuRecord;
+    
     ClientId clientId = 0;
     analyzer.Do(clientId, record);
 }
