@@ -16,5 +16,6 @@ target_include_directories(ascend_hal_hook PUBLIC
   ${FUNC_INJECTION_DIR}
   ${FUNC_HOSTINJECTION_DIR}
   ${UTILITY_INC_DIR}
+  ${SECUREC_INC_DIR}
 )
-target_link_libraries(ascend_hal_hook ascend_hal stdc++fs)
+target_link_libraries(ascend_hal_hook ascend_hal stdc++fs c_sec)

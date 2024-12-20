@@ -6,7 +6,7 @@
 #include <memory>
 #include <string>
 #include <thread>
-#include "host_injection/core/RemoteProcess.h"
+#include "server_process.h"
 #include "config_info.h"
 
 namespace Leaks {
@@ -29,7 +29,7 @@ private:
 */
 class Process {
 public:
-    Process();
+    explicit Process(const AnalysisConfig &config);
     ~Process() = default;
     void Launch(const std::vector<std::string> &execParams);
     void RegisterMsgHandlerHook(ClientMsgHandlerHook msgHandler);
@@ -38,7 +38,7 @@ private:
     void DoLaunch(const ExecCmd &cmd);
     void PostProcess(const ExecCmd &cmd);
 private:
-    std::unique_ptr<RemoteProcess> server_;
+    std::unique_ptr<ServerProcess> server_;
 };
 
 }

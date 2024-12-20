@@ -10,6 +10,7 @@
 #include "kernel_hooks/runtime_hooks.h"
 #include "record_info.h"
 
+constexpr mode_t REGULAR_MODE_MASK = 0177;
 
 namespace Leaks {
 /*
@@ -21,7 +22,7 @@ public:
     static EventReport& Instance(CommType type);
     bool ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag);
     bool ReportFree(uint64_t addr);
-    bool ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord);
+    bool ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, const void *hdl);
     bool ReportAclItf(AclOpType aclOpType);
     bool ReportMark(MstxRecord &mstxRecord);
     bool ReportTorchNpu(TorchNpuRecord &torchNpuRecord);
@@ -31,6 +32,9 @@ private:
     uint64_t aclItfRecordIndex_ = 0;
     uint64_t kernelLaunchRecordIndex_ = 0;
     std::mutex mutex_;
+
+    // 是否解析kernelName
+    bool parseKernelName { false };
 };
 
 MemOpSpace GetMemOpSpace(unsigned long long flag);
@@ -43,6 +47,22 @@ extern "C" {
 #endif
 RTS_API rtError_t GetDeviceID(int32_t *devid);
 }
+
+inline bool WriteBinary(std::string const &filename, char const *data, uint64_t length)
+{
+    if (!data) {
+        return false;
+    }
+    std::ofstream ofs(filename, std::ios::out | std::ios::binary);
+    ofs.write(data, length);
+    return ofs.good();
+}
+
+std::vector<char *> ToRawCArgv(std::vector<std::string> const &argv);
+bool PipeCall(std::vector<std::string> const &cmd, std::string &output);
+std::string ParseLine(std::string const &line);
+std::string ParseNameFromOutput(std::string output);
+std::string GetNameFromBinary(const void *hdl);
 
 } // namespace Leaks
 #endif
