@@ -124,14 +124,33 @@ EventReport::EventReport(CommType type)
     std::string msg;
     // 默认10次重试
     LocalProcess::GetInstance(type).Wait(msg);
-    AnalysisConfig config;
-    Deserialize(msg, config);
-    parseKernelName = config.parseKernelName;
+    Deserialize(msg, config_);
+
     return;
+}
+
+bool EventReport::IsNeedSkip()
+{
+    auto stepList = config_.stepList;
+
+    if (stepList.stepCount == 0) {
+        return false;
+    }
+
+    for (uint8_t loop = 0; (loop < stepList.stepCount && loop < SELECTED_STEP_MAX_NUM); loop++) {
+        if (currentStep_ == stepList.stepIdList[loop]) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord)
 {
+    if (IsNeedSkip()) {
+        return true;
+    }
     PacketHead head = {PacketType::RECORD};
     EventRecord eventrecord;
     eventrecord.type = RecordType::TORCH_NPU_RECORD;
@@ -145,6 +164,9 @@ bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord)
 
 bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag)
 {
+    if (IsNeedSkip()) {
+        return true;
+    }
     int32_t devid = GD_INVALID_NUM;
     if (GetDevice(&devid) == RT_ERROR_INVALID_VALUE || devid == GD_INVALID_NUM) {
         Utility::LogError("RT_ERROR_INVALID_VALUE, %d!!!!!!!!!!!!", devid);
@@ -168,6 +190,9 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
 
 bool EventReport::ReportFree(uint64_t addr)
 {
+    if (IsNeedSkip()) {
+        return true;
+    }
     int32_t devid = GD_INVALID_NUM;
     if (GetDevice(&devid) == RT_ERROR_INVALID_VALUE || devid == GD_INVALID_NUM) {
         Utility::LogError("RT_ERROR_INVALID_VALUE, %d!!!!!!!!!!!!", devid);
@@ -194,16 +219,25 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord)
         Utility::LogInfo("this mark point message is %s, streamId is %d", mstxRecord.markMessage, mstxRecord.streamId);
     }
     Utility::LogInfo("this mark point id is %llu", mstxRecord.rangeId);
+
+    std::lock_guard<std::mutex> guard(mutex_);
+    if (mstxRecord.markType == MarkType::RANGE_START_A) {
+        currentStep_ = mstxRecord.rangeId;
+    }
+
     return true;
 }
 
 bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, const void *hdl)
 {
+    if (IsNeedSkip()) {
+        return true;
+    }
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord{};
     eventRecord.type = RecordType::KERNEL_LAUNCH_RECORD;
     // 解析kernelname信息，默认不解析，打开-p开关后才解析
-    if (parseKernelName && strncpy_s(kernelLaunchRecord.kernelName, sizeof(kernelLaunchRecord.kernelName),
+    if (config_.parseKernelName && strncpy_s(kernelLaunchRecord.kernelName, sizeof(kernelLaunchRecord.kernelName),
         GetNameFromBinary(hdl).c_str(), sizeof(kernelLaunchRecord.kernelName) - 1) != EOK) {
         Utility::LogError("strncpy_s FAILED");
     }
@@ -224,6 +258,9 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
 
 bool EventReport::ReportAclItf(AclOpType aclOpType)
 {
+    if (IsNeedSkip()) {
+        return true;
+    }
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord{};
     eventRecord.type = RecordType::ACL_ITF_RECORD;

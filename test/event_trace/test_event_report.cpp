@@ -1,6 +1,8 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 #include <gtest/gtest.h>
+#define private public
 #include "event_trace/event_report.h"
+#undef private
 #include "event_trace/vallina_symbol.h"
 #include "handle_mapping.h"
 #include "securec.h"
@@ -69,6 +71,22 @@ TEST(EventReportTest, VallinaSymbolTest) {
     using va = VallinaSymbol<TestLoader>;
     char const *symbol;
     va::Instance().Get(symbol);
+}
+
+TEST(EventReportTest, TestReportSkipStepsFuc)
+{
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.currentStep_ = 5;
+    instance.config_.stepList.stepCount = 3;
+    instance.config_.stepList.stepIdList[0] = 1;
+    instance.config_.stepList.stepIdList[1] = 2;
+    instance.config_.stepList.stepIdList[2] = 6;
+    
+    EXPECT_EQ(instance.IsNeedSkip(), true);
+
+    instance.currentStep_ = 6;
+
+    EXPECT_EQ(instance.IsNeedSkip(), false);
 }
 
 TEST(KernelNameFunc, PipeCallGivenLsCommandReturnFalse)
