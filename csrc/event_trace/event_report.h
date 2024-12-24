@@ -9,6 +9,7 @@
 #include "host_injection/core/LocalProcess.h"
 #include "kernel_hooks/runtime_hooks.h"
 #include "record_info.h"
+#include "config_info.h"
 
 constexpr mode_t REGULAR_MODE_MASK = 0177;
 
@@ -28,13 +29,13 @@ public:
     bool ReportTorchNpu(TorchNpuRecord &torchNpuRecord);
 private:
     explicit EventReport(CommType type);
+    bool IsNeedSkip(); // 支持采集指定step
     uint64_t recordIndex_ = 0;
     uint64_t aclItfRecordIndex_ = 0;
     uint64_t kernelLaunchRecordIndex_ = 0;
+    uint64_t currentStep_ = 0;
+    AnalysisConfig config_;
     std::mutex mutex_;
-
-    // 是否解析kernelName
-    bool parseKernelName { false };
 };
 
 MemOpSpace GetMemOpSpace(unsigned long long flag);
