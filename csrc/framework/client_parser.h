@@ -15,6 +15,7 @@ public:
     void Interpretor(int32_t argc, char **argv);
 private:
     UserCommand Parse(int32_t argc, char **argv);
+    void InitialUserCommand(UserCommand &userCommand);
 };
 }
 
