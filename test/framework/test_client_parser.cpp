@@ -115,3 +115,20 @@ TEST(ClientParser, invalid_single_dash_option_expect_one_error)
     pos = capture.find(errorStr, pos + 1);
     ASSERT_EQ(pos, std::string::npos);
 }
+
+TEST(ClientParser, test_parse_select_steps)
+{
+    std::vector<const char*> argv = {
+        "leaks",
+        "--select-steps=2,3,123"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.stepList.stepCount, 3);
+    ASSERT_EQ(cmd.config.stepList.stepIdList[0], 2);
+    ASSERT_EQ(cmd.config.stepList.stepIdList[1], 3);
+    ASSERT_EQ(cmd.config.stepList.stepIdList[2], 123);
+}
