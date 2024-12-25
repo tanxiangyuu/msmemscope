@@ -2,121 +2,16 @@
 #include <gtest/gtest.h>
 #include <gtest/internal/gtest-port.h>
 #include <string>
-#include "analyzer.h"
+#include "hal_analyzer.h"
 #include "record_info.h"
 #include "config_info.h"
 
 using namespace Leaks;
 
-TEST(AnalyzerTest, AnalyzerConstruct) {
+TEST(HalAnalyzerTest, do_hal_record_except_leaks) {
     AnalysisConfig analysisConfig;
-    Analyzer analyzer(analysisConfig);
-}
-
-TEST(Analyzer, do_memory_record_expect_success)
-{
-    AnalysisConfig config;
-    Analyzer analyzer(config);
-
-    auto record = EventRecord{};
-    record.type = RecordType::MEMORY_RECORD;
-    auto memRecordMalloc = MemOpRecord {};
-    memRecordMalloc.flag = 0xFF00000000000000;
-    memRecordMalloc.modid = 99;
-    memRecordMalloc.recordIndex = 123;
-    memRecordMalloc.addr = 0x7958;
-    memRecordMalloc.memSize = 1024;
-    memRecordMalloc.timeStamp = 1234567;
-    memRecordMalloc.memType = MemOpType::MALLOC;
-    record.record.memoryRecord = memRecordMalloc;
-    ClientId clientId = 0;
-    analyzer.Do(clientId, record);
-    
-    memRecordMalloc.space = Leaks::MemOpSpace::HOST;
-    memRecordMalloc.addr = 0x7959;
-    record.record.memoryRecord = memRecordMalloc;
-    analyzer.Do(clientId, record);
-
-    auto memRecordFree = memRecordMalloc;
-    memRecordFree.memType = MemOpType::FREE;
-    memRecordFree.addr = 0x7958;
-    record.record.memoryRecord = memRecordFree;
-
-    analyzer.Do(clientId, record);
-
-    memRecordFree.addr = 0x7959;
-    record.record.memoryRecord = memRecordFree;
-
-    analyzer.Do(clientId, record);
-    
-    analyzer.LeakAnalyze();
-}
-TEST(Analyzer, do_kernellaunch_record_expect_success)
-{
-    AnalysisConfig config;
-    Analyzer analyzer(config);
-
-    ClientId clientId = 0;
-    auto record = EventRecord{};
-    record.type = RecordType::KERNEL_LAUNCH_RECORD;
-    auto kernelLaunchRecord = KernelLaunchRecord{};
-    
-    kernelLaunchRecord.pid = 2344;
-    kernelLaunchRecord.tid = 23445;
-    kernelLaunchRecord.kernelLaunchIndex = 123;
-    kernelLaunchRecord.recordIndex = 123;
-    kernelLaunchRecord.type = KernelLaunchType::NORMAL;
-    kernelLaunchRecord.timeStamp = 1234567;
-    kernelLaunchRecord.streamId = 123;
-    kernelLaunchRecord.blockDim = 123;
-    record.record.kernelLaunchRecord = kernelLaunchRecord;
-    
-    analyzer.Do(clientId, record);
-}
-
-TEST(Analyzer, do_aclitf_record_expect_success)
-{
-    AnalysisConfig config;
-    Analyzer analyzer(config);
-
-    auto record = EventRecord{};
-    record.type = RecordType::ACL_ITF_RECORD;
-    ClientId clientId = 0;
-    auto aclItfRecord = AclItfRecord {};
-    aclItfRecord.pid = 23;
-    aclItfRecord.tid = 123;
-    aclItfRecord.recordIndex = 123;
-    aclItfRecord.type = AclOpType::INIT;
-    aclItfRecord.timeStamp = 1234567;
-    
-    record.record.aclItfRecord = aclItfRecord;
-    analyzer.Do(clientId, record);
-}
-
-TEST(AnalyzerTest, AnalyzerLeakAnalyze) {
-    AnalysisConfig config;
-    Analyzer analyzer(config);
-
-    ClientId clientId = 0;
-    auto record = EventRecord{};
-    record.type = RecordType::MEMORY_RECORD;
-    auto memRecordMalloc = MemOpRecord {};
-    memRecordMalloc.flag = 2377900603261207558;
-    memRecordMalloc.recordIndex = 123;
-    memRecordMalloc.addr = 0x7958;
-    memRecordMalloc.memSize = 1024;
-    memRecordMalloc.timeStamp = 1234567;
-    memRecordMalloc.memType = MemOpType::MALLOC;
-    record.record.memoryRecord = memRecordMalloc;
-
-    analyzer.Do(clientId, record);
-    analyzer.LeakAnalyze();
-}
-
-TEST(MemoryHashTableTest, do_record_leaks) {
-    AnalysisConfig config;
-    Analyzer analyzer(config);
-
+    HalAnalyzer halanalyzer{analysisConfig};
+ 
     ClientId clientId = 0;
     auto record1 = EventRecord{};
     record1.type = RecordType::MEMORY_RECORD;
@@ -129,7 +24,7 @@ TEST(MemoryHashTableTest, do_record_leaks) {
     memRecordMalloc1.memSize = 1024;
     memRecordMalloc1.timeStamp = 1234567;
     record1.record.memoryRecord = memRecordMalloc1;
-
+ 
     auto record2 = EventRecord{};
     record2.type = RecordType::MEMORY_RECORD;
     auto memRecordMalloc2 = MemOpRecord {};
@@ -141,7 +36,7 @@ TEST(MemoryHashTableTest, do_record_leaks) {
     memRecordMalloc2.memSize = 512;
     memRecordMalloc2.timeStamp = 1234568;
     record2.record.memoryRecord = memRecordMalloc2;
-
+ 
     auto record4 = EventRecord{};
     record4.type = RecordType::MEMORY_RECORD;
     auto memRecordMalloc4 = MemOpRecord {};
@@ -153,16 +48,15 @@ TEST(MemoryHashTableTest, do_record_leaks) {
     memRecordMalloc4.memSize = 1024;
     memRecordMalloc4.timeStamp = 1234557;
     record4.record.memoryRecord = memRecordMalloc4;
-
-    analyzer.Do(clientId, record1);
-    analyzer.Do(clientId, record2);
-    analyzer.Do(clientId, record4);
-    analyzer.LeakAnalyze();
+ 
+    halanalyzer.Record(clientId, record1);
+    halanalyzer.Record(clientId, record2);
+    halanalyzer.Record(clientId, record4);
 }
 
-TEST(MemoryHashTableTest, do_record_no_leaks) {
-    AnalysisConfig config;
-    Analyzer analyzer(config);
+TEST(HalAnalyzerTest, do_record_except_no_leaks) {
+    AnalysisConfig analysisConfig;
+    HalAnalyzer halanalyzer{analysisConfig};
 
     ClientId clientId = 0;
     auto record1 = EventRecord{};
@@ -187,14 +81,13 @@ TEST(MemoryHashTableTest, do_record_no_leaks) {
     memRecordFree.memSize = 0;
     record3.record.memoryRecord = memRecordFree;
 
-    analyzer.Do(clientId, record1);
-    analyzer.Do(clientId, record3);
-    analyzer.LeakAnalyze();
+    halanalyzer.Record(clientId, record1);
+    halanalyzer.Record(clientId, record3);
 }
 
-TEST(MemoryHashTableTest, do_record_double_free) {
-    AnalysisConfig config;
-    Analyzer analyzer(config);
+TEST(HalAnalyzerTest, do_record_excpet_double_free) {
+    AnalysisConfig analysisConfig;
+    HalAnalyzer halanalyzer{analysisConfig};
 
     ClientId clientId = 0;
     auto record1 = EventRecord{};
@@ -229,15 +122,14 @@ TEST(MemoryHashTableTest, do_record_double_free) {
     memRecordFree2.memSize = 0;
     record3.record.memoryRecord = memRecordFree2;
 
-    analyzer.Do(clientId, record1);
-    analyzer.Do(clientId, record2);
-    analyzer.Do(clientId, record3);
-    analyzer.LeakAnalyze();
+    halanalyzer.Record(clientId, record1);
+    halanalyzer.Record(clientId, record2);
+    halanalyzer.Record(clientId, record3);
 }
 
-TEST(MemoryHashTableTest, do_record_double_malloc) {
-    AnalysisConfig config;
-    Analyzer analyzer(config);
+TEST(HalAnalyzerTest, do_record_except_double_malloc) {
+    AnalysisConfig analysisConfig;
+    HalAnalyzer halanalyzer{analysisConfig};
 
     ClientId clientId = 0;
     auto record1 = EventRecord{};
@@ -264,14 +156,13 @@ TEST(MemoryHashTableTest, do_record_double_malloc) {
     memRecordMalloc2.timeStamp = 1234567;
     record2.record.memoryRecord = memRecordMalloc2;
 
-    analyzer.Do(clientId, record1);
-    analyzer.Do(clientId, record2);
-    analyzer.LeakAnalyze();
+    halanalyzer.Record(clientId, record1);
+    halanalyzer.Record(clientId, record2);
 }
 
-TEST(MemoryHashTableTest, do_record_free_null) {
-    AnalysisConfig config;
-    Analyzer analyzer(config);
+TEST(HalAnalyzerTest, do_record_except_free_null) {
+    AnalysisConfig analysisConfig;
+    HalAnalyzer halanalyzer{analysisConfig};
 
     ClientId clientId = 0;
     auto record1 = EventRecord{};
@@ -284,13 +175,12 @@ TEST(MemoryHashTableTest, do_record_free_null) {
     memRecordFree1.memSize = 0;
     record1.record.memoryRecord = memRecordFree1;
 
-    analyzer.Do(clientId, record1);
-    analyzer.LeakAnalyze();
+    halanalyzer.Record(clientId, record1);
 }
 
-TEST(MemoryHashTableTest, do_record_fail) {
-    AnalysisConfig config;
-    Analyzer analyzer(config);
+TEST(HalAnalyzerTest, do_record_fail) {
+    AnalysisConfig analysisConfig;
+    HalAnalyzer halanalyzer{analysisConfig};
 
     ClientId clientId = 0;
     auto record1 = EventRecord{};
@@ -303,13 +193,12 @@ TEST(MemoryHashTableTest, do_record_fail) {
     memRecordFree1.memSize = 0;
     record1.record.memoryRecord = memRecordFree1;
 
-    analyzer.Do(clientId, record1);
-    analyzer.LeakAnalyze();
+    halanalyzer.Record(clientId, record1);
 }
 
-TEST(MemoryHashTableTest, do_memory_record_nulltable) {
-    AnalysisConfig config;
-    Analyzer analyzer(config);
+TEST(HalAnalyzerTest, do_memory_record_nulltable) {
+    AnalysisConfig analysisConfig;
+    HalAnalyzer halanalyzer{analysisConfig};
 
     auto record = EventRecord{};
     record.type = RecordType::MEMORY_RECORD;
@@ -319,48 +208,5 @@ TEST(MemoryHashTableTest, do_memory_record_nulltable) {
     ClientId clientId = 0;
     memRecordFree.memType = MemOpType::FREE;
     record.record.memoryRecord = memRecordFree;
-    analyzer.Do(clientId, record);
-
-    analyzer.LeakAnalyze();
-}
-
-TEST(TorchnputraceTest, do_npu_trace_record)
-{
-    AnalysisConfig config;
-    Analyzer analyzer(config);
-
-    auto record = EventRecord{};
-    record.type = RecordType::TORCH_NPU_RECORD;
-    TorchNpuRecord torchNpuRecord;
-    MemoryUsage memoryUsage;
-    memoryUsage.allocator_type = 12;
-    memoryUsage.device_type = 34;
-    memoryUsage.device_index = 3;
-    memoryUsage.data_type = 1;
-    memoryUsage.ptr = 34;
-    memoryUsage.alloc_size = 123;
-    memoryUsage.total_allocated = 123;
-    memoryUsage.total_reserved = 123;
-    memoryUsage.total_active = 123;
-    memoryUsage.stream_ptr = 123;
-    torchNpuRecord.memoryUsage = memoryUsage;
-    record.record.torchNpuRecord = torchNpuRecord;
-    ClientId clientId = 0;
-    analyzer.Do(clientId, record);
-}
-
-TEST(TorchnputraceTest, do_npu_trace_empty_record)
-{
-    AnalysisConfig config;
-    Analyzer analyzer(config);
-
-    auto record = EventRecord{};
-    record.type = RecordType::TORCH_NPU_RECORD;
-    TorchNpuRecord torchNpuRecord;
-    MemoryUsage memoryUsage;
-    torchNpuRecord.memoryUsage = memoryUsage;
-    record.record.torchNpuRecord = torchNpuRecord;
-    
-    ClientId clientId = 0;
-    analyzer.Do(clientId, record);
+    halanalyzer.Record(clientId, record);
 }
