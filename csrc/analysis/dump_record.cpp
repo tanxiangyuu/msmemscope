@@ -113,7 +113,7 @@ bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRec
     std::string memOp = memRecord.memType == MemOpType::MALLOC ? "malloc" : "free";
 
     fprintf(leaksDataFile[clientId], "%s,%lu,%lu,%lu,%d,%lu,%lu,%lu,%llu,%d,%s,%lu,%lu,%lu\n",
-            memOp.c_str(), memRecord.pid, memRecord.tid, clientId, memRecord.devid, memRecord.recordIndex,
+            memOp.c_str(), memRecord.pid, memRecord.tid, clientId, memRecord.devId, memRecord.recordIndex,
             memRecord.timeStamp, memRecord.kernelIndex, memRecord.flag, memRecord.modid, space.c_str(),
             memRecord.addr, memSizeMap[clientId][memRecord.addr], totalMem);
     return true;
