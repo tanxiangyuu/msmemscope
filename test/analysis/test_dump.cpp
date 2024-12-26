@@ -86,15 +86,15 @@ TEST(DumpRecord, dump_torchnpu_record_expect_success)
     torchNpuRecord.recordIndex = 101;
     
     MemoryUsage memoryUsage;
-    memoryUsage.alloc_size = 128;
-    memoryUsage.total_active = 128;
-    memoryUsage.total_reserved = 128;
-    memoryUsage.total_allocated = 128;
+    memoryUsage.allocSize = 128;
+    memoryUsage.totalActive = 128;
+    memoryUsage.totalReserved = 128;
+    memoryUsage.totalAllocated = 128;
     memoryUsage.ptr = 123;
-    memoryUsage.stream_ptr = 123;
-    memoryUsage.device_index = 10;
-    memoryUsage.allocator_type = 0;
-    memoryUsage.data_type = 0;
+    memoryUsage.streamPtr = 123;
+    memoryUsage.deviceIndex = 10;
+    memoryUsage.allocatorType = 0;
+    memoryUsage.dataType = 0;
     torchNpuRecord.memoryUsage = memoryUsage;
     record.record.torchNpuRecord = torchNpuRecord;
     

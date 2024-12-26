@@ -25,16 +25,16 @@ enum class MemoryAllocatorType {
     ALLOCATOR_INVALID,
 };
 struct MemoryUsage {
-    int8_t device_type;
-    int8_t device_index;
-    uint8_t data_type; // MemoryDataType
-    uint8_t allocator_type; // MemoryAllocatorType
+    int8_t deviceType; // 20-npu; 0-cpu
+    int8_t deviceIndex;
+    uint8_t dataType; // 0-malloc, 1-free, 2-block_free
+    uint8_t allocatorType; // 0-Inner(for PTA), 1-external(for GE)
     int64_t ptr;
-    int64_t alloc_size;
-    int64_t total_allocated;
-    int64_t total_reserved;
-    int64_t total_active;
-    int64_t stream_ptr;
+    int64_t allocSize;
+    int64_t totalAllocated;
+    int64_t totalReserved;
+    int64_t totalActive;
+    int64_t streamPtr;
 };
 struct TorchNpuRecord {
     uint64_t recordIndex;
@@ -85,12 +85,6 @@ struct MemOpRecord {
     uint64_t timeStamp; // 时间戳
 };
 
-struct StepRecord {
-    uint64_t recordIndex; // 记录索引
-    StepType type; // 起始还是终止
-    uint64_t timeStamp; // 时间戳
-};
-
 struct AclItfRecord {
     uint64_t pid; // 进程号
     uint64_t tid; // 线程号
@@ -120,14 +114,14 @@ enum class MarkType : int32_t {
 
 struct MstxRecord {
     MarkType markType;
-    uint64_t rangeId; // 只有Range才会存在ID，纯mark默认为0
+    int32_t devid; // 所属deviceid
+    uint64_t rangeId; // 只有Range才会存在ID，纯mark默认为0, Rangeid从1开始递增
     int32_t streamId; // streamId, range end对应的值为-1
     char markMessage[64U];
 };
 
 enum class RecordType {
     MEMORY_RECORD = 0,
-    STEP_RECORD,
     ACL_ITF_RECORD,
     KERNEL_LAUNCH_RECORD,
     MSTX_MARK_RECORD,
@@ -140,7 +134,6 @@ struct EventRecord {
     union {
         TorchNpuRecord torchNpuRecord;
         MemOpRecord memoryRecord;
-        StepRecord stepRecord;
         AclItfRecord aclItfRecord;
         KernelLaunchRecord kernelLaunchRecord;
         MstxRecord mstxRecord;
