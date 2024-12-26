@@ -23,7 +23,7 @@ void MstxAnalyzer::Notify(const DeviceId &deviceId, const uint64_t &rangeId, con
 
 void MstxAnalyzer::RecordMstx(const ClientId &clientId, const MstxRecord &mstxRecord)
 {
-    DeviceId deviceId = mstxRecord.devid;
+    DeviceId deviceId = mstxRecord.devId;
     uint64_t rangeId = mstxRecord.rangeId;
     if (mstxRecord.markType == MarkType::RANGE_START_A) {
         Utility::LogInfo("[npu %ld][client %u][rangeid %llu][start]: %s",

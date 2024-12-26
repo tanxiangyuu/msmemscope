@@ -68,6 +68,24 @@ void StepInnerAnalyzer::CheckNpuLeak(const DeviceId &deviceId, const uint64_t ra
     return;
 }
 
+void StepInnerAnalyzer::NotifyTraceRecord(const int32_t &devId, const TorchNpuRecord &torchNpuRecord)
+{
+    uint64_t ptr = torchNpuRecord.memoryUsage.ptr;
+    if (npumemusages_[devId].mempooltable[ptr].duration >= durationThreshold_
+        && npumemusages_[devId].mempooltable[ptr].rangeId >= skipSteps_
+    ) {
+        TorchMemLeakInfo info{
+            devId,
+            npumemusages_[devId].mempooltable[ptr].timestamp,
+            torchNpuRecord.timeStamp - npumemusages_[devId].mempooltable[ptr].timestamp,
+            ptr,
+            -torchNpuRecord.memoryUsage.allocSize
+        };
+        TraceRecord::GetInstance().ProcessTorchMemLeakInfo(info);
+    }
+    return;
+}
+
 void StepInnerAnalyzer::RecordNpuMalloc(const ClientId &clientId, const DeviceId &deviceId,
     const TorchNpuRecord &torchnpuRecord)
 {
@@ -86,7 +104,7 @@ void StepInnerAnalyzer::RecordNpuMalloc(const ClientId &clientId, const DeviceId
         memoryusage.allocSize,
         npumemptr,
         npumemusages_[deviceId].mstxRange);
-    npumemusages_[deviceId].mempooltable[npumemptr].recordIndex = torchnpuRecord.recordIndex;
+    npumemusages_[deviceId].mempooltable[npumemptr].timestamp = torchnpuRecord.timeStamp;
     npumemusages_[deviceId].mempooltable[npumemptr].duration = 0;
     npumemusages_[deviceId].mempooltable[npumemptr].rangeId = npumemusages_[deviceId].mstxRange;
     npumemusages_[deviceId].totalAllocated = memoryusage.totalAllocated;
@@ -113,6 +131,10 @@ void  StepInnerAnalyzer::RecordNpuFree(const ClientId &clientId, const DeviceId 
         memoryusage.allocSize,
         npumemptr,
         npumemusages_[deviceId].mempooltable[npumemptr].duration);
+    
+    // 在释放时获取跨多个Step释放内存信息
+    NotifyTraceRecord(deviceId, torchnpuRecord);
+
     npumemusages_[deviceId].mempooltable.erase(npumemptr);
     npumemusages_[deviceId].totalAllocated = memoryusage.totalAllocated;
     npumemusages_[deviceId].totalReserved = memoryusage.totalReserved;
@@ -149,10 +171,10 @@ void StepInnerAnalyzer::Record(const ClientId &clientId, const EventRecord &reco
         Utility::LogError("[device %ld]: Create npu Memory table failed.", deviceId);
         return;
     }
-    // 目前不处理Block_free操作
-    if (torchnpuRecord.memoryUsage.dataType == 0) {
+    // 目前不处理FREE操作
+    if (torchnpuRecord.memoryUsage.dataType == static_cast<uint8_t>(MemActionType::MALLOC)) {
         RecordNpuMalloc(clientId, deviceId, torchnpuRecord);
-    } else if (torchnpuRecord.memoryUsage.dataType == 1) {
+    } else if (torchnpuRecord.memoryUsage.dataType == static_cast<uint8_t>(MemActionType::BLOCK_FREE)) {
         RecordNpuFree(clientId, deviceId, torchnpuRecord);
     }
     return;

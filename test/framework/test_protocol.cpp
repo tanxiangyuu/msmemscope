@@ -18,7 +18,7 @@ TEST(ProtocolTest, test_protocol_parse_memrecord)
     memRecord.flag = 123;
     memRecord.pid = 345;
     memRecord.tid = 345;
-    memRecord.devid = 9;
+    memRecord.devId = 9;
     memRecord.memType = MemOpType::MALLOC;
     memRecord.space = MemOpSpace::HOST;
     memRecord.modid = 234;
@@ -46,7 +46,7 @@ TEST(ProtocolTest, test_protocol_parse_memrecord)
     ASSERT_EQ(body.record.memoryRecord.flag, memRecord.flag);
     ASSERT_EQ(body.record.memoryRecord.pid, memRecord.pid);
     ASSERT_EQ(body.record.memoryRecord.tid, memRecord.tid);
-    ASSERT_EQ(body.record.memoryRecord.devid, memRecord.devid);
+    ASSERT_EQ(body.record.memoryRecord.devId, memRecord.devId);
     ASSERT_EQ(body.record.memoryRecord.memType, memRecord.memType);
     ASSERT_EQ(body.record.memoryRecord.space, memRecord.space);
     ASSERT_EQ(body.record.memoryRecord.modid, memRecord.modid);
@@ -423,7 +423,7 @@ TEST(ProtocolTest, test_protocol_parse_memrecord_max)
     memOpRecord.flag = 18446744073709551615;
     memOpRecord.pid = 18446744073709551615;
     memOpRecord.tid = 18446744073709551615;
-    memOpRecord.devid = 2147483647;
+    memOpRecord.devId = 2147483647;
     memOpRecord.memType = MemOpType::MALLOC;
     memOpRecord.space = MemOpSpace::HOST;
     memOpRecord.addr = 18446744073709551615;
@@ -448,7 +448,7 @@ TEST(ProtocolTest, test_protocol_parse_memrecord_max)
     ASSERT_EQ(body.record.memoryRecord.tid, memOpRecord.tid);
     ASSERT_EQ(body.record.memoryRecord.pid, memOpRecord.pid);
     ASSERT_EQ(body.record.memoryRecord.flag, memOpRecord.flag);
-    ASSERT_EQ(body.record.memoryRecord.devid, memOpRecord.devid);
+    ASSERT_EQ(body.record.memoryRecord.devId, memOpRecord.devId);
     ASSERT_EQ(body.record.memoryRecord.memType, memOpRecord.memType);
     ASSERT_EQ(body.record.memoryRecord.space, memOpRecord.space);
     ASSERT_EQ(body.record.memoryRecord.kernelIndex, memOpRecord.kernelIndex);
@@ -466,7 +466,7 @@ TEST(ProtocolTest, test_protocol_parse_memrecord_min)
     memOpRecord.flag = 0;
     memOpRecord.pid = 0;
     memOpRecord.tid = 0;
-    memOpRecord.devid = -2147483648;
+    memOpRecord.devId = -2147483648;
     memOpRecord.memType = MemOpType::MALLOC;
     memOpRecord.space = MemOpSpace::HOST;
     memOpRecord.addr = 0;
@@ -491,7 +491,7 @@ TEST(ProtocolTest, test_protocol_parse_memrecord_min)
     ASSERT_EQ(body.record.memoryRecord.tid, memOpRecord.tid);
     ASSERT_EQ(body.record.memoryRecord.pid, memOpRecord.pid);
     ASSERT_EQ(body.record.memoryRecord.flag, memOpRecord.flag);
-    ASSERT_EQ(body.record.memoryRecord.devid, memOpRecord.devid);
+    ASSERT_EQ(body.record.memoryRecord.devId, memOpRecord.devId);
     ASSERT_EQ(body.record.memoryRecord.memType, memOpRecord.memType);
     ASSERT_EQ(body.record.memoryRecord.space, memOpRecord.space);
     ASSERT_EQ(body.record.memoryRecord.kernelIndex, memOpRecord.kernelIndex);
