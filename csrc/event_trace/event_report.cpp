@@ -213,19 +213,29 @@ bool EventReport::ReportFree(uint64_t addr)
 
 bool EventReport::ReportMark(MstxRecord& mstxRecord)
 {
+    int32_t devid = GD_INVALID_NUM;
+    if (GetDevice(&devid) == RT_ERROR_INVALID_VALUE || devid == GD_INVALID_NUM) {
+        Utility::LogError("RT_ERROR_INVALID_VALUE, %d!!!!!!!!!!!!", devid);
+    }
     if (mstxRecord.streamId == -1) { // range end打点无需输出streamId信息，通过rangeId与start匹配
         Utility::LogInfo("this mark point message is %s", mstxRecord.markMessage);
     } else {
         Utility::LogInfo("this mark point message is %s, streamId is %d", mstxRecord.markMessage, mstxRecord.streamId);
     }
     Utility::LogInfo("this mark point id is %llu", mstxRecord.rangeId);
-
+    
+    PacketHead head = {PacketType::RECORD};
+    auto eventRecord = EventRecord{};
+    eventRecord.type = RecordType::MSTX_MARK_RECORD;
+    mstxRecord.devid = devid;
+    eventRecord.record.mstxRecord = mstxRecord;
+    auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+    
     std::lock_guard<std::mutex> guard(mutex_);
     if (mstxRecord.markType == MarkType::RANGE_START_A) {
         currentStep_ = mstxRecord.rangeId;
     }
-
-    return true;
+    return (sendNums >= 0);
 }
 
 bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, const void *hdl)

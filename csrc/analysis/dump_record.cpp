@@ -25,8 +25,8 @@ bool DumpRecord::CreateFile(const ClientId &clientId, FILE *clientfp, std::strin
         FILE* fp = fopen(filePath.c_str(), "a");
         if (fp != nullptr) {
             if (type == "torchnpu") {
-                fprintf(fp, "device_type, device_index, data_type, allocator_type, ptr, recordIndex, alloc_size, \
-total_allocated, total_reserved, total_active, stream_ptr\n");
+                fprintf(fp, "deviceType, deviceIndex, dataType, allocatorType, ptr, recordIndex, allocSize, \
+totalAllocated, totalReserved, totalActive, streamPtr\n");
                 torchNpuDataFile[clientId] = fp;
             } else {
                 fprintf(fp, "type, processID, threadID, clientID, deviceID, recordIndex, timeStamp, \
@@ -145,9 +145,9 @@ bool DumpRecord::DumpTorchData(const ClientId &clientId, const TorchNpuRecord &t
     }
     MemoryUsage memoryUsage = torchNpuRecord.memoryUsage;
     fprintf(torchNpuDataFile[clientId], "%d,%d,%d,%d,%ld,%lu,%ld,%ld,%ld,%ld,%ld\n",
-        memoryUsage.device_type, memoryUsage.device_index, memoryUsage.data_type,
-        memoryUsage.allocator_type, memoryUsage.ptr, torchNpuRecord.recordIndex, memoryUsage.alloc_size,
-        memoryUsage.total_allocated, memoryUsage.total_reserved, memoryUsage.total_active, memoryUsage.stream_ptr);
+        memoryUsage.deviceType, memoryUsage.deviceIndex, memoryUsage.dataType,
+        memoryUsage.allocatorType, memoryUsage.ptr, torchNpuRecord.recordIndex, memoryUsage.allocSize,
+        memoryUsage.totalAllocated, memoryUsage.totalReserved, memoryUsage.totalActive, memoryUsage.streamPtr);
     return true;
 }
 DumpRecord::DumpRecord()

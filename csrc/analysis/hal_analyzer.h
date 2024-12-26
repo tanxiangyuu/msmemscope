@@ -1,0 +1,42 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+
+#ifndef HAL_ANALYZER_H
+#define HAL_ANALYZER_H
+
+#include "host_injection/core/LocalProcess.h"
+#include "analyzer_base.h"
+#include "module_info.h"
+
+namespace Leaks {
+/*
+ * HalAnalyzer类主要功能：
+ * 1. 维护halmemalloc/halmemfree操作记录表
+   2. 分析hal侧内存使用问题，泄漏问题
+*/
+
+enum class AddrStatus : uint8_t {
+    FREE_ALREADY = 0U,
+    FREE_WAIT,
+};
+
+using MemoryRecordTable = std::unordered_map<uint64_t, AddrStatus>;
+
+class HalAnalyzer : public AnalyzerBase {
+public:
+    explicit HalAnalyzer(const AnalysisConfig &config);
+    void Record(const ClientId &clientId, const EventRecord &record) override;
+    void ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t &rangeid, const MstxRecord &mstxrecord) override;
+    ~HalAnalyzer();
+private:
+    std::unordered_map<ClientId, MemoryRecordTable> memtables_{};
+    bool CreateMemTables(const ClientId &clientId);
+    void RecordMalloc(const ClientId &clientId, const MemOpRecord memrecord);
+    void RecordFree(const ClientId &clientId, const MemOpRecord memrecord);
+    void LeakAnalyze();
+    void CheckLeak(const size_t clientId);
+    AnalysisConfig config_;
+};
+
+}
+
+#endif

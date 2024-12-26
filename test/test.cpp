@@ -6,7 +6,7 @@
 #include "framework/command.h"
 #include "framework/client_parser.h"
 #include "framework/protocol.h"
-#include "analysis/analyzer.h"
+#include "analysis/hal_analyzer.h"
 #include "event_trace/event_report.h"
 
 using namespace Leaks;
@@ -21,8 +21,8 @@ TEST(Sample, sample)
 
     AnalysisConfig config;
     EventRecord record;
-    Analyzer analyzer(config);
-    analyzer.Do(0, record);
+    HalAnalyzer analyzer(config);
+    analyzer.Record(0, record);
 
     std::string testString = "test";
     Protocol protocol {};
