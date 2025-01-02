@@ -61,6 +61,7 @@ void Command::Exec(const std::vector<std::string> &execParams) const
             switch (packet.GetPacketHead().type) {
                 case PacketType::RECORD:
                     DumpHandler(clientId, dump, packet.GetPacketBody());
+                    TraceRecord::GetInstance().TraceHandler(packet.GetPacketBody());
                     RecordHandler(clientId, packet.GetPacketBody(), mstxanalyzer, analyzerfactory);
                     break;
                 case PacketType::INVALID:

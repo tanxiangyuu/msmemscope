@@ -19,7 +19,7 @@ TEST(DumpRecord, dump_memory_record_expect_success)
     memRecordMalloc.pid = 10;
     memRecordMalloc.flag = 10;
     memRecordMalloc.modid = 55;
-    memRecordMalloc.devid = 10;
+    memRecordMalloc.devId = 10;
     memRecordMalloc.recordIndex = 102;
     memRecordMalloc.kernelIndex = 101;
     memRecordMalloc.space = MemOpSpace::DEVICE;
@@ -126,7 +126,7 @@ TEST(DumpRecord, dump_invalid_memory_record)
     memRecordMalloc.pid = 10;
     memRecordMalloc.flag = 10;
     memRecordMalloc.modid = 55;
-    memRecordMalloc.devid = 10;
+    memRecordMalloc.devId = 10;
     memRecordMalloc.recordIndex = 102;
     memRecordMalloc.kernelIndex = 101;
     memRecordMalloc.space = MemOpSpace::INVALID;

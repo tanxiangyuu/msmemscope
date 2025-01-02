@@ -24,6 +24,7 @@ constexpr uint64_t MEM_SVM_VAL = 0x0;
 constexpr uint64_t MEM_DEV_VAL = 0x1;
 constexpr uint64_t MEM_HOST_VAL = 0x2;
 constexpr uint64_t MEM_DVPP_VAL = 0x3;
+
 MemOpSpace GetMemOpSpace(unsigned long long flag)
 {
     // bit10~13: virt mem type(svm\dev\host\dvpp)
@@ -59,7 +60,7 @@ constexpr int32_t GD_INVALID_NUM = 9999;
 
 constexpr int32_t INVALID_MODID = -1;
 
-RTS_API rtError_t GetDevice(int32_t *devid)
+RTS_API rtError_t GetDevice(int32_t *devId)
 {
     char const *sym = "rtGetDevice";
     using RtGetDevice = decltype(&GetDevice);
@@ -68,12 +69,14 @@ RTS_API rtError_t GetDevice(int32_t *devid)
         Utility::LogError("vallina func get FAILED");
         return RT_ERROR_RESERVED;
     }
-    rtError_t ret = vallina(devid);
+    rtError_t ret = vallina(devId);
     return ret;
 }
+
 MemOpRecord CreateMemRecord(MemOpType type, unsigned long long flag, MemOpSpace space, uint64_t addr, uint64_t size)
 {
     MemOpRecord record;
+    record.timeStamp = Utility::GetTimeMicroseconds();
     record.flag = flag;
     record.memType = type;
     record.space = space;
@@ -81,21 +84,16 @@ MemOpRecord CreateMemRecord(MemOpType type, unsigned long long flag, MemOpSpace 
     record.memSize = size;
     record.pid = Utility::GetPid();
     record.tid = Utility::GetTid();
-    auto now = std::chrono::system_clock::now();
-    std::time_t time = std::chrono::system_clock::to_time_t(now);
-    record.timeStamp = time;
     return record;
 }
 
 AclItfRecord CreateAclItfRecord(AclOpType type)
 {
     auto record = AclItfRecord {};
+    record.timeStamp = Utility::GetTimeMicroseconds();
     record.type = type;
-    auto now = std::chrono::system_clock::now();
-    std::time_t time = std::chrono::system_clock::to_time_t(now);
     record.pid = Utility::GetPid();
     record.tid = Utility::GetTid();
-    record.timeStamp = time;
     return record;
 }
 
@@ -103,9 +101,7 @@ KernelLaunchRecord CreateKernelLaunchRecord(KernelLaunchRecord kernelLaunchRecor
 {
     auto record = KernelLaunchRecord {};
     record = kernelLaunchRecord;
-    auto now = std::chrono::system_clock::now();
-    std::time_t time = std::chrono::system_clock::to_time_t(now);
-    record.timeStamp = time;
+    record.timeStamp = Utility::GetTimeMicroseconds();
     record.pid = Utility::GetPid();
     record.tid = Utility::GetTid();
     return record;
@@ -155,6 +151,8 @@ bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord)
     EventRecord eventrecord;
     eventrecord.type = RecordType::TORCH_NPU_RECORD;
     eventrecord.record.torchNpuRecord = torchNpuRecord;
+    eventrecord.record.torchNpuRecord.timeStamp = Utility::GetTimeMicroseconds();
+    eventrecord.record.torchNpuRecord.devId = static_cast<int32_t>(torchNpuRecord.memoryUsage.deviceIndex);
     std::lock_guard<std::mutex> guard(mutex_);
     eventrecord.record.torchNpuRecord.recordIndex = ++recordIndex_;
     auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventrecord));
@@ -167,9 +165,9 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
     if (IsNeedSkip()) {
         return true;
     }
-    int32_t devid = GD_INVALID_NUM;
-    if (GetDevice(&devid) == RT_ERROR_INVALID_VALUE || devid == GD_INVALID_NUM) {
-        Utility::LogError("RT_ERROR_INVALID_VALUE, %d!!!!!!!!!!!!", devid);
+    int32_t devId = GD_INVALID_NUM;
+    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+        Utility::LogError("RT_ERROR_INVALID_VALUE, %d!!!!!!!!!!!!", devId);
     }
     int32_t moduleId = GetMallocModuleId(flag);
     MemOpSpace space = GetMemOpSpace(flag);
@@ -177,7 +175,7 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
     auto eventRecord = EventRecord {};
     eventRecord.type = RecordType::MEMORY_RECORD;
     eventRecord.record.memoryRecord = CreateMemRecord(MemOpType::MALLOC, flag, space, addr, size);
-    eventRecord.record.memoryRecord.devid = devid;
+    eventRecord.record.memoryRecord.devId = devId;
     eventRecord.record.memoryRecord.modid = moduleId;
     std::lock_guard<std::mutex> guard(mutex_);
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
@@ -193,15 +191,15 @@ bool EventReport::ReportFree(uint64_t addr)
     if (IsNeedSkip()) {
         return true;
     }
-    int32_t devid = GD_INVALID_NUM;
-    if (GetDevice(&devid) == RT_ERROR_INVALID_VALUE || devid == GD_INVALID_NUM) {
-        Utility::LogError("RT_ERROR_INVALID_VALUE, %d!!!!!!!!!!!!", devid);
+    int32_t devId = GD_INVALID_NUM;
+    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+        Utility::LogError("RT_ERROR_INVALID_VALUE, %d!!!!!!!!!!!!", devId);
     }
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord {};
     eventRecord.type = RecordType::MEMORY_RECORD;
     eventRecord.record.memoryRecord = CreateMemRecord(MemOpType::FREE, FLAG_INVALID, MemOpSpace::INVALID, addr, 0);
-    eventRecord.record.memoryRecord.devid = devid;
+    eventRecord.record.memoryRecord.devId = devId;
     eventRecord.record.memoryRecord.modid = INVALID_MODID;
     std::lock_guard<std::mutex> guard(mutex_);
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
@@ -213,9 +211,9 @@ bool EventReport::ReportFree(uint64_t addr)
 
 bool EventReport::ReportMark(MstxRecord& mstxRecord)
 {
-    int32_t devid = GD_INVALID_NUM;
-    if (GetDevice(&devid) == RT_ERROR_INVALID_VALUE || devid == GD_INVALID_NUM) {
-        Utility::LogError("RT_ERROR_INVALID_VALUE, %d!!!!!!!!!!!!", devid);
+    int32_t devId = GD_INVALID_NUM;
+    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+        Utility::LogError("RT_ERROR_INVALID_VALUE, %d!!!!!!!!!!!!", devId);
     }
     if (mstxRecord.streamId == -1) { // range end打点无需输出streamId信息，通过rangeId与start匹配
         Utility::LogInfo("this mark point message is %s", mstxRecord.markMessage);
@@ -227,8 +225,11 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord)
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord{};
     eventRecord.type = RecordType::MSTX_MARK_RECORD;
-    mstxRecord.devid = devid;
+    mstxRecord.devId = devId;
     eventRecord.record.mstxRecord = mstxRecord;
+    eventRecord.record.mstxRecord.pid = Utility::GetPid();
+    eventRecord.record.mstxRecord.tid = Utility::GetTid();
+    eventRecord.record.mstxRecord.timeStamp = Utility::GetTimeMicroseconds();
     auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
     
     std::lock_guard<std::mutex> guard(mutex_);
@@ -243,6 +244,12 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
     if (IsNeedSkip()) {
         return true;
     }
+
+    int32_t devId = GD_INVALID_NUM;
+    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+        Utility::LogError("RT_ERROR_INVALID_VALUE, %d!!!!!!!!!!!!", devId);
+    }
+
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord{};
     eventRecord.type = RecordType::KERNEL_LAUNCH_RECORD;
@@ -252,6 +259,7 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
         Utility::LogError("strncpy_s FAILED");
     }
     eventRecord.record.kernelLaunchRecord = CreateKernelLaunchRecord(kernelLaunchRecord);
+    eventRecord.record.kernelLaunchRecord.devId = devId;
     std::lock_guard<std::mutex> guard(mutex_);
     eventRecord.record.kernelLaunchRecord.kernelLaunchIndex = ++kernelLaunchRecordIndex_;
     eventRecord.record.kernelLaunchRecord.recordIndex = ++recordIndex_;
@@ -271,10 +279,17 @@ bool EventReport::ReportAclItf(AclOpType aclOpType)
     if (IsNeedSkip()) {
         return true;
     }
+
+    int32_t devId = GD_INVALID_NUM;
+    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+        Utility::LogError("RT_ERROR_INVALID_VALUE, %d!!!!!!!!!!!!", devId);
+    }
+
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord{};
     eventRecord.type = RecordType::ACL_ITF_RECORD;
     eventRecord.record.aclItfRecord = CreateAclItfRecord(aclOpType);
+    eventRecord.record.aclItfRecord.devId = devId;
     std::lock_guard<std::mutex> guard(mutex_);
     eventRecord.record.aclItfRecord.recordIndex = ++recordIndex_;
     eventRecord.record.aclItfRecord.aclItfRecord = ++aclItfRecordIndex_;

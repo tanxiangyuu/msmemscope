@@ -9,6 +9,7 @@
 #include "analysis/analyzer_factory.h"
 #include "analysis/mstx_analyzer.h"
 #include "analysis/dump_record.h"
+#include "analysis/trace_record.h"
 
 namespace Leaks {
 

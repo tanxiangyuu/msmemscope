@@ -46,7 +46,7 @@ extern "C" {
 #ifndef RTS_API
 #define RTS_API
 #endif
-RTS_API rtError_t GetDeviceID(int32_t *devid);
+RTS_API rtError_t GetDeviceID(int32_t *devId);
 }
 
 inline bool WriteBinary(std::string const &filename, char const *data, uint64_t length)

@@ -14,7 +14,7 @@
 
 namespace Leaks {
 extern "C" {
-bool ReportTorchNpuMemData(MemoryUsage memoryUsage);
+bool ReportTorchNpuMemData(MemoryUsage memoryUsage, uint64_t pid, uint64_t tid);
 }
 }
 

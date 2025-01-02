@@ -39,12 +39,12 @@ void HalAnalyzer::RecordMalloc(const ClientId &clientId, const MemOpRecord memre
     }
     if (!foundModule) {
         Utility::LogError("[client %u][device: %ld]: Malloc operator did not find %d Module in index %u malloc record.",
-            clientId, memrecord.devid, memrecord.modid, memrecord.recordIndex);
+            clientId, memrecord.devId, memrecord.modid, memrecord.recordIndex);
     }
 
     Utility::LogInfo(
         "[client %u][device: %ld]: server malloc record, index: %u, addr: 0x%lx, size: %u, space: %u, module: %s",
-        clientId, memrecord.devid, memrecord.recordIndex,
+        clientId, memrecord.devId, memrecord.recordIndex,
         memrecord.addr, memrecord.memSize, memrecord.space, modulename.c_str());
 
     if (memtables_[clientId].find(memkey) != memtables_[clientId].end() &&
@@ -60,7 +60,7 @@ void HalAnalyzer::RecordFree(const ClientId &clientId, const MemOpRecord memreco
 {
     uint64_t memkey = memrecord.addr;
     Utility::LogInfo("[client %u][device: %ld]: server free record, index: %u, addr: 0x%lx",
-        clientId, memrecord.devid, memrecord.recordIndex, memrecord.addr);
+        clientId, memrecord.devId, memrecord.recordIndex, memrecord.addr);
 
     auto it = memtables_[clientId].find(memkey);
     if (it != memtables_[clientId].end()) {
