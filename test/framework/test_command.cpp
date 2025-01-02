@@ -24,7 +24,6 @@ TEST(Command, do_dump_record_except_success)
 
 TEST(Command, do_record_handler_except_success)
 {
-    MstxAnalyzer mstxanalyzer;
     AnalysisConfig analysisConfig;
     AnalyzerFactory analyzerfactory{analysisConfig};
 
@@ -49,6 +48,6 @@ TEST(Command, do_record_handler_except_success)
     mstxRecordStart.streamId = 123;
     record2.record.mstxRecord = mstxRecordStart;
 
-    RecordHandler(clientId, record1, mstxanalyzer, analyzerfactory);
-    RecordHandler(clientId, record2, mstxanalyzer, analyzerfactory);
+    RecordHandler(clientId, record1, analyzerfactory);
+    RecordHandler(clientId, record2, analyzerfactory);
 }

@@ -19,12 +19,17 @@ using DeviceId = int32_t;
 
 class MstxAnalyzer {
 public:
-    MstxAnalyzer() = default;
+    static MstxAnalyzer& Instance();
     void RecordMstx(const ClientId &clientId, const MstxRecord &mstxRecord);
     void RegisterAnalyzer(std::shared_ptr<AnalyzerBase> analyzer);
     void UnregisterAnalyzer(std::shared_ptr<AnalyzerBase> analyzer);
+    MstxAnalyzer(const MstxAnalyzer&) = delete;
+    MstxAnalyzer& operator=(const MstxAnalyzer&) = delete;
+    MstxAnalyzer(MstxAnalyzer&&) = delete;
+    MstxAnalyzer& operator=(MstxAnalyzer&&) = delete;
     ~MstxAnalyzer() = default;
 private:
+    MstxAnalyzer() = default;
     std::list<std::shared_ptr<AnalyzerBase>> analyzerList;
     void Notify(const DeviceId &deviceId, const uint64_t &rangeId, const MstxRecord &mstxRecord);
 };

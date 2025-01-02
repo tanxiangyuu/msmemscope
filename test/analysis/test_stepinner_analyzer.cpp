@@ -45,12 +45,11 @@ TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_sucess) {
 }
 
 TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks_warning) {
-    MstxAnalyzer mstxanalyzer;
     AnalysisConfig analysisConfig;
     AnalyzerFactory analyzerfactory{analysisConfig};
     RecordType type = RecordType::TORCH_NPU_RECORD;
     std::shared_ptr<AnalyzerBase> analyzer = analyzerfactory.CreateAnalyzer(type);
-    mstxanalyzer.RegisterAnalyzer(analyzer);
+    MstxAnalyzer::Instance().RegisterAnalyzer(analyzer);
 
     ClientId clientId = 0;
     auto mstxRecordStart1 = MstxRecord {};
@@ -87,7 +86,7 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks_warning) {
     record1.record.torchNpuRecord = npuRecordMalloc;
 
     analyzer->Record(clientId, record1);
-    mstxanalyzer.RecordMstx(clientId, mstxRecordStart1);
-    mstxanalyzer.RecordMstx(clientId, mstxRecordStart2);
-    mstxanalyzer.RecordMstx(clientId, mstxRecordEnd);
+    MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStart1);
+    MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStart2);
+    MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordEnd);
 }
