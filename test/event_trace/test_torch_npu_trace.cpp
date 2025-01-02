@@ -9,6 +9,8 @@ using namespace Leaks;
 TEST(ReportTorchNpuMemData, ReportMemoryUsageTest)
 {
     MemoryUsage memoryUsage;
-    EXPECT_TRUE(ReportTorchNpuMemData(memoryUsage));
+    uint64_t pid = 0;
+    uint64_t tid = 0;
+    EXPECT_TRUE(ReportTorchNpuMemData(memoryUsage, pid, tid));
 }
 

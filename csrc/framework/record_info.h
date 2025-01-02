@@ -24,11 +24,12 @@ enum class MemoryAllocatorType {
     ALLOCATOR_EXTERNAL,
     ALLOCATOR_INVALID,
 };
+
 struct MemoryUsage {
-    int8_t deviceType; // 20-npu; 0-cpu
+    int8_t deviceType;          // 20-npu; 0-cpu
     int8_t deviceIndex;
-    uint8_t dataType; // 0-malloc, 1-free, 2-block_free
-    uint8_t allocatorType; // 0-Inner(for PTA), 1-external(for GE)
+    uint8_t dataType;           // 0-malloc, 1-free, 2-block_free
+    uint8_t allocatorType;      // 0-Inner(for PTA), 1-external(for GE)
     int64_t ptr;
     int64_t allocSize;
     int64_t totalAllocated;
@@ -36,8 +37,13 @@ struct MemoryUsage {
     int64_t totalActive;
     int64_t streamPtr;
 };
+
 struct TorchNpuRecord {
     uint64_t recordIndex;
+    uint64_t pid;
+    uint64_t tid;
+    uint64_t timeStamp;
+    int32_t devId;
     MemoryUsage memoryUsage;
 };
 
@@ -71,39 +77,41 @@ enum class KernelLaunchType : uint8_t {
 };
 
 struct MemOpRecord {
-    uint64_t recordIndex; // 记录索引
-    uint64_t kernelIndex; // 当前所属kernellaunch索引
-    unsigned long long flag;  // 内存属性
-    int32_t modid; // moduleID
-    uint64_t pid;     // 进程号
-    uint64_t tid; // 线程号
-    int32_t devid; // 所属deviceid
-    MemOpType memType; // 内存操作类型：malloc还是free
-    MemOpSpace space; // 内存操作空间：device还是host
-    uint64_t addr; // 地址
-    uint64_t memSize; // 操作大小
-    uint64_t timeStamp; // 时间戳
+    uint64_t recordIndex;       // 记录索引
+    uint64_t kernelIndex;       // 当前所属kernellaunch索引
+    unsigned long long flag;    // 内存属性
+    int32_t modid;              // moduleID
+    uint64_t pid;
+    uint64_t tid;
+    int32_t devId;              // 所属device id
+    MemOpType memType;          // 内存操作类型：malloc还是free
+    MemOpSpace space;           // 内存操作空间：device还是host
+    uint64_t addr;              // 地址
+    uint64_t memSize;           // 操作大小
+    uint64_t timeStamp;
 };
 
 struct AclItfRecord {
-    uint64_t pid; // 进程号
-    uint64_t tid; // 线程号
-    uint64_t recordIndex; // 记录索引
-    uint64_t aclItfRecord; // aclItf索引
-    AclOpType type; // 资源申请还是释放
-    uint64_t timeStamp; // 时间戳
+    uint64_t pid;
+    uint64_t tid;
+    int32_t devId;              // 所属device id
+    uint64_t recordIndex;       // 记录索引
+    uint64_t aclItfRecord;      // aclItf索引
+    AclOpType type;             // 资源申请还是释放
+    uint64_t timeStamp;
 };
 
 struct KernelLaunchRecord {
-    uint64_t pid; // 进程号
-    uint64_t tid; // 线程号
+    uint64_t pid;
+    uint64_t tid;
+    int32_t devId;              // 所属device id
     uint64_t kernelLaunchIndex; // kernelLaunch索引
-    uint64_t recordIndex; // 记录索引
-    KernelLaunchType type; // KernelLaunch类型
-    uint64_t timeStamp; // 时间戳
-    int32_t streamId; // streamId
-    uint32_t blockDim; // 算子核函数运行所需核数
-    char kernelName[64U]; // kernel名称
+    uint64_t recordIndex;       // 记录索引
+    KernelLaunchType type;      // KernelLaunch类型
+    uint64_t timeStamp;
+    int32_t streamId;           // streamId
+    uint32_t blockDim;          // 算子核函数运行所需核数
+    char kernelName[64U];       // kernel名称
 };
 
 enum class MarkType : int32_t {
@@ -114,9 +122,12 @@ enum class MarkType : int32_t {
 
 struct MstxRecord {
     MarkType markType;
-    int32_t devid; // 所属deviceid
-    uint64_t rangeId; // 只有Range才会存在ID，纯mark默认为0, Rangeid从1开始递增
-    int32_t streamId; // streamId, range end对应的值为-1
+    uint64_t timeStamp;
+    uint64_t pid;
+    uint64_t tid;
+    int32_t devId;              // 所属device id
+    uint64_t rangeId;           // 只有Range才会存在ID，纯mark默认为0, Rangeid从1开始递增
+    int32_t streamId;           // streamId, range end对应的值为-1
     char markMessage[64U];
 };
 

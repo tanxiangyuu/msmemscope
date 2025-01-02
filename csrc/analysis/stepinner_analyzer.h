@@ -5,6 +5,7 @@
 
 #include "host_injection/core/LocalProcess.h"
 #include "analyzer_base.h"
+#include "trace_record.h"
 
 namespace Leaks {
 /*
@@ -19,8 +20,14 @@ using TotalAllocated = int64_t;
 
 using MstxRecordTable = std::unordered_map<RangeId, TotalAllocated>;
 
+enum class MemActionType : uint8_t {
+    MALLOC = 0,
+    FREE = 1,
+    BLOCK_FREE = 2
+};
+
 struct LeakInfo {
-    uint64_t recordIndex; // 唯一标识
+    uint64_t timestamp;
     uint64_t duration; // 目前经历的duration
     uint64_t rangeId; // 来自哪个mstx的rangeId
 };
@@ -42,6 +49,7 @@ public:
     void SetRangeId(const DeviceId &deviceId, const uint64_t &rangeId);
     int64_t GetNowAllocated(const DeviceId &deviceId);
     void CheckNpuLeak(const DeviceId &deviceId, const uint64_t rangeId);
+    void NotifyTraceRecord(const int32_t &devId, const TorchNpuRecord &torchnpuRecord);
 private:
     std::unordered_map<DeviceId, NpuMemUsage> npumemusages_{};
     std::unordered_map<DeviceId, MstxRecordTable> mstxtables_{};
@@ -51,6 +59,7 @@ private:
     void RecordNpuFree(const ClientId &clientId, const DeviceId &deviceId, const TorchNpuRecord &torchnpuRecord);
     bool SkipCheck(const LeakInfo &leakInfo);
     int64_t durationThreshold_ = 1;  // 设置警告阈值, 可由用户更改
+    uint64_t skipSteps_ = 1;  // 设置警告阈值, 可由用户更改
     AnalysisConfig config_;
 };
 
