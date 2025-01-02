@@ -4,6 +4,12 @@
 
 namespace Leaks {
 
+MstxAnalyzer& MstxAnalyzer::Instance()
+{
+    static MstxAnalyzer instance;
+    return instance;
+}
+
 void MstxAnalyzer::RegisterAnalyzer(std::shared_ptr<AnalyzerBase> analyzer)
 {
     analyzerList.push_back(analyzer);
