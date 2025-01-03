@@ -20,7 +20,7 @@ using DeviceId = int32_t;
 class MstxAnalyzer {
 public:
     static MstxAnalyzer& Instance();
-    void RecordMstx(const ClientId &clientId, const MstxRecord &mstxRecord);
+    bool RecordMstx(const ClientId &clientId, const MstxRecord &mstxRecord);
     void RegisterAnalyzer(std::shared_ptr<AnalyzerBase> analyzer);
     void UnregisterAnalyzer(std::shared_ptr<AnalyzerBase> analyzer);
     MstxAnalyzer(const MstxAnalyzer&) = delete;

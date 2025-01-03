@@ -18,7 +18,9 @@ void RecordHandler(const ClientId &clientId, const EventRecord &record, Analyzer
     // 分析类多态实现
     auto analyzer = analyzerfactory.CreateAnalyzer(record.type);
     if (analyzer) {
-        analyzer->Record(clientId, record);
+        if (!analyzer->Record(clientId, record)) {
+            Utility::LogWarn("[client %u]: record failed.", clientId);
+        }
     } else {
         /* now acl or kernel */
     }
