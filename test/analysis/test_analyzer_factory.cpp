@@ -18,7 +18,7 @@ TEST(AnalyzerFactoryTest, Do_createHalAnalyzer_except_success) {
     AnalyzerFactory analyzerfactory{analysisConfig};
 
     RecordType type = RecordType::MEMORY_RECORD;
-    analyzerfactory.CreateAnalyzer(type);
+    EXPECT_NE(analyzerfactory.CreateAnalyzer(type), nullptr);
 }
 
 TEST(AnalyzerFactoryTest, Do_createNpuAnalyzer_except_success) {
@@ -26,7 +26,7 @@ TEST(AnalyzerFactoryTest, Do_createNpuAnalyzer_except_success) {
     AnalyzerFactory analyzerfactory{analysisConfig};
 
     RecordType type = RecordType::TORCH_NPU_RECORD;
-    analyzerfactory.CreateAnalyzer(type);
+    EXPECT_NE(analyzerfactory.CreateAnalyzer(type), nullptr);
 }
 
 TEST(AnalyzerFactoryTest, Do_createKernelAnalyzer_except_success) {
@@ -34,7 +34,7 @@ TEST(AnalyzerFactoryTest, Do_createKernelAnalyzer_except_success) {
     AnalyzerFactory analyzerfactory{analysisConfig};
 
     RecordType type = RecordType::KERNEL_LAUNCH_RECORD;
-    analyzerfactory.CreateAnalyzer(type);
+    EXPECT_EQ(analyzerfactory.CreateAnalyzer(type), nullptr);
 }
 
 TEST(AnalyzerFactoryTest, Do_createAclAnalyzer_except_success) {
@@ -42,7 +42,7 @@ TEST(AnalyzerFactoryTest, Do_createAclAnalyzer_except_success) {
     AnalyzerFactory analyzerfactory{analysisConfig};
 
     RecordType type = RecordType::ACL_ITF_RECORD;
-    analyzerfactory.CreateAnalyzer(type);
+    EXPECT_EQ(analyzerfactory.CreateAnalyzer(type), nullptr);
 }
 
 TEST(AnalyzerFactoryTest, Do_createAnalyzer_get_unsupportedType_except_failed) {
@@ -51,4 +51,5 @@ TEST(AnalyzerFactoryTest, Do_createAnalyzer_get_unsupportedType_except_failed) {
 
     RecordType type = RecordType::ACL_ITF_RECORD;
     analyzerfactory.CreateAnalyzer(type);
+    EXPECT_EQ(analyzerfactory.CreateAnalyzer(type), nullptr);
 }
