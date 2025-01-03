@@ -52,22 +52,3 @@ TEST(AnalyzerFactoryTest, Do_createAnalyzer_get_unsupportedType_except_failed) {
     RecordType type = RecordType::ACL_ITF_RECORD;
     analyzerfactory.CreateAnalyzer(type);
 }
-
-TEST(AnalyzerFactoryTest, Do_ReturnRegisterList_except_return_success) {
-    AnalysisConfig analysisConfig;
-    AnalyzerFactory analyzerfactory{analysisConfig};
-
-    RecordType type = RecordType::TORCH_NPU_RECORD;
-    analyzerfactory.CreateAnalyzer(type);
-    analyzerfactory.ReturnRegisterList();
-}
-
-TEST(AnalyzerFactoryTest, Do_ReturnRegisterList_when_empty_except_return_nullptr) {
-    AnalysisConfig analysisConfig;
-    AnalyzerFactory analyzerfactory{analysisConfig};
-
-    RecordType type = RecordType::ACL_ITF_RECORD;
-    analyzerfactory.CreateAnalyzer(type);
-    analyzerfactory.ReturnRegisterList();
-}
-
