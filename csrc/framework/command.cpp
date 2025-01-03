@@ -6,20 +6,12 @@
 
 namespace Leaks {
 
-void RecordHandler(const ClientId &clientId, const EventRecord &record, MstxAnalyzer &mstxanalyzer,
-    AnalyzerFactory &analyzerfactory)
+void RecordHandler(const ClientId &clientId, const EventRecord &record, AnalyzerFactory &analyzerfactory)
 {
     // mstx类记录
     if (record.type == RecordType::MSTX_MARK_RECORD) {
-        // 获取待注册分析类
-        auto registerListptr = analyzerfactory.ReturnRegisterList();
-        if (registerListptr) {
-            for (std::shared_ptr<AnalyzerBase> analyzer : *registerListptr) {
-                mstxanalyzer.RegisterAnalyzer(analyzer);
-            }
-        }
         auto mstxRecord = record.record.mstxRecord;
-        mstxanalyzer.RecordMstx(clientId, mstxRecord);
+        MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecord);
         return;
     }
 
@@ -46,10 +38,9 @@ void Command::Exec(const std::vector<std::string> &execParams) const
     Process process(config_);
     std::map<ClientId, Protocol> protocolList;
     AnalyzerFactory analyzerfactory{config_};
-    MstxAnalyzer mstxanalyzer{};
     DumpRecord dump{};
 
-    auto msgHandler = [&protocolList, &mstxanalyzer, &dump, &analyzerfactory](ClientId &clientId,
+    auto msgHandler = [&protocolList, &dump, &analyzerfactory](ClientId &clientId,
     std::string &manyMsg) {
         if (protocolList.find(clientId) == protocolList.end()) {
             protocolList.insert({clientId, Protocol{}});
@@ -62,7 +53,7 @@ void Command::Exec(const std::vector<std::string> &execParams) const
                 case PacketType::RECORD:
                     DumpHandler(clientId, dump, packet.GetPacketBody());
                     TraceRecord::GetInstance().TraceHandler(packet.GetPacketBody());
-                    RecordHandler(clientId, packet.GetPacketBody(), mstxanalyzer, analyzerfactory);
+                    RecordHandler(clientId, packet.GetPacketBody(), analyzerfactory);
                     break;
                 case PacketType::INVALID:
                 default:

@@ -13,8 +13,7 @@
 
 namespace Leaks {
 
-void RecordHandler(const ClientId &clientId, const EventRecord &record, MstxAnalyzer &mstxanalyzer,
-    AnalyzerFactory &analyzerfactory);
+void RecordHandler(const ClientId &clientId, const EventRecord &record, AnalyzerFactory &analyzerfactory);
 void DumpHandler(const ClientId &clientId, DumpRecord &dump, const EventRecord &record);
 
 // Command类主要针对解析后的命令进行处理，是串接流程的主要类
