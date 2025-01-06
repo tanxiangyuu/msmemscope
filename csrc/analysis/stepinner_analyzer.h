@@ -43,7 +43,7 @@ struct NpuMemUsage {
 class StepInnerAnalyzer : public AnalyzerBase {
 public:
     explicit StepInnerAnalyzer(const AnalysisConfig &config);
-    void Record(const ClientId &clientId, const EventRecord &record) override;
+    bool Record(const ClientId &clientId, const EventRecord &record) override;
     void ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t &rangeId, const MstxRecord &mstxRecord) override;
     void AddDuration(const DeviceId &deviceId);
     void SetRangeId(const DeviceId &deviceId, const uint64_t &rangeId);
