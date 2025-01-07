@@ -43,7 +43,7 @@ struct NpuMemUsage {
 class StepInnerAnalyzer : public AnalyzerBase {
 public:
     explicit StepInnerAnalyzer(const AnalysisConfig &config);
-    void Record(const ClientId &clientId, const EventRecord &record) override;
+    bool Record(const ClientId &clientId, const EventRecord &record) override;
     void ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t &rangeId, const MstxRecord &mstxRecord) override;
     void AddDuration(const DeviceId &deviceId);
     void SetRangeId(const DeviceId &deviceId, const uint64_t &rangeId);
@@ -59,7 +59,7 @@ private:
     void RecordNpuFree(const ClientId &clientId, const DeviceId &deviceId, const TorchNpuRecord &torchnpuRecord);
     bool SkipCheck(const LeakInfo &leakInfo);
     int64_t durationThreshold_ = 1;  // 设置警告阈值, 可由用户更改
-    uint64_t skipSteps_ = 1;  // 设置警告阈值, 可由用户更改
+    uint64_t skipSteps_ = 1;
     AnalysisConfig config_;
 };
 

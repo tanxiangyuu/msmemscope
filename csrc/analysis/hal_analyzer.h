@@ -24,7 +24,7 @@ using MemoryRecordTable = std::unordered_map<uint64_t, AddrStatus>;
 class HalAnalyzer : public AnalyzerBase {
 public:
     explicit HalAnalyzer(const AnalysisConfig &config);
-    void Record(const ClientId &clientId, const EventRecord &record) override;
+    bool Record(const ClientId &clientId, const EventRecord &record) override;
     void ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t &rangeid, const MstxRecord &mstxrecord) override;
     ~HalAnalyzer();
 private:

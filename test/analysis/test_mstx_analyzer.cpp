@@ -27,9 +27,9 @@ TEST(MstxAnalyzerTest, do_mstx_record_expect_success) {
     mstxRecordMark.rangeId = 0;
     mstxRecordMark.streamId = 123;
 
-    MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStart);
-    MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordEnd);
-    MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordMark);
+    EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStart));
+    EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordEnd));
+    EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordMark));
 }
 
 TEST(MstxAnalyzerTest, do_analyzer_register_and_unregister_expect_success) {
@@ -56,5 +56,5 @@ TEST(MstxAnalyzerTest, do_analyzer_notify_expect_success) {
     mstxRecordStart.rangeId = 1;
     mstxRecordStart.streamId = 123;
 
-    MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStart);
+    EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStart));
 }

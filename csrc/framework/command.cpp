@@ -33,6 +33,7 @@ void RecordHandler(const ClientId &clientId, const EventRecord &record, Analyzer
             analyzer->Record(clientId, record);
             break;
     }
+
     return;
 }
 

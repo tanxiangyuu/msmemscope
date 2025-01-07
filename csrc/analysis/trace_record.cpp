@@ -71,6 +71,24 @@ static std::string FormatInstantEvent(JsonBaseInfo baseInfo)
     return oss.str();
 }
 
+inline bool CheckAddOverflow(uint64_t a, uint64_t b, const std::string& msg)
+{
+    if (a > UINT64_MAX - b) {
+        Utility::LogError(msg);
+        return true;
+    }
+    return false;
+}
+
+inline bool CheckSubUnderflow(uint64_t a, uint64_t b, const std::string& msg)
+{
+    if (a < b) {
+        Utility::LogError(msg);
+        return true;
+    }
+    return false;
+}
+
 TraceRecord& TraceRecord::GetInstance()
 {
     static TraceRecord instance;
@@ -80,7 +98,7 @@ TraceRecord& TraceRecord::GetInstance()
 void TraceRecord::TraceHandler(const EventRecord &record)
 {
     if (!ProcessRecord(record)) {
-        Utility::LogWarn("Write record in trace file failed.");
+        Utility::LogWarn("Record was not processed correctly.");
     }
 }
 
@@ -202,48 +220,50 @@ bool TraceRecord::ProcessRecord(const EventRecord &record)
 void TraceRecord::RecordToString(const MemOpRecord &memRecord, std::string &str)
 {
     int32_t devId = memRecord.devId;
-    std::string space;
-    uint64_t totalMem;
+    bool isHost = true;
 
-    if (memRecord.space == MemOpSpace::HOST) {
-        if (memRecord.memType == MemOpType::MALLOC) {
+    if (memRecord.memType == MemOpType::MALLOC) {
+        if (memRecord.space == MemOpSpace::HOST) {
             hostMemAllocation_[devId][memRecord.addr] = memRecord.memSize;
-            if (hostMemUsage_[devId] > UINT64_MAX - memRecord.memSize) {
-                Utility::LogError("Host hal memory overflow.");
+            if (CheckAddOverflow(hostMemUsage_[devId], memRecord.memSize, "Host hal memory overflow.")) {
                 return;
             }
             hostMemUsage_[devId] += memRecord.memSize;
-        } else if (hostMemAllocation_[devId].find(memRecord.addr) != hostMemAllocation_[devId].end()) {
-            hostMemUsage_[devId] -= hostMemAllocation_[devId][memRecord.addr];
-            hostMemAllocation_[devId].erase(memRecord.addr);
-        } else {
-            Utility::LogWarn("No memory allocation record for the freed addr %llu on host.", memRecord.addr);
-            return;
-        }
-        space = "host memory";
-        totalMem = hostMemUsage_[devId];
-    } else if (memRecord.space == MemOpSpace::DEVICE) {
-        if (memRecord.memType == MemOpType::MALLOC) {
+        } else if (memRecord.space == MemOpSpace::DEVICE) {
             deviceMemAllocation_[devId][memRecord.addr] = memRecord.memSize;
-            if (deviceMemUsage_[devId] > UINT64_MAX - memRecord.memSize) {
-                Utility::LogError("Device hal memory overflow.");
+            if (CheckAddOverflow(deviceMemUsage_[devId], memRecord.memSize, "Device hal memory overflow.")) {
                 return;
             }
             deviceMemUsage_[devId] += memRecord.memSize;
-        } else if (deviceMemAllocation_[devId].find(memRecord.addr) != deviceMemAllocation_[devId].end()) {
-            deviceMemUsage_[devId] -= deviceMemAllocation_[devId][memRecord.addr];
-            deviceMemAllocation_[devId].erase(memRecord.addr);
+            isHost = false;
         } else {
-            Utility::LogWarn("No memory allocation record for the freed addr %llu on device.", memRecord.addr);
             return;
         }
-        space = "device memory";
-        totalMem = deviceMemUsage_[devId];
     } else {
-        Utility::LogWarn("Not sure whether the hal memory record is on the host or device.");
-        return;
+        if (hostMemAllocation_[devId].find(memRecord.addr) != hostMemAllocation_[devId].end()) {
+            if (CheckSubUnderflow(hostMemUsage_[devId], hostMemAllocation_[devId][memRecord.addr],
+                "Host hal memory underflow.")) {
+                return;
+            }
+            hostMemUsage_[devId] -= hostMemAllocation_[devId][memRecord.addr];
+            hostMemAllocation_[devId].erase(memRecord.addr);
+        } else if (deviceMemAllocation_[devId].find(memRecord.addr) != deviceMemAllocation_[devId].end()) {
+            if (CheckSubUnderflow(deviceMemUsage_[devId], deviceMemAllocation_[devId][memRecord.addr],
+                "Device hal memory underflow.")) {
+                return;
+            }
+            deviceMemUsage_[devId] -= deviceMemAllocation_[devId][memRecord.addr];
+            deviceMemAllocation_[devId].erase(memRecord.addr);
+            isHost = false;
+        } else {
+            Utility::LogWarn("No memory allocation record for the freed addr %llu.", memRecord.addr);
+            return;
+        }
     }
 
+    // 最终统计的结果只包含host或者device的数据
+    std::string space = isHost ? "host memory" : "device memory";
+    uint64_t totalMem = isHost ? hostMemUsage_[devId] : deviceMemUsage_[devId];
     JsonBaseInfo baseInfo{space.c_str(), memRecord.pid, memRecord.tid, memRecord.timeStamp};
     str = FormatCounterEvent(baseInfo, totalMem);
     return;
