@@ -264,7 +264,7 @@ void TraceRecord::RecordToString(const KernelLaunchRecord &kernelLaunchRecord, s
 void TraceRecord::RecordToString(const AclItfRecord &aclItfRecord, std::string &str)
 {
     JsonBaseInfo baseInfo{
-        "acl_" + std::to_string(aclItfRecord.aclItfRecord),
+        "acl_" + std::to_string(aclItfRecord.aclItfRecordIndex),
         aclItfRecord.pid,
         aclItfRecord.tid,
         aclItfRecord.timeStamp

@@ -5,6 +5,8 @@
 #include <type_traits>
 #include <string>
 #include <mutex>
+#include <unistd.h>
+#include "utils.h"
 
 namespace Utility {
 
@@ -23,27 +25,28 @@ public:
     static Log &GetLog(void);
 
     template <typename... Args>
-    inline void Printf(std::string const &format, LogLv lv, Args &&...args) const;
+    inline void Printf(std::string const &format, LogLv lv, Args &&...args);
     void SetLogLevel(const std::string &logLevel = "1");
 
 private:
     Log(void) = default;
-    ~Log(void) = default;
+    ~Log(void);
     Log(Log const &) = delete;
     Log &operator=(Log const &) = delete;
     std::string AddPrefixInfo(std::string const &format, LogLv lv) const;
 
 private:
     LogLv lv_{LogLv::INFO};
-    FILE *fp_{stdout};
+    FILE *fp_{nullptr};
     mutable std::mutex mtx_;
 };
 
 template <typename... Args>
-void Log::Printf(const std::string &format, LogLv lv, Args &&...args) const
+void Log::Printf(const std::string &format, LogLv lv, Args &&...args)
 {
     std::lock_guard<std::mutex> lock(mtx_);
-    if (fp_ == nullptr) {
+    std::string fileName = "msleaks_" + GetDateStr() + ".txt";
+    if (fp_ == nullptr && (fp_ = fopen(fileName.c_str(), "a")) == nullptr) {
         return;
     }
     if (lv < lv_) {

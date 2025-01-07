@@ -44,7 +44,7 @@ MemOpSpace GetMemOpSpace(unsigned long long flag)
             space = MemOpSpace::DVPP;
             break;
         default:
-            Utility::LogError("No matching memType for %d .", memType);
+            std::cout << "No matching memType for " << memType << " ." << std::endl;
     }
     return space;
 }
@@ -66,7 +66,7 @@ RTS_API rtError_t GetDevice(int32_t *devId)
     using RtGetDevice = decltype(&GetDevice);
     auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtGetDevice>(sym);
     if (vallina == nullptr) {
-        Utility::LogError("vallina func get FAILED");
+        std::cout << "vallina func get FAILED" << std::endl;
         return RT_ERROR_RESERVED;
     }
     rtError_t ret = vallina(devId);
@@ -156,7 +156,6 @@ bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord)
     std::lock_guard<std::mutex> guard(mutex_);
     eventrecord.record.torchNpuRecord.recordIndex = ++recordIndex_;
     auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventrecord));
-    Utility::LogInfo("TorchNpu Record, index: %u", recordIndex_);
     return (sendNums >= 0);
 }
 
@@ -167,7 +166,7 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
     }
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
-        Utility::LogError("RT_ERROR_INVALID_VALUE, %d!!!!!!!!!!!!", devId);
+        std::cout << "RT_ERROR_INVALID_VALUE, " << devId << std::endl;
     }
     int32_t moduleId = GetMallocModuleId(flag);
     MemOpSpace space = GetMemOpSpace(flag);
@@ -181,8 +180,6 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
     auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
-    Utility::LogInfo("client malloc record, index: %u, addr: 0x%lx, size: %u, space: %u, flag: %llu",
-        recordIndex_, addr, size, space, flag);
     return (sendNums >= 0);
 }
 
@@ -193,7 +190,7 @@ bool EventReport::ReportFree(uint64_t addr)
     }
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
-        Utility::LogError("RT_ERROR_INVALID_VALUE, %d!!!!!!!!!!!!", devId);
+        std::cout << "RT_ERROR_INVALID_VALUE, " << devId << std::endl;
     }
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord {};
@@ -205,7 +202,6 @@ bool EventReport::ReportFree(uint64_t addr)
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
     auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
-    Utility::LogInfo("client free record, index: %u, addr: 0x%lx", recordIndex_, addr);
     return (sendNums >= 0);
 }
 
@@ -213,15 +209,9 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord)
 {
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
-        Utility::LogError("RT_ERROR_INVALID_VALUE, %d!!!!!!!!!!!!", devId);
+        std::cout << "RT_ERROR_INVALID_VALUE, " << devId << std::endl;
     }
-    if (mstxRecord.streamId == -1) { // range end打点无需输出streamId信息，通过rangeId与start匹配
-        Utility::LogInfo("this mark point message is %s", mstxRecord.markMessage);
-    } else {
-        Utility::LogInfo("this mark point message is %s, streamId is %d", mstxRecord.markMessage, mstxRecord.streamId);
-    }
-    Utility::LogInfo("this mark point id is %llu", mstxRecord.rangeId);
-    
+
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord{};
     eventRecord.type = RecordType::MSTX_MARK_RECORD;
@@ -247,7 +237,7 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
 
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
-        Utility::LogError("RT_ERROR_INVALID_VALUE, %d!!!!!!!!!!!!", devId);
+        std::cout << "RT_ERROR_INVALID_VALUE, " << devId << std::endl;
     }
 
     PacketHead head = {PacketType::RECORD};
@@ -256,7 +246,7 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
     // 解析kernelname信息，默认不解析，打开-p开关后才解析
     if (config_.parseKernelName && strncpy_s(kernelLaunchRecord.kernelName, sizeof(kernelLaunchRecord.kernelName),
         GetNameFromBinary(hdl).c_str(), sizeof(kernelLaunchRecord.kernelName) - 1) != EOK) {
-        Utility::LogError("strncpy_s FAILED");
+        std::cout << "strncpy_s FAILED" << std::endl;
     }
     eventRecord.record.kernelLaunchRecord = CreateKernelLaunchRecord(kernelLaunchRecord);
     eventRecord.record.kernelLaunchRecord.devId = devId;
@@ -264,13 +254,6 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
     eventRecord.record.kernelLaunchRecord.kernelLaunchIndex = ++kernelLaunchRecordIndex_;
     eventRecord.record.kernelLaunchRecord.recordIndex = ++recordIndex_;
     auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
-    Utility::LogInfo("client kernelLaunch record, name: %s, index: %u, type: %u, time: %u, streamId: %d, blockDim: %u",
-        eventRecord.record.kernelLaunchRecord.kernelName,
-        kernelLaunchRecordIndex_,
-        eventRecord.record.kernelLaunchRecord.type,
-        eventRecord.record.kernelLaunchRecord.timeStamp,
-        eventRecord.record.kernelLaunchRecord.streamId,
-        eventRecord.record.kernelLaunchRecord.blockDim);
     return (sendNums >= 0);
 }
 
@@ -282,7 +265,7 @@ bool EventReport::ReportAclItf(AclOpType aclOpType)
 
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
-        Utility::LogError("RT_ERROR_INVALID_VALUE, %d!!!!!!!!!!!!", devId);
+        std::cout << "RT_ERROR_INVALID_VALUE, " << devId << std::endl;
     }
 
     PacketHead head = {PacketType::RECORD};
@@ -292,12 +275,8 @@ bool EventReport::ReportAclItf(AclOpType aclOpType)
     eventRecord.record.aclItfRecord.devId = devId;
     std::lock_guard<std::mutex> guard(mutex_);
     eventRecord.record.aclItfRecord.recordIndex = ++recordIndex_;
-    eventRecord.record.aclItfRecord.aclItfRecord = ++aclItfRecordIndex_;
+    eventRecord.record.aclItfRecord.aclItfRecordIndex = ++aclItfRecordIndex_;
     auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
-    Utility::LogInfo("client aclItf record, index: %u, type: %u, time: %u",
-        aclItfRecordIndex_,
-        aclOpType,
-        eventRecord.record.aclItfRecord.timeStamp);
     return (sendNums >= 0);
 }
 
@@ -315,13 +294,13 @@ bool PipeCall(std::vector<std::string> const &cmd, std::string &output)
 {
     int pipeStdout[2];
     if (pipe(pipeStdout) != 0) {
-        Utility::LogError("PipeCall: get pipe failed");
+        std::cout << "PipeCall: get pipe failed" << std::endl;
         return false;
     }
 
     pid_t pid = fork();
     if (pid < 0) {
-        Utility::LogError("PipeCall: create subprocess failed");
+        std::cout << "PipeCall: create subprocess failed" << std::endl;
         return false;
     } else if (pid == 0) {
         dup2(pipeStdout[1], STDOUT_FILENO);
@@ -408,7 +387,7 @@ std::string GetNameFromBinary(const void *hdl)
     std::string kernelName;
     auto it = HandleMapping::GetInstance().handleBinKernelMap_.find(hdl);
     if (it == HandleMapping::GetInstance().handleBinKernelMap_.end()) {
-        Utility::LogError("kernel handle NOT registered in map");
+        std::cout << "kernel handle NOT registered in map" << std::endl;
         return kernelName;
     }
     std::vector<char> binary = it->second.bin;

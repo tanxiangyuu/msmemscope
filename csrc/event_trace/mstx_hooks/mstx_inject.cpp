@@ -1,5 +1,6 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 #include "mstx_inject.h"
+#include <iostream>
 #include "log.h"
 #include "mstx_manager.h"
 #include "kernel_hooks/runtime_hooks.h"
@@ -34,12 +35,12 @@ extern "C" int __attribute__((visibility("default"))) InitInjectionMstx(MstxGetM
     if (getFuncTable == nullptr ||
         getFuncTable(MstxFuncModule::MSTX_API_MODULE_CORE, &outTable, &outSize) != MSTX_SUCCESS ||
         outTable == nullptr) {
-        Utility::LogError("Failed to call getFuncTable");
+        std::cout << "Failed to call getFuncTable" << std::endl;
         return MSTX_FAIL;
     }
 
     if (outSize != static_cast<unsigned int>(MstxFuncSeq::MSTX_FUNC_END)) {
-        Utility::LogError("OutSize is not equal to MSTX_FUNC_END, Failed to init mstx funcs.");
+        std::cout << "OutSize is not equal to MSTX_FUNC_END, Failed to init mstx funcs." << std::endl;
         return MSTX_FAIL; // 1 : init failed
     }
     *(outTable[static_cast<unsigned int>(MstxFuncSeq::MSTX_FUNC_MARKA)]) =

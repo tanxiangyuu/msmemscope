@@ -20,7 +20,12 @@ Log &Log::GetLog(void)
     static Log instance;
     return instance;
 }
-
+Log::~Log()
+{
+    if (fp_ != nullptr) {
+        fclose(fp_);
+    }
+}
 std::string Log::AddPrefixInfo(std::string const &format, LogLv lv) const
 {
     char buf[LOG_BUF_SIZE];
