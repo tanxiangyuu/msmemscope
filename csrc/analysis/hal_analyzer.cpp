@@ -76,19 +76,21 @@ void HalAnalyzer::RecordFree(const ClientId &clientId, const MemOpRecord memreco
     }
 }
 
-void HalAnalyzer::Record(const ClientId &clientId, const EventRecord &record)
+bool HalAnalyzer::Record(const ClientId &clientId, const EventRecord &record)
 {
     if (!CreateMemTables(clientId)) {
         Utility::LogError("[client %u]: Create hal Memory table failed.", clientId);
-        return;
+        return false;
     }
     auto memrecord = record.record.memoryRecord;
     if (memrecord.memType == MemOpType::MALLOC) {
         RecordMalloc(clientId, memrecord);
+        return true;
     } else if (memrecord.memType == MemOpType::FREE) {
         RecordFree(clientId, memrecord);
+        return true;
     }
-    return;
+    return false;
 }
 
 void HalAnalyzer::CheckLeak(const size_t clientId)

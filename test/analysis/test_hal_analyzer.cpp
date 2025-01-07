@@ -49,9 +49,9 @@ TEST(HalAnalyzerTest, do_hal_record_except_leaks) {
     memRecordMalloc4.timeStamp = 1234557;
     record4.record.memoryRecord = memRecordMalloc4;
  
-    halanalyzer.Record(clientId, record1);
-    halanalyzer.Record(clientId, record2);
-    halanalyzer.Record(clientId, record4);
+    EXPECT_TRUE(halanalyzer.Record(clientId, record1));
+    EXPECT_TRUE(halanalyzer.Record(clientId, record2));
+    EXPECT_TRUE(halanalyzer.Record(clientId, record4));
 }
 
 TEST(HalAnalyzerTest, do_record_except_no_leaks) {
@@ -81,8 +81,8 @@ TEST(HalAnalyzerTest, do_record_except_no_leaks) {
     memRecordFree.memSize = 0;
     record3.record.memoryRecord = memRecordFree;
 
-    halanalyzer.Record(clientId, record1);
-    halanalyzer.Record(clientId, record3);
+    EXPECT_TRUE(halanalyzer.Record(clientId, record1));
+    EXPECT_TRUE(halanalyzer.Record(clientId, record3));
 }
 
 TEST(HalAnalyzerTest, do_record_excpet_double_free) {
@@ -122,9 +122,9 @@ TEST(HalAnalyzerTest, do_record_excpet_double_free) {
     memRecordFree2.memSize = 0;
     record3.record.memoryRecord = memRecordFree2;
 
-    halanalyzer.Record(clientId, record1);
-    halanalyzer.Record(clientId, record2);
-    halanalyzer.Record(clientId, record3);
+    EXPECT_TRUE(halanalyzer.Record(clientId, record1));
+    EXPECT_TRUE(halanalyzer.Record(clientId, record2));
+    EXPECT_TRUE(halanalyzer.Record(clientId, record3));
 }
 
 TEST(HalAnalyzerTest, do_record_except_double_malloc) {
@@ -156,8 +156,8 @@ TEST(HalAnalyzerTest, do_record_except_double_malloc) {
     memRecordMalloc2.timeStamp = 1234567;
     record2.record.memoryRecord = memRecordMalloc2;
 
-    halanalyzer.Record(clientId, record1);
-    halanalyzer.Record(clientId, record2);
+    EXPECT_TRUE(halanalyzer.Record(clientId, record1));
+    EXPECT_TRUE(halanalyzer.Record(clientId, record2));
 }
 
 TEST(HalAnalyzerTest, do_record_except_free_null) {
@@ -175,7 +175,7 @@ TEST(HalAnalyzerTest, do_record_except_free_null) {
     memRecordFree1.memSize = 0;
     record1.record.memoryRecord = memRecordFree1;
 
-    halanalyzer.Record(clientId, record1);
+    EXPECT_TRUE(halanalyzer.Record(clientId, record1));
 }
 
 TEST(HalAnalyzerTest, do_record_fail) {
@@ -193,7 +193,7 @@ TEST(HalAnalyzerTest, do_record_fail) {
     memRecordFree1.memSize = 0;
     record1.record.memoryRecord = memRecordFree1;
 
-    halanalyzer.Record(clientId, record1);
+    EXPECT_TRUE(halanalyzer.Record(clientId, record1));
 }
 
 TEST(HalAnalyzerTest, do_memory_record_nulltable) {
@@ -208,5 +208,5 @@ TEST(HalAnalyzerTest, do_memory_record_nulltable) {
     ClientId clientId = 0;
     memRecordFree.memType = MemOpType::FREE;
     record.record.memoryRecord = memRecordFree;
-    halanalyzer.Record(clientId, record);
+    EXPECT_TRUE(halanalyzer.Record(clientId, record));
 }

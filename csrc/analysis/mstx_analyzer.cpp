@@ -27,7 +27,7 @@ void MstxAnalyzer::Notify(const DeviceId &deviceId, const uint64_t &rangeId, con
     }
 }
 
-void MstxAnalyzer::RecordMstx(const ClientId &clientId, const MstxRecord &mstxRecord)
+bool MstxAnalyzer::RecordMstx(const ClientId &clientId, const MstxRecord &mstxRecord)
 {
     DeviceId deviceId = mstxRecord.devId;
     uint64_t rangeId = mstxRecord.rangeId;
@@ -39,6 +39,7 @@ void MstxAnalyzer::RecordMstx(const ClientId &clientId, const MstxRecord &mstxRe
             mstxRecord.streamId,
             mstxRecord.markMessage);
         Notify(deviceId, rangeId, mstxRecord);
+        return true;
     } else if (mstxRecord.markType == MarkType::RANGE_END) {
         Utility::LogInfo("[npu %ld][client %u][rangeid %llu][streamid %d][end]: %s",
             deviceId,
@@ -47,6 +48,7 @@ void MstxAnalyzer::RecordMstx(const ClientId &clientId, const MstxRecord &mstxRe
             mstxRecord.streamId,
             mstxRecord.markMessage);
         Notify(deviceId, rangeId, mstxRecord);
+        return true;
     } else if (mstxRecord.markType == MarkType::MARK_A) {
         Utility::LogInfo("[npu %ld][client %u][rangeid %llu][streamid %d][mark]: %s",
             deviceId,
@@ -54,8 +56,9 @@ void MstxAnalyzer::RecordMstx(const ClientId &clientId, const MstxRecord &mstxRe
             rangeId,
             mstxRecord.streamId,
             mstxRecord.markMessage);
+        return true;
     }
-    return;
+    return false;
 }
 
 }

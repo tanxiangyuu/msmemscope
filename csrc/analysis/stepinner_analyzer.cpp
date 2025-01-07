@@ -163,13 +163,13 @@ int64_t StepInnerAnalyzer::GetNowAllocated(const DeviceId &deviceId)
     return npumemusages_[deviceId].totalAllocated;
 }
 
-void StepInnerAnalyzer::Record(const ClientId &clientId, const EventRecord &record)
+bool StepInnerAnalyzer::Record(const ClientId &clientId, const EventRecord &record)
 {
     TorchNpuRecord torchnpuRecord = record.record.torchNpuRecord;
     DeviceId deviceId = torchnpuRecord.memoryUsage.deviceIndex;
     if (!CreateTables(deviceId)) {
         Utility::LogError("[device %ld]: Create npu Memory table failed.", deviceId);
-        return;
+        return false;
     }
     // 目前不处理FREE操作
     if (torchnpuRecord.memoryUsage.dataType == static_cast<uint8_t>(MemActionType::MALLOC)) {
@@ -177,7 +177,7 @@ void StepInnerAnalyzer::Record(const ClientId &clientId, const EventRecord &reco
     } else if (torchnpuRecord.memoryUsage.dataType == static_cast<uint8_t>(MemActionType::BLOCK_FREE)) {
         RecordNpuFree(clientId, deviceId, torchnpuRecord);
     }
-    return;
+    return true;
 }
 
 void StepInnerAnalyzer::ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t &rangeId, const MstxRecord &mstxRecord)
