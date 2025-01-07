@@ -96,7 +96,7 @@ struct AclItfRecord {
     uint64_t tid;
     int32_t devId;              // 所属device id
     uint64_t recordIndex;       // 记录索引
-    uint64_t aclItfRecord;      // aclItf索引
+    uint64_t aclItfRecordIndex;      // aclItf索引
     AclOpType type;             // 资源申请还是释放
     uint64_t timeStamp;
 };

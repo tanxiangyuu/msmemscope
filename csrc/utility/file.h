@@ -3,7 +3,9 @@
 #ifndef LEAKS_UTILITY_FILE_H
 #define LEAKS_UTILITY_FILE_H
 
-#include <syscall.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include "log.h"
 
 namespace Utility {
     constexpr uint32_t DIRMOD = 0777;

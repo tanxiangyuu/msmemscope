@@ -32,26 +32,29 @@ bool MstxAnalyzer::RecordMstx(const ClientId &clientId, const MstxRecord &mstxRe
     DeviceId deviceId = mstxRecord.devId;
     uint64_t rangeId = mstxRecord.rangeId;
     if (mstxRecord.markType == MarkType::RANGE_START_A) {
-        Utility::LogInfo("[npu %ld][client %u][rangeid %llu][start]: %s",
+        Utility::LogInfo("[npu %ld][client %u][rangeid %llu][streamid %d][start]: %s",
             deviceId,
             clientId,
             rangeId,
+            mstxRecord.streamId,
             mstxRecord.markMessage);
         Notify(deviceId, rangeId, mstxRecord);
         return true;
     } else if (mstxRecord.markType == MarkType::RANGE_END) {
-        Utility::LogInfo("[npu %ld][client %u][rangeid %llu][end]: %s",
+        Utility::LogInfo("[npu %ld][client %u][rangeid %llu][streamid %d][end]: %s",
             deviceId,
             clientId,
             rangeId,
+            mstxRecord.streamId,
             mstxRecord.markMessage);
         Notify(deviceId, rangeId, mstxRecord);
         return true;
     } else if (mstxRecord.markType == MarkType::MARK_A) {
-        Utility::LogInfo("[npu %ld][client %u][rangeid %llu][mark]: %s",
+        Utility::LogInfo("[npu %ld][client %u][rangeid %llu][streamid %d][mark]: %s",
             deviceId,
             clientId,
             rangeId,
+            mstxRecord.streamId,
             mstxRecord.markMessage);
         return true;
     }

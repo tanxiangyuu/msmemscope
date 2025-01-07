@@ -23,13 +23,13 @@ ACL_FUNC_VISIBILITY aclError aclInit(const char *configPath)
     using AclInit = decltype(&aclInit);
     auto vallina = VallinaSymbol<AclLibLoader>::Instance().Get<AclInit>("aclInit");
     if (vallina == nullptr) {
-        Utility::LogError("vallina func get FAILED");
+        std::cout << "vallina func get FAILED" << std::endl;
         return ACL_ERROR_INTERNAL_ERROR;
     }
 
     aclError ret = vallina(configPath);
     if (!EventReport::Instance(CommType::SOCKET).ReportAclItf(AclOpType::INIT)) {
-        Utility::LogError("%s report FAILED", __func__);
+        std::cout << "aclInit report FAILED" << std::endl;
     }
     return ret;
 }
@@ -39,13 +39,13 @@ ACL_FUNC_VISIBILITY aclError aclFinalize()
     using AclFinalize = decltype(&aclFinalize);
     auto vallina = VallinaSymbol<AclLibLoader>::Instance().Get<AclFinalize>("aclFinalize");
     if (vallina == nullptr) {
-        Utility::LogError("vallina func get FAILED");
+        std::cout << "vallina func get FAILED" << std::endl;
         return ACL_ERROR_INTERNAL_ERROR;
     }
 
     aclError ret = vallina();
     if (!EventReport::Instance(CommType::SOCKET).ReportAclItf(AclOpType::FINALIZE)) {
-        Utility::LogError("%s report FAILED", __func__);
+        std::cout << "aclFinalize report FAILED" << std::endl;
     }
     return ret;
 }

@@ -70,7 +70,7 @@ TEST(DumpRecord, dump_aclItf_record_expect_success)
     aclItfRecord.pid = 10;
     aclItfRecord.tid = 10;
     aclItfRecord.recordIndex = 101;
-    aclItfRecord.aclItfRecord = 102;
+    aclItfRecord.aclItfRecordIndex = 102;
     aclItfRecord.timeStamp = 123;
     record.record.aclItfRecord = aclItfRecord;
     
