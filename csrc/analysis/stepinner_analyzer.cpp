@@ -1,8 +1,9 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
-#include <cstring>
-#include "mstx_analyzer.h"
 #include "stepinner_analyzer.h"
+#include <cstring>
+#include <iostream>
+#include "mstx_analyzer.h"
 
 namespace Leaks {
 
@@ -60,8 +61,7 @@ void StepInnerAnalyzer::CheckNpuLeak(const DeviceId &deviceId, const uint64_t ra
             continue;
         }
         if (pair.second.duration >= durationThreshold_) {
-            Utility::LogWarn(
-                "[npu %d][rangeid %llu]: ptr: %lld has last for %llu steps. Please check if there is memory leaks.",
+            printf("[npu %d][rangeid %lu]: ptr: %ld has last for %lu steps. Please check if there is memory leaks.\n",
                 deviceId, rangeId, pair.first, pair.second.duration);
         }
     }
@@ -215,7 +215,7 @@ void StepInnerAnalyzer::ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t 
         if (startAllocated == endAllocated) {
             Utility::LogInfo("[npu %ld][rangeid %llu][end]: ------No leaks------", deviceId, rangeId);
         } else {
-            Utility::LogError("[npu %ld][rangeid %llu][end]: ------leaks------", deviceId, rangeId);
+            std::cout << "[npu " << deviceId << "][rangeid " << rangeId << "][end]: ------leaks------" << std::endl;
         }
         CheckNpuLeak(deviceId, rangeId);
     }

@@ -3,7 +3,7 @@
 #include "hal_hooks.h"
 #include <string>
 #include <dlfcn.h>
-
+#include <iostream>
 
 #include "log.h"
 
@@ -19,7 +19,7 @@ drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long fl
     // report to leaks here
     uint64_t addr = reinterpret_cast<uint64_t>(*pp);
     if (!EventReport::Instance(CommType::SOCKET).ReportMalloc(addr, size, flag)) {
-        Utility::LogError("%s report FAILED", __func__);
+        std::cout << "halMemAlloc report FAILED" << std::endl;
     }
 
     return ret;
@@ -31,7 +31,7 @@ drvError_t halMemFree(void *pp)
     uint64_t addr = reinterpret_cast<uint64_t>(pp);
     
     if (!EventReport::Instance(CommType::SOCKET).ReportFree(addr)) {
-        Utility::LogError("%s report FAILED", __func__);
+        std::cout << "halMemFree report FAILED" << std::endl;
     }
 
     drvError_t ret = halMemFreeInner(pp);

@@ -1,6 +1,7 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 #include "mstx_manager.h"
 #include <cstring>
+#include <iostream>
 #include "securec.h"
 #include "event_report.h"
 #include "record_info.h"
@@ -16,11 +17,11 @@ void MstxManager::ReportMarkA(const char* msg, int32_t streamId)
     record.streamId = streamId;
 
     if (strncpy_s(record.markMessage, sizeof(record.markMessage), msg, sizeof(record.markMessage) - 1) != EOK) {
-        Utility::LogError("strncpy_s FAILED");
+        std::cout << "strncpy_s FAILED" << std::endl;
     }
     record.markMessage[sizeof(record.markMessage) - 1] = '\0';
     if (!EventReport::Instance(CommType::SOCKET).ReportMark(record)) {
-        Utility::LogError("Report FAILED");
+        std::cout << "Report FAILED" << std::endl;
     }
 }
 
@@ -31,12 +32,12 @@ uint64_t MstxManager::ReportRangeStart(const char* msg, int32_t streamId)
     record.markType = MarkType::RANGE_START_A;
     record.streamId = streamId;
     if (strncpy_s(record.markMessage, sizeof(record.markMessage), msg, sizeof(record.markMessage) - 1) != EOK) {
-        Utility::LogError("strncpy_s FAILED");
+        std::cout << "strncpy_s FAILED" << std::endl;
     }
     record.markMessage[sizeof(record.markMessage) - 1] = '\0';
     record.rangeId = GetRangeId();
     if (!EventReport::Instance(CommType::SOCKET).ReportMark(record)) {
-        Utility::LogError("Report FAILED");
+        std::cout << "Report FAILED" << std::endl;
     }
     return record.rangeId;
 }
@@ -50,11 +51,11 @@ void MstxManager::ReportRangeEnd(uint64_t id)
     record.streamId = -1;
     std::string msg = "Range end from id " + std::to_string(id);
     if (strncpy_s(record.markMessage, sizeof(record.markMessage), msg.c_str(), sizeof(record.markMessage) - 1) != EOK) {
-        Utility::LogError("strncpy_s FAILED");
+        std::cout << "strncpy_s FAILED" << std::endl;
     }
     record.markMessage[sizeof(record.markMessage) - 1] = '\0';
     if (!EventReport::Instance(CommType::SOCKET).ReportMark(record)) {
-        Utility::LogError("Report FAILED");
+        std::cout << "Report FAILED" << std::endl;
     }
 }
 

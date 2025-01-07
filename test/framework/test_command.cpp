@@ -48,6 +48,17 @@ TEST(Command, do_record_handler_except_success)
     mstxRecordStart.streamId = 123;
     record2.record.mstxRecord = mstxRecordStart;
 
+    auto record3 = EventRecord{};
+    record3.type = RecordType::KERNEL_LAUNCH_RECORD;
+    auto kernelLaunchRecord = KernelLaunchRecord {};
+    record3.record.kernelLaunchRecord = kernelLaunchRecord;
+
+    auto record4 = EventRecord{};
+    record4.type = RecordType::ACL_ITF_RECORD;
+    auto aclItfRecord = AclItfRecord {};
+    record4.record.aclItfRecord = aclItfRecord;
     RecordHandler(clientId, record1, analyzerfactory);
     RecordHandler(clientId, record2, analyzerfactory);
+    RecordHandler(clientId, record3, analyzerfactory);
+    RecordHandler(clientId, record4, analyzerfactory);
 }

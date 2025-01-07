@@ -7,25 +7,30 @@
 #include <chrono>
 #include <sstream>
 #include <iomanip>
+#include <limits>
+#include <typeinfo>
+#include <iostream>
 
 namespace Utility {
-    static uint64_t GetTid()
+    inline uint64_t GetTid()
     {
         static thread_local uint64_t tid = static_cast<uint64_t>(syscall(SYS_gettid));
         return tid;
     }
-    static uint64_t GetPid()
+    inline uint64_t GetPid()
     {
         static thread_local uint64_t pid = static_cast<uint64_t>(getpid());
         return pid;
     }
-    static uint64_t GetTimeMicroseconds()
+
+    inline uint64_t GetTimeMicroseconds()
     {
         auto now = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch());
         return static_cast<uint64_t>(duration.count());
     }
-    static std::string GetDateStr()
+
+    inline std::string GetDateStr()
     {
         auto now = std::chrono::system_clock::now();
         std::time_t time = std::chrono::system_clock::to_time_t(now);
@@ -34,6 +39,31 @@ namespace Utility {
         oss << std::put_time(&localTime, "%Y%m%d%H%M%S");
         return oss.str();
     }
+
+    // a + b
+    template <typename T>
+    T inline GetAddResult(T &a, T &b)
+    {
+        if ((b > 0 && a > std::numeric_limits<T>::max() - b) ||
+            (b < 0 && a < std::numeric_limits<T>::min() - b)) {
+            std::cout << "Add overflow:" << typeid(T).name() << a << " " << b << std::endl;
+            return a;
+        }
+        return a + b;
+    }
+
+    // a - b
+    template <typename T>
+    T inline GetSubResult(T &a, T &b)
+    {
+        if ((b > 0 && a < std::numeric_limits<T>::min() + b) ||
+            (b < 0 && a > std::numeric_limits<T>::max() + b)) {
+            std::cout << "Sub overflow:" << typeid(T).name() << a << " " << b << std::endl;
+            return a;
+        }
+        return a - b;
+    }
+
 }
 
 #endif
