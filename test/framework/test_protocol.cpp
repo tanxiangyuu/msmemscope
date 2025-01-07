@@ -74,7 +74,7 @@ TEST(ProtocolTest, test_protocol_parse_acl_itf_Init_record)
     aclItfRecord.recordIndex = 13456;
     aclItfRecord.pid = 123;
     aclItfRecord.tid = 123;
-    aclItfRecord.aclItfRecord = 123;
+    aclItfRecord.aclItfRecordIndex = 123;
     aclItfRecord.timeStamp = 234;
     aclItfRecord.type = AclOpType::INIT;
     record.type = RecordType::ACL_ITF_RECORD;
@@ -94,7 +94,7 @@ TEST(ProtocolTest, test_protocol_parse_acl_itf_Init_record)
     ASSERT_EQ(body.record.aclItfRecord.type, aclItfRecord.type);
     ASSERT_EQ(body.record.aclItfRecord.pid, aclItfRecord.pid);
     ASSERT_EQ(body.record.aclItfRecord.tid, aclItfRecord.tid);
-    ASSERT_EQ(body.record.aclItfRecord.aclItfRecord, aclItfRecord.aclItfRecord);
+    ASSERT_EQ(body.record.aclItfRecord.aclItfRecordIndex, aclItfRecord.aclItfRecordIndex);
     ASSERT_EQ(body.record.aclItfRecord.timeStamp, aclItfRecord.timeStamp);
 }
 
@@ -106,7 +106,7 @@ TEST(ProtocolTest, test_protocol_parse_acl_itf_finalize_record)
     aclItfRecord.recordIndex = 13456;
     aclItfRecord.pid = 123;
     aclItfRecord.tid = 123;
-    aclItfRecord.aclItfRecord = 123;
+    aclItfRecord.aclItfRecordIndex = 123;
     aclItfRecord.timeStamp = 234;
     aclItfRecord.type = AclOpType::FINALIZE;
     record.type = RecordType::ACL_ITF_RECORD;
@@ -126,7 +126,7 @@ TEST(ProtocolTest, test_protocol_parse_acl_itf_finalize_record)
     ASSERT_EQ(body.record.aclItfRecord.type, aclItfRecord.type);
     ASSERT_EQ(body.record.aclItfRecord.pid, aclItfRecord.pid);
     ASSERT_EQ(body.record.aclItfRecord.tid, aclItfRecord.tid);
-    ASSERT_EQ(body.record.aclItfRecord.aclItfRecord, aclItfRecord.aclItfRecord);
+    ASSERT_EQ(body.record.aclItfRecord.aclItfRecordIndex, aclItfRecord.aclItfRecordIndex);
     ASSERT_EQ(body.record.aclItfRecord.timeStamp, aclItfRecord.timeStamp);
 }
 
@@ -577,7 +577,7 @@ TEST(ProtocolTest, test_protocol_parse_aclitfrecord_max)
     
     auto aclItfRecord= AclItfRecord {};
     aclItfRecord.recordIndex = 18446744073709551615;
-    aclItfRecord.aclItfRecord = 18446744073709551615;
+    aclItfRecord.aclItfRecordIndex = 18446744073709551615;
     aclItfRecord.pid = 18446744073709551615;
     aclItfRecord.tid = 18446744073709551615;
     aclItfRecord.type = AclOpType::INIT;
@@ -595,7 +595,7 @@ TEST(ProtocolTest, test_protocol_parse_aclitfrecord_max)
     auto body = result.GetPacketBody();
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.aclItfRecord.recordIndex, aclItfRecord.recordIndex);
-    ASSERT_EQ(body.record.aclItfRecord.aclItfRecord, aclItfRecord.aclItfRecord);
+    ASSERT_EQ(body.record.aclItfRecord.aclItfRecordIndex, aclItfRecord.aclItfRecordIndex);
     ASSERT_EQ(body.record.aclItfRecord.pid, aclItfRecord.pid);
     ASSERT_EQ(body.record.aclItfRecord.tid, aclItfRecord.tid);
     ASSERT_EQ(body.record.aclItfRecord.type, aclItfRecord.type);
@@ -609,7 +609,7 @@ TEST(ProtocolTest, test_protocol_parse_aclitfrecord_min)
     
     auto aclItfRecord= AclItfRecord {};
     aclItfRecord.recordIndex = 0;
-    aclItfRecord.aclItfRecord = 0;
+    aclItfRecord.aclItfRecordIndex = 0;
     aclItfRecord.pid = 0;
     aclItfRecord.tid = 0;
     aclItfRecord.type = AclOpType::INIT;
@@ -627,7 +627,7 @@ TEST(ProtocolTest, test_protocol_parse_aclitfrecord_min)
     auto body = result.GetPacketBody();
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.aclItfRecord.recordIndex, aclItfRecord.recordIndex);
-    ASSERT_EQ(body.record.aclItfRecord.aclItfRecord, aclItfRecord.aclItfRecord);
+    ASSERT_EQ(body.record.aclItfRecord.aclItfRecordIndex, aclItfRecord.aclItfRecordIndex);
     ASSERT_EQ(body.record.aclItfRecord.pid, aclItfRecord.pid);
     ASSERT_EQ(body.record.aclItfRecord.tid, aclItfRecord.tid);
     ASSERT_EQ(body.record.aclItfRecord.type, aclItfRecord.type);

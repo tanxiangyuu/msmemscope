@@ -164,7 +164,7 @@ TEST(TraceRecord, process_acl_itf_record)
     aclItfRecord.pid = 0;
     aclItfRecord.timeStamp = 123;
     aclItfRecord.devId = 0;
-    aclItfRecord.aclItfRecord = 0;
+    aclItfRecord.aclItfRecordIndex = 0;
     record.record.aclItfRecord = aclItfRecord;
 
     std::string result = "[\n"
