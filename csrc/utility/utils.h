@@ -11,6 +11,8 @@
 #include <typeinfo>
 #include <iostream>
 
+#include "log.h"
+
 namespace Utility {
     inline uint64_t GetTid()
     {
@@ -30,6 +32,13 @@ namespace Utility {
         return static_cast<uint64_t>(duration.count());
     }
 
+    inline uint64_t GetTimeNanoseconds()
+    {
+        auto now = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch());
+        return static_cast<uint64_t>(duration.count());
+    }
+    
     inline std::string GetDateStr()
     {
         auto now = std::chrono::system_clock::now();
@@ -62,6 +71,26 @@ namespace Utility {
             return a;
         }
         return a - b;
+    }
+
+    inline bool StrToInt64(int64_t &dest, const std::string &str)
+    {
+        if (str.empty()) {
+            std::cout << "StrToU64 failed, the input string is empty." << std::endl;
+            return false;
+        }
+        size_t pos = 0;
+        try {
+            dest = std::stoll(str, &pos);
+        } catch (...) {
+            std::cout << "StrToU64 failed, the input string is " << str << "." << std::endl;
+            return false;
+        }
+        if (pos != str.size()) {
+            std::cout << "StrToU64 failed, the input string is " << str << "." << std::endl;
+            return false;
+        }
+        return true;
     }
 
 }

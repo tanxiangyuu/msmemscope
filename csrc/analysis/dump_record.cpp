@@ -4,7 +4,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
-#include <climits>
 #include "log.h"
 #include "file.h"
 #include "utils.h"
@@ -12,36 +11,9 @@
 namespace Leaks {
 constexpr uint32_t DIRMOD = 0777;
 
-bool DumpRecord::CreateFile(const ClientId &clientId, FILE *clientfp, std::string type)
-{
-    std::string dirPath = "leaksDumpResults";
-    if (!Utility::MakeDir(dirPath)) {
-        return false;
-    }
-    if (clientfp == nullptr) {
-        auto now = std::chrono::system_clock::now();
-        std::time_t time = std::chrono::system_clock::to_time_t(now);
-        std::string filePath = dirPath + "/" + std::to_string(clientId) + type + std::to_string(time) + ".csv";
-        FILE* fp = fopen(filePath.c_str(), "a");
-        if (fp != nullptr) {
-            if (type == "torchnpu") {
-                fprintf(fp, "deviceType, deviceIndex, dataType, allocatorType, ptr, recordIndex, allocSize, \
-totalAllocated, totalReserved, totalActive, streamPtr\n");
-                torchNpuDataFile[clientId] = fp;
-            } else {
-                fprintf(fp, "type, processID, threadID, clientID, deviceID, recordIndex, timeStamp, \
-kernelIndex, flag, moduleID, host/device, addr, size, sumMemory\n");
-                leaksDataFile[clientId] = fp;
-            }
-        } else {
-            Utility::LogError("clientId %d open file %s error", clientId, filePath.c_str());
-            return false;
-        }
-    }
-    return true;
-}
 bool DumpRecord::DumpData(const ClientId &clientId, const EventRecord &record)
 {
+    fileName = "leaks" + Utility::GetDateStr() + ".csv";
     switch (record.type) {
         case RecordType::MEMORY_RECORD: {
             auto memRecord = record.record.memoryRecord;
@@ -71,6 +43,13 @@ bool DumpRecord::DumpData(const ClientId &clientId, const EventRecord &record)
             }
             break;
         }
+        case RecordType::MSTX_MARK_RECORD: {
+            auto mstxRecord = record.record.mstxRecord;
+            if (!DumpMstxData(clientId, mstxRecord)) {
+                return false;
+            }
+            break;
+        }
         default:
             break;
     }
@@ -78,7 +57,8 @@ bool DumpRecord::DumpData(const ClientId &clientId, const EventRecord &record)
 }
 bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRecord)
 {
-    if (!CreateFile(clientId, leaksDataFile[clientId], "msleaks")) {
+    std::lock_guard<std::mutex> lock(fileMutex_);
+    if (!Utility::CreateCsvFile(&leaksDataFile, dirPath, fileName, headers)) {
         return false;
     }
     MemOpSpace space;
@@ -107,7 +87,8 @@ bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRec
     std::string memOp = memRecord.memType == MemOpType::MALLOC ? "malloc" : "free";
 
     uint64_t totalMem = space == MemOpSpace::HOST ? memHost[clientId] : memDevice[clientId];
-    fprintf(leaksDataFile[clientId], "%s,%lu,%lu,%lu,%d,%lu,%lu,%lu,%llu,%d,%d,%lu,%lu,%lu\n",
+    fprintf(leaksDataFile, "%s,null,%lu,%lu,%lu,%d,%lu,%lu,%lu,%llu,%d,%d,%lu,%lu,%lu,"
+            "null,null,null,null,null,null,null,null,null,null\n",
             memOp.c_str(), memRecord.pid, memRecord.tid, clientId, memRecord.devId, memRecord.recordIndex,
             memRecord.timeStamp, memRecord.kernelIndex, memRecord.flag, memRecord.modid, int(space),
             memRecord.addr, currentSize, totalMem);
@@ -115,34 +96,59 @@ bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRec
 }
 bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchRecord &kernelLaunchRecord)
 {
-    if (!CreateFile(clientId, leaksDataFile[clientId], "msleaks")) {
+    std::lock_guard<std::mutex> lock(fileMutex_);
+    if (!Utility::CreateCsvFile(&leaksDataFile, dirPath, fileName, headers)) {
         return false;
     }
-    fprintf(leaksDataFile[clientId], "kernelLaunch,%lu,%lu,%lu,null,%lu,%lu,%lu,null,null,null,null,null,null\n",
-        kernelLaunchRecord.pid, kernelLaunchRecord.tid, clientId, kernelLaunchRecord.recordIndex,
-        kernelLaunchRecord.timeStamp, kernelLaunchRecord.kernelLaunchIndex);
+    std::string name;
+    if (kernelLaunchRecord.kernelName[0] == '\0') {
+        name = "null";
+    } else {
+        name = kernelLaunchRecord.kernelName;
+    }
+    fprintf(leaksDataFile, "kernelLaunch,%s,%lu,%lu,%lu,%lu,%lu,%lu,%lu,null,null,null,null,null,null,"
+            "null,null,null,null,null,null,null,null,null,null\n", name.c_str(),
+            kernelLaunchRecord.pid, kernelLaunchRecord.tid, clientId, kernelLaunchRecord.devId,
+            kernelLaunchRecord.recordIndex, kernelLaunchRecord.timeStamp, kernelLaunchRecord.kernelLaunchIndex);
     return true;
 }
-bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord)
+
+bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRecord)
 {
-    if (!CreateFile(clientId, leaksDataFile[clientId], "msleaks")) {
+    std::lock_guard<std::mutex> lock(fileMutex_);
+    if (!Utility::CreateCsvFile(&leaksDataFile, dirPath, fileName, headers)) {
         return false;
     }
-    fprintf(leaksDataFile[clientId], "aclItfRecord,%lu,%lu,%lu,null,%lu,%lu,%lu,null,null,null,null,null,null\n",
-        aclItfRecord.pid, aclItfRecord.tid, clientId, aclItfRecord.recordIndex, aclItfRecord.timeStamp,
-        aclItfRecord.aclItfRecordIndex);
+    fprintf(leaksDataFile, "mstx,null,%lu,%lu,%lu,%lu,%lu,%lu,null,null,null,null,null,null,null,"
+            "null,null,null,null,null,null,null,null,null,null\n", mstxRecord.pid, mstxRecord.tid, clientId,
+            mstxRecord.devId, mstxRecord.recordIndex, mstxRecord.timeStamp);
+    return true;
+}
+
+bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord)
+{
+    std::lock_guard<std::mutex> lock(fileMutex_);
+    if (!Utility::CreateCsvFile(&leaksDataFile, dirPath, fileName, headers)) {
+        return false;
+    }
+    fprintf(leaksDataFile, "aclItfRecord,null,%lu,%lu,%lu,%lu,%lu,%lu,%lu,null,null,null,null,null,null,"
+            "null,null,null,null,null,null,null,null,null,null\n", aclItfRecord.pid, aclItfRecord.tid, clientId,
+            aclItfRecord.devId, aclItfRecord.recordIndex, aclItfRecord.timeStamp, aclItfRecord.aclItfRecordIndex);
     return true;
 }
 bool DumpRecord::DumpTorchData(const ClientId &clientId, const TorchNpuRecord &torchNpuRecord)
 {
-    if (!CreateFile(clientId, torchNpuDataFile[clientId], "torchnpu")) {
+    std::lock_guard<std::mutex> lock(fileMutex_);
+    if (!Utility::CreateCsvFile(&leaksDataFile, dirPath, fileName, headers)) {
         return false;
     }
     MemoryUsage memoryUsage = torchNpuRecord.memoryUsage;
-    fprintf(torchNpuDataFile[clientId], "%d,%d,%d,%d,%ld,%lu,%ld,%ld,%ld,%ld,%ld\n",
-        memoryUsage.deviceType, memoryUsage.deviceIndex, memoryUsage.dataType,
-        memoryUsage.allocatorType, memoryUsage.ptr, torchNpuRecord.recordIndex, memoryUsage.allocSize,
-        memoryUsage.totalAllocated, memoryUsage.totalReserved, memoryUsage.totalActive, memoryUsage.streamPtr);
+    fprintf(leaksDataFile, "torch_npu,null,%lu,%lu,%lu,%lu,%lu,%lu,null,null,null,null,null,null,null,"
+            "%d,%d,%d,%d,%ld,%ld,%ld,%ld,%ld,%ld\n", torchNpuRecord.pid, torchNpuRecord.tid, clientId,
+            torchNpuRecord.devId, torchNpuRecord.recordIndex, torchNpuRecord.timeStamp, memoryUsage.deviceType,
+            memoryUsage.deviceIndex, memoryUsage.dataType, memoryUsage.allocatorType, memoryUsage.ptr,
+            memoryUsage.allocSize, memoryUsage.totalAllocated, memoryUsage.totalReserved, memoryUsage.totalActive,
+            memoryUsage.streamPtr);
     return true;
 }
 DumpRecord::DumpRecord()
@@ -151,11 +157,8 @@ DumpRecord::DumpRecord()
 
 DumpRecord::~DumpRecord()
 {
-    for (auto &p : leaksDataFile) {
-        fclose(p.second);
-    }
-    for (auto &p : torchNpuDataFile) {
-        fclose(p.second);
+    if (leaksDataFile != nullptr) {
+        fclose(leaksDataFile);
     }
 }
 }

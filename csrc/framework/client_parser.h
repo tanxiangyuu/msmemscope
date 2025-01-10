@@ -7,6 +7,7 @@
 #include "config_info.h"
 
 namespace Leaks {
+constexpr uint32_t PATHSIZE = 2;
 
 // 用于解析用户命令行
 class ClientParser {

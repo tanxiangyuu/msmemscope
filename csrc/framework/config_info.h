@@ -20,6 +20,7 @@ struct SelectedStepList {
 struct AnalysisConfig {
     bool parseKernelName; // 解析kernelname的开关
     SelectedStepList stepList;
+    bool offlineStepInterCompare;
 };
 
 // 用于承载用户命令行参数的解析结果
@@ -28,6 +29,7 @@ struct UserCommand {
     bool printVersionInfo { false };
     AnalysisConfig config;
     std::vector<std::string> cmd;
+    std::vector<std::string> paths;
 };
 
 }
