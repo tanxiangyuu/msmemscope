@@ -5,6 +5,7 @@
 #include "dump_record.h"
 #include "record_info.h"
 #include "config_info.h"
+#include "securec.h"
 
 using namespace Leaks;
 
@@ -140,5 +141,66 @@ TEST(DumpRecord, dump_invalid_memory_record)
     EXPECT_TRUE(dump_.DumpData(clientId, record));
 
     record.record.memoryRecord.memType = MemOpType::FREE;
+    EXPECT_TRUE(dump_.DumpData(clientId, record));
+}
+TEST(DumpRecord, dump_msxt_mark_expect_success)
+{
+    DumpRecord dump_;
+    auto record = EventRecord{};
+    record.type = RecordType::MSTX_MARK_RECORD;
+    auto mstxRecord = MstxRecord{};
+    
+    mstxRecord.markType = MarkType::MARK_A;
+    mstxRecord.timeStamp = 1234;
+    mstxRecord.pid = 10;
+    mstxRecord.tid = 10;
+    mstxRecord.devId = 1;
+    mstxRecord.rangeId = 10;
+    mstxRecord.streamId = 1;
+    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage), "test mark",
+        sizeof(mstxRecord.markMessage) - 1);
+    mstxRecord.recordIndex = 1;
+    
+    ClientId clientId = 0;
+    EXPECT_TRUE(dump_.DumpData(clientId, record));
+}
+TEST(DumpRecord, dump_msxt_range_start_expect_success)
+{
+    DumpRecord dump_;
+    auto record = EventRecord{};
+    record.type = RecordType::MSTX_MARK_RECORD;
+    auto mstxRecord = MstxRecord{};
+    
+    mstxRecord.markType = MarkType::RANGE_START_A;
+    mstxRecord.timeStamp = 5678;
+    mstxRecord.pid = 10;
+    mstxRecord.tid = 10;
+    mstxRecord.devId = 2;
+    mstxRecord.rangeId = 2;
+    mstxRecord.streamId = 123;
+    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage), "test range start",
+        sizeof(mstxRecord.markMessage) - 1);
+    mstxRecord.recordIndex = 1;
+    
+    ClientId clientId = 0;
+    EXPECT_TRUE(dump_.DumpData(clientId, record));
+}
+TEST(DumpRecord, dump_msxt_range_end_expect_success)
+{
+    DumpRecord dump_;
+    auto record = EventRecord{};
+    record.type = RecordType::MSTX_MARK_RECORD;
+    auto mstxRecord = MstxRecord{};
+    
+    mstxRecord.markType = MarkType::RANGE_END;
+    mstxRecord.timeStamp = 7890;
+    mstxRecord.pid = 10;
+    mstxRecord.tid = 10;
+    mstxRecord.devId = 3;
+    mstxRecord.rangeId = -1;
+    mstxRecord.streamId = 123;
+    mstxRecord.recordIndex = 1;
+    
+    ClientId clientId = 0;
     EXPECT_TRUE(dump_.DumpData(clientId, record));
 }

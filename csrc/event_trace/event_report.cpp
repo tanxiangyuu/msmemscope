@@ -121,7 +121,6 @@ EventReport::EventReport(CommType type)
     // 默认10次重试
     LocalProcess::GetInstance(type).Wait(msg);
     Deserialize(msg, config_);
-
     return;
 }
 
@@ -142,6 +141,15 @@ bool EventReport::IsNeedSkip()
     return true;
 }
 
+EventReport::~EventReport()
+{
+    for (std::thread &t : parseThreads_) {
+    if (t.joinable()) {
+        t.join();
+        }
+    }
+}
+
 bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord)
 {
     if (IsNeedSkip()) {
@@ -153,7 +161,6 @@ bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord)
     eventrecord.record.torchNpuRecord = torchNpuRecord;
     eventrecord.record.torchNpuRecord.timeStamp = Utility::GetTimeMicroseconds();
     eventrecord.record.torchNpuRecord.devId = static_cast<int32_t>(torchNpuRecord.memoryUsage.deviceIndex);
-    std::lock_guard<std::mutex> guard(mutex_);
     eventrecord.record.torchNpuRecord.recordIndex = ++recordIndex_;
     auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventrecord));
     return (sendNums >= 0);
@@ -176,7 +183,6 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
     eventRecord.record.memoryRecord = CreateMemRecord(MemOpType::MALLOC, flag, space, addr, size);
     eventRecord.record.memoryRecord.devId = devId;
     eventRecord.record.memoryRecord.modid = moduleId;
-    std::lock_guard<std::mutex> guard(mutex_);
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
     auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
@@ -198,7 +204,6 @@ bool EventReport::ReportFree(uint64_t addr)
     eventRecord.record.memoryRecord = CreateMemRecord(MemOpType::FREE, FLAG_INVALID, MemOpSpace::INVALID, addr, 0);
     eventRecord.record.memoryRecord.devId = devId;
     eventRecord.record.memoryRecord.modid = INVALID_MODID;
-    std::lock_guard<std::mutex> guard(mutex_);
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
     auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
@@ -207,6 +212,14 @@ bool EventReport::ReportFree(uint64_t addr)
 
 bool EventReport::ReportMark(MstxRecord& mstxRecord)
 {
+    if (mstxRecord.markType == MarkType::RANGE_START_A) {
+        currentStep_ = mstxRecord.rangeId;
+    }
+
+    if (IsNeedSkip()) {
+        return true;
+    }
+
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
         std::cout << "RT_ERROR_INVALID_VALUE, " << devId << std::endl;
@@ -220,12 +233,9 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord)
     eventRecord.record.mstxRecord.pid = Utility::GetPid();
     eventRecord.record.mstxRecord.tid = Utility::GetTid();
     eventRecord.record.mstxRecord.timeStamp = Utility::GetTimeMicroseconds();
+    eventRecord.record.mstxRecord.recordIndex = ++recordIndex_;
     auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
     
-    std::lock_guard<std::mutex> guard(mutex_);
-    if (mstxRecord.markType == MarkType::RANGE_START_A) {
-        currentStep_ = mstxRecord.rangeId;
-    }
     return (sendNums >= 0);
 }
 
@@ -250,11 +260,28 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
     }
     eventRecord.record.kernelLaunchRecord = CreateKernelLaunchRecord(kernelLaunchRecord);
     eventRecord.record.kernelLaunchRecord.devId = devId;
-    std::lock_guard<std::mutex> guard(mutex_);
     eventRecord.record.kernelLaunchRecord.kernelLaunchIndex = ++kernelLaunchRecordIndex_;
     eventRecord.record.kernelLaunchRecord.recordIndex = ++recordIndex_;
-    auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
-    return (sendNums >= 0);
+
+    if (config_.parseKernelName) {
+        std::thread th = std::thread([eventRecord, hdl, this]()mutable {
+            while (runningThreads >= maxThreadNum) { // 达到最大线程数，等待直到有可用的线程
+                std::this_thread::sleep_for(std::chrono::milliseconds(100)); // 等待100ms
+            }
+            ++runningThreads;
+            strncpy_s(eventRecord.record.kernelLaunchRecord.kernelName,
+                sizeof(eventRecord.record.kernelLaunchRecord.kernelName), GetNameFromBinary(hdl).c_str(),
+                sizeof(eventRecord.record.kernelLaunchRecord.kernelName) - 1);
+            PacketHead head = {PacketType::RECORD};
+            auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+            --runningThreads;
+        });
+        parseThreads_.emplace_back(std::move(th));
+    } else {
+        PacketHead head = {PacketType::RECORD};
+        auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+    }
+    return true;
 }
 
 bool EventReport::ReportAclItf(AclOpType aclOpType)
@@ -273,7 +300,6 @@ bool EventReport::ReportAclItf(AclOpType aclOpType)
     eventRecord.type = RecordType::ACL_ITF_RECORD;
     eventRecord.record.aclItfRecord = CreateAclItfRecord(aclOpType);
     eventRecord.record.aclItfRecord.devId = devId;
-    std::lock_guard<std::mutex> guard(mutex_);
     eventRecord.record.aclItfRecord.recordIndex = ++recordIndex_;
     eventRecord.record.aclItfRecord.aclItfRecordIndex = ++aclItfRecordIndex_;
     auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
@@ -391,7 +417,8 @@ std::string GetNameFromBinary(const void *hdl)
         return kernelName;
     }
     std::vector<char> binary = it->second.bin;
-    std::string kernelPath = "./kernel.o." + std::to_string(getpid());
+    auto time = Utility::GetTimeNanoseconds();
+    std::string kernelPath = "./kernel.o." + std::to_string(time);
     {
         Utility::UmaskGuard umaskGuard(REGULAR_MODE_MASK);
         if (!WriteBinary(kernelPath, binary.data(), binary.size())) {

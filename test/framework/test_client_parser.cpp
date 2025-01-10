@@ -43,7 +43,7 @@ TEST(ClientParser, pass_help_parameter_expect_get_print_help_info)
 TEST(ClientParser, pass_help_parameter_expect_show_help_info)
 {
     std::vector<const char*> argv = {
-        "asan",
+        "leaks",
         "--help"
     };
 
@@ -131,4 +131,31 @@ TEST(ClientParser, test_parse_select_steps)
     ASSERT_EQ(cmd.config.stepList.stepIdList[0], 2);
     ASSERT_EQ(cmd.config.stepList.stepIdList[1], 3);
     ASSERT_EQ(cmd.config.stepList.stepIdList[2], 123);
+}
+TEST(ClientParser, test_compare_dump_data)
+{
+    std::vector<const char*> argv = {
+        "leaks",
+        "--compare-dump-data=path1:path2"
+    };
+
+    // Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.config.offlineStepInterCompare);
+}
+
+TEST(ClientParser, test_invalid_compare_dump_data)
+{
+    std::vector<const char*> argv = {
+        "leaks",
+        "--compare-dump-data=path1"
+    };
+
+    // Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_FALSE(cmd.config.offlineStepInterCompare);
 }
