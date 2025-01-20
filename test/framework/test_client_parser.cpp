@@ -14,7 +14,7 @@ using namespace Leaks;
 void InvalidParamCheckHelpInfo(const char* invalidInput)
 {
     std::vector<const char*> argv = {
-        "leaks",
+        "msleaks",
         invalidInput
     };
  
@@ -29,7 +29,7 @@ void InvalidParamCheckHelpInfo(const char* invalidInput)
 TEST(ClientParser, pass_help_parameter_expect_get_print_help_info)
 {
     std::vector<const char*> argv = {
-        "leaks",
+        "msleaks",
         "--help"
     };
  
@@ -43,7 +43,7 @@ TEST(ClientParser, pass_help_parameter_expect_get_print_help_info)
 TEST(ClientParser, pass_help_parameter_expect_show_help_info)
 {
     std::vector<const char*> argv = {
-        "asan",
+        "msleaks",
         "--help"
     };
 
@@ -59,7 +59,7 @@ TEST(ClientParser, pass_help_parameter_expect_show_help_info)
 TEST(ClientParser, pass_parse_kernel_name_parameter_expect_get_kernel_name)
 {
     std::vector<const char*> argv = {
-        "leaks",
+        "msleaks",
         "-p"
     };
  
@@ -73,7 +73,7 @@ TEST(ClientParser, pass_parse_kernel_name_parameter_expect_get_kernel_name)
 TEST(ClientParser, pass_empty_prog_name_expect_get_empty_bin_cmd)
 {
     std::vector<const char*> argv = {
-        "leaks"
+        "msleaks"
     };
  
     /// Reset getopt states
@@ -86,7 +86,7 @@ TEST(ClientParser, pass_empty_prog_name_expect_get_empty_bin_cmd)
 TEST(ClientParser, pass_test_as_prog_expect_get_bin_cmd_test)
 {
     std::vector<const char*> argv = {
-        "leaks",
+        "msleaks",
         "test"
     };
  
@@ -101,7 +101,7 @@ TEST(ClientParser, pass_test_as_prog_expect_get_bin_cmd_test)
 TEST(ClientParser, invalid_single_dash_option_expect_one_error)
 {
     std::vector<const char*> argv = {
-        "leaks",
+        "msleaks",
         "-log-file=log.txt"
     };
  
@@ -119,7 +119,7 @@ TEST(ClientParser, invalid_single_dash_option_expect_one_error)
 TEST(ClientParser, test_parse_select_steps)
 {
     std::vector<const char*> argv = {
-        "leaks",
+        "msleaks",
         "--select-steps=2,3,123"
     };
  

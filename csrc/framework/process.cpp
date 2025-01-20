@@ -129,11 +129,11 @@ void Process::PostProcess(const ExecCmd &cmd)
 
     if (WIFEXITED(status)) {
         if (WEXITSTATUS(status) != EXIT_SUCCESS) {
-            std::cout << "[leaks] user program " << cmd.ExecPath() << " exited abnormally" << std::endl;
+            std::cout << "[msleaks] user program " << cmd.ExecPath() << " exited abnormally" << std::endl;
         }
     } else if (WIFSIGNALED(status)) {
         int sig = WTERMSIG(status);
-        std::cout << "[leaks] user program exited by signal: " << sig << std::endl;
+        std::cout << "[msleaks] user program exited by signal: " << sig << std::endl;
     }
 
     return;
