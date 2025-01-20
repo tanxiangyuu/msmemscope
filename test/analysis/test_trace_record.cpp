@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include <gtest/internal/gtest-port.h>
 #include <string>
+#include <vector>
 #include <fstream>
 #include <sstream>
 #include <dirent.h>
@@ -93,32 +94,28 @@ TEST(TraceRecord, process_mstx_record)
     endMstxRecord.rangeId = 0;
     endMstxRecord.devId = 0;
     endMstxRecord.markType = MarkType::RANGE_END;
+    endMstxRecord.markMessage[0] = 'e';
     endRecord.record.mstxRecord = endMstxRecord;
 
     TraceRecord::GetInstance().ProcessRecord(startRecord);
     TraceRecord::GetInstance().ProcessRecord(endRecord);
-    std::string result = "[\n{\n    \"ph\": \"i\",\n"
+    std::string result = "{\n    \"ph\": \"i\",\n"
 "    \"name\": \"mstx_range_start_0\",\n"
-"    \"pid\": 0,\n"
-"    \"tid\": 0,\n"
-"    \"ts\": 123,\n"
-"    \"s\": \"p\"\n},\n{\n"
+"    \"pid\": 0,\n    \"tid\": 0,\n"
+"    \"ts\": 123,\n    \"s\": \"p\"\n},\n{\n"
 "    \"ph\": \"X\",\n"
 "    \"name\": \"step 0\",\n"
-"    \"pid\": 0,\n"
-"    \"tid\": 0,\n"
-"    \"ts\": 123,\n"
-"    \"dur\": 10\n},\n{\n"
+"    \"pid\": 0,\n    \"tid\": 0,\n"
+"    \"ts\": 123,\n    \"dur\": 10\n},\n{\n"
 "    \"ph\": \"i\",\n"
 "    \"name\": \"mstx_range_end_0\",\n"
-"    \"pid\": 0,\n"
-"    \"tid\": 0,\n"
-"    \"ts\": 133,\n"
-"    \"s\": \"p\"\n},\n";
+"    \"pid\": 0,\n    \"tid\": 0,\n"
+"    \"ts\": 133,\n    \"s\": \"p\",\n"
+"    \"args\": {\n        \"message\": \"e\"\n    }\n},\n";
     std::string fileContent;
     bool hasReadFile = ReadFile(TraceRecord::GetInstance().traceFiles_[startMstxRecord.devId].filePath, fileContent);
     bool hasRemoveDir = RemoveDir("./" + g_traceDirPath);
-    EXPECT_EQ(result, fileContent);
+    EXPECT_NE(fileContent.find(result), std::string::npos);
     EXPECT_TRUE(hasReadFile && hasRemoveDir);
 }
 
@@ -134,14 +131,13 @@ TEST(TraceRecord, process_kernel_launch_record)
     kernelLaunchRecord.kernelLaunchIndex = 0;
     record.record.kernelLaunchRecord = kernelLaunchRecord;
 
-    std::string result = "[\n"
-"{\n"
-"    \"ph\": \"X\",\n"
+    std::string result = "{\n"
+"    \"ph\": \"i\",\n"
 "    \"name\": \"kernel_0\",\n"
 "    \"pid\": 0,\n"
 "    \"tid\": 0,\n"
 "    \"ts\": 123,\n"
-"    \"dur\": 10\n"
+"    \"s\": \"p\"\n"
 "},\n";
 
     TraceRecord::GetInstance().ProcessRecord(record);
@@ -151,7 +147,7 @@ TEST(TraceRecord, process_kernel_launch_record)
         fileContent
     );
     bool hasRemoveDir = RemoveDir("./" + g_traceDirPath);
-    EXPECT_EQ(result, fileContent);
+    EXPECT_NE(fileContent.find(result), std::string::npos);
     EXPECT_TRUE(hasReadFile && hasRemoveDir);
 }
 
@@ -167,25 +163,24 @@ TEST(TraceRecord, process_acl_itf_record)
     aclItfRecord.aclItfRecordIndex = 0;
     record.record.aclItfRecord = aclItfRecord;
 
-    std::string result = "[\n"
-"{\n"
-"    \"ph\": \"X\",\n"
+    std::string result = "{\n"
+"    \"ph\": \"i\",\n"
 "    \"name\": \"acl_0\",\n"
 "    \"pid\": 0,\n"
 "    \"tid\": 0,\n"
 "    \"ts\": 123,\n"
-"    \"dur\": 10\n"
+"    \"s\": \"p\"\n"
 "},\n";
 
     TraceRecord::GetInstance().ProcessRecord(record);
     std::string fileContent;
     bool hasReadFile = ReadFile(TraceRecord::GetInstance().traceFiles_[aclItfRecord.devId].filePath, fileContent);
     bool hasRemoveDir = RemoveDir("./" + g_traceDirPath);
-    EXPECT_EQ(result, fileContent);
+    EXPECT_NE(fileContent.find(result), std::string::npos);
     EXPECT_TRUE(hasReadFile && hasRemoveDir);
 }
 
-TEST(TraceRecord, process_host_hal_memory_record)
+TEST(TraceRecord, process_host_memory_record)
 {
     auto mallocRecord = EventRecord{};
     mallocRecord.type = RecordType::MEMORY_RECORD;
@@ -215,27 +210,15 @@ TEST(TraceRecord, process_host_hal_memory_record)
 
     TraceRecord::GetInstance().ProcessRecord(mallocRecord);
     TraceRecord::GetInstance().ProcessRecord(freeRecord);
-    std::string result = "[\n{\n"
-"    \"ph\": \"C\",\n"
-"    \"name\": \"host memory\",\n"
-"    \"pid\": 0,\n"
-"    \"tid\": 0,\n"
-"    \"ts\": 123,\n"
-"    \"args\": {\n        \"size\": 10000\n    }\n},\n{\n"
-"    \"ph\": \"C\",\n"
-"    \"name\": \"host memory\",\n"
-"    \"pid\": 0,\n"
-"    \"tid\": 0,\n"
-"    \"ts\": 133,\n"
-"    \"args\": {\n        \"size\": 0\n    }\n},\n";
+    std::string result = "";
     std::string fileContent;
     bool hasReadFile = ReadFile(TraceRecord::GetInstance().traceFiles_[mallocMemOpRecord.devId].filePath, fileContent);
     bool hasRemoveDir = RemoveDir("./" + g_traceDirPath);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_FALSE(hasReadFile);
 }
 
-TEST(TraceRecord, process_device_hal_memory_record)
+TEST(TraceRecord, process_device_memory_record)
 {
     auto mallocRecord = EventRecord{};
     mallocRecord.type = RecordType::MEMORY_RECORD;
@@ -256,14 +239,14 @@ TEST(TraceRecord, process_device_hal_memory_record)
     freeMemOpRecord.tid = 0;
     freeMemOpRecord.pid = 0;
     freeMemOpRecord.timeStamp = 133;
-    freeMemOpRecord.space = MemOpSpace::DEVICE;
+    freeMemOpRecord.space = MemOpSpace::INVALID;
     freeMemOpRecord.devId = 0;
     freeMemOpRecord.memType = MemOpType::FREE;
     freeMemOpRecord.addr = 10000000;
     freeMemOpRecord.memSize = 10000;
     freeRecord.record.memoryRecord = freeMemOpRecord;
 
-    std::string result = "[\n{\n"
+    std::string result = "{\n"
 "    \"ph\": \"C\",\n"
 "    \"name\": \"device memory\",\n"
 "    \"pid\": 0,\n"
@@ -282,7 +265,7 @@ TEST(TraceRecord, process_device_hal_memory_record)
     std::string fileContent;
     bool hasReadFile = ReadFile(TraceRecord::GetInstance().traceFiles_[mallocMemOpRecord.devId].filePath, fileContent);
     bool hasRemoveDir = RemoveDir("./" + g_traceDirPath);
-    EXPECT_EQ(result, fileContent);
+    EXPECT_NE(fileContent.find(result), std::string::npos);
     EXPECT_TRUE(hasReadFile && hasRemoveDir);
 }
 
@@ -302,7 +285,7 @@ TEST(TraceRecord, process_torch_memory_record)
     torchNpuRecord.memoryUsage = memoryUsage;
     record.record.torchNpuRecord = torchNpuRecord;
 
-    std::string result = "[\n{\n"
+    std::string result = "{\n"
 "    \"ph\": \"C\",\n"
 "    \"name\": \"operators reserved\",\n"
 "    \"pid\": 0,\n"
@@ -326,7 +309,7 @@ TEST(TraceRecord, process_torch_memory_record)
     std::string fileContent;
     bool hasReadFile = ReadFile(TraceRecord::GetInstance().traceFiles_[memoryUsage.deviceIndex].filePath, fileContent);
     bool hasRemoveDir = RemoveDir("./" + g_traceDirPath);
-    EXPECT_EQ(result, fileContent);
+    EXPECT_NE(fileContent.find(result), std::string::npos);
     EXPECT_TRUE(hasReadFile && hasRemoveDir);
 }
 
@@ -339,11 +322,10 @@ TEST(TraceRecord, process_torch_mem_leak_info)
     info.addr = 10000000;
     info.size = 1000;
 
-    std::string result = "[\n"
-"{\n"
+    std::string result = "{\n"
 "    \"ph\": \"X\",\n"
 "    \"name\": \"mem 10000000 leak\",\n"
-"    \"pid\": 0,\n"
+"    \"pid\": 1,\n"
 "    \"tid\": 0,\n"
 "    \"ts\": 123,\n"
 "    \"dur\": 10,\n"
@@ -356,6 +338,38 @@ TEST(TraceRecord, process_torch_mem_leak_info)
     std::string fileContent;
     bool hasReadFile = ReadFile(TraceRecord::GetInstance().traceFiles_[info.devId].filePath, fileContent);
     bool hasRemoveDir = RemoveDir("./" + g_traceDirPath);
-    EXPECT_EQ(result, fileContent);
+    EXPECT_NE(fileContent.find(result), std::string::npos);
+    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+}
+
+TEST(TraceRecord, set_metadata_event)
+{
+    int32_t devId = 0;
+    TraceRecord::GetInstance().truePids_[devId] = {1234};
+
+    std::vector<std::string> results(5);
+    results[0] = "{\n    \"ph\": \"M\",\n    \"name\": \"process_sort_index\",\n"
+"    \"pid\": 1234,\n    \"tid\": 0,\n"
+"    \"args\": {\n        \"sort_index\": 0\n    }\n},\n";
+    results[1] = "{\n    \"ph\": \"M\",\n    \"name\": \"process_name\",\n"
+"    \"pid\": 0,\n    \"tid\": 0,\n"
+"    \"args\": {\n        \"name\": \"mstx\"\n    }\n},\n";
+    results[2] = "{\n    \"ph\": \"M\",\n    \"name\": \"process_sort_index\",\n"
+"    \"pid\": 0,\n    \"tid\": 0,\n"
+"    \"args\": {\n        \"sort_index\": 1\n    }\n},\n";
+    results[3] = "{\n    \"ph\": \"M\",\n    \"name\": \"process_name\",\n"
+"    \"pid\": 1,\n    \"tid\": 0,\n"
+"    \"args\": {\n        \"name\": \"leak\"\n    }\n},\n";
+    results[4] = "{\n    \"ph\": \"M\",\n    \"name\": \"process_sort_index\",\n"
+"    \"pid\": 1,\n    \"tid\": 0,\n"
+"    \"args\": {\n        \"sort_index\": 2\n    }\n},\n";
+
+    TraceRecord::GetInstance().SetMetadataEvent(devId);
+    std::string fileContent;
+    bool hasReadFile = ReadFile(TraceRecord::GetInstance().traceFiles_[devId].filePath, fileContent);
+    bool hasRemoveDir = RemoveDir("./" + g_traceDirPath);
+    for (auto result : results) {
+        EXPECT_NE(fileContent.find(result), std::string::npos);
+    }
     EXPECT_TRUE(hasReadFile && hasRemoveDir);
 }
