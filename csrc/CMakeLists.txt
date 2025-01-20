@@ -23,12 +23,12 @@ add_subdirectory(utility)
 add_subdirectory(event_trace)
 add_subdirectory(analysis)
 
-add_executable(leaks ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
+add_executable(msleaks ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
 
-target_link_libraries(leaks ascend_leaks)
+target_link_libraries(msleaks ascend_leaks)
 
-set_target_properties(leaks PROPERTIES
-    OUTPUT_NAME "leaks.bin"
+set_target_properties(msleaks PROPERTIES
+    OUTPUT_NAME "msleaks.bin"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_INSTALL_PREFIX}/bin"
 )
 set_target_properties(ascend_hal_hook ascend_mstx_hook ascend_kernel_hook leaks_torch_npu_trace ascend_leaks PROPERTIES 
