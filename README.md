@@ -16,7 +16,7 @@ leaks
    |-- main.cpp
 |-- output
    |-- bin
-      |-- leaks // 可执行文件
+      |-- msleaks // 可执行文件
 |-- test
 ```
  
