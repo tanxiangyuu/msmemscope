@@ -212,14 +212,6 @@ bool EventReport::ReportFree(uint64_t addr)
 
 bool EventReport::ReportMark(MstxRecord& mstxRecord)
 {
-    if (mstxRecord.markType == MarkType::RANGE_START_A) {
-        currentStep_ = mstxRecord.rangeId;
-    }
-
-    if (IsNeedSkip()) {
-        return true;
-    }
-
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
         std::cout << "RT_ERROR_INVALID_VALUE, " << devId << std::endl;
@@ -235,7 +227,9 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord)
     eventRecord.record.mstxRecord.timeStamp = Utility::GetTimeMicroseconds();
     eventRecord.record.mstxRecord.recordIndex = ++recordIndex_;
     auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
-    
+    if (mstxRecord.markType == MarkType::RANGE_START_A) {
+        currentStep_ = mstxRecord.rangeId;
+    }
     return (sendNums >= 0);
 }
 

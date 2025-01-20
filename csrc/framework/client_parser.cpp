@@ -115,7 +115,7 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
 {
     switch (opt) {
         case '?':
-            std::cout << "[leaks] ERROR: unrecognized command " << std::endl;
+            std::cout << "[msleaks] ERROR: unrecognized command " << std::endl;
             userCommand.printHelpInfo = true;
             break;
         case 'h': // for --help

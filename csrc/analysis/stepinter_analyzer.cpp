@@ -105,18 +105,18 @@ void StepInterAnalyzer::GetKernelMemoryDiff(size_t index, const CSV_FIELD_DATA &
         Utility::StrToInt64(next, nextMemory["total_allocated"])) {
         memDiff.totalAllocated = Utility::GetSubResult(next, pre);
     } else {
-        Utility::LogError("Totalallocated to uint64_t failed!");
+        Utility::LogError("Totalallocated to int64_t failed!");
     }
     if (Utility::StrToInt64(pre, preMemory["total_reserved"]) &&
         Utility::StrToInt64(next, nextMemory["total_reserved"])) {
         memDiff.totalReserved = Utility::GetSubResult(next, pre);
     } else {
-        Utility::LogError("Totalreserved to uint64_t failed!");
+        Utility::LogError("Totalreserved to int64_t failed!");
     }
     if (Utility::StrToInt64(pre, preMemory["total_active"]) && Utility::StrToInt64(next, nextMemory["total_active"])) {
         memDiff.totalActive = Utility::GetSubResult(next, pre);
     } else {
-        Utility::LogError("Totalactive to uint64_t failed!");
+        Utility::LogError("Totalactive to int64_t failed!");
     }
 }
 
