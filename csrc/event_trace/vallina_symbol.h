@@ -28,7 +28,7 @@ public:
     inline void *Get(char const *symbol) const
     {
         if (handle_ == nullptr) {
-            std::cout << "[leaks] lib handle is NULL" << std::endl;
+            std::cout << "[msleaks] lib handle is NULL" << std::endl;
             return nullptr;
         }
         return dlsym(handle_, symbol);
