@@ -10,8 +10,11 @@
 #include "analysis/mstx_analyzer.h"
 #include "analysis/dump_record.h"
 #include "analysis/trace_record.h"
+#include "analysis/stepinter_analyzer.h"
 
 namespace Leaks {
+
+constexpr double MICROSEC = 1000000.0;
 
 void RecordHandler(const ClientId &clientId, const EventRecord &record, AnalyzerFactory &analyzerfactory);
 void DumpHandler(const ClientId &clientId, DumpRecord &dump, const EventRecord &record);
@@ -21,6 +24,7 @@ class Command {
 public:
     explicit Command(const AnalysisConfig &config) : config_{config} {}
     void Exec(const std::vector<std::string> &execParams) const;
+    void StepInterCompare(const std::vector<std::string> &paths) const;
 private:
     AnalysisConfig config_;
 };
