@@ -129,6 +129,7 @@ struct MstxRecord {
     uint64_t rangeId;           // 只有Range才会存在ID，纯mark默认为0, Rangeid从1开始递增
     int32_t streamId;           // streamId, range end对应的值为-1
     char markMessage[64U];
+    uint64_t recordIndex; // 记录索引
 };
 
 enum class RecordType {

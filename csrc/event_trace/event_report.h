@@ -11,6 +11,9 @@
 #include "record_info.h"
 #include "config_info.h"
 
+#include <thread>
+#include <atomic>
+
 constexpr mode_t REGULAR_MODE_MASK = 0177;
 
 namespace Leaks {
@@ -27,15 +30,18 @@ public:
     bool ReportAclItf(AclOpType aclOpType);
     bool ReportMark(MstxRecord &mstxRecord);
     bool ReportTorchNpu(TorchNpuRecord &torchNpuRecord);
+    ~EventReport();
 private:
     explicit EventReport(CommType type);
+    std::atomic<uint64_t> recordIndex_;
+    std::atomic<uint64_t> kernelLaunchRecordIndex_;
+    std::atomic<uint64_t> aclItfRecordIndex_;
     bool IsNeedSkip(); // 支持采集指定step
-    uint64_t recordIndex_ = 0;
-    uint64_t aclItfRecordIndex_ = 0;
-    uint64_t kernelLaunchRecordIndex_ = 0;
     uint64_t currentStep_ = 0;
     AnalysisConfig config_;
-    std::mutex mutex_;
+    std::vector<std::thread> parseThreads_;
+    uint32_t maxThreadNum = 200; // 最大同时运行线程数
+    std::atomic<uint32_t> runningThreads; // 同时运行线程数
 };
 
 MemOpSpace GetMemOpSpace(unsigned long long flag);

@@ -9,10 +9,13 @@
 #include <regex>
 #include "command.h"
 
+#include "ustring.h"
+
 namespace Leaks {
 
 enum class OptVal : int32_t {
     SELECT_STEPS = 0,
+    OFFLINE_COMPARE_STEP,
 };
 
 void ShowDescription()
@@ -31,7 +34,8 @@ void ShowHelpInfo()
         "  basic user options, with default in [ ]:" << std::endl <<
         "    -h --help                              show this message" << std::endl <<
         "    -p --parse-kernel-name                 enable parse kernelLaunchName" << std::endl <<
-        "    --select-steps=<step1,step2,...>       set select steps" << std::endl;
+        "    --select-steps=<step1,step2,...>       set select steps" << std::endl <<
+        "    --compare-dump-data=path1:path2        analyze stepinter memory" << std::endl;
 }
 
 void DoUserCommand(const UserCommand &userCommand)
@@ -40,7 +44,14 @@ void DoUserCommand(const UserCommand &userCommand)
         ShowHelpInfo();
         return ;
     }
+
     Command command {userCommand.config};
+    // step间内存分析
+    if (userCommand.config.offlineStepInterCompare) {
+        command.StepInterCompare(userCommand.paths);
+        return ;
+    }
+    
     command.Exec(userCommand.cmd);
 }
 
@@ -56,6 +67,7 @@ std::vector<option> GetLongOptArray()
         {"help", no_argument, nullptr, 'h'},
         {"parse-kernel-name", no_argument, nullptr, 'p'},
         {"select-steps", required_argument, nullptr, static_cast<int32_t>(OptVal::SELECT_STEPS)},
+        {"compare-dump-data", required_argument, nullptr, static_cast<int32_t>(OptVal::OFFLINE_COMPARE_STEP)},
         {nullptr, 0, nullptr, 0},
     };
     return longOpts;
@@ -115,6 +127,16 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
         case static_cast<int32_t>(OptVal::SELECT_STEPS):
             ParseSelectSteps(param, userCommand);
             break;
+        case static_cast<int32_t>(OptVal::OFFLINE_COMPARE_STEP):{
+            Utility::Split(param, std::back_inserter(userCommand.paths), ":");
+            if (userCommand.paths.size() != PATHSIZE) {
+                Utility::LogInfo("Please input correct file path. For example, --compare-dump-data=path1:path2.");
+                userCommand.config.offlineStepInterCompare = false;
+            } else {
+                userCommand.config.offlineStepInterCompare = true;
+            }
+            break;
+        }
         default:
             ;
     }
@@ -124,6 +146,7 @@ void ClientParser::InitialUserCommand(UserCommand &userCommand)
 {
     userCommand.config.parseKernelName = false;
     userCommand.config.stepList.stepCount = 0;
+    userCommand.config.offlineStepInterCompare = false;
 }
 
 UserCommand ClientParser::Parse(int32_t argc, char **argv)
@@ -155,7 +178,6 @@ UserCommand ClientParser::Parse(int32_t argc, char **argv)
             return userCommand;
         }
     }
-
     std::vector<std::string> userBinCmd;
     for (; optind < argc; optind++) {
         userBinCmd.emplace_back(argv[optind]);
