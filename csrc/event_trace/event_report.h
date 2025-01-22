@@ -6,7 +6,7 @@
 #include <memory>
 #include <string>
 #include <mutex>
-#include "host_injection/core/LocalProcess.h"
+#include "client_process.h"
 #include "kernel_hooks/runtime_hooks.h"
 #include "record_info.h"
 #include "config_info.h"

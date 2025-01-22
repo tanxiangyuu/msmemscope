@@ -2,7 +2,7 @@ add_library(ascend_kernel_hook SHARED runtime_hooks.cpp acl_hooks.cpp)
 
 target_sources(ascend_kernel_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/event_report.cpp
-  ${FUNC_INJECTION_CORE_DIR}/LocalProcess.cpp
+  ${FRAMEWORK_INC_DIR}/client_process.cpp
   ${FUNC_INJECTION_CORE_DIR}/Communication.cpp
   ${FUNC_INJECTION_CORE_DIR}/DomainSocket.cpp
   ${UTILITY_INC_DIR}/log.cpp

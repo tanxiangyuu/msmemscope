@@ -3,7 +3,6 @@
 #ifndef HAL_ANALYZER_H
 #define HAL_ANALYZER_H
 
-#include "host_injection/core/LocalProcess.h"
 #include "analyzer_base.h"
 #include "module_info.h"
 
