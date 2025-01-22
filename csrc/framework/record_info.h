@@ -130,6 +130,7 @@ struct MstxRecord {
     int32_t devId;              // 所属device id
     uint64_t rangeId;           // 只有Range才会存在ID，纯mark默认为0, Rangeid从1开始递增
     int32_t streamId;           // streamId, range end对应的值为-1
+    uint64_t stepId;            // 只有Range类型才有stepId, 默认为0, 记录当前step的ID编号，从1开始递增
     char markMessage[64U];
     uint64_t recordIndex; // 记录索引
 };

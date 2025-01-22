@@ -56,7 +56,7 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks_warning) {
     mstxRecordStart1.markType = MarkType::RANGE_START_A;
     strncpy_s(mstxRecordStart1.markMessage, sizeof(mstxRecordStart1.markMessage), "step start",
     sizeof(mstxRecordStart1.markMessage));
-    mstxRecordStart1.rangeId = 1;
+    mstxRecordStart1.stepId = 1;
     mstxRecordStart1.streamId = 123;
 
     // 经过第二个step，但仍然未释放
@@ -64,12 +64,12 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks_warning) {
     mstxRecordStart2.markType = MarkType::RANGE_START_A;
     strncpy_s(mstxRecordStart2.markMessage, sizeof(mstxRecordStart2.markMessage), "step start",
     sizeof(mstxRecordStart2.markMessage));
-    mstxRecordStart2.rangeId = 2;
+    mstxRecordStart2.stepId = 2;
     mstxRecordStart2.streamId = 123;
 
     auto mstxRecordEnd = MstxRecord {};
     mstxRecordEnd.markType = MarkType::RANGE_END;
-    mstxRecordEnd.rangeId = 2;
+    mstxRecordEnd.stepId = 2;
     mstxRecordEnd.streamId = 123;
 
     // 经过两个step的内存
@@ -188,12 +188,12 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks) {
     mstxRecordStart.markType = MarkType::RANGE_START_A;
     strncpy_s(mstxRecordStart.markMessage, sizeof(mstxRecordStart.markMessage), "step start",
     sizeof(mstxRecordStart.markMessage));
-    mstxRecordStart.rangeId = 1;
+    mstxRecordStart.stepId = 1;
     mstxRecordStart.streamId = 123;
 
     auto mstxRecordEnd = MstxRecord {};
     mstxRecordEnd.markType = MarkType::RANGE_END;
-    mstxRecordEnd.rangeId = 1;
+    mstxRecordEnd.stepId = 1;
     mstxRecordEnd.streamId = 123;
 
     // step前后allocated内存不一致

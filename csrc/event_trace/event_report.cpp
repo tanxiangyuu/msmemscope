@@ -139,6 +139,14 @@ bool EventReport::IsNeedSkip()
     return true;
 }
 
+bool EventReport::IsReportHostMem()
+{
+    // 满足两个条件时上报malloc和free信息：
+    // 1. 在用户指定的范围内；
+    // 2. 各种report函数是待测程序额外增加的部分，这些report函数中不应上报。
+    return isReportHostMem_ && !isInReportFunction_;
+}
+
 EventReport::~EventReport()
 {
     for (std::thread &t : parseThreads_) {
@@ -150,6 +158,8 @@ EventReport::~EventReport()
 
 bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord)
 {
+    isInReportFunction_ = true;
+
     if (IsNeedSkip()) {
         return true;
     }
@@ -161,11 +171,15 @@ bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord)
     eventrecord.record.torchNpuRecord.devId = static_cast<int32_t>(torchNpuRecord.memoryUsage.deviceIndex);
     eventrecord.record.torchNpuRecord.recordIndex = ++recordIndex_;
     auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventrecord));
+
+    isInReportFunction_ = false;
     return (sendNums >= 0);
 }
 
 bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag)
 {
+    isInReportFunction_ = true;
+
     if (IsNeedSkip()) {
         return true;
     }
@@ -182,11 +196,15 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
     auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+
+    isInReportFunction_ = false;
     return (sendNums >= 0);
 }
 
 bool EventReport::ReportFree(uint64_t addr)
 {
+    isInReportFunction_ = true;
+
     if (IsNeedSkip()) {
         return true;
     }
@@ -200,14 +218,63 @@ bool EventReport::ReportFree(uint64_t addr)
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
     auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+
+    isInReportFunction_ = false;
+    return (sendNums >= 0);
+}
+
+bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size)
+{
+    if (!IsReportHostMem()) {
+        return true;
+    }
+    isInReportFunction_ = true;
+    PacketHead head = {PacketType::RECORD};
+    auto eventRecord = EventRecord {};
+    eventRecord.type = RecordType::MEMORY_RECORD;
+    eventRecord.record.memoryRecord = CreateMemRecord(MemOpType::MALLOC, FLAG_INVALID, MemOpSpace::HOST, addr, size);
+    eventRecord.record.memoryRecord.devId = GD_INVALID_NUM;
+    eventRecord.record.memoryRecord.modid = INVALID_MODID;
+    eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
+    eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
+    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+
+    isInReportFunction_ = false;
+    return (sendNums >= 0);
+}
+ 
+bool EventReport::ReportHostFree(uint64_t addr)
+{
+    if (!IsReportHostMem()) {
+        return true;
+    }
+    isInReportFunction_ = true;
+
+    PacketHead head = {PacketType::RECORD};
+    auto eventRecord = EventRecord {};
+    eventRecord.type = RecordType::MEMORY_RECORD;
+    eventRecord.record.memoryRecord = CreateMemRecord(MemOpType::FREE, FLAG_INVALID, MemOpSpace::INVALID, addr, 0);
+    eventRecord.record.memoryRecord.devId = GD_INVALID_NUM;
+    eventRecord.record.memoryRecord.modid = INVALID_MODID;
+    eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
+    eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
+    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+
+    isInReportFunction_ = false;
     return (sendNums >= 0);
 }
 
 bool EventReport::ReportMark(MstxRecord& mstxRecord)
 {
+    isInReportFunction_ = true;
+
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
         std::cout << "[mark] RT_ERROR_INVALID_VALUE, " << devId << std::endl;
+    }
+
+    if (mstxRecord.markType == MarkType::RANGE_START_A && strcmp(mstxRecord.markMessage, "step start") == 0) {
+        currentStep_++;
     }
 
     PacketHead head = {PacketType::RECORD};
@@ -219,15 +286,31 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord)
     eventRecord.record.mstxRecord.tid = Utility::GetTid();
     eventRecord.record.mstxRecord.timeStamp = Utility::GetTimeMicroseconds();
     eventRecord.record.mstxRecord.recordIndex = ++recordIndex_;
+    eventRecord.record.mstxRecord.stepId = currentStep_;
     auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
-    if (mstxRecord.markType == MarkType::RANGE_START_A) {
-        currentStep_ = mstxRecord.rangeId;
+
+    // 通过有无固化语句判断是否要采集host侧内存数据
+    if (mstxRecord.markType == MarkType::RANGE_START_A &&
+        strcmp(mstxRecord.markMessage, "report host memory info start") == 0) {
+        mstxRangeIdTables_[devId] = mstxRecord.rangeId;
+        std::cout << "Start Report Host Memory Info..." << std::endl;
+        isReportHostMem_ = true;
+    } else if (mstxRecord.markType == MarkType::RANGE_END &&
+        mstxRangeIdTables_.find(devId) != mstxRangeIdTables_.end() &&
+        mstxRangeIdTables_[devId] == mstxRecord.rangeId) {
+        mstxRangeIdTables_.erase(devId);
+        std::cout << "Stop Report Host Memory Info." << std::endl;
+        isReportHostMem_ = false;
     }
+
+    isInReportFunction_ = false;
     return (sendNums >= 0);
 }
 
 bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, const void *hdl)
 {
+    isInReportFunction_ = true;
+
     if (IsNeedSkip()) {
         return true;
     }
@@ -274,11 +357,15 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
             return false;
         }
     }
+
+    isInReportFunction_ = false;
     return true;
 }
 
 bool EventReport::ReportAclItf(AclOpType aclOpType)
 {
+    isInReportFunction_ = true;
+
     if (IsNeedSkip()) {
         return true;
     }
@@ -292,6 +379,8 @@ bool EventReport::ReportAclItf(AclOpType aclOpType)
     eventRecord.record.aclItfRecord.recordIndex = ++recordIndex_;
     eventRecord.record.aclItfRecord.aclItfRecordIndex = ++aclItfRecordIndex_;
     auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+
+    isInReportFunction_ = false;
     return (sendNums >= 0);
 }
 

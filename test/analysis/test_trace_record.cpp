@@ -11,6 +11,7 @@
 #undef private
 #include "record_info.h"
 #include "config_info.h"
+#include "securec.h"
 
 #include <iostream>
 
@@ -74,7 +75,36 @@ bool RemoveDir(const std::string& dirPath)
     return true;
 }
 
-TEST(TraceRecord, process_mstx_record)
+TEST(TraceRecord, process_mstx_mark_record)
+{
+    auto record = EventRecord{};
+    record.type = RecordType::MSTX_MARK_RECORD;
+    auto mstxRecord = MstxRecord{};
+    mstxRecord.tid = 0;
+    mstxRecord.pid = 0;
+    mstxRecord.timeStamp = 123;
+    mstxRecord.rangeId = 0;
+    mstxRecord.stepId = 0;
+    mstxRecord.devId = 0;
+    mstxRecord.markType = MarkType::MARK_A;
+    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage),
+        "mark", sizeof(mstxRecord.markMessage));
+    record.record.mstxRecord = mstxRecord;
+
+    TraceRecord::GetInstance().ProcessRecord(record);
+    std::string result = "{\n    \"ph\": \"i\",\n"
+"    \"name\": \"mstx_mark\",\n"
+"    \"pid\": 0,\n    \"tid\": 0,\n"
+"    \"ts\": 123,\n    \"s\": \"p\",\n"
+"    \"args\": {\n        \"message\": \"mark\"\n    }\n},\n";
+    std::string fileContent;
+    bool hasReadFile = ReadFile(TraceRecord::GetInstance().traceFiles_[mstxRecord.devId].filePath, fileContent);
+    bool hasRemoveDir = RemoveDir("./" + g_traceDirPath);
+    EXPECT_NE(fileContent.find(result), std::string::npos);
+    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+}
+
+TEST(TraceRecord, process_mstx_record_with_report_host_memory)
 {
     auto startRecord = EventRecord{};
     startRecord.type = RecordType::MSTX_MARK_RECORD;
@@ -82,9 +112,12 @@ TEST(TraceRecord, process_mstx_record)
     startMstxRecord.tid = 0;
     startMstxRecord.pid = 0;
     startMstxRecord.timeStamp = 123;
-    startMstxRecord.rangeId = 0;
+    startMstxRecord.rangeId = 1;
+    startMstxRecord.stepId = 0;
     startMstxRecord.devId = 0;
     startMstxRecord.markType = MarkType::RANGE_START_A;
+    strncpy_s(startMstxRecord.markMessage, sizeof(startMstxRecord.markMessage),
+        "report host memory info start", sizeof(startMstxRecord.markMessage));
     startRecord.record.mstxRecord = startMstxRecord;
 
     auto endRecord = EventRecord{};
@@ -93,27 +126,73 @@ TEST(TraceRecord, process_mstx_record)
     endMstxRecord.tid = 0;
     endMstxRecord.pid = 0;
     endMstxRecord.timeStamp = 133;
-    endMstxRecord.rangeId = 0;
+    endMstxRecord.rangeId = 1;
+    endMstxRecord.stepId = 0;
     endMstxRecord.devId = 0;
     endMstxRecord.markType = MarkType::RANGE_END;
-    endMstxRecord.markMessage[0] = 'e';
     endRecord.record.mstxRecord = endMstxRecord;
 
     TraceRecord::GetInstance().ProcessRecord(startRecord);
     TraceRecord::GetInstance().ProcessRecord(endRecord);
     std::string result = "{\n    \"ph\": \"i\",\n"
-"    \"name\": \"mstx_range_start_0\",\n"
+"    \"name\": \"mstx_range1_start\",\n"
 "    \"pid\": 0,\n    \"tid\": 0,\n"
-"    \"ts\": 123,\n    \"s\": \"p\"\n},\n{\n"
+"    \"ts\": 123,\n    \"s\": \"p\",\n"
+"    \"args\": {\n        \"message\": \"report host memory info start\"\n    }\n},\n{\n"
+"    \"ph\": \"i\",\n"
+"    \"name\": \"mstx_range1_end\",\n"
+"    \"pid\": 0,\n    \"tid\": 0,\n"
+"    \"ts\": 133,\n    \"s\": \"p\"\n},\n";
+    std::string fileContent;
+    bool hasReadFile = ReadFile(TraceRecord::GetInstance().traceFiles_[startMstxRecord.devId].filePath, fileContent);
+    bool hasRemoveDir = RemoveDir("./" + g_traceDirPath);
+    EXPECT_NE(fileContent.find(result), std::string::npos);
+    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+}
+
+TEST(TraceRecord, process_mstx_record_with_step_info)
+{
+    auto startRecord = EventRecord{};
+    startRecord.type = RecordType::MSTX_MARK_RECORD;
+    auto startMstxRecord = MstxRecord{};
+    startMstxRecord.tid = 0;
+    startMstxRecord.pid = 0;
+    startMstxRecord.timeStamp = 123;
+    startMstxRecord.rangeId = 2;
+    startMstxRecord.stepId = 1;
+    startMstxRecord.devId = 0;
+    startMstxRecord.markType = MarkType::RANGE_START_A;
+    strncpy_s(startMstxRecord.markMessage, sizeof(startMstxRecord.markMessage),
+        "step start", sizeof(startMstxRecord.markMessage));
+    startRecord.record.mstxRecord = startMstxRecord;
+
+    auto endRecord = EventRecord{};
+    endRecord.type = RecordType::MSTX_MARK_RECORD;
+    auto endMstxRecord = MstxRecord{};
+    endMstxRecord.tid = 0;
+    endMstxRecord.pid = 0;
+    endMstxRecord.timeStamp = 133;
+    endMstxRecord.rangeId = 2;
+    endMstxRecord.stepId = 1;
+    endMstxRecord.devId = 0;
+    endMstxRecord.markType = MarkType::RANGE_END;
+    endRecord.record.mstxRecord = endMstxRecord;
+
+    TraceRecord::GetInstance().ProcessRecord(startRecord);
+    TraceRecord::GetInstance().ProcessRecord(endRecord);
+    std::string result = "{\n    \"ph\": \"i\",\n"
+"    \"name\": \"mstx_step1_start\",\n"
+"    \"pid\": 0,\n    \"tid\": 0,\n"
+"    \"ts\": 123,\n    \"s\": \"p\",\n"
+"    \"args\": {\n        \"message\": \"step start\"\n    }\n},\n{\n"
 "    \"ph\": \"X\",\n"
-"    \"name\": \"step 0\",\n"
+"    \"name\": \"step 1\",\n"
 "    \"pid\": 0,\n    \"tid\": 0,\n"
 "    \"ts\": 123,\n    \"dur\": 10\n},\n{\n"
 "    \"ph\": \"i\",\n"
-"    \"name\": \"mstx_range_end_0\",\n"
+"    \"name\": \"mstx_step1_end\",\n"
 "    \"pid\": 0,\n    \"tid\": 0,\n"
-"    \"ts\": 133,\n    \"s\": \"p\",\n"
-"    \"args\": {\n        \"message\": \"e\"\n    }\n},\n";
+"    \"ts\": 133,\n    \"s\": \"p\"\n},\n";
     std::string fileContent;
     bool hasReadFile = ReadFile(TraceRecord::GetInstance().traceFiles_[startMstxRecord.devId].filePath, fileContent);
     bool hasRemoveDir = RemoveDir("./" + g_traceDirPath);
@@ -163,11 +242,12 @@ TEST(TraceRecord, process_acl_itf_record)
     aclItfRecord.timeStamp = 123;
     aclItfRecord.devId = 0;
     aclItfRecord.aclItfRecordIndex = 0;
+    aclItfRecord.type = AclOpType::INIT;
     record.record.aclItfRecord = aclItfRecord;
 
     std::string result = "{\n"
 "    \"ph\": \"i\",\n"
-"    \"name\": \"acl_0\",\n"
+"    \"name\": \"acl_init\",\n"
 "    \"pid\": 0,\n"
 "    \"tid\": 0,\n"
 "    \"ts\": 123,\n"

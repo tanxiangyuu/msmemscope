@@ -17,7 +17,7 @@ using DeviceId = int32_t;
 class AnalyzerBase {
 public:
     virtual bool Record(const ClientId &clientId, const EventRecord &record) = 0;
-    virtual void ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t &rangeId, const MstxRecord &mstxRecord) = 0;
+    virtual void ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t &stepId, const MstxRecord &mstxRecord) = 0;
 };
 
 }

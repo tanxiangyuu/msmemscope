@@ -81,24 +81,6 @@ inline std::string FormatMetadataEvent(JsonBaseInfo baseInfo, std::string args)
     return oss.str();
 }
 
-inline bool CheckAddOverflow(uint64_t a, uint64_t b, const std::string& msg)
-{
-    if (a > UINT64_MAX - b) {
-        Utility::LogError(msg);
-        return true;
-    }
-    return false;
-}
-
-inline bool CheckSubUnderflow(uint64_t a, uint64_t b, const std::string& msg)
-{
-    if (a < b) {
-        Utility::LogError(msg);
-        return true;
-    }
-    return false;
-}
-
 TraceRecord& TraceRecord::GetInstance()
 {
     static TraceRecord instance;
@@ -238,22 +220,13 @@ void TraceRecord::RecordToString(const MemOpRecord &memRecord, std::string &str)
     // 最终统计的结果只包含device的数据
     if (memRecord.space == MemOpSpace::DEVICE && memRecord.memType == MemOpType::MALLOC) {
         deviceMemAllocation_[devId][addr] = size;
-        if (CheckAddOverflow(deviceMemUsage_[devId], size, "Device hal memory overflow.")) {
-            return;
-        }
-        deviceMemUsage_[devId] += size;
+        deviceMemUsage_[devId] = Utility::GetAddResult(deviceMemUsage_[devId], size);
     } else if (memRecord.space == MemOpSpace::INVALID) {
         if (deviceMemAllocation_[devId].find(addr) == deviceMemAllocation_[devId].end()) {
-            Utility::LogWarn("No memory allocation record for the freed addr %llu.", addr);
+            Utility::LogWarn("No memory allocation record for the freed addr %llx.", addr);
             return;
         }
-
-        if (CheckSubUnderflow(deviceMemUsage_[devId], deviceMemAllocation_[devId][addr],
-            "Device hal memory underflow.")) {
-            return;
-        }
-        
-        deviceMemUsage_[devId] -= deviceMemAllocation_[devId][addr];
+        deviceMemUsage_[devId] = Utility::GetSubResult(deviceMemUsage_[devId], deviceMemAllocation_[devId][addr]);
         deviceMemAllocation_[devId].erase(addr);
     } else {
         return;
@@ -282,8 +255,9 @@ void TraceRecord::RecordToString(const AclItfRecord &aclItfRecord, std::string &
     if (aclItfRecord.devId == GD_INVALID_NUM) {
         return;
     }
+    std::string name = aclItfRecord.type == AclOpType::INIT ? "acl_init" : "acl_finalize";
     JsonBaseInfo baseInfo{
-        "acl_" + std::to_string(aclItfRecord.aclItfRecordIndex),
+        name,
         aclItfRecord.tid,
         aclItfRecord.tid,
         aclItfRecord.timeStamp
@@ -314,27 +288,34 @@ void TraceRecord::RecordToString(const TorchNpuRecord &torchNpuRecord, std::stri
 void TraceRecord::RecordToString(const MstxRecord &mstxRecord, std::string &str)
 {
     int32_t devId = mstxRecord.devId;
-    std::string mstxType;
+    std::string mstxEventName;
     if (mstxRecord.markType == MarkType::MARK_A) {
-        mstxType = "mstx_mark";
+        mstxEventName = "mstx_mark";
+    } else if (mstxRecord.markType == MarkType::RANGE_START_A) {
+        if (strcmp(mstxRecord.markMessage, "step start") == 0) {
+            mstxEventName = "mstx_step" + std::to_string(mstxRecord.stepId) + "_start";
+            stepStartTime_[devId][mstxRecord.rangeId] = mstxRecord.timeStamp;
+        } else {
+            mstxEventName = "mstx_range" + std::to_string(mstxRecord.rangeId) + "_start";
+        }
     } else {
-        if (mstxRecord.markType == MarkType::RANGE_START_A) {
-            mstxType = "mstx_range_start";
-            lastStepStartTime_[devId] = mstxRecord.timeStamp;
-        } else if (mstxRecord.markType == MarkType::RANGE_END) {
-            mstxType = "mstx_range_end";
-            JsonBaseInfo rangeBaseInfo{
-                "step " + std::to_string(mstxRecord.rangeId),
+        if (stepStartTime_.find(devId) == stepStartTime_.end() ||
+            stepStartTime_[devId].find(mstxRecord.rangeId) == stepStartTime_[devId].end()) {
+            mstxEventName = "mstx_range" + std::to_string(mstxRecord.rangeId) + "_end";
+        } else {
+            mstxEventName = "mstx_step" + std::to_string(mstxRecord.stepId) + "_end";
+            JsonBaseInfo stepBaseInfo{
+                "step " + std::to_string(mstxRecord.stepId),
                 mstxEventPid_,
                 mstxRecord.tid,
-                lastStepStartTime_[devId]
+                stepStartTime_[devId][mstxRecord.rangeId]
             };
-            str = FormatCompleteEvent(rangeBaseInfo, mstxRecord.timeStamp - lastStepStartTime_[devId]);
+            str = FormatCompleteEvent(stepBaseInfo, mstxRecord.timeStamp - stepStartTime_[devId][mstxRecord.rangeId]);
         }
     }
 
     JsonBaseInfo baseInfo{
-        mstxType + "_" + std::to_string(mstxRecord.rangeId),
+        mstxEventName,
         mstxEventPid_,
         mstxRecord.tid,
         mstxRecord.timeStamp

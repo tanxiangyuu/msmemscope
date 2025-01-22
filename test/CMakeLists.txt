@@ -14,6 +14,7 @@ set(gtest_header ../opensource/googletest/googletest/include/)
 file(GLOB_RECURSE TEST_ORIGINAL_SOURCE ../csrc/framework/*.cpp
                                        ../csrc/analysis/*.cpp
                                        ../csrc/event_trace/*.cpp)
+list(FILTER TEST_ORIGINAL_SOURCE EXCLUDE REGEX "host_memory_hooks\\.cpp$")
 
 list(SORT TEST_ORIGINAL_SOURCE)
 file(GLOB_RECURSE TEST_SOURCE ./test.cpp)

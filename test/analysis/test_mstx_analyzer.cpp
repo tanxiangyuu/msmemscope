@@ -14,17 +14,17 @@ TEST(MstxAnalyzerTest, do_mstx_record_expect_success) {
     ClientId clientId = 0;
     auto mstxRecordStart = MstxRecord {};
     mstxRecordStart.markType = MarkType::RANGE_START_A;
-    mstxRecordStart.rangeId = 1;
+    mstxRecordStart.stepId = 1;
     mstxRecordStart.streamId = 123;
 
     auto mstxRecordEnd = MstxRecord {};
     mstxRecordEnd.markType = MarkType::RANGE_END;
-    mstxRecordEnd.rangeId = 1;
+    mstxRecordEnd.stepId = 1;
     mstxRecordEnd.streamId = 123;
 
     auto mstxRecordMark = MstxRecord {};
     mstxRecordMark.markType = MarkType::MARK_A;
-    mstxRecordMark.rangeId = 0;
+    mstxRecordMark.stepId = 0;
     mstxRecordMark.streamId = 123;
 
     EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStart));
@@ -53,7 +53,7 @@ TEST(MstxAnalyzerTest, do_analyzer_notify_expect_success) {
     ClientId clientId = 0;
     auto mstxRecordStart = MstxRecord {};
     mstxRecordStart.markType = MarkType::RANGE_START_A;
-    mstxRecordStart.rangeId = 1;
+    mstxRecordStart.stepId = 1;
     mstxRecordStart.streamId = 123;
 
     EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStart));
