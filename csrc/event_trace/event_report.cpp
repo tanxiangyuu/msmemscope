@@ -115,11 +115,11 @@ EventReport& EventReport::Instance(CommType type)
 
 EventReport::EventReport(CommType type)
 {
-    (void)LocalProcess::GetInstance(type); // 连接server
+    (void)ClientProcess::GetInstance(type); // 连接server
     // 接受server端发送的消息
     std::string msg;
     // 默认10次重试
-    LocalProcess::GetInstance(type).Wait(msg);
+    ClientProcess::GetInstance(type).Wait(msg);
     Deserialize(msg, config_);
     return;
 }
@@ -162,7 +162,7 @@ bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord)
     eventrecord.record.torchNpuRecord.timeStamp = Utility::GetTimeMicroseconds();
     eventrecord.record.torchNpuRecord.devId = static_cast<int32_t>(torchNpuRecord.memoryUsage.deviceIndex);
     eventrecord.record.torchNpuRecord.recordIndex = ++recordIndex_;
-    auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventrecord));
+    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventrecord));
     return (sendNums >= 0);
 }
 
@@ -185,7 +185,7 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
     eventRecord.record.memoryRecord.modid = moduleId;
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
-    auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
     return (sendNums >= 0);
 }
 
@@ -206,7 +206,7 @@ bool EventReport::ReportFree(uint64_t addr)
     eventRecord.record.memoryRecord.modid = INVALID_MODID;
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
-    auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
     return (sendNums >= 0);
 }
 
@@ -226,7 +226,7 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord)
     eventRecord.record.mstxRecord.tid = Utility::GetTid();
     eventRecord.record.mstxRecord.timeStamp = Utility::GetTimeMicroseconds();
     eventRecord.record.mstxRecord.recordIndex = ++recordIndex_;
-    auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
     if (mstxRecord.markType == MarkType::RANGE_START_A) {
         currentStep_ = mstxRecord.rangeId;
     }
@@ -267,13 +267,13 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
                 sizeof(eventRecord.record.kernelLaunchRecord.kernelName), GetNameFromBinary(hdl).c_str(),
                 sizeof(eventRecord.record.kernelLaunchRecord.kernelName) - 1);
             PacketHead head = {PacketType::RECORD};
-            auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+            auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
             --runningThreads;
         });
         parseThreads_.emplace_back(std::move(th));
     } else {
         PacketHead head = {PacketType::RECORD};
-        auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+        auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
     }
     return true;
 }
@@ -296,7 +296,7 @@ bool EventReport::ReportAclItf(AclOpType aclOpType)
     eventRecord.record.aclItfRecord.devId = devId;
     eventRecord.record.aclItfRecord.recordIndex = ++recordIndex_;
     eventRecord.record.aclItfRecord.aclItfRecordIndex = ++aclItfRecordIndex_;
-    auto sendNums = LocalProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
     return (sendNums >= 0);
 }
 
