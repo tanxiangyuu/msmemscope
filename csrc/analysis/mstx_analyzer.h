@@ -4,7 +4,6 @@
 #define MSTX_ANALYZER_H
 
 #include <list>
-#include "host_injection/core/LocalProcess.h"
 #include "analyzer_base.h"
 
 namespace Leaks {
