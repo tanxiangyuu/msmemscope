@@ -14,10 +14,10 @@ namespace Leaks {
 */
 
 using DeviceId = int32_t;
-using RangeId = uint64_t;
+using StepId = uint64_t;
 using TotalAllocated = int64_t;
 
-using MstxRecordTable = std::unordered_map<RangeId, TotalAllocated>;
+using MstxRecordTable = std::unordered_map<StepId, TotalAllocated>;
 
 enum class MemActionType : uint8_t {
     MALLOC = 0,
@@ -28,7 +28,7 @@ enum class MemActionType : uint8_t {
 struct LeakInfo {
     uint64_t timestamp;
     uint64_t duration; // 目前经历的duration
-    uint64_t rangeId; // 来自哪个mstx的rangeId
+    uint64_t stepId; // 来自哪个mstx的stepId
 };
 
 struct NpuMemUsage {
@@ -36,18 +36,18 @@ struct NpuMemUsage {
     int64_t totalAllocated = 0;
     int64_t totalReserved = 0;
     int64_t totalActive = 0;
-    uint64_t mstxRange = 0; // 用于更新当前到哪一个step，并将其应用于表中的rangeId属性。
+    uint64_t mstxStep = 0; // 用于更新当前到哪一个step，并将其应用于表中的stepId属性。
 };
 
 class StepInnerAnalyzer : public AnalyzerBase {
 public:
     explicit StepInnerAnalyzer(const AnalysisConfig &config);
     bool Record(const ClientId &clientId, const EventRecord &record) override;
-    void ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t &rangeId, const MstxRecord &mstxRecord) override;
+    void ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t &stepId, const MstxRecord &mstxRecord) override;
     void AddDuration(const DeviceId &deviceId);
-    void SetRangeId(const DeviceId &deviceId, const uint64_t &rangeId);
+    void SetStepId(const DeviceId &deviceId, const uint64_t &stepId);
     int64_t GetNowAllocated(const DeviceId &deviceId);
-    void CheckNpuLeak(const DeviceId &deviceId, const uint64_t rangeId);
+    void CheckNpuLeak(const DeviceId &deviceId, const uint64_t stepId);
     void NotifyTraceRecord(const int32_t &devId, const TorchNpuRecord &torchnpuRecord);
 private:
     std::unordered_map<DeviceId, NpuMemUsage> npumemusages_{};

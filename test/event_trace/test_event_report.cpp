@@ -39,6 +39,56 @@ TEST(EventReportTest, ReportFreeTest) {
     EXPECT_TRUE(instance.ReportFree(testAddr));
 }
 
+TEST(EventReportTest, ReportHostMallocWithoutMstxTest) {
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    uint64_t testAddr = 0x12345678;
+    uint64_t testSize = 1024;
+    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize));
+}
+ 
+TEST(EventReportTest, ReportHostFreeWithoutMstxTest) {
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    uint64_t testAddr = 0x12345678;
+    EXPECT_TRUE(instance.ReportHostFree(testAddr));
+}
+
+TEST(EventReportTest, ReportHostMallocTest) {
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    auto mstxRecordStart = MstxRecord {};
+    mstxRecordStart.markType = MarkType::RANGE_START_A;
+    mstxRecordStart.rangeId = 1;
+    strncpy_s(mstxRecordStart.markMessage, sizeof(mstxRecordStart.markMessage),
+        "report host memory info start", sizeof(mstxRecordStart.markMessage));
+    instance.ReportMark(mstxRecordStart);
+
+    uint64_t testAddr = 0x12345678;
+    uint64_t testSize = 1024;
+    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize));
+
+    auto mstxRecordEnd = MstxRecord {};
+    mstxRecordEnd.markType = MarkType::RANGE_END;
+    mstxRecordEnd.rangeId = 1;
+    instance.ReportMark(mstxRecordEnd);
+}
+ 
+TEST(EventReportTest, ReportHostFreeTest) {
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    auto mstxRecordStart = MstxRecord {};
+    mstxRecordStart.markType = MarkType::RANGE_START_A;
+    mstxRecordStart.rangeId = 1;
+    strncpy_s(mstxRecordStart.markMessage, sizeof(mstxRecordStart.markMessage),
+        "report host memory info start", sizeof(mstxRecordStart.markMessage));
+    instance.ReportMark(mstxRecordStart);
+
+    uint64_t testAddr = 0x12345678;
+    EXPECT_TRUE(instance.ReportHostFree(testAddr));
+
+    auto mstxRecordEnd = MstxRecord {};
+    mstxRecordEnd.markType = MarkType::RANGE_END;
+    mstxRecordEnd.rangeId = 1;
+    instance.ReportMark(mstxRecordEnd);
+}
+
 TEST(EventReportTest, ReportMarkTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     MstxRecord record;

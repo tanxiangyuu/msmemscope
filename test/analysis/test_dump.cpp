@@ -148,7 +148,7 @@ TEST(DumpRecord, dump_msxt_mark_expect_success)
     mstxRecord.pid = 10;
     mstxRecord.tid = 10;
     mstxRecord.devId = 1;
-    mstxRecord.rangeId = 10;
+    mstxRecord.stepId = 10;
     mstxRecord.streamId = 1;
     strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage), "test mark",
         sizeof(mstxRecord.markMessage) - 1);
@@ -168,7 +168,7 @@ TEST(DumpRecord, dump_msxt_range_start_expect_success)
     mstxRecord.pid = 10;
     mstxRecord.tid = 10;
     mstxRecord.devId = 2;
-    mstxRecord.rangeId = 2;
+    mstxRecord.stepId = 2;
     mstxRecord.streamId = 123;
     strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage), "test range start",
         sizeof(mstxRecord.markMessage) - 1);
@@ -188,7 +188,7 @@ TEST(DumpRecord, dump_msxt_range_end_expect_success)
     mstxRecord.pid = 10;
     mstxRecord.tid = 10;
     mstxRecord.devId = 3;
-    mstxRecord.rangeId = -1;
+    mstxRecord.stepId = -1;
     mstxRecord.streamId = 123;
     mstxRecord.recordIndex = 1;
     
