@@ -3,7 +3,6 @@
 #ifndef STEPINNER_ANALYZER_H
 #define STEPINNER_ANALYZER_H
 
-#include "host_injection/core/LocalProcess.h"
 #include "analyzer_base.h"
 #include "trace_record.h"
 
