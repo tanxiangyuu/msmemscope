@@ -8,9 +8,7 @@
 
 namespace Leaks {
 
-constexpr uint64_t TRACE_DURATION = 10;   // 为便于可视化aclItf、kernel launch这两类瞬时事件，生成json文件时将其设定有10微秒的持续时间
-
-static std::string FormatCompleteEvent(JsonBaseInfo baseInfo, uint64_t dur)
+inline std::string FormatCompleteEvent(JsonBaseInfo baseInfo, uint64_t dur, std::string args = "")
 {
     std::ostringstream oss;
     oss << "{\n"
@@ -19,29 +17,18 @@ static std::string FormatCompleteEvent(JsonBaseInfo baseInfo, uint64_t dur)
         << "    \"pid\": " << baseInfo.pid << ",\n"
         << "    \"tid\": " << baseInfo.tid << ",\n"
         << "    \"ts\": " << baseInfo.ts << ",\n"
-        << "    \"dur\": " << dur << "\n"
-        << "},\n";
+        << "    \"dur\": " << dur;
+    if (!args.empty()) {
+        oss << ",\n"
+            << "    \"args\": {\n"
+            << "        " << args << "\n"
+            << "    }";
+    }
+    oss << "\n},\n";
     return oss.str();
 }
 
-static std::string FormatCompleteEventWithArgs(JsonBaseInfo baseInfo, uint64_t dur, std::string args)
-{
-    std::ostringstream oss;
-    oss << "{\n"
-        << "    \"ph\": \"X\",\n"
-        << "    \"name\": \"" << baseInfo.name << "\",\n"
-        << "    \"pid\": " << baseInfo.pid << ",\n"
-        << "    \"tid\": " << baseInfo.tid << ",\n"
-        << "    \"ts\": " << baseInfo.ts << ",\n"
-        << "    \"dur\": " << dur << ",\n"
-        << "    \"args\": {\n"
-        << "        " << args << "\n"
-        << "    }\n"
-        << "},\n";
-    return oss.str();
-}
-
-static std::string FormatCounterEvent(JsonBaseInfo baseInfo, uint64_t size)
+inline std::string FormatCounterEvent(JsonBaseInfo baseInfo, std::string size)
 {
     std::ostringstream oss;
     oss << "{\n"
@@ -57,7 +44,7 @@ static std::string FormatCounterEvent(JsonBaseInfo baseInfo, uint64_t size)
     return oss.str();
 }
 
-static std::string FormatInstantEvent(JsonBaseInfo baseInfo)
+inline std::string FormatInstantEvent(JsonBaseInfo baseInfo, std::string args = "")
 {
     std::ostringstream oss;
     oss << "{\n"
@@ -66,7 +53,28 @@ static std::string FormatInstantEvent(JsonBaseInfo baseInfo)
         << "    \"pid\": " << baseInfo.pid << ",\n"
         << "    \"tid\": " << baseInfo.tid << ",\n"
         << "    \"ts\": " << baseInfo.ts << ",\n"
-        << "    \"s\": \"p\"\n"
+        << "    \"s\": \"p\"";
+    if (!args.empty()) {
+        oss << ",\n"
+            << "    \"args\": {\n"
+            << "        \"message\": \"" << args << "\"\n"
+            << "    }";
+    }
+    oss << "\n},\n";
+    return oss.str();
+}
+
+inline std::string FormatMetadataEvent(JsonBaseInfo baseInfo, std::string args)
+{
+    std::ostringstream oss;
+    oss << "{\n"
+        << "    \"ph\": \"M\",\n"
+        << "    \"name\": \"" << baseInfo.name << "\",\n"
+        << "    \"pid\": " << baseInfo.pid << ",\n"
+        << "    \"tid\": " << baseInfo.tid << ",\n"
+        << "    \"args\": {\n"
+        << "        " << args << "\n"
+        << "    }\n"
         << "},\n";
     return oss.str();
 }
@@ -93,6 +101,12 @@ TraceRecord& TraceRecord::GetInstance()
 {
     static TraceRecord instance;
     return instance;
+}
+
+TraceRecord::TraceRecord()
+{
+    eventPids_.emplace_back(EventPid{mstxEventPid_, "mstx"});
+    eventPids_.emplace_back(EventPid{leakEventPid_, "leak"});
 }
 
 void TraceRecord::TraceHandler(const EventRecord &record)
@@ -139,6 +153,13 @@ bool TraceRecord::CheckStrHasContent(const std::string &str)
 
 void TraceRecord::SafeWriteString(const std::string &str, const int32_t &devId)
 {
+    if (devId < 0) {
+        return;
+    }
+    if (!CreateFileWithDeviceId(devId)) {
+        Utility::LogError("Create file for device %d failed.", devId);
+        return;
+    }
     std::lock_guard<std::mutex> lock(writeFileMutex_[devId]);
     fprintf(traceFiles_[devId].fp, "%s", str.c_str());
 }
@@ -147,24 +168,16 @@ void TraceRecord::ProcessTorchMemLeakInfo(const TorchMemLeakInfo &info)
 {
     std::string str;
     TorchMemLeakInfoToString(info, str);
-
-    int32_t devId = info.devId;
-    if (devId < 0) {
-        return;
-    }
-    if (!CreateFileWithDeviceId(devId)) {
-        Utility::LogError("Create file for device %d failed.", devId);
-        return;
-    }
-    SafeWriteString(str, devId);
+    SafeWriteString(str, info.devId);
     return;
 }
 
 void TraceRecord::TorchMemLeakInfoToString(const TorchMemLeakInfo &info, std::string &str)
 {
+    uint64_t tid = 0;
     std::string args = "\"addr\": " + std::to_string(info.addr) + ",\"size\": " + std::to_string(info.size);
-    JsonBaseInfo baseInfo{"mem " + std::to_string(info.addr) + " leak", 0, 0, info.timestamp};
-    str = FormatCompleteEventWithArgs(baseInfo, info.duration, args);
+    JsonBaseInfo baseInfo{"mem " + std::to_string(info.addr) + " leak", leakEventPid_, tid, info.timestamp};
+    str = FormatCompleteEvent(baseInfo, info.duration, args);
 }
 
 bool TraceRecord::ProcessRecord(const EventRecord &record)
@@ -206,11 +219,7 @@ bool TraceRecord::ProcessRecord(const EventRecord &record)
             break;
     }
 
-    if (!CheckStrHasContent(str) || (devId < 0)) {
-        return false;
-    }
-    if (!CreateFileWithDeviceId(devId)) {
-        Utility::LogError("Create file for device %d failed.", devId);
+    if (!CheckStrHasContent(str)) {
         return false;
     }
     SafeWriteString(str, devId);
@@ -220,52 +229,36 @@ bool TraceRecord::ProcessRecord(const EventRecord &record)
 void TraceRecord::RecordToString(const MemOpRecord &memRecord, std::string &str)
 {
     int32_t devId = memRecord.devId;
-    bool isHost = true;
+    uint64_t addr = memRecord.addr;
+    uint64_t size = memRecord.memSize;
 
-    if (memRecord.memType == MemOpType::MALLOC) {
-        if (memRecord.space == MemOpSpace::HOST) {
-            hostMemAllocation_[devId][memRecord.addr] = memRecord.memSize;
-            if (CheckAddOverflow(hostMemUsage_[devId], memRecord.memSize, "Host hal memory overflow.")) {
-                return;
-            }
-            hostMemUsage_[devId] += memRecord.memSize;
-        } else if (memRecord.space == MemOpSpace::DEVICE) {
-            deviceMemAllocation_[devId][memRecord.addr] = memRecord.memSize;
-            if (CheckAddOverflow(deviceMemUsage_[devId], memRecord.memSize, "Device hal memory overflow.")) {
-                return;
-            }
-            deviceMemUsage_[devId] += memRecord.memSize;
-            isHost = false;
-        } else {
+    // 最终统计的结果只包含device的数据
+    if (memRecord.space == MemOpSpace::DEVICE && memRecord.memType == MemOpType::MALLOC) {
+        deviceMemAllocation_[devId][addr] = size;
+        if (CheckAddOverflow(deviceMemUsage_[devId], size, "Device hal memory overflow.")) {
             return;
         }
+        deviceMemUsage_[devId] += size;
+    } else if (memRecord.space == MemOpSpace::INVALID) {
+        if (deviceMemAllocation_[devId].find(addr) == deviceMemAllocation_[devId].end()) {
+            Utility::LogWarn("No memory allocation record for the freed addr %llu.", addr);
+            return;
+        }
+
+        if (CheckSubUnderflow(deviceMemUsage_[devId], deviceMemAllocation_[devId][addr],
+            "Device hal memory underflow.")) {
+            return;
+        }
+        
+        deviceMemUsage_[devId] -= deviceMemAllocation_[devId][addr];
+        deviceMemAllocation_[devId].erase(addr);
     } else {
-        if (hostMemAllocation_[devId].find(memRecord.addr) != hostMemAllocation_[devId].end()) {
-            if (CheckSubUnderflow(hostMemUsage_[devId], hostMemAllocation_[devId][memRecord.addr],
-                "Host hal memory underflow.")) {
-                return;
-            }
-            hostMemUsage_[devId] -= hostMemAllocation_[devId][memRecord.addr];
-            hostMemAllocation_[devId].erase(memRecord.addr);
-        } else if (deviceMemAllocation_[devId].find(memRecord.addr) != deviceMemAllocation_[devId].end()) {
-            if (CheckSubUnderflow(deviceMemUsage_[devId], deviceMemAllocation_[devId][memRecord.addr],
-                "Device hal memory underflow.")) {
-                return;
-            }
-            deviceMemUsage_[devId] -= deviceMemAllocation_[devId][memRecord.addr];
-            deviceMemAllocation_[devId].erase(memRecord.addr);
-            isHost = false;
-        } else {
-            Utility::LogWarn("No memory allocation record for the freed addr %llu.", memRecord.addr);
-            return;
-        }
+        return;
     }
 
-    // 最终统计的结果只包含host或者device的数据
-    std::string space = isHost ? "host memory" : "device memory";
-    uint64_t totalMem = isHost ? hostMemUsage_[devId] : deviceMemUsage_[devId];
-    JsonBaseInfo baseInfo{space.c_str(), memRecord.pid, memRecord.tid, memRecord.timeStamp};
-    str = FormatCounterEvent(baseInfo, totalMem);
+    truePids_[devId].insert(memRecord.pid);
+    JsonBaseInfo baseInfo{"device memory", memRecord.pid, memRecord.tid, memRecord.timeStamp};
+    str = FormatCounterEvent(baseInfo, std::to_string(deviceMemUsage_[devId]));
     return;
 }
 
@@ -277,7 +270,7 @@ void TraceRecord::RecordToString(const KernelLaunchRecord &kernelLaunchRecord, s
         kernelLaunchRecord.tid,
         kernelLaunchRecord.timeStamp
     };
-    str = FormatCompleteEvent(baseInfo, TRACE_DURATION);
+    str = FormatInstantEvent(baseInfo);
     return;
 }
 
@@ -285,11 +278,11 @@ void TraceRecord::RecordToString(const AclItfRecord &aclItfRecord, std::string &
 {
     JsonBaseInfo baseInfo{
         "acl_" + std::to_string(aclItfRecord.aclItfRecordIndex),
-        aclItfRecord.pid,
+        aclItfRecord.tid,
         aclItfRecord.tid,
         aclItfRecord.timeStamp
     };
-    str = FormatCompleteEvent(baseInfo, TRACE_DURATION);
+    str = FormatInstantEvent(baseInfo);
     return;
 }
 
@@ -300,13 +293,14 @@ void TraceRecord::RecordToString(const TorchNpuRecord &torchNpuRecord, std::stri
     uint64_t pid = torchNpuRecord.pid;
     uint64_t tid = torchNpuRecord.tid;
 
+    truePids_[torchNpuRecord.devId].insert(pid);
     JsonBaseInfo reservedBaseInfo{"operators reserved", pid, tid, timestamp};
     JsonBaseInfo activeBaseInfo{"operators active", pid, tid, timestamp};
     JsonBaseInfo allocatedBaseInfo{"operators allocated", pid, tid, timestamp};
     
-    str = FormatCounterEvent(reservedBaseInfo, static_cast<uint64_t>(memoryUsage.totalReserved));
-    str += FormatCounterEvent(activeBaseInfo, static_cast<uint64_t>(memoryUsage.totalActive));
-    str += FormatCounterEvent(allocatedBaseInfo, static_cast<uint64_t>(memoryUsage.totalAllocated));
+    str = FormatCounterEvent(reservedBaseInfo, std::to_string(memoryUsage.totalReserved));
+    str += FormatCounterEvent(activeBaseInfo, std::to_string(memoryUsage.totalActive));
+    str += FormatCounterEvent(allocatedBaseInfo, std::to_string(memoryUsage.totalAllocated));
     
     return;
 }
@@ -325,7 +319,7 @@ void TraceRecord::RecordToString(const MstxRecord &mstxRecord, std::string &str)
             mstxType = "mstx_range_end";
             JsonBaseInfo rangeBaseInfo{
                 "step " + std::to_string(mstxRecord.rangeId),
-                mstxRecord.pid,
+                mstxEventPid_,
                 mstxRecord.tid,
                 lastStepStartTime_[devId]
             };
@@ -335,12 +329,33 @@ void TraceRecord::RecordToString(const MstxRecord &mstxRecord, std::string &str)
 
     JsonBaseInfo baseInfo{
         mstxType + "_" + std::to_string(mstxRecord.rangeId),
-        mstxRecord.pid,
+        mstxEventPid_,
         mstxRecord.tid,
         mstxRecord.timeStamp
     };
-    str += FormatInstantEvent(baseInfo);
+    str += FormatInstantEvent(baseInfo, mstxRecord.markMessage);
     return;
+}
+
+void TraceRecord::SetMetadataEvent(const int32_t &devId)
+{
+    std::string str;
+    uint64_t sortIndex = 0;
+
+    for (auto pid : truePids_[devId]) {
+        JsonBaseInfo sortBaseInfo{"process_sort_index", pid, 0, 0};
+        str += FormatMetadataEvent(sortBaseInfo, "\"sort_index\": " + std::to_string(sortIndex++));
+    }
+
+    for (auto eventPid : eventPids_) {
+        JsonBaseInfo nameBaseInfo{"process_name", eventPid.pid, 0, 0};
+        str += FormatMetadataEvent(nameBaseInfo, "\"name\": \"" + eventPid.name+ "\"");
+
+        JsonBaseInfo sortBaseInfo{"process_sort_index", eventPid.pid, 0, 0};
+        str += FormatMetadataEvent(sortBaseInfo, "\"sort_index\": " + std::to_string(sortIndex++));
+    }
+
+    SafeWriteString(str, devId);
 }
 
 // TraceRecord生命周期结束时，文件写入完毕，关闭文件
@@ -349,6 +364,7 @@ TraceRecord::~TraceRecord()
     for (auto &file : traceFiles_) {
         FILE *fp = file.second.fp;
         if (fp != nullptr) {
+            SetMetadataEvent(file.first);
             fprintf(fp, "{\n}\n]");
             fclose(fp);
         }
