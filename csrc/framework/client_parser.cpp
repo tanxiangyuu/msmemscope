@@ -15,7 +15,8 @@ namespace Leaks {
 
 enum class OptVal : int32_t {
     SELECT_STEPS = 0,
-    OFFLINE_COMPARE_STEP,
+    COMPARE,
+    INPUT
 };
 
 void ShowDescription()
@@ -32,10 +33,19 @@ void ShowHelpInfo()
         "Usage: msleaks <option(s)> prog-and-args" << std::endl <<
         std::endl <<
         "  basic user options, with default in [ ]:" << std::endl <<
-        "    -h --help                              show this message" << std::endl <<
-        "    -p --parse-kernel-name                 enable parse kernelLaunchName" << std::endl <<
-        "    --select-steps=<step1,step2,...>       set select steps" << std::endl <<
-        "    --compare-dump-data=path1:path2        analyze stepinter memory" << std::endl;
+        "    -h --help                      show this message" << std::endl <<
+        "    -v --version                   show version" << std::endl <<
+        "    -p --parse-kernel-name         enable parse kernelLaunchName" << std::endl <<
+        "    --steps=<step1,step2,...>      select the steps to collect memory information" << std::endl <<
+        "    --compare                      enable memory data comparison" << std::endl <<
+        "    --input=path1,path2            paths to compare files, valid with compare command on" << std::endl;
+}
+
+void ShowVersion()
+{
+    ShowDescription();
+    std::cout <<
+        std::endl << "msleaks version " << "1.0" << std::endl;
 }
 
 void DoUserCommand(const UserCommand &userCommand)
@@ -45,10 +55,19 @@ void DoUserCommand(const UserCommand &userCommand)
         return ;
     }
 
+    if (userCommand.printVersionInfo) {
+        ShowVersion();
+        return ;
+    }
+
     Command command {userCommand.config};
+
     // step间内存分析
-    if (userCommand.config.offlineStepInterCompare) {
+    if (userCommand.config.enableCompare && userCommand.config.inputCorrectPaths) {
         command.StepInterCompare(userCommand.paths);
+        return ;
+    } else if (userCommand.config.enableCompare || userCommand.config.inputCorrectPaths) {
+        std::cout << "Please use compare command with correct input paths!" << std::endl;
         return ;
     }
     
@@ -65,9 +84,11 @@ std::vector<option> GetLongOptArray()
 {
     std::vector<option> longOpts = {
         {"help", no_argument, nullptr, 'h'},
+        {"version", no_argument, nullptr, 'v'},
         {"parse-kernel-name", no_argument, nullptr, 'p'},
-        {"select-steps", required_argument, nullptr, static_cast<int32_t>(OptVal::SELECT_STEPS)},
-        {"compare-dump-data", required_argument, nullptr, static_cast<int32_t>(OptVal::OFFLINE_COMPARE_STEP)},
+        {"steps", required_argument, nullptr, static_cast<int32_t>(OptVal::SELECT_STEPS)},
+        {"compare", no_argument, nullptr, static_cast<int32_t>(OptVal::COMPARE)},
+        {"input", required_argument, nullptr, static_cast<int32_t>(OptVal::INPUT)},
         {nullptr, 0, nullptr, 0},
     };
     return longOpts;
@@ -111,6 +132,27 @@ static void ParseSelectSteps(const std::string &param, UserCommand &userCommand)
     return;
 }
 
+static void ParseInputPaths(const std::string param, UserCommand &userCommand)
+{
+    std::regex pattern(R"([，,])");
+    std::sregex_token_iterator  it(param.begin(), param.end(), pattern, -1);
+    std::sregex_token_iterator  end;
+
+    while (it != end) {
+        std::string path = it->str();
+        if (!path.empty()) {
+            userCommand.paths.emplace_back(path);
+        }
+        it++;
+    }
+
+    if (userCommand.paths.size() != PATHSIZE) {
+        Utility::LogInfo("Please input correct file path. For example, --input=path1,path2.");
+    } else {
+        userCommand.config.inputCorrectPaths = true;
+    }
+}
+
 void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand &userCommand)
 {
     switch (opt) {
@@ -121,22 +163,21 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
         case 'h': // for --help
             userCommand.printHelpInfo = true;
             break;
+        case 'v': // for --version
+            userCommand.printVersionInfo = true;
+            break;
         case 'p': // parse kernel name
             userCommand.config.parseKernelName = true;
             break;
         case static_cast<int32_t>(OptVal::SELECT_STEPS):
             ParseSelectSteps(param, userCommand);
             break;
-        case static_cast<int32_t>(OptVal::OFFLINE_COMPARE_STEP):{
-            Utility::Split(param, std::back_inserter(userCommand.paths), ":");
-            if (userCommand.paths.size() != PATHSIZE) {
-                Utility::LogInfo("Please input correct file path. For example, --compare-dump-data=path1:path2.");
-                userCommand.config.offlineStepInterCompare = false;
-            } else {
-                userCommand.config.offlineStepInterCompare = true;
-            }
+        case static_cast<int32_t>(OptVal::COMPARE):
+            userCommand.config.enableCompare = true;
             break;
-        }
+        case static_cast<int32_t>(OptVal::INPUT):
+            ParseInputPaths(param, userCommand);
+            break;
         default:
             ;
     }
@@ -146,7 +187,8 @@ void ClientParser::InitialUserCommand(UserCommand &userCommand)
 {
     userCommand.config.parseKernelName = false;
     userCommand.config.stepList.stepCount = 0;
-    userCommand.config.offlineStepInterCompare = false;
+    userCommand.config.enableCompare = false;
+    userCommand.config.inputCorrectPaths = false;
 }
 
 UserCommand ClientParser::Parse(int32_t argc, char **argv)
@@ -173,8 +215,8 @@ UserCommand ClientParser::Parse(int32_t argc, char **argv)
             param = optarg;
         }
         ParseUserCommand(opt, param, userCommand);
-        // 打印help时不进行其他操作
-        if (userCommand.printHelpInfo) {
+        // 打印help或者version不进行其他操作
+        if (userCommand.printHelpInfo || userCommand.printVersionInfo) {
             return userCommand;
         }
     }
