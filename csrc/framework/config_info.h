@@ -20,7 +20,8 @@ struct SelectedStepList {
 struct AnalysisConfig {
     bool parseKernelName; // 解析kernelname的开关
     SelectedStepList stepList;
-    bool offlineStepInterCompare;
+    bool enableCompare;
+    bool inputCorrectPaths;
 };
 
 // 用于承载用户命令行参数的解析结果
