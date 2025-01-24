@@ -33,12 +33,15 @@ void ShowHelpInfo()
         "Usage: msleaks <option(s)> prog-and-args" << std::endl <<
         std::endl <<
         "  basic user options, with default in [ ]:" << std::endl <<
-        "    -h --help                      show this message" << std::endl <<
-        "    -v --version                   show version" << std::endl <<
-        "    -p --parse-kernel-name         enable parse kernelLaunchName" << std::endl <<
-        "    --steps=<step1,step2,...>      select the steps to collect memory information" << std::endl <<
-        "    --compare                      enable memory data comparison" << std::endl <<
-        "    --input=path1,path2            paths to compare files, valid with compare command on" << std::endl;
+        "    -h --help                      Show this message." << std::endl <<
+        "    -v --version                   Show version." << std::endl <<
+        "    -p --parse-kernel-name         Enable parse kernelLaunch name." << std::endl <<
+        "    --steps=1,2,3,...              Select the steps to collect memory information." << std::endl <<
+        "                                   The input step numbers need to be separated by, or ，." << std::endl <<
+        "                                   The maximum number of steps is 5" << std::endl <<
+        "    --compare                      Enable memory data comparison." << std::endl <<
+        "    --input=path1,path2            paths to compare files, valid with compare command on" << std::endl <<
+        "                                   The input paths need to be separated by, or ，." << std::endl;
 }
 
 void ShowVersion()
@@ -111,11 +114,12 @@ std::string GetShortOptString(const std::vector<option> &longOptArray)
 
 static void ParseSelectSteps(const std::string &param, UserCommand &userCommand)
 {
-    std::regex pattern(R"(\d+)");
-    std::sregex_iterator it(param.begin(), param.end(), pattern);
-    std::sregex_iterator end;
+    std::regex dividePattern(R"([，,])");
+    std::sregex_token_iterator  it(param.begin(), param.end(), dividePattern, -1);
+    std::sregex_token_iterator  end;
 
     userCommand.config.stepList.stepCount = 0;
+    std::regex numberPattern(R"(^[1-9]\d*$)");
 
     while (it != end) {
         SelectedStepList &stepListInfo = userCommand.config.stepList;
@@ -123,9 +127,17 @@ static void ParseSelectSteps(const std::string &param, UserCommand &userCommand)
         if (stepListInfo.stepCount >= SELECTED_STEP_MAX_NUM) {
             break;
         }
-
-        stepListInfo.stepIdList[stepListInfo.stepCount] = stoi(it->str());
-        stepListInfo.stepCount++;
+        std::string step = it->str();
+        if (!step.empty()) {
+            if (!std::regex_match(step, numberPattern)) {
+                std::cout << "[msleaks] ERROR: invalid steps input." << std::endl;
+                userCommand.printHelpInfo = true;
+                break;
+            }
+            stepListInfo.stepIdList[stepListInfo.stepCount] = stoi(it->str());
+            stepListInfo.stepCount++;
+        }
+        
         it++;
     }
 
@@ -147,7 +159,8 @@ static void ParseInputPaths(const std::string param, UserCommand &userCommand)
     }
 
     if (userCommand.paths.size() != PATHSIZE) {
-        Utility::LogInfo("Please input correct file path. For example, --input=path1,path2.");
+        std::cout << "[msleaks] ERROR: invalid paths input." << std::endl;
+        userCommand.printHelpInfo = true;
     } else {
         userCommand.config.inputCorrectPaths = true;
     }
