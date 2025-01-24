@@ -7,10 +7,12 @@
 #include <mutex>
 #include <unistd.h>
 #include "utils.h"
+#include "umask_guard.h"
 
 namespace Utility {
 
 constexpr int16_t LOG_BUF_SIZE = 32;
+constexpr uint32_t DEFAULT_UMASK_FOR_LOG_FILE = 0177;
 
 enum class LogLv { DEBUG = 0, INFO, WARN, ERROR, COUNT };
 
@@ -46,6 +48,7 @@ void Log::Printf(const std::string &format, LogLv lv, Args &&...args)
 {
     std::lock_guard<std::mutex> lock(mtx_);
     std::string fileName = "msleaks_" + GetDateStr() + ".txt";
+    UmaskGuard guard{DEFAULT_UMASK_FOR_LOG_FILE};
     if (fp_ == nullptr && (fp_ = fopen(fileName.c_str(), "a")) == nullptr) {
         return;
     }

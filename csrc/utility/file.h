@@ -6,9 +6,11 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include "log.h"
+#include "umask_guard.h"
 
 namespace Utility {
-    constexpr uint32_t DIRMOD = 0777;
+    constexpr uint32_t DIRMOD = 0750;
+    constexpr uint32_t DEFAULT_UMASK_FOR_CSV_FILE = 0177;
 
     inline bool MakeDir(const std::string& dirPath)
     {
@@ -38,6 +40,7 @@ namespace Utility {
         }
         if (*filefp == nullptr) {
             std::string filePath = dirPath + "/" + fileName;
+            UmaskGuard guard{DEFAULT_UMASK_FOR_CSV_FILE};
             FILE* fp = fopen(filePath.c_str(), "a");
             if (fp != nullptr) {
                 fprintf(fp, headers.c_str());
