@@ -38,21 +38,30 @@ void RecordHandler(const ClientId &clientId, const EventRecord &record, Analyzer
     return;
 }
 
-void DumpHandler(const ClientId &clientId, DumpRecord &dump, const EventRecord &record)
+void StepInterCompare(const std::vector<std::string> &paths)
 {
-    if (!dump.DumpData(clientId, record)) {
-        Utility::LogError("dump data fail");
-    }
+    StepInterAnalyzer stepInterAnalyzer;
+    Utility::LogInfo("Start to analyze stepinter memory data, please wait!");
+    auto start_time = Utility::GetTimeMicroseconds();
+    stepInterAnalyzer.StepInterOfflineCompare(paths);
+    auto end_time = Utility::GetTimeMicroseconds();
+    Utility::LogInfo("The stepinter memory analysis has been completed"
+        "in a total time of %.6f(s)", (end_time-start_time) / MICROSEC);
+    return ;
 }
 
-void Command::Exec(const std::vector<std::string> &execParams) const
+void Command::Exec() const
 {
-    Process process(config_);
+    if (userCommand_.config.enableCompare) {
+        StepInterCompare(userCommand_.paths);
+        return;
+    }
+    
+    Process process(userCommand_.config);
     std::map<ClientId, Protocol> protocolList;
-    AnalyzerFactory analyzerfactory{config_};
-    DumpRecord dump{};
+    AnalyzerFactory analyzerfactory{userCommand_.config};
 
-    auto msgHandler = [&protocolList, &dump, &analyzerfactory](ClientId &clientId,
+    auto msgHandler = [&protocolList, &analyzerfactory](ClientId &clientId,
     std::string &manyMsg) {
         if (protocolList.find(clientId) == protocolList.end()) {
             protocolList.insert({clientId, Protocol{}});
@@ -63,7 +72,7 @@ void Command::Exec(const std::vector<std::string> &execParams) const
             auto packet = protocol.GetPacket();
             switch (packet.GetPacketHead().type) {
                 case PacketType::RECORD:
-                    DumpHandler(clientId, dump, packet.GetPacketBody());
+                    DumpRecord::GetInstance().DumpData(clientId, packet.GetPacketBody());
                     TraceRecord::GetInstance().TraceHandler(packet.GetPacketBody());
                     RecordHandler(clientId, packet.GetPacketBody(), analyzerfactory);
                     break;
@@ -76,21 +85,9 @@ void Command::Exec(const std::vector<std::string> &execParams) const
         return;
     };
     process.RegisterMsgHandlerHook(msgHandler);
-    process.Launch(execParams);
+    process.Launch(userCommand_.cmd);
 
     return;
-}
-
-void Command::StepInterCompare(const std::vector<std::string> &paths) const
-{
-    StepInterAnalyzer stepInterAnalyzer;
-    Utility::LogInfo("Start to analyze stepinter memory data, please wait!");
-    auto start_time = Utility::GetTimeMicroseconds();
-    stepInterAnalyzer.StepInterOfflineCompare(paths);
-    auto end_time = Utility::GetTimeMicroseconds();
-    Utility::LogInfo("The stepinter memory analysis has been completed"
-        "in a total time of %.6f(s)", (end_time-start_time) / MICROSEC);
-    return ;
 }
 
 }

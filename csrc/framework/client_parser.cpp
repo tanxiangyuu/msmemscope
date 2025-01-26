@@ -51,6 +51,16 @@ void ShowVersion()
         std::endl << "msleaks version " << "1.0" << std::endl;
 }
 
+bool UserCommandPrecheck(const UserCommand &userCommand)
+{
+    if (userCommand.config.enableCompare != userCommand.config.inputCorrectPaths) {
+        std::cout << "Please use compare command with correct input paths!" << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
 void DoUserCommand(const UserCommand &userCommand)
 {
     if (userCommand.printHelpInfo) {
@@ -63,18 +73,12 @@ void DoUserCommand(const UserCommand &userCommand)
         return ;
     }
 
-    Command command {userCommand.config};
-
-    // step间内存分析
-    if (userCommand.config.enableCompare && userCommand.config.inputCorrectPaths) {
-        command.StepInterCompare(userCommand.paths);
-        return ;
-    } else if (userCommand.config.enableCompare || userCommand.config.inputCorrectPaths) {
-        std::cout << "Please use compare command with correct input paths!" << std::endl;
-        return ;
+    if (!UserCommandPrecheck(userCommand)) {
+        return;
     }
-    
-    command.Exec(userCommand.cmd);
+
+    Command command {userCommand};
+    command.Exec();
 }
 
 void ClientParser::Interpretor(int32_t argc, char **argv)
