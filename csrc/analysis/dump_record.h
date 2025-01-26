@@ -15,10 +15,16 @@ namespace Leaks {
 // DumpRecord类主要用于将analyzer分析的数据dump至csv文件
 class DumpRecord {
 public:
-    DumpRecord();
+    static DumpRecord& GetInstance();
     bool DumpData(const ClientId &clientId, const EventRecord &record);
-    ~DumpRecord();
 private:
+    DumpRecord() = default;
+    ~DumpRecord();
+    DumpRecord(const DumpRecord&) = delete;
+    DumpRecord& operator=(const DumpRecord&) = delete;
+    DumpRecord(DumpRecord&& other) = delete;
+    DumpRecord& operator=(DumpRecord&& other) = delete;
+
     bool DumpMemData(const ClientId &clientId, const MemOpRecord &memrecord);
     bool DumpKernelData(const ClientId &clientId, const KernelLaunchRecord &kernelLaunchRecord);
     bool DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord);

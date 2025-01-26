@@ -7,19 +7,19 @@ using namespace Leaks;
  
 TEST(Command, run_ls_command_expect_success)
 {
-    std::vector<std::string> paramList = {"/bin/ls"};
-    AnalysisConfig config;
-    Command command(config);
-    command.Exec(paramList);
+    UserCommand useCommand;
+    useCommand.cmd = {{"/bin/ls"}};
+    useCommand.config.enableCompare = false;
+    Command command(useCommand);
+    command.Exec();
 }
 
 TEST(Command, do_dump_record_except_success)
 {
-    DumpRecord dump{};
     ClientId clientId = 0;
     EventRecord record{};
 
-    DumpHandler(clientId, dump, record);
+    DumpRecord::GetInstance().DumpData(clientId, record);
 }
 
 TEST(Command, do_record_handler_except_success)
