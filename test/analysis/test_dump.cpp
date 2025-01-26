@@ -11,7 +11,6 @@ using namespace Leaks;
 
 TEST(DumpRecord, dump_memory_record_expect_success)
 {
-    DumpRecord dump_;
     auto record = EventRecord{};
     record.type = RecordType::MEMORY_RECORD;
     auto memRecordMalloc = MemOpRecord{};
@@ -31,22 +30,21 @@ TEST(DumpRecord, dump_memory_record_expect_success)
     record.record.memoryRecord = memRecordMalloc;
     
     ClientId clientId = 0;
-    EXPECT_TRUE(dump_.DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance().DumpData(clientId, record));
 
     record.record.memoryRecord.memType = MemOpType::FREE;
     
-    EXPECT_TRUE(dump_.DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance().DumpData(clientId, record));
     
     record.record.memoryRecord.memType = MemOpType::MALLOC;
     memRecordMalloc.space = MemOpSpace::HOST;
     
-    EXPECT_TRUE(dump_.DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance().DumpData(clientId, record));
     record.record.memoryRecord.memType = MemOpType::FREE;
-    EXPECT_TRUE(dump_.DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance().DumpData(clientId, record));
 }
 TEST(DumpRecord, dump_kernelLaunch_record_expect_success)
 {
-    DumpRecord dump_;
     auto record = EventRecord{};
     record.type = RecordType::KERNEL_LAUNCH_RECORD;
     auto kernelLaunchRecord = KernelLaunchRecord{};
@@ -59,11 +57,10 @@ TEST(DumpRecord, dump_kernelLaunch_record_expect_success)
     record.record.kernelLaunchRecord = kernelLaunchRecord;
     
     ClientId clientId = 0;
-    EXPECT_TRUE(dump_.DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance().DumpData(clientId, record));
 }
 TEST(DumpRecord, dump_aclItf_record_expect_success)
 {
-    DumpRecord dump_;
     auto record = EventRecord{};
     record.type = RecordType::ACL_ITF_RECORD;
     auto aclItfRecord = AclItfRecord{};
@@ -76,11 +73,10 @@ TEST(DumpRecord, dump_aclItf_record_expect_success)
     record.record.aclItfRecord = aclItfRecord;
     
     ClientId clientId = 0;
-    EXPECT_TRUE(dump_.DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance().DumpData(clientId, record));
 }
 TEST(DumpRecord, dump_torchnpu_record_expect_success)
 {
-    DumpRecord dump_;
     auto record = EventRecord{};
     record.type = RecordType::TORCH_NPU_RECORD;
     auto torchNpuRecord = TorchNpuRecord{};
@@ -100,11 +96,10 @@ TEST(DumpRecord, dump_torchnpu_record_expect_success)
     record.record.torchNpuRecord = torchNpuRecord;
     
     ClientId clientId = 0;
-    EXPECT_TRUE(dump_.DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance().DumpData(clientId, record));
 }
 TEST(DumpRecord, dump_empty_torchnpu_record)
 {
-    DumpRecord dump_;
     auto record = EventRecord{};
     record.type = RecordType::TORCH_NPU_RECORD;
     auto torchNpuRecord = TorchNpuRecord{};
@@ -114,11 +109,10 @@ TEST(DumpRecord, dump_empty_torchnpu_record)
     record.record.torchNpuRecord = torchNpuRecord;
 
     ClientId clientId = 0;
-    EXPECT_TRUE(dump_.DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance().DumpData(clientId, record));
 }
 TEST(DumpRecord, dump_invalid_memory_record)
 {
-    DumpRecord dump_;
     auto record = EventRecord{};
     record.type = RecordType::MEMORY_RECORD;
     auto memRecordMalloc = MemOpRecord{};
@@ -138,14 +132,13 @@ TEST(DumpRecord, dump_invalid_memory_record)
     record.record.memoryRecord = memRecordMalloc;
 
     ClientId clientId = 0;
-    EXPECT_TRUE(dump_.DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance().DumpData(clientId, record));
 
     record.record.memoryRecord.memType = MemOpType::FREE;
-    EXPECT_TRUE(dump_.DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance().DumpData(clientId, record));
 }
 TEST(DumpRecord, dump_msxt_mark_expect_success)
 {
-    DumpRecord dump_;
     auto record = EventRecord{};
     record.type = RecordType::MSTX_MARK_RECORD;
     auto mstxRecord = MstxRecord{};
@@ -162,11 +155,10 @@ TEST(DumpRecord, dump_msxt_mark_expect_success)
     mstxRecord.recordIndex = 1;
     
     ClientId clientId = 0;
-    EXPECT_TRUE(dump_.DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance().DumpData(clientId, record));
 }
 TEST(DumpRecord, dump_msxt_range_start_expect_success)
 {
-    DumpRecord dump_;
     auto record = EventRecord{};
     record.type = RecordType::MSTX_MARK_RECORD;
     auto mstxRecord = MstxRecord{};
@@ -183,11 +175,10 @@ TEST(DumpRecord, dump_msxt_range_start_expect_success)
     mstxRecord.recordIndex = 1;
     
     ClientId clientId = 0;
-    EXPECT_TRUE(dump_.DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance().DumpData(clientId, record));
 }
 TEST(DumpRecord, dump_msxt_range_end_expect_success)
 {
-    DumpRecord dump_;
     auto record = EventRecord{};
     record.type = RecordType::MSTX_MARK_RECORD;
     auto mstxRecord = MstxRecord{};
@@ -202,5 +193,5 @@ TEST(DumpRecord, dump_msxt_range_end_expect_success)
     mstxRecord.recordIndex = 1;
     
     ClientId clientId = 0;
-    EXPECT_TRUE(dump_.DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance().DumpData(clientId, record));
 }

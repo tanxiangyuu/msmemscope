@@ -6,7 +6,9 @@
 #include <fstream>
 #include <sstream>
 #include <dirent.h>
+#define private public
 #include "trace_record.h"
+#undef private
 #include "record_info.h"
 #include "config_info.h"
 
