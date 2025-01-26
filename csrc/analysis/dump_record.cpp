@@ -87,8 +87,8 @@ bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRec
     std::string memOp = memRecord.memType == MemOpType::MALLOC ? "malloc" : "free";
 
     uint64_t totalMem = space == MemOpSpace::HOST ? memHost[clientId] : memDevice[clientId];
-    fprintf(leaksDataFile, "%s,null,%lu,%lu,%lu,%d,%lu,%lu,%lu,%llu,%d,%d,%lu,%lu,%lu,"
-            "null,null,null,null,null,null,null,null,null,null\n",
+    fprintf(leaksDataFile, "%s,N/A,%lu,%lu,%lu,%d,%lu,%lu,%lu,%llu,%d,%d,%lu,%lu,%lu,"
+            "N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A\n",
             memOp.c_str(), memRecord.pid, memRecord.tid, clientId, memRecord.devId, memRecord.recordIndex,
             memRecord.timeStamp, memRecord.kernelIndex, memRecord.flag, memRecord.modid, int(space),
             memRecord.addr, currentSize, totalMem);
@@ -102,12 +102,12 @@ bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchReco
     }
     std::string name;
     if (kernelLaunchRecord.kernelName[0] == '\0') {
-        name = "null";
+        name = "N/A";
     } else {
         name = kernelLaunchRecord.kernelName;
     }
-    fprintf(leaksDataFile, "kernelLaunch,%s,%lu,%lu,%lu,%lu,%lu,%lu,%lu,null,null,null,null,null,null,"
-            "null,null,null,null,null,null,null,null,null,null\n", name.c_str(),
+    fprintf(leaksDataFile, "kernelLaunch,%s,%lu,%lu,%lu,%lu,%lu,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,"
+            "N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A\n", name.c_str(),
             kernelLaunchRecord.pid, kernelLaunchRecord.tid, clientId, kernelLaunchRecord.devId,
             kernelLaunchRecord.recordIndex, kernelLaunchRecord.timeStamp, kernelLaunchRecord.kernelLaunchIndex);
     return true;
@@ -119,8 +119,27 @@ bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRe
     if (!Utility::CreateCsvFile(&leaksDataFile, dirPath, fileName, headers)) {
         return false;
     }
-    fprintf(leaksDataFile, "mstx,null,%lu,%lu,%lu,%lu,%lu,%lu,null,null,null,null,null,null,null,"
-            "null,null,null,null,null,null,null,null,null,null\n", mstxRecord.pid, mstxRecord.tid, clientId,
+    std::string name;
+    switch (mstxRecord.markType) {
+        case Leaks::MarkType::MARK_A: {
+            name = "Mark";
+            break;
+        }
+        case Leaks::MarkType::RANGE_START_A: {
+            name = "Range_start";
+            break;
+        }
+        case Leaks::MarkType::RANGE_END: {
+            name = "Range_end";
+            break;
+        }
+        default: {
+            name = "N/A";
+            break;
+        }
+    }
+    fprintf(leaksDataFile, "mstx,%s,%lu,%lu,%lu,%lu,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,N/A,"
+            "N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A\n", name.c_str(), mstxRecord.pid, mstxRecord.tid, clientId,
             mstxRecord.devId, mstxRecord.recordIndex, mstxRecord.timeStamp);
     return true;
 }
@@ -131,8 +150,8 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
     if (!Utility::CreateCsvFile(&leaksDataFile, dirPath, fileName, headers)) {
         return false;
     }
-    fprintf(leaksDataFile, "aclItfRecord,null,%lu,%lu,%lu,%lu,%lu,%lu,%lu,null,null,null,null,null,null,"
-            "null,null,null,null,null,null,null,null,null,null\n", aclItfRecord.pid, aclItfRecord.tid, clientId,
+    fprintf(leaksDataFile, "aclItfRecord,N/A,%lu,%lu,%lu,%lu,%lu,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,"
+            "N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A\n", aclItfRecord.pid, aclItfRecord.tid, clientId,
             aclItfRecord.devId, aclItfRecord.recordIndex, aclItfRecord.timeStamp, aclItfRecord.aclItfRecordIndex);
     return true;
 }
@@ -143,7 +162,7 @@ bool DumpRecord::DumpTorchData(const ClientId &clientId, const TorchNpuRecord &t
         return false;
     }
     MemoryUsage memoryUsage = torchNpuRecord.memoryUsage;
-    fprintf(leaksDataFile, "torch_npu,null,%lu,%lu,%lu,%lu,%lu,%lu,null,null,null,null,null,null,null,"
+    fprintf(leaksDataFile, "torch_npu,N/A,%lu,%lu,%lu,%lu,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,N/A,"
             "%d,%d,%d,%d,%ld,%ld,%ld,%ld,%ld,%ld\n", torchNpuRecord.pid, torchNpuRecord.tid, clientId,
             torchNpuRecord.devId, torchNpuRecord.recordIndex, torchNpuRecord.timeStamp, memoryUsage.deviceType,
             memoryUsage.deviceIndex, memoryUsage.dataType, memoryUsage.allocatorType, memoryUsage.ptr,
