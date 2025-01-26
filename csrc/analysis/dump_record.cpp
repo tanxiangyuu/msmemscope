@@ -11,6 +11,12 @@
 namespace Leaks {
 constexpr uint32_t DIRMOD = 0777;
 
+DumpRecord& DumpRecord::GetInstance()
+{
+    static DumpRecord instance;
+    return instance;
+}
+
 bool DumpRecord::DumpData(const ClientId &clientId, const EventRecord &record)
 {
     fileName = "leaks" + Utility::GetDateStr() + ".csv";
@@ -169,9 +175,6 @@ bool DumpRecord::DumpTorchData(const ClientId &clientId, const TorchNpuRecord &t
             memoryUsage.allocSize, memoryUsage.totalAllocated, memoryUsage.totalReserved, memoryUsage.totalActive,
             memoryUsage.streamPtr);
     return true;
-}
-DumpRecord::DumpRecord()
-{
 }
 
 DumpRecord::~DumpRecord()

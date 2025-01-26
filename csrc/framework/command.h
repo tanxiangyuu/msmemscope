@@ -17,16 +17,14 @@ namespace Leaks {
 constexpr double MICROSEC = 1000000.0;
 
 void RecordHandler(const ClientId &clientId, const EventRecord &record, AnalyzerFactory &analyzerfactory);
-void DumpHandler(const ClientId &clientId, DumpRecord &dump, const EventRecord &record);
 
 // Command类主要针对解析后的命令进行处理，是串接流程的主要类
 class Command {
 public:
-    explicit Command(const AnalysisConfig &config) : config_{config} {}
-    void Exec(const std::vector<std::string> &execParams) const;
-    void StepInterCompare(const std::vector<std::string> &paths) const;
+    explicit Command(const UserCommand &userCommand) : userCommand_{userCommand} {}
+    void Exec() const;
 private:
-    AnalysisConfig config_;
+    UserCommand userCommand_;
 };
 
 }
