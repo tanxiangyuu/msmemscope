@@ -171,10 +171,8 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
     if (IsNeedSkip()) {
         return true;
     }
-    int32_t devId = GD_INVALID_NUM;
-    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
-        std::cout << "RT_ERROR_INVALID_VALUE, " << devId << std::endl;
-    }
+    // bit0~9 devid
+    int32_t devId = (flag & 0x3FF);
     int32_t moduleId = GetMallocModuleId(flag);
     MemOpSpace space = GetMemOpSpace(flag);
     PacketHead head = {PacketType::RECORD};
@@ -195,9 +193,6 @@ bool EventReport::ReportFree(uint64_t addr)
         return true;
     }
     int32_t devId = GD_INVALID_NUM;
-    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
-        std::cout << "RT_ERROR_INVALID_VALUE, " << devId << std::endl;
-    }
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord {};
     eventRecord.type = RecordType::MEMORY_RECORD;
@@ -214,7 +209,7 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord)
 {
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
-        std::cout << "RT_ERROR_INVALID_VALUE, " << devId << std::endl;
+        std::cout << "[mark] RT_ERROR_INVALID_VALUE, " << devId << std::endl;
     }
 
     PacketHead head = {PacketType::RECORD};
@@ -241,7 +236,7 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
 
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
-        std::cout << "RT_ERROR_INVALID_VALUE, " << devId << std::endl;
+        std::cout << "[kernellaunch] RT_ERROR_INVALID_VALUE, " << devId << std::endl;
     }
 
     PacketHead head = {PacketType::RECORD};
@@ -285,10 +280,6 @@ bool EventReport::ReportAclItf(AclOpType aclOpType)
     }
 
     int32_t devId = GD_INVALID_NUM;
-    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
-        std::cout << "RT_ERROR_INVALID_VALUE, " << devId << std::endl;
-    }
-
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord{};
     eventRecord.type = RecordType::ACL_ITF_RECORD;
