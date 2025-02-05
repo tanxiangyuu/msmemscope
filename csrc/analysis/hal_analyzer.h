@@ -18,7 +18,12 @@ enum class AddrStatus : uint8_t {
     FREE_WAIT,
 };
 
-using MemoryRecordTable = std::unordered_map<uint64_t, AddrStatus>;
+struct HalMemInfo {
+    int32_t deviceId;
+    AddrStatus addrStatus;
+};
+
+using MemoryRecordTable = std::unordered_map<uint64_t, HalMemInfo>;
 
 class HalAnalyzer : public AnalyzerBase {
 public:
