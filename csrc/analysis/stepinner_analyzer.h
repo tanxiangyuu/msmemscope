@@ -57,7 +57,7 @@ private:
     void RecordNpuMalloc(const ClientId &clientId, const DeviceId &deviceId, const TorchNpuRecord &torchnpuRecord);
     void RecordNpuFree(const ClientId &clientId, const DeviceId &deviceId, const TorchNpuRecord &torchnpuRecord);
     bool SkipCheck(const LeakInfo &leakInfo);
-    int64_t durationThreshold_ = 1;  // 设置警告阈值, 可由用户更改
+    uint64_t durationThreshold_ = 1;  // 设置警告阈值, 可由用户更改
     uint64_t skipSteps_ = 1;
     AnalysisConfig config_;
 };

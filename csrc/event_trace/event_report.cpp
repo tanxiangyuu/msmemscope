@@ -56,8 +56,6 @@ inline int32_t GetMallocModuleId(unsigned long long flag)
 
 constexpr unsigned long long FLAG_INVALID = UINT64_MAX;
 
-constexpr int32_t GD_INVALID_NUM = 9999;
-
 constexpr int32_t INVALID_MODID = -1;
 
 RTS_API rtError_t GetDevice(int32_t *devId)
@@ -239,7 +237,6 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
         std::cout << "[kernellaunch] RT_ERROR_INVALID_VALUE, " << devId << std::endl;
     }
 
-    PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord{};
     eventRecord.type = RecordType::KERNEL_LAUNCH_RECORD;
     // 解析kernelname信息，默认不解析，打开-p开关后才解析
@@ -263,12 +260,19 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
                 sizeof(eventRecord.record.kernelLaunchRecord.kernelName) - 1);
             PacketHead head = {PacketType::RECORD};
             auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+            if (sendNums < 0) {
+                std::cout << "rtKernelLaunch report FAILED" << std::endl;
+                return;
+            }
             --runningThreads;
         });
         parseThreads_.emplace_back(std::move(th));
     } else {
         PacketHead head = {PacketType::RECORD};
         auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+        if (sendNums < 0) {
+            return false;
+        }
     }
     return true;
 }
@@ -418,6 +422,10 @@ std::string GetNameFromBinary(const void *hdl)
 
     std::string output;
     bool ret = PipeCall(cmd, output);
+    if (!ret) {
+        std::cout << "pipe call failed!" << std::endl;
+        return kernelName;
+    }
     kernelName = ParseNameFromOutput(output);
     remove(kernelPath.c_str());
     return kernelName;
