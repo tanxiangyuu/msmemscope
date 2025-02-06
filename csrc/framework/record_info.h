@@ -12,6 +12,8 @@
 
 namespace Leaks {
 
+constexpr int32_t GD_INVALID_NUM = 9999;
+
 enum class MemoryDataType {
     MEMORY_MALLOC = 0,
     MEMORY_FREE,

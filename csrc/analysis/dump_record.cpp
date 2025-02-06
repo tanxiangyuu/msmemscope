@@ -155,9 +155,9 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
     if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, headers_)) {
         return false;
     }
-    fprintf(leaksDataFile_, "aclItfRecord,N/A,%lu,%lu,%lu,%d,%lu,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,"
+    fprintf(leaksDataFile_, "aclItfRecord,N/A,%lu,%lu,%lu,N/A,%lu,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,"
             "N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A\n", aclItfRecord.pid, aclItfRecord.tid, clientId,
-            aclItfRecord.devId, aclItfRecord.recordIndex, aclItfRecord.timeStamp, aclItfRecord.aclItfRecordIndex);
+            aclItfRecord.recordIndex, aclItfRecord.timeStamp, aclItfRecord.aclItfRecordIndex);
     return true;
 }
 bool DumpRecord::DumpTorchData(const ClientId &clientId, const TorchNpuRecord &torchNpuRecord)
