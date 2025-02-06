@@ -91,9 +91,9 @@ void StepInnerAnalyzer::RecordNpuMalloc(const ClientId &clientId, const DeviceId
 {
     MemoryUsage memoryusage = torchnpuRecord.memoryUsage;
     uint64_t npumemptr = memoryusage.ptr;
-
     if (npumemusages_[deviceId].mempooltable.find(npumemptr) != npumemusages_[deviceId].mempooltable.end()) {
-        Utility::LogError("!!! ------double malloc------!!!, ptr: %lld", npumemptr);
+        Utility::LogError(
+            "[npu%d malloc][client %u]:!!! ------double malloc------!!!, ptr: %lld", deviceId, clientId, npumemptr);
     }
     Utility::LogInfo(
         "[npu%d malloc][client %u]: index:%llu, totalAllocated: %lld, allocSize: %lld, ptr: %lld, rangid: %llu",
@@ -118,9 +118,9 @@ void  StepInnerAnalyzer::RecordNpuFree(const ClientId &clientId, const DeviceId 
 {
     MemoryUsage memoryusage = torchnpuRecord.memoryUsage;
     uint64_t npumemptr = memoryusage.ptr;
-
     if (npumemusages_[deviceId].mempooltable.find(npumemptr) == npumemusages_[deviceId].mempooltable.end()) {
-        Utility::LogError("!!! ------free error------!!!, ptr: %lld", npumemptr);
+        Utility::LogError(
+            "[npu%d free][client %u]:!!! ------free error------!!!, ptr: %lld", deviceId, clientId, npumemptr);
     }
     Utility::LogInfo(
         "[npu%d free][client %u]: index:%llu, totalAllocated: %lld, allocSize: %lld, ptr: %lld, duration: %llu steps",
