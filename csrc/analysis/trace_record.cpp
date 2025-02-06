@@ -279,6 +279,9 @@ void TraceRecord::RecordToString(const KernelLaunchRecord &kernelLaunchRecord, s
 
 void TraceRecord::RecordToString(const AclItfRecord &aclItfRecord, std::string &str)
 {
+    if (aclItfRecord.devId == GD_INVALID_NUM) {
+        return;
+    }
     JsonBaseInfo baseInfo{
         "acl_" + std::to_string(aclItfRecord.aclItfRecordIndex),
         aclItfRecord.tid,
