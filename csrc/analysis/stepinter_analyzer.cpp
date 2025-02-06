@@ -99,8 +99,8 @@ void StepInterAnalyzer::GetKernelMemoryDiff(size_t index, const CSV_FIELD_DATA &
         nextMemory["total_reserved"] = "0";
         nextMemory["total_active"] = "0";
     }
-    int64_t pre;
-    int64_t next;
+    int64_t pre = 0;
+    int64_t next = 0;
     if (Utility::StrToInt64(pre, preMemory["total_allocated"]) &&
         Utility::StrToInt64(next, nextMemory["total_allocated"])) {
         memDiff.totalAllocated = Utility::GetSubResult(next, pre);
@@ -184,11 +184,11 @@ void StepInterAnalyzer::SaveCompareKernelMemory(const DEVICEID deviceId,
 std::shared_ptr<PathNode> StepInterAnalyzer::buildPath(const KERNELNAME_INDEX &kernelIndexMap,
     const KERNELNAME_INDEX &kernelIndexCompareMap)
 {
-    const uint64_t n = kernelIndexMap.size();
-    const uint64_t m = kernelIndexCompareMap.size();
-    const uint64_t max = m + n + 1;
-    const uint64_t size = 1 + 2 * max;
-    const uint64_t middle = size / 2;
+    const int64_t n = kernelIndexMap.size();
+    const int64_t m = kernelIndexCompareMap.size();
+    const int64_t max = m + n + 1;
+    const int64_t size = 1 + 2 * max;
+    const int64_t middle = size / 2;
     std::vector<std::shared_ptr<PathNode>> diagonal(size, nullptr); // 存储每一步的最优路径位置
     diagonal[middle + 1] = std::make_shared<Snake>(0, -1);
     auto start_time = Utility::GetTimeMicroseconds();
@@ -199,10 +199,10 @@ std::shared_ptr<PathNode> StepInterAnalyzer::buildPath(const KERNELNAME_INDEX &k
                 Utility::LogError("Analysis failed!Reaching maximum loop time limit!");
                 break;
             }
-            uint64_t kmiddle = middle + k;
-            uint64_t kplus = kmiddle + 1;
-            uint64_t kminus = kmiddle - 1;
-            uint64_t i;
+            int64_t kmiddle = middle + k;
+            int64_t kplus = kmiddle + 1;
+            int64_t kminus = kmiddle - 1;
+            int64_t i;
             std::shared_ptr<PathNode> prev;
             if ((k == -d) || (k != d && diagonal[kminus]->i < diagonal[kplus]->i)) { // 最优路径为从上往下走
                 i = diagonal[kplus]->i;
@@ -211,7 +211,7 @@ std::shared_ptr<PathNode> StepInterAnalyzer::buildPath(const KERNELNAME_INDEX &k
                 i = diagonal[kminus]->i + 1;
                 prev = diagonal[kminus];
             }
-            uint64_t j = i - k;
+            int64_t j = i - k;
             diagonal[kminus] = nullptr;
             std::shared_ptr<PathNode> node = std::make_shared<DiffNode>(i, j, prev);
             // 判断两个kernelname是否相同
@@ -228,6 +228,7 @@ std::shared_ptr<PathNode> StepInterAnalyzer::buildPath(const KERNELNAME_INDEX &k
             }
         }
     }
+    return nullptr;
 }
 
 void StepInterAnalyzer::buildDiff(std::shared_ptr<PathNode> path, const DEVICEID deviceId,
@@ -236,11 +237,10 @@ void StepInterAnalyzer::buildDiff(std::shared_ptr<PathNode> path, const DEVICEID
     while (path && path->prev && path->prev->j >= 0) {
         if (path->IsSnake()) { // base kernelName = compare kernelName
             int endi = path->i;
-            int begini = path->prev->i;
 
             int endj = path->j;
             int beginj = path->prev->j;
-            for (int i = endi - 1, j = endj - 1; i >= begini, j >= beginj; --i, --j) {
+            for (int i = endi - 1, j = endj - 1; j >= beginj; --i, --j) {
                 SaveCompareKernelMemory(deviceId, kernelIndexMap[i], kernelIndexCompareMap[j]);
             }
         } else {
