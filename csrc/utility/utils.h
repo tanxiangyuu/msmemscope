@@ -39,6 +39,7 @@ namespace Utility {
         return static_cast<uint64_t>(duration.count());
     }
     
+    // 多线程情况下调用，需加锁保护
     inline std::string GetDateStr()
     {
         auto now = std::chrono::system_clock::now();

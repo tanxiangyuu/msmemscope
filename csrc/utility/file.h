@@ -33,12 +33,14 @@ namespace Utility {
         return access(path.c_str(), F_OK) == 0;
     }
 
+    // 多线程情况下调用，需加锁保护
     inline bool CreateCsvFile(FILE **filefp, std::string dirPath, std::string fileName, std::string headers)
     {
         if (!MakeDir(dirPath)) {
             return false;
         }
         if (*filefp == nullptr) {
+            fileName = fileName + Utility::GetDateStr() + ".csv";
             std::string filePath = dirPath + "/" + fileName;
             UmaskGuard guard{DEFAULT_UMASK_FOR_CSV_FILE};
             FILE* fp = fopen(filePath.c_str(), "a");
