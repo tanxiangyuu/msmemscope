@@ -112,7 +112,7 @@ bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchReco
     } else {
         name = kernelLaunchRecord.kernelName;
     }
-    fprintf(leaksDataFile, "kernelLaunch,%s,%lu,%lu,%lu,%lu,%lu,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,"
+    fprintf(leaksDataFile, "kernelLaunch,%s,%lu,%lu,%lu,%d,%lu,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,"
             "N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A\n", name.c_str(),
             kernelLaunchRecord.pid, kernelLaunchRecord.tid, clientId, kernelLaunchRecord.devId,
             kernelLaunchRecord.recordIndex, kernelLaunchRecord.timeStamp, kernelLaunchRecord.kernelLaunchIndex);
@@ -144,7 +144,7 @@ bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRe
             break;
         }
     }
-    fprintf(leaksDataFile, "mstx,%s,%lu,%lu,%lu,%lu,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,N/A,"
+    fprintf(leaksDataFile, "mstx,%s,%lu,%lu,%lu,%d,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,N/A,"
             "N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A\n", name.c_str(), mstxRecord.pid, mstxRecord.tid, clientId,
             mstxRecord.devId, mstxRecord.recordIndex, mstxRecord.timeStamp);
     return true;
@@ -156,7 +156,7 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
     if (!Utility::CreateCsvFile(&leaksDataFile, dirPath, fileName, headers)) {
         return false;
     }
-    fprintf(leaksDataFile, "aclItfRecord,N/A,%lu,%lu,%lu,%lu,%lu,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,"
+    fprintf(leaksDataFile, "aclItfRecord,N/A,%lu,%lu,%lu,%d,%lu,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,"
             "N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A\n", aclItfRecord.pid, aclItfRecord.tid, clientId,
             aclItfRecord.devId, aclItfRecord.recordIndex, aclItfRecord.timeStamp, aclItfRecord.aclItfRecordIndex);
     return true;
@@ -168,7 +168,7 @@ bool DumpRecord::DumpTorchData(const ClientId &clientId, const TorchNpuRecord &t
         return false;
     }
     MemoryUsage memoryUsage = torchNpuRecord.memoryUsage;
-    fprintf(leaksDataFile, "torch_npu,N/A,%lu,%lu,%lu,%lu,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,N/A,"
+    fprintf(leaksDataFile, "torch_npu,N/A,%lu,%lu,%lu,%d,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,N/A,"
             "%d,%d,%d,%d,%ld,%ld,%ld,%ld,%ld,%ld\n", torchNpuRecord.pid, torchNpuRecord.tid, clientId,
             torchNpuRecord.devId, torchNpuRecord.recordIndex, torchNpuRecord.timeStamp, memoryUsage.deviceType,
             memoryUsage.deviceIndex, memoryUsage.dataType, memoryUsage.allocatorType, memoryUsage.ptr,
