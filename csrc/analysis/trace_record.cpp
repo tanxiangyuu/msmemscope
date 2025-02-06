@@ -9,7 +9,6 @@
 
 namespace Leaks {
 constexpr uint32_t DEFAULT_UMASK_FOR_JSON_FILE = 0177;
-constexpr int32_t GD_INVALID_NUM = 9999;
 
 inline std::string FormatCompleteEvent(JsonBaseInfo baseInfo, uint64_t dur, std::string args = "")
 {
