@@ -45,27 +45,27 @@ void HalAnalyzer::RecordMalloc(const ClientId &clientId, const MemOpRecord memre
     Utility::LogInfo(
         "[client %u][device: %ld]: server malloc record, index: %u, addr: 0x%lx, size: %u, space: %u, module: %s",
         clientId, memrecord.devId, memrecord.recordIndex,
-        memrecord.addr, memrecord.memSize, memrecord.space, modulename.c_str());
+        memrecord.addr, memrecord.memSize, static_cast<uint8_t>(memrecord.space), modulename.c_str());
 
     if (memtables_[clientId].find(memkey) != memtables_[clientId].end() &&
-        (memtables_[clientId].find(memkey)->second == AddrStatus::FREE_WAIT)) {
+        (memtables_[clientId].find(memkey)->second.addrStatus == AddrStatus::FREE_WAIT)) {
         Utility::LogError("[client %u]: server already has malloc record in addr: 0x%lx ,", clientId, memrecord.addr);
         Utility::LogError("[client %u]: but now malloc again in index: %u, addr: 0x%lx, size: %u, space: %u",
             clientId, memrecord.recordIndex, memrecord.addr, memrecord.memSize, memrecord.space);
     }
-    memtables_[clientId][memkey] = AddrStatus::FREE_WAIT;
+    memtables_[clientId][memkey].deviceId = memrecord.devId;
+    memtables_[clientId][memkey].addrStatus = AddrStatus::FREE_WAIT;
 }
 
 void HalAnalyzer::RecordFree(const ClientId &clientId, const MemOpRecord memrecord)
 {
     uint64_t memkey = memrecord.addr;
-    Utility::LogInfo("[client %u][device: %ld]: server free record, index: %u, addr: 0x%lx",
-        clientId, memrecord.devId, memrecord.recordIndex, memrecord.addr);
-
     auto it = memtables_[clientId].find(memkey);
+    int32_t freeDevId = GD_INVALID_NUM;
     if (it != memtables_[clientId].end()) {
-        if (it->second == AddrStatus::FREE_WAIT) {
-            memtables_[clientId][memkey] = AddrStatus::FREE_ALREADY;
+        freeDevId = memtables_[clientId][memkey].deviceId;
+        if (it->second.addrStatus == AddrStatus::FREE_WAIT) {
+            memtables_[clientId][memkey].addrStatus = AddrStatus::FREE_ALREADY;
         } else {
             Utility::LogError("[client %u]: Double free operator found for malloc operation : addr: 0x%lx",
                 clientId, memrecord.addr);
@@ -74,6 +74,8 @@ void HalAnalyzer::RecordFree(const ClientId &clientId, const MemOpRecord memreco
             Utility::LogError("[client %u]: No matching malloc operation found for free operator: addr: 0x%lx",
                 clientId, memrecord.addr);
     }
+    Utility::LogInfo("[client %u][device: %ld]: server free record, index: %u, addr: 0x%lx",
+        clientId, freeDevId, memrecord.recordIndex, memrecord.addr);
 }
 
 bool HalAnalyzer::Record(const ClientId &clientId, const EventRecord &record)
@@ -97,7 +99,7 @@ void HalAnalyzer::CheckLeak(const size_t clientId)
 {
     bool foundLeaks = false;
     for (const auto& pair :memtables_[clientId]) {
-        if (pair.second != AddrStatus::FREE_ALREADY) {
+        if (pair.second.addrStatus != AddrStatus::FREE_ALREADY) {
             foundLeaks = true;
             Utility::LogWarn("[client %u]: Leak memory in Malloc operator, addr: 0x%lx", clientId, pair.first);
         }
