@@ -146,9 +146,9 @@ TEST(StepInterAnalyzerTest, do_write_compare_data_to_csv_expect_true)
     StepInterAnalyzer stepinteranalyzer{};
     std::string temp;
     temp = "matmul,0,10,0,11,20,0,21,10,0,10\n";
-    stepinteranalyzer.compareOut[0].emplace_back(temp);
+    stepinteranalyzer.compareOut_[0].emplace_back(temp);
     FILE *fp = fopen("test_leaks.csv", "w");
-    stepinteranalyzer.compareFile = fp;
+    stepinteranalyzer.compareFile_ = fp;
     ASSERT_TRUE(stepinteranalyzer.WriteCompareDataToCsv());
     fclose(fp);
     remove("test_leaks.csv");
@@ -159,21 +159,21 @@ TEST(StepInterAnalyzerTest, do_save_compare_kernel_memory_expect_correct_data)
     CSV_FIELD_DATA data;
     CreateCsvData(data);
     StepInterAnalyzer stepinteranalyzer{};
-    stepinteranalyzer.output[0] = data;
+    stepinteranalyzer.output_[0] = data;
     data[0]["total_allocated"] = "120";
     data[0]["total_reserved"] = "456";
     data[0]["total_active"] = "780";
-    stepinteranalyzer.outputCompare[0] = data;
+    stepinteranalyzer.outputCompare_[0] = data;
 
     std::string temp;
     temp = "matmul_v1,0,1,0,1,4,0,10,3,0,9";
 
     stepinteranalyzer.SaveCompareKernelMemory(0, {"matmul_v1", 1}, {"matmul_v1", 1});
-    ASSERT_EQ(stepinteranalyzer.compareOut[0][0], temp);
+    ASSERT_EQ(stepinteranalyzer.compareOut_[0][0], temp);
 
     stepinteranalyzer.SaveCompareKernelMemory(0, {"matmul_v2", 2}, {"matmul_v2", 2});
     temp = "matmul_v2,0,1,0,1,4,0,10,3,0,9";
-    ASSERT_EQ(stepinteranalyzer.compareOut[0][1], temp);
+    ASSERT_EQ(stepinteranalyzer.compareOut_[0][1], temp);
 }
 
 TEST(StepInterAnalyzerTest, do_build_path_expect_coorrect_data)
@@ -212,7 +212,7 @@ TEST(StepInterAnalyzerTest, do_empty_path_build_diff_expect_empty_data)
     KERNELNAME_INDEX kernelIndexCompareMap {};
     StepInterAnalyzer stepinteranalyzer{};
     stepinteranalyzer.buildDiff(pathNode, 0, kernelIndexMap, kernelIndexCompareMap);
-    ASSERT_EQ(stepinteranalyzer.compareOut.size(), 0);
+    ASSERT_EQ(stepinteranalyzer.compareOut_.size(), 0);
 }
 
 TEST(StepInterAnalyzerTest, do_build_diff_expect_correct_data)
@@ -224,9 +224,9 @@ TEST(StepInterAnalyzerTest, do_build_diff_expect_correct_data)
     CSV_FIELD_DATA data;
     CreateCsvData(data);
     StepInterAnalyzer stepinteranalyzer{};
-    stepinteranalyzer.output[0] = data;
+    stepinteranalyzer.output_[0] = data;
     data[1]["name"] = "mul";
-    stepinteranalyzer.outputCompare[0] = data;
+    stepinteranalyzer.outputCompare_[0] = data;
     KERNELNAME_INDEX kernelIndexMap {};
     kernelIndexMap.emplace_back(std::make_pair("matmul_v1", 1));
     kernelIndexMap.emplace_back(std::make_pair("matmul_v2", 2));
@@ -235,5 +235,5 @@ TEST(StepInterAnalyzerTest, do_build_diff_expect_correct_data)
     kernelIndexCompareMap.emplace_back(std::make_pair("matmul_v2", 2));
 
     stepinteranalyzer.buildDiff(pathNode3, 0, kernelIndexMap, kernelIndexCompareMap);
-    ASSERT_EQ(stepinteranalyzer.compareOut[0].size(), 3);
+    ASSERT_EQ(stepinteranalyzer.compareOut_[0].size(), 3);
 }

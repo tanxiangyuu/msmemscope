@@ -40,7 +40,7 @@ void ShowHelpInfo()
         "                                   The input step numbers need to be separated by, or ，." << std::endl <<
         "                                   The maximum number of steps is 5" << std::endl <<
         "    --compare                      Enable memory data comparison." << std::endl <<
-        "    --input=path1,path2            paths to compare files, valid with compare command on" << std::endl <<
+        "    --input=path1,path2            Paths to compare files, valid with compare command on" << std::endl <<
         "                                   The input paths need to be separated by, or ，." << std::endl;
 }
 

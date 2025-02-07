@@ -19,7 +19,6 @@ DumpRecord& DumpRecord::GetInstance()
 
 bool DumpRecord::DumpData(const ClientId &clientId, const EventRecord &record)
 {
-    fileName = "leaks" + Utility::GetDateStr() + ".csv";
     switch (record.type) {
         case RecordType::MEMORY_RECORD: {
             auto memRecord = record.record.memoryRecord;
@@ -64,36 +63,36 @@ bool DumpRecord::DumpData(const ClientId &clientId, const EventRecord &record)
 bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile, dirPath, fileName, headers)) {
+    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, headers_)) {
         return false;
     }
     MemOpSpace space;
     uint64_t currentSize;
     if (memRecord.memType == MemOpType::MALLOC) {
-        memSizeMap[clientId][memRecord.addr] = memRecord.memSize;
-        memOpMap[clientId][memRecord.addr] = memRecord.space;
+        memSizeMap_[clientId][memRecord.addr] = memRecord.memSize;
+        memOpMap_[clientId][memRecord.addr] = memRecord.space;
         space = memRecord.space;
         currentSize = memRecord.memSize;
         if (space == MemOpSpace::HOST) {
-            memHost[clientId] = Utility::GetAddResult(memHost[clientId], currentSize);
+            memHost_[clientId] = Utility::GetAddResult(memHost_[clientId], currentSize);
         } else if (space == MemOpSpace::DEVICE) {
-            memDevice[clientId] = Utility::GetAddResult(memDevice[clientId], currentSize);
+            memDevice_[clientId] = Utility::GetAddResult(memDevice_[clientId], currentSize);
         }
     } else {
-        currentSize = memSizeMap[clientId][memRecord.addr];
-        space = memOpMap[clientId][memRecord.addr];
+        currentSize = memSizeMap_[clientId][memRecord.addr];
+        space = memOpMap_[clientId][memRecord.addr];
         if (space == MemOpSpace::HOST) {
-            memHost[clientId] = Utility::GetSubResult(memHost[clientId], currentSize);
+            memHost_[clientId] = Utility::GetSubResult(memHost_[clientId], currentSize);
         } else if (space == MemOpSpace::DEVICE) {
-            memDevice[clientId] = Utility::GetSubResult(memDevice[clientId], currentSize);
+            memDevice_[clientId] = Utility::GetSubResult(memDevice_[clientId], currentSize);
         }
-        memOpMap[clientId][memRecord.addr] = MemOpSpace::INVALID;
-        memSizeMap[clientId][memRecord.addr] = 0;
+        memOpMap_[clientId][memRecord.addr] = MemOpSpace::INVALID;
+        memSizeMap_[clientId][memRecord.addr] = 0;
     }
     std::string memOp = memRecord.memType == MemOpType::MALLOC ? "malloc" : "free";
 
-    uint64_t totalMem = space == MemOpSpace::HOST ? memHost[clientId] : memDevice[clientId];
-    fprintf(leaksDataFile, "%s,N/A,%lu,%lu,%lu,%d,%lu,%lu,%lu,%llu,%d,%d,%lu,%lu,%lu,"
+    uint64_t totalMem = space == MemOpSpace::HOST ? memHost_[clientId] : memDevice_[clientId];
+    fprintf(leaksDataFile_, "%s,N/A,%lu,%lu,%lu,%d,%lu,%lu,%lu,%llu,%d,%d,%lu,%lu,%lu,"
             "N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A\n",
             memOp.c_str(), memRecord.pid, memRecord.tid, clientId, memRecord.devId, memRecord.recordIndex,
             memRecord.timeStamp, memRecord.kernelIndex, memRecord.flag, memRecord.modid, int(space),
@@ -103,7 +102,7 @@ bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRec
 bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchRecord &kernelLaunchRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile, dirPath, fileName, headers)) {
+    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, headers_)) {
         return false;
     }
     std::string name;
@@ -112,7 +111,7 @@ bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchReco
     } else {
         name = kernelLaunchRecord.kernelName;
     }
-    fprintf(leaksDataFile, "kernelLaunch,%s,%lu,%lu,%lu,%d,%lu,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,"
+    fprintf(leaksDataFile_, "kernelLaunch,%s,%lu,%lu,%lu,%d,%lu,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,"
             "N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A\n", name.c_str(),
             kernelLaunchRecord.pid, kernelLaunchRecord.tid, clientId, kernelLaunchRecord.devId,
             kernelLaunchRecord.recordIndex, kernelLaunchRecord.timeStamp, kernelLaunchRecord.kernelLaunchIndex);
@@ -122,7 +121,7 @@ bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchReco
 bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile, dirPath, fileName, headers)) {
+    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, headers_)) {
         return false;
     }
     std::string name;
@@ -144,7 +143,7 @@ bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRe
             break;
         }
     }
-    fprintf(leaksDataFile, "mstx,%s,%lu,%lu,%lu,%d,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,N/A,"
+    fprintf(leaksDataFile_, "mstx,%s,%lu,%lu,%lu,%d,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,N/A,"
             "N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A\n", name.c_str(), mstxRecord.pid, mstxRecord.tid, clientId,
             mstxRecord.devId, mstxRecord.recordIndex, mstxRecord.timeStamp);
     return true;
@@ -153,10 +152,10 @@ bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRe
 bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile, dirPath, fileName, headers)) {
+    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, headers_)) {
         return false;
     }
-    fprintf(leaksDataFile, "aclItfRecord,N/A,%lu,%lu,%lu,N/A,%lu,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,"
+    fprintf(leaksDataFile_, "aclItfRecord,N/A,%lu,%lu,%lu,N/A,%lu,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,"
             "N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A\n", aclItfRecord.pid, aclItfRecord.tid, clientId,
             aclItfRecord.recordIndex, aclItfRecord.timeStamp, aclItfRecord.aclItfRecordIndex);
     return true;
@@ -164,11 +163,11 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
 bool DumpRecord::DumpTorchData(const ClientId &clientId, const TorchNpuRecord &torchNpuRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile, dirPath, fileName, headers)) {
+    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, headers_)) {
         return false;
     }
     MemoryUsage memoryUsage = torchNpuRecord.memoryUsage;
-    fprintf(leaksDataFile, "torch_npu,N/A,%lu,%lu,%lu,%d,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,N/A,"
+    fprintf(leaksDataFile_, "torch_npu,N/A,%lu,%lu,%lu,%d,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,N/A,"
             "%d,%d,%d,%d,%ld,%ld,%ld,%ld,%ld,%ld\n", torchNpuRecord.pid, torchNpuRecord.tid, clientId,
             torchNpuRecord.devId, torchNpuRecord.recordIndex, torchNpuRecord.timeStamp, memoryUsage.deviceType,
             memoryUsage.deviceIndex, memoryUsage.dataType, memoryUsage.allocatorType, memoryUsage.ptr,
@@ -179,8 +178,8 @@ bool DumpRecord::DumpTorchData(const ClientId &clientId, const TorchNpuRecord &t
 
 DumpRecord::~DumpRecord()
 {
-    if (leaksDataFile != nullptr) {
-        fclose(leaksDataFile);
+    if (leaksDataFile_ != nullptr) {
+        fclose(leaksDataFile_);
     }
 }
 }

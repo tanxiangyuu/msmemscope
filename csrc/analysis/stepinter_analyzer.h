@@ -78,6 +78,8 @@ public:
 
 class StepInterAnalyzer {
 public:
+    void StepInterOfflineCompare(const std::vector<std::string> &paths);
+private:
     std::vector<std::string> SplitLineData(std::string line);
     void ReadCsvFile(const std::string &path, std::unordered_map<DEVICEID, CSV_FIELD_DATA> &data);
     KERNELNAME_INDEX ReadKernelLaunchData(const CSV_FIELD_DATA &data);
@@ -89,18 +91,17 @@ public:
     void buildDiff(std::shared_ptr<PathNode> path, const DEVICEID deviceId, const KERNELNAME_INDEX &kernelIndexMap,
         const KERNELNAME_INDEX &kernelIndexCompareMap);
     bool WriteCompareDataToCsv();
-    void StepInterOfflineCompare(const std::vector<std::string> &paths);
     void MyersDiff(const DEVICEID deviceId, const KERNELNAME_INDEX &kernelIndexMap,
         const KERNELNAME_INDEX &kernelIndexCompareMap);
-
-private:
-    FILE* compareFile = nullptr;
-    std::unordered_map<DEVICEID, CSV_FIELD_DATA> output;
-    std::unordered_map<DEVICEID, CSV_FIELD_DATA> outputCompare;
-    std::unordered_map<DEVICEID, std::vector<std::string>> compareOut;
-    std::string headers = ",,base memory,,,compare memory,,,diff memory\nname,deviceId,total_allocated_diff,"
+    FILE* compareFile_ = nullptr;
+    std::unordered_map<DEVICEID, CSV_FIELD_DATA> output_;
+    std::unordered_map<DEVICEID, CSV_FIELD_DATA> outputCompare_;
+    std::unordered_map<DEVICEID, std::vector<std::string>> compareOut_;
+    std::string headers_ = ",,base memory,,,compare memory,,,diff memory\nname,deviceId,total_allocated_diff,"
         "total_reserved_diff,total_active_diff,total_allocated_diff,total_reserved_diff,total_active_diff,"
         "diff_total_allocated,diff_total_reserved,diff_total_active\n";
+    std::string fileNamePrefix_ = "stepintercompare";
+    std::string dirPath_ = "leaksDumpResults";
 };
 
 }

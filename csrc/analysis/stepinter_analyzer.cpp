@@ -122,19 +122,17 @@ void StepInterAnalyzer::GetKernelMemoryDiff(size_t index, const CSV_FIELD_DATA &
 
 bool StepInterAnalyzer::WriteCompareDataToCsv()
 {
-    std::string dirPath = "leaksDumpResults";
-    std::string fileName = "stepintercompare" + Utility::GetDateStr() + ".csv";
-    if (!Utility::CreateCsvFile(&compareFile, dirPath, fileName, headers)) {
+    if (!Utility::CreateCsvFile(&compareFile_, dirPath_, fileNamePrefix_, headers_)) {
         Utility::LogError("Create stepintercompare csv file failed!");
         return false;
     }
 
-    for (const auto& pair : compareOut) {
+    for (const auto& pair : compareOut_) {
         uint64_t deviceId = pair.first;
-        std::reverse(compareOut[deviceId].begin(), compareOut[deviceId].end());
+        std::reverse(compareOut_[deviceId].begin(), compareOut_[deviceId].end());
 
-        for (const auto& str : compareOut[deviceId]) {
-            fprintf(compareFile, "%s\n", str.c_str());
+        for (const auto& str : compareOut_[deviceId]) {
+            fprintf(compareFile_, "%s\n", str.c_str());
         }
     }
 
@@ -152,7 +150,7 @@ void StepInterAnalyzer::SaveCompareKernelMemory(const DEVICEID deviceId,
     std::string baseMemDiff;
     if (!kernelBase.first.empty()) {
         name = kernelBase.first;
-        GetKernelMemoryDiff(kernelBase.second, output[deviceId], baseDiff);
+        GetKernelMemoryDiff(kernelBase.second, output_[deviceId], baseDiff);
         baseMemDiff = std::to_string(baseDiff.totalAllocated) + "," + std::to_string(baseDiff.totalReserved)
         + "," + std::to_string(baseDiff.totalActive);
     } else {
@@ -162,7 +160,7 @@ void StepInterAnalyzer::SaveCompareKernelMemory(const DEVICEID deviceId,
     std::string compareMemDiff;
     if (!kernelCompare.first.empty()) {
         name = kernelCompare.first;
-        GetKernelMemoryDiff(kernelCompare.second, outputCompare[deviceId], compareDiff);
+        GetKernelMemoryDiff(kernelCompare.second, outputCompare_[deviceId], compareDiff);
         compareMemDiff = std::to_string(compareDiff.totalAllocated) + "," + std::to_string(compareDiff.totalReserved)
             + "," + std::to_string(compareDiff.totalActive);
     } else {
@@ -178,7 +176,7 @@ void StepInterAnalyzer::SaveCompareKernelMemory(const DEVICEID deviceId,
 
     temp = temp + "," + std::to_string(diffTotalAllocated) + "," + std::to_string(diffTotalReserved)
             + "," + std::to_string(diffTotalActive);
-    compareOut[deviceId].emplace_back(temp);
+    compareOut_[deviceId].emplace_back(temp);
 }
 
 std::shared_ptr<PathNode> StepInterAnalyzer::buildPath(const KERNELNAME_INDEX &kernelIndexMap,
@@ -274,13 +272,13 @@ void StepInterAnalyzer::StepInterOfflineCompare(const std::vector<std::string> &
     std::string path = paths[0];
     std::string pathCompare = paths[1];
     
-    ReadCsvFile(path, output);
-    ReadCsvFile(pathCompare, outputCompare);
+    ReadCsvFile(path, output_);
+    ReadCsvFile(pathCompare, outputCompare_);
 
-    for (const auto& pair : output) {
+    for (const auto& pair : output_) {
         uint64_t deviceId = pair.first;
-        KERNELNAME_INDEX kernelIndexMap = ReadKernelLaunchData(output[deviceId]);
-        KERNELNAME_INDEX kernelIndexCompareMap = ReadKernelLaunchData(outputCompare[deviceId]);
+        KERNELNAME_INDEX kernelIndexMap = ReadKernelLaunchData(output_[deviceId]);
+        KERNELNAME_INDEX kernelIndexCompareMap = ReadKernelLaunchData(outputCompare_[deviceId]);
         MyersDiff(deviceId, kernelIndexMap, kernelIndexCompareMap);
     }
 
