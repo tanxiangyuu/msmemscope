@@ -30,17 +30,17 @@ private:
     bool DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord);
     bool DumpTorchData(const ClientId &clientId, const TorchNpuRecord &torchNpuRecord);
     bool DumpMstxData(const ClientId &clientId, const MstxRecord &msxtRecord);
-    FILE *leaksDataFile = nullptr;
-    std::unordered_map<ClientId, std::unordered_map<uint64_t, uint64_t>> memSizeMap;
-    std::unordered_map<ClientId, std::unordered_map<uint64_t, MemOpSpace>> memOpMap;
-    std::unordered_map<ClientId, uint64_t> memHost;
-    std::unordered_map<ClientId, uint64_t> memDevice;
-    std::string headers = "type,name,processID,threadID,clientID,deviceID,recordIndex,timeStamp,"
+    FILE *leaksDataFile_ = nullptr;
+    std::unordered_map<ClientId, std::unordered_map<uint64_t, uint64_t>> memSizeMap_;
+    std::unordered_map<ClientId, std::unordered_map<uint64_t, MemOpSpace>> memOpMap_;
+    std::unordered_map<ClientId, uint64_t> memHost_;
+    std::unordered_map<ClientId, uint64_t> memDevice_;
+    std::string headers_ = "type,name,processID,threadID,clientID,deviceID,recordIndex,timeStamp,"
         "kernelIndex,flag,moduleID,host/device,addr,size,sumMemory,device_type,device_index,data_type,"
         "allocator_type,ptr,alloc_size,total_allocated,total_reserved,total_active,stream_ptr\n";
-    std::string dirPath = "leaksDumpResults";
-    std::string fileName;
+    std::string dirPath_ = "leaksDumpResults";
     std::mutex fileMutex_;
+    std::string fileNamePrefix_ = "leaks";
 };
 }
 #endif
