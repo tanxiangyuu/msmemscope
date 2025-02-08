@@ -47,7 +47,8 @@ TEST(Process, process_setpreloadenv_expect_success)
     Process process(config);
     process.SetPreloadEnv();
     char *env = getenv("LD_PRELOAD");
-    std::string hooksSo = "libascend_hal_hook.so:libascend_mstx_hook.so:libascend_kernel_hook.so";
+    std::string hooksSo = "libascend_hal_hook.so:libhost_memory_hook.so:"
+                          "libascend_mstx_hook.so:libascend_kernel_hook.so";
     EXPECT_EQ(std::string(env), hooksSo);
     setenv("LD_PRELOAD", "test.so", 1);
     process.SetPreloadEnv();

@@ -44,7 +44,8 @@ TEST(Command, do_record_handler_except_success)
     record2.type = RecordType::MSTX_MARK_RECORD;
     auto mstxRecordStart = MstxRecord {};
     mstxRecordStart.markType = MarkType::RANGE_START_A;
-    mstxRecordStart.rangeId = 1;
+    mstxRecordStart.rangeId = 0;
+    mstxRecordStart.stepId = 1;
     mstxRecordStart.streamId = 123;
     record2.record.mstxRecord = mstxRecordStart;
 
