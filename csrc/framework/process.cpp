@@ -93,7 +93,12 @@ void Process::SetPreloadEnv()
         hookLibDir = preloadPath;
     }
 
-    std::vector<string> hookLibNames{"libascend_hal_hook.so", "libascend_mstx_hook.so", "libascend_kernel_hook.so"};
+    std::vector<string> hookLibNames{
+        "libascend_hal_hook.so",
+        "libhost_memory_hook.so",
+        "libascend_mstx_hook.so",
+        "libascend_kernel_hook.so"
+    };
 
     for (string &hookLib : hookLibNames) {
         Path hookLibPath = (Path(hookLibDir) / Path(hookLib)).Resolved();

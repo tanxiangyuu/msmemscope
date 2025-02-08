@@ -9,7 +9,7 @@ HalAnalyzer::HalAnalyzer(const AnalysisConfig &config)
     config_ = config;
 }
 
-void HalAnalyzer::ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t &rangeid, const MstxRecord &mstxrecord)
+void HalAnalyzer::ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t &stepid, const MstxRecord &mstxrecord)
 {
 }
 

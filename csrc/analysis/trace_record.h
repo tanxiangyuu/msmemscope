@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <vector>
 #include <string>
+#include <cstring>
 #include <cstdio>
 #include <cstdint>
 #include <sys/stat.h>
@@ -85,7 +86,7 @@ private:
     std::unordered_map<int32_t, std::unordered_map<uint64_t, uint64_t>> deviceMemAllocation_;
     std::unordered_map<int32_t, uint64_t> deviceMemUsage_;
 
-    std::unordered_map<int32_t, uint64_t> lastStepStartTime_;
+    std::unordered_map<int32_t, std::unordered_map<uint64_t, uint64_t>> stepStartTime_;
 };
 }
 #endif

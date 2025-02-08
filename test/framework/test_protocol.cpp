@@ -340,7 +340,8 @@ TEST(ProtocolTest, test_protocol_parse_mstx_MarkA_record)
     auto record = EventRecord {};
     
     auto mstxRecord = MstxRecord{};
-    mstxRecord.rangeId = 1;
+    mstxRecord.rangeId = 0;
+    mstxRecord.stepId = 1;
     mstxRecord.markType = MarkType::MARK_A;
 
 
@@ -357,6 +358,7 @@ TEST(ProtocolTest, test_protocol_parse_mstx_MarkA_record)
     auto body = result.GetPacketBody();
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.mstxRecord.rangeId, mstxRecord.rangeId);
+    ASSERT_EQ(body.record.mstxRecord.stepId, mstxRecord.stepId);
     ASSERT_EQ(body.record.mstxRecord.markType, mstxRecord.markType);
 }
 
@@ -366,7 +368,8 @@ TEST(ProtocolTest, test_protocol_parse_mstx_Start_record)
     auto record = EventRecord {};
     
     auto mstxRecord = MstxRecord{};
-    mstxRecord.rangeId = 1;
+    mstxRecord.rangeId = 0;
+    mstxRecord.stepId = 1;
     mstxRecord.markType = MarkType::RANGE_START_A;
 
 
@@ -383,6 +386,7 @@ TEST(ProtocolTest, test_protocol_parse_mstx_Start_record)
     auto body = result.GetPacketBody();
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.mstxRecord.rangeId, mstxRecord.rangeId);
+    ASSERT_EQ(body.record.mstxRecord.stepId, mstxRecord.stepId);
     ASSERT_EQ(body.record.mstxRecord.markType, mstxRecord.markType);
 }
 
@@ -392,7 +396,8 @@ TEST(ProtocolTest, test_protocol_parse_mstx_End_record)
     auto record = EventRecord {};
     
     auto mstxRecord = MstxRecord{};
-    mstxRecord.rangeId = 1;
+    mstxRecord.rangeId = 0;
+    mstxRecord.stepId = 1;
     mstxRecord.markType = MarkType::RANGE_END;
 
 
@@ -409,6 +414,7 @@ TEST(ProtocolTest, test_protocol_parse_mstx_End_record)
     auto body = result.GetPacketBody();
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.mstxRecord.rangeId, mstxRecord.rangeId);
+    ASSERT_EQ(body.record.mstxRecord.stepId, mstxRecord.stepId);
     ASSERT_EQ(body.record.mstxRecord.markType, mstxRecord.markType);
 }
 TEST(ProtocolTest, test_protocol_parse_memrecord_max)

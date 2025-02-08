@@ -30,7 +30,7 @@ public:
 private:
     MstxAnalyzer() = default;
     std::list<std::shared_ptr<AnalyzerBase>> analyzerList;
-    void Notify(const DeviceId &deviceId, const uint64_t &rangeId, const MstxRecord &mstxRecord);
+    void Notify(const DeviceId &deviceId, const uint64_t &stepId, const MstxRecord &mstxRecord);
 };
 
 }
