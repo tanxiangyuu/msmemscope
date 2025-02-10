@@ -13,6 +13,7 @@ namespace Leaks {
 
 enum class PacketType : uint8_t {
     RECORD = 0,
+    LOG,
     INVALID
 };
 
@@ -20,15 +21,33 @@ struct PacketHead {
     PacketType type;
 };
 
-using PacketBody = EventRecord;
+struct LogInfo {
+    uint64_t len;
+    char *buf;
+};
 
+union PacketBody {
+    EventRecord eventRecord;
+    LogInfo log;
+};
 class Packet {
 public:
-    Packet(void) : head_{PacketType::INVALID}, body_{} { }
+    Packet(void) : head_{PacketType::INVALID}, body_{} {}
+    ~Packet(void)
+    {
+    }
     explicit Packet(EventRecord const &record)
     {
         head_.type = PacketType::RECORD;
-        body_ = record;
+        body_.eventRecord = record;
+    }
+    explicit Packet(std::string log)
+    {
+        uint64_t len = log.size();
+        head_.type = PacketType::LOG;
+        body_.log.len = len;
+        body_.log.buf = new char[len];
+        log.copy(body_.log.buf, len);
     }
     PacketHead GetPacketHead(void) const
     {
@@ -52,8 +71,9 @@ public:
     Packet GetPacket(void);
 private:
     Packet GetPayLoad(PacketHead head);
+    bool GetStringData(std::string &data);
     Packet GetRecord(void);
-
+    Packet GetLog(void);
     class Extractor;
     std::shared_ptr<Extractor> extractor_;
 };
@@ -63,6 +83,7 @@ public:
     Extractor() = default;
     ~Extractor() = default;
     inline void Feed(const std::string &msg);
+    inline uint64_t Size(void) const;
     template<typename T>
     inline bool Read(T &val);
     inline bool Read(uint64_t size, std::string &buffer);

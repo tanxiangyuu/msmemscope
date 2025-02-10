@@ -72,10 +72,14 @@ void Command::Exec() const
             auto packet = protocol.GetPacket();
             switch (packet.GetPacketHead().type) {
                 case PacketType::RECORD:
-                    DumpRecord::GetInstance().DumpData(clientId, packet.GetPacketBody());
-                    TraceRecord::GetInstance().TraceHandler(packet.GetPacketBody());
-                    RecordHandler(clientId, packet.GetPacketBody(), analyzerfactory);
+                    DumpRecord::GetInstance().DumpData(clientId, packet.GetPacketBody().eventRecord);
+                    TraceRecord::GetInstance().TraceHandler(packet.GetPacketBody().eventRecord);
+                    RecordHandler(clientId, packet.GetPacketBody().eventRecord, analyzerfactory);
                     break;
+                case PacketType::LOG: {
+                    auto log = packet.GetPacketBody().log;
+                    Utility::LogRecv("%s", std::string(log.buf, log.buf + log.len).c_str());
+                }
                 case PacketType::INVALID:
                 default:
                     return;

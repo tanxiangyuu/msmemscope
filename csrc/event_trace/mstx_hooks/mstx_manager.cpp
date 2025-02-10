@@ -17,11 +17,11 @@ void MstxManager::ReportMarkA(const char* msg, int32_t streamId)
     record.streamId = streamId;
 
     if (strncpy_s(record.markMessage, sizeof(record.markMessage), msg, sizeof(record.markMessage) - 1) != EOK) {
-        std::cout << "strncpy_s FAILED" << std::endl;
+        ClientErrorLog("strncpy_s FAILED");
     }
     record.markMessage[sizeof(record.markMessage) - 1] = '\0';
     if (!EventReport::Instance(CommType::SOCKET).ReportMark(record)) {
-        std::cout << "Report FAILED" << std::endl;
+        ClientErrorLog("Report Mark FAILED");
     }
 }
 
@@ -32,12 +32,12 @@ uint64_t MstxManager::ReportRangeStart(const char* msg, int32_t streamId)
     record.markType = MarkType::RANGE_START_A;
     record.streamId = streamId;
     if (strncpy_s(record.markMessage, sizeof(record.markMessage), msg, sizeof(record.markMessage) - 1) != EOK) {
-        std::cout << "strncpy_s FAILED" << std::endl;
+        ClientErrorLog("strncpy_s FAILED");
     }
     record.markMessage[sizeof(record.markMessage) - 1] = '\0';
     record.rangeId = GetRangeId();
     if (!EventReport::Instance(CommType::SOCKET).ReportMark(record)) {
-        std::cout << "Report FAILED" << std::endl;
+        ClientErrorLog("Report Mark FAILED");
     }
     return record.rangeId;
 }
@@ -51,11 +51,11 @@ void MstxManager::ReportRangeEnd(uint64_t id)
     record.streamId = -1;
     std::string msg = "Range end from id " + std::to_string(id);
     if (strncpy_s(record.markMessage, sizeof(record.markMessage), msg.c_str(), sizeof(record.markMessage) - 1) != EOK) {
-        std::cout << "strncpy_s FAILED" << std::endl;
+        ClientErrorLog("strncpy_s FAILED");
     }
     record.markMessage[sizeof(record.markMessage) - 1] = '\0';
     if (!EventReport::Instance(CommType::SOCKET).ReportMark(record)) {
-        std::cout << "Report FAILED" << std::endl;
+        ClientErrorLog("Report Mark FAILED");
     }
 }
 

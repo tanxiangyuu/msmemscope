@@ -28,8 +28,10 @@ public:
 
     template <typename... Args>
     inline void Printf(std::string const &format, LogLv lv, Args &&...args);
+    template <typename... Args>
+    inline void PrintClientLog(std::string const &format, Args &&...args);
     void SetLogLevel(const std::string &logLevel = "1");
-
+    inline bool CreateLogFile();
 private:
     Log(void) = default;
     ~Log(void);
@@ -43,13 +45,23 @@ private:
     mutable std::mutex mtx_;
 };
 
+bool Log::CreateLogFile()
+{
+    if (fp_ == nullptr) {
+        std::string fileName = "msleaks_" + GetDateStr() + ".txt";
+        UmaskGuard guard{DEFAULT_UMASK_FOR_LOG_FILE};
+        if ((fp_ = fopen(fileName.c_str(), "a")) == nullptr) {
+            return false;
+        }
+    }
+    return true;
+}
+
 template <typename... Args>
 void Log::Printf(const std::string &format, LogLv lv, Args &&...args)
 {
     std::lock_guard<std::mutex> lock(mtx_);
-    std::string fileName = "msleaks_" + GetDateStr() + ".txt";
-    UmaskGuard guard{DEFAULT_UMASK_FOR_LOG_FILE};
-    if (fp_ == nullptr && (fp_ = fopen(fileName.c_str(), "a")) == nullptr) {
+    if (!CreateLogFile()) {
         return;
     }
     if (lv < lv_) {
@@ -58,6 +70,29 @@ void Log::Printf(const std::string &format, LogLv lv, Args &&...args)
     std::string f = AddPrefixInfo(format, lv).append("\n");
     fprintf(fp_, f.c_str(), std::forward<Args>(args)...);
     fflush(fp_);
+}
+
+template <typename... Args>
+void Log::PrintClientLog(const std::string &format, Args &&...args)
+{
+    std::lock_guard<std::mutex> lock(mtx_);
+    if (!CreateLogFile()) {
+        return;
+    }
+    char buf[LOG_BUF_SIZE];
+    auto now = std::chrono::system_clock::now();
+    std::time_t time = std::chrono::system_clock::to_time_t(now);
+    std::tm *tm = std::localtime(&time);
+    std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", tm);
+    std::string f = std::string(std::string(buf) + " " + format).append("\n");
+    fprintf(fp_, f.c_str(), std::forward<Args>(args)...);
+    fflush(fp_);
+}
+
+template <typename... Args>
+inline void LogRecv(std::string const &format, Args &&...args)
+{
+    Log::GetLog().PrintClientLog(format, std::forward<Args>(args)...);
 }
 
 template <typename... Args>
