@@ -6,7 +6,8 @@
 #include <thread>
 #include <chrono>
 #include <unistd.h>
-
+#include "protocol.h"
+#include "serializer.h"
 #include "host_injection/core/FuncSelector.h"
 #include "host_injection/utils/InjectLogger.h"
 
@@ -35,15 +36,19 @@ ClientProcess::~ClientProcess()
 void ClientProcess::Log(ClientLogLevel level, std::string msg)
 {
     static std::map<ClientLogLevel, std::string> levelStrMap = {
-        {ClientLogLevel::DEBUG, "[LOG][DEBUG]"},
-        {ClientLogLevel::INFO, "[LOG][INFO]"},
-        {ClientLogLevel::WARN, "[LOG][WARN]"},
-        {ClientLogLevel::ERROR, "[LOG][ERROR]"}
+        {ClientLogLevel::DEBUG, "[DEBUG]"},
+        {ClientLogLevel::INFO, "[INFO] "},
+        {ClientLogLevel::WARN, "[WARN] "},
+        {ClientLogLevel::ERROR, "[ERROR]"}
     };
-    // 需要设计一个结构支持合理分发，此处简单拼接下 [LOG][DEBUG] rtDevBinaryRegister Hijacked bin is nullptr.;
-    std::string logMsg = levelStrMap[level] + " " + msg + ";";
-    if (client_ != nullptr) {
-        client_->Write(logMsg);
+
+    std::string logMsg = levelStrMap[level] + " " + msg;
+    Leaks::PacketHead head {Leaks::PacketType::LOG};
+    std::string buffer = Leaks::Serialize<Leaks::PacketHead, uint64_t>(head, logMsg.size());
+    buffer += logMsg;
+
+    if (client_ != nullptr && Notify(buffer) < 0) {
+        std::cout << "log report failed" << std::endl;
     }
     return;
 }

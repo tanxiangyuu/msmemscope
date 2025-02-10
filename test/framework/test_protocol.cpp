@@ -36,7 +36,7 @@ TEST(ProtocolTest, test_protocol_parse_memrecord)
 
     EXPECT_TRUE(result.GetPacketHead().type == PacketType::RECORD);
 
-    auto body = result.GetPacketBody();
+    auto body = result.GetPacketBody().eventRecord;
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.memoryRecord.recordIndex, memRecord.recordIndex);
     ASSERT_EQ(body.record.memoryRecord.addr, memRecord.addr);
@@ -88,7 +88,7 @@ TEST(ProtocolTest, test_protocol_parse_acl_itf_Init_record)
 
     EXPECT_TRUE(result.GetPacketHead().type == PacketType::RECORD);
 
-    auto body = result.GetPacketBody();
+    auto body = result.GetPacketBody().eventRecord;
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.aclItfRecord.recordIndex, aclItfRecord.recordIndex);
     ASSERT_EQ(body.record.aclItfRecord.type, aclItfRecord.type);
@@ -120,7 +120,7 @@ TEST(ProtocolTest, test_protocol_parse_acl_itf_finalize_record)
 
     EXPECT_TRUE(result.GetPacketHead().type == PacketType::RECORD);
 
-    auto body = result.GetPacketBody();
+    auto body = result.GetPacketBody().eventRecord;
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.aclItfRecord.recordIndex, aclItfRecord.recordIndex);
     ASSERT_EQ(body.record.aclItfRecord.type, aclItfRecord.type);
@@ -158,7 +158,7 @@ TEST(ProtocolTest, test_protocol_parse_torch_npu_record)
 
     EXPECT_TRUE(result.GetPacketHead().type == PacketType::RECORD);
 
-    auto body = result.GetPacketBody();
+    auto body = result.GetPacketBody().eventRecord;
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.deviceType, torchNpuRecord.memoryUsage.deviceType);
     ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.deviceIndex, torchNpuRecord.memoryUsage.deviceIndex);
@@ -200,7 +200,7 @@ TEST(ProtocolTest, test_protocol_parse_torch_npu_record_max)
 
     EXPECT_TRUE(result.GetPacketHead().type == PacketType::RECORD);
 
-    auto body = result.GetPacketBody();
+    auto body = result.GetPacketBody().eventRecord;
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.deviceType, torchNpuRecord.memoryUsage.deviceType);
     ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.deviceIndex, torchNpuRecord.memoryUsage.deviceIndex);
@@ -242,7 +242,7 @@ TEST(ProtocolTest, test_protocol_parse_torch_npu_record_min)
 
     EXPECT_TRUE(result.GetPacketHead().type == PacketType::RECORD);
 
-    auto body = result.GetPacketBody();
+    auto body = result.GetPacketBody().eventRecord;
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.deviceType, torchNpuRecord.memoryUsage.deviceType);
     ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.deviceIndex, torchNpuRecord.memoryUsage.deviceIndex);
@@ -276,7 +276,7 @@ TEST(ProtocolTest, test_protocol_parse_kernerLaunch_Normal_record)
 
     EXPECT_TRUE(result.GetPacketHead().type == PacketType::RECORD);
 
-    auto body = result.GetPacketBody();
+    auto body = result.GetPacketBody().eventRecord;
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.kernelLaunchRecord.recordIndex, kernelLaunchRecord.recordIndex);
     ASSERT_EQ(body.record.kernelLaunchRecord.type, kernelLaunchRecord.type);
@@ -302,7 +302,7 @@ TEST(ProtocolTest, test_protocol_parse_kernerLaunch_HandleV2_record)
 
     EXPECT_TRUE(result.GetPacketHead().type == PacketType::RECORD);
 
-    auto body = result.GetPacketBody();
+    auto body = result.GetPacketBody().eventRecord;
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.kernelLaunchRecord.recordIndex, kernelLaunchRecord.recordIndex);
     ASSERT_EQ(body.record.kernelLaunchRecord.type, kernelLaunchRecord.type);
@@ -328,7 +328,7 @@ TEST(ProtocolTest, test_protocol_parse_kernerLaunch_FlagV2_record)
 
     EXPECT_TRUE(result.GetPacketHead().type == PacketType::RECORD);
 
-    auto body = result.GetPacketBody();
+    auto body = result.GetPacketBody().eventRecord;
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.kernelLaunchRecord.recordIndex, kernelLaunchRecord.recordIndex);
     ASSERT_EQ(body.record.kernelLaunchRecord.type, kernelLaunchRecord.type);
@@ -355,7 +355,7 @@ TEST(ProtocolTest, test_protocol_parse_mstx_MarkA_record)
 
     EXPECT_TRUE(result.GetPacketHead().type == PacketType::RECORD);
 
-    auto body = result.GetPacketBody();
+    auto body = result.GetPacketBody().eventRecord;
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.mstxRecord.rangeId, mstxRecord.rangeId);
     ASSERT_EQ(body.record.mstxRecord.stepId, mstxRecord.stepId);
@@ -383,7 +383,7 @@ TEST(ProtocolTest, test_protocol_parse_mstx_Start_record)
 
     EXPECT_TRUE(result.GetPacketHead().type == PacketType::RECORD);
 
-    auto body = result.GetPacketBody();
+    auto body = result.GetPacketBody().eventRecord;
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.mstxRecord.rangeId, mstxRecord.rangeId);
     ASSERT_EQ(body.record.mstxRecord.stepId, mstxRecord.stepId);
@@ -411,7 +411,7 @@ TEST(ProtocolTest, test_protocol_parse_mstx_End_record)
 
     EXPECT_TRUE(result.GetPacketHead().type == PacketType::RECORD);
 
-    auto body = result.GetPacketBody();
+    auto body = result.GetPacketBody().eventRecord;
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.mstxRecord.rangeId, mstxRecord.rangeId);
     ASSERT_EQ(body.record.mstxRecord.stepId, mstxRecord.stepId);
@@ -445,7 +445,7 @@ TEST(ProtocolTest, test_protocol_parse_memrecord_max)
 
     EXPECT_TRUE(result.GetPacketHead().type == PacketType::RECORD);
 
-    auto body = result.GetPacketBody();
+    auto body = result.GetPacketBody().eventRecord;
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.memoryRecord.recordIndex, memOpRecord.recordIndex);
     ASSERT_EQ(body.record.memoryRecord.addr, memOpRecord.addr);
@@ -488,7 +488,7 @@ TEST(ProtocolTest, test_protocol_parse_memrecord_min)
 
     EXPECT_TRUE(result.GetPacketHead().type == PacketType::RECORD);
 
-    auto body = result.GetPacketBody();
+    auto body = result.GetPacketBody().eventRecord;
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.memoryRecord.recordIndex, memOpRecord.recordIndex);
     ASSERT_EQ(body.record.memoryRecord.addr, memOpRecord.addr);
@@ -528,7 +528,7 @@ TEST(ProtocolTest, test_protocol_parse_kernellaunchrecord_min)
 
     EXPECT_TRUE(result.GetPacketHead().type == PacketType::RECORD);
 
-    auto body = result.GetPacketBody();
+    auto body = result.GetPacketBody().eventRecord;
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.kernelLaunchRecord.recordIndex, kernelLaunchRecord.recordIndex);
     ASSERT_EQ(body.record.kernelLaunchRecord.kernelLaunchIndex, kernelLaunchRecord.kernelLaunchIndex);
@@ -564,7 +564,7 @@ TEST(ProtocolTest, test_protocol_parse_kernellaunchrecord_max)
 
     EXPECT_TRUE(result.GetPacketHead().type == PacketType::RECORD);
 
-    auto body = result.GetPacketBody();
+    auto body = result.GetPacketBody().eventRecord;
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.kernelLaunchRecord.recordIndex, kernelLaunchRecord.recordIndex);
     ASSERT_EQ(body.record.kernelLaunchRecord.kernelLaunchIndex, kernelLaunchRecord.kernelLaunchIndex);
@@ -598,7 +598,7 @@ TEST(ProtocolTest, test_protocol_parse_aclitfrecord_max)
 
     EXPECT_TRUE(result.GetPacketHead().type == PacketType::RECORD);
 
-    auto body = result.GetPacketBody();
+    auto body = result.GetPacketBody().eventRecord;
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.aclItfRecord.recordIndex, aclItfRecord.recordIndex);
     ASSERT_EQ(body.record.aclItfRecord.aclItfRecordIndex, aclItfRecord.aclItfRecordIndex);
@@ -630,7 +630,7 @@ TEST(ProtocolTest, test_protocol_parse_aclitfrecord_min)
 
     EXPECT_TRUE(result.GetPacketHead().type == PacketType::RECORD);
 
-    auto body = result.GetPacketBody();
+    auto body = result.GetPacketBody().eventRecord;
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.aclItfRecord.recordIndex, aclItfRecord.recordIndex);
     ASSERT_EQ(body.record.aclItfRecord.aclItfRecordIndex, aclItfRecord.aclItfRecordIndex);
@@ -657,7 +657,43 @@ TEST(ProtocolTest, test_protocol_parse_device_record)
 
     EXPECT_TRUE(result.GetPacketHead().type == PacketType::RECORD);
 
-    auto body = result.GetPacketBody();
+    auto body = result.GetPacketBody().eventRecord;
     ASSERT_EQ(body.type, record.type);
     ASSERT_EQ(body.record.memoryRecord.space, memOpRecord.space);
+}
+
+TEST(ProtocolTest, test_protocol_parse_log_record)
+{
+    std::string logMsg = "test";
+    Leaks::PacketHead head {Leaks::PacketType::LOG};
+    std::string buffer = Leaks::Serialize(head, logMsg.size());
+    buffer += logMsg;
+
+    Protocol protocol {};
+    protocol.Feed(buffer);
+
+    auto result = protocol.GetPacket();
+
+    EXPECT_TRUE(result.GetPacketHead().type == PacketType::LOG);
+
+    auto body = std::string(result.GetPacketBody().log.buf, result.GetPacketBody().log.buf + 4);
+    ASSERT_EQ(body, logMsg);
+}
+
+TEST(ProtocolTest, test_protocol_drop_user_bytes)
+{
+    std::string logMsg(2048, 'a');
+    Leaks::PacketHead head {Leaks::PacketType::LOG};
+    std::string buffer = Leaks::Serialize(head, logMsg.size());
+    buffer += logMsg;
+
+    Protocol protocol {};
+    protocol.Feed(buffer);
+
+    auto result = protocol.GetPacket();
+
+    EXPECT_TRUE(result.GetPacketHead().type == PacketType::LOG);
+
+    auto body = std::string(result.GetPacketBody().log.buf, result.GetPacketBody().log.buf + 2048);
+    ASSERT_EQ(body, logMsg);
 }
