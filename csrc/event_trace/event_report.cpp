@@ -44,7 +44,7 @@ MemOpSpace GetMemOpSpace(unsigned long long flag)
             space = MemOpSpace::DVPP;
             break;
         default:
-            std::cout << "No matching memType for " << memType << " ." << std::endl;
+            ClientErrorLog("No matching memType for " + std::to_string(memType));
     }
     return space;
 }
@@ -64,7 +64,7 @@ RTS_API rtError_t GetDevice(int32_t *devId)
     using RtGetDevice = decltype(&GetDevice);
     auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtGetDevice>(sym);
     if (vallina == nullptr) {
-        std::cout << "vallina func get FAILED" << std::endl;
+        ClientErrorLog("vallina func get FAILED: " + std::string(__func__));
         return RT_ERROR_RESERVED;
     }
     rtError_t ret = vallina(devId);
@@ -270,7 +270,7 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord)
 
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
-        std::cout << "[mark] RT_ERROR_INVALID_VALUE, " << devId << std::endl;
+        ClientErrorLog("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
     if (mstxRecord.markType == MarkType::RANGE_START_A && strcmp(mstxRecord.markMessage, "step start") == 0) {
@@ -293,13 +293,13 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord)
     if (mstxRecord.markType == MarkType::RANGE_START_A &&
         strcmp(mstxRecord.markMessage, "report host memory info start") == 0) {
         mstxRangeIdTables_[devId] = mstxRecord.rangeId;
-        std::cout << "Start Report Host Memory Info..." << std::endl;
+        ClientInfoLog("Start Report Host Memory Info...");
         isReportHostMem_ = true;
     } else if (mstxRecord.markType == MarkType::RANGE_END &&
         mstxRangeIdTables_.find(devId) != mstxRangeIdTables_.end() &&
         mstxRangeIdTables_[devId] == mstxRecord.rangeId) {
         mstxRangeIdTables_.erase(devId);
-        std::cout << "Stop Report Host Memory Info." << std::endl;
+        ClientInfoLog("Stop Report Host Memory Info.");
         isReportHostMem_ = false;
     }
 
@@ -317,7 +317,7 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
 
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
-        std::cout << "[kernellaunch] RT_ERROR_INVALID_VALUE, " << devId << std::endl;
+        ClientErrorLog("[kernellaunch] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
     auto eventRecord = EventRecord{};
@@ -325,7 +325,7 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
     // 解析kernelname信息，默认不解析，打开-p开关后才解析
     if (config_.parseKernelName && strncpy_s(kernelLaunchRecord.kernelName, sizeof(kernelLaunchRecord.kernelName),
         GetNameFromBinary(hdl).c_str(), sizeof(kernelLaunchRecord.kernelName) - 1) != EOK) {
-        std::cout << "strncpy_s FAILED" << std::endl;
+        ClientErrorLog("strncpy_s FAILED");
     }
     eventRecord.record.kernelLaunchRecord = CreateKernelLaunchRecord(kernelLaunchRecord);
     eventRecord.record.kernelLaunchRecord.devId = devId;
@@ -344,7 +344,7 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
             PacketHead head = {PacketType::RECORD};
             auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
             if (sendNums < 0) {
-                std::cout << "rtKernelLaunch report FAILED" << std::endl;
+                ClientErrorLog("rtKernelLaunch report FAILED");
                 return;
             }
             --runningThreads;
@@ -398,13 +398,13 @@ bool PipeCall(std::vector<std::string> const &cmd, std::string &output)
 {
     int pipeStdout[2];
     if (pipe(pipeStdout) != 0) {
-        std::cout << "PipeCall: get pipe failed" << std::endl;
+        ClientErrorLog("PipeCall: get pipe failed");
         return false;
     }
 
     pid_t pid = fork();
     if (pid < 0) {
-        std::cout << "PipeCall: create subprocess failed" << std::endl;
+        ClientErrorLog("PipeCall: create subprocess failed");
         return false;
     } else if (pid == 0) {
         dup2(pipeStdout[1], STDOUT_FILENO);
@@ -491,7 +491,7 @@ std::string GetNameFromBinary(const void *hdl)
     std::string kernelName;
     auto it = HandleMapping::GetInstance().handleBinKernelMap_.find(hdl);
     if (it == HandleMapping::GetInstance().handleBinKernelMap_.end()) {
-        std::cout << "kernel handle NOT registered in map" << std::endl;
+        ClientErrorLog("kernel handle NOT registered in map");
         return kernelName;
     }
     std::vector<char> binary = it->second.bin;
@@ -512,7 +512,7 @@ std::string GetNameFromBinary(const void *hdl)
     std::string output;
     bool ret = PipeCall(cmd, output);
     if (!ret) {
-        std::cout << "pipe call failed!" << std::endl;
+        ClientErrorLog("pipe call failed!");
         return kernelName;
     }
     kernelName = ParseNameFromOutput(output);

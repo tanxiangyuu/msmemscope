@@ -36,6 +36,10 @@ bool Protocol::Extractor::Read(uint64_t size, std::string &buffer)
     }
     return true;
 }
+uint64_t Protocol::Extractor::Size(void) const
+{
+    return bytes_.size() - offset_;
+}
 
 void Protocol::Extractor::DropUsedBytes(void)
 {
@@ -80,10 +84,30 @@ Packet Protocol::GetPayLoad(PacketHead head)
     switch (head.type) {
         case PacketType::RECORD:
             return GetRecord();
+        case PacketType::LOG:
+            return GetLog();
         case PacketType::INVALID:
         default:
             return Packet{};
     }
+}
+
+bool Protocol::GetStringData(std::string &data)
+{
+    thread_local static uint64_t size{};
+    if (size == 0UL) {
+        if (!extractor_->Read(size)) {
+            return false;
+        }
+    }
+    if (extractor_->Size() < size) {
+        return false;
+    }
+    if (!extractor_->Read(size, data)) {
+        return false;
+    }
+    size = 0UL;
+    return true;
 }
 
 Packet Protocol::GetRecord(void)
@@ -94,6 +118,12 @@ Packet Protocol::GetRecord(void)
     }
     auto packet = Packet(record);
     return packet;
+}
+
+Packet Protocol::GetLog(void)
+{
+    std::string buffer;
+    return GetStringData(buffer) ? Packet(buffer) : Packet();
 }
 
 }
