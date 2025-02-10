@@ -17,6 +17,9 @@
 constexpr mode_t REGULAR_MODE_MASK = 0177;
 
 namespace Leaks {
+extern bool g_isReportHostMem;
+extern bool g_isInReportFunction;
+
 /*
  * EventReport类主要功能：
  * 1. 将劫持记录的信息传回到工具进程
@@ -39,15 +42,12 @@ private:
     std::atomic<uint64_t> kernelLaunchRecordIndex_;
     std::atomic<uint64_t> aclItfRecordIndex_;
     bool IsNeedSkip();                      // 支持采集指定step
-    bool IsReportHostMem();                 // 支持采集指定范围内的malloc和free信息
     uint64_t currentStep_ = 0;
     AnalysisConfig config_;
     std::vector<std::thread> parseThreads_;
     uint32_t maxThreadNum = 200;            // 最大同时运行线程数
     std::atomic<uint32_t> runningThreads;   // 同时运行线程数
     std::unordered_map<int32_t, uint64_t> mstxRangeIdTables_{};
-    bool isReportHostMem_ = false;
-    bool isInReportFunction_ = false;
 };
 
 MemOpSpace GetMemOpSpace(unsigned long long flag);
