@@ -105,7 +105,7 @@ void HalAnalyzer::CheckLeak(const size_t clientId)
         }
     }
     if (!foundLeaks) {
-        Utility::LogInfo("[client %u]: There is no leak memory.", clientId);
+        Utility::LogInfo("[client %u]: There is no hal leak memory.", clientId);
     }
 }
 
