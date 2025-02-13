@@ -287,4 +287,18 @@ void StepInterAnalyzer::StepInterOfflineCompare(const std::vector<std::string> &
     }
 }
 
+constexpr double MICROSEC = 1000000.0;
+
+void StepInterCompare(const std::vector<std::string> &paths)
+{
+    StepInterAnalyzer stepInterAnalyzer;
+    Utility::LogInfo("Start to analyze stepinter memory data, please wait!");
+    auto start_time = Utility::GetTimeMicroseconds();
+    stepInterAnalyzer.StepInterOfflineCompare(paths);
+    auto end_time = Utility::GetTimeMicroseconds();
+    Utility::LogInfo("The stepinter memory analysis has been completed"
+        "in a total time of %.6f(s)", (end_time-start_time) / MICROSEC);
+    return ;
+}
+
 }

@@ -5,9 +5,11 @@
 
 #include <memory>
 #include <string>
+#include <map>
 #include <thread>
 #include "server_process.h"
-#include "config_info.h"
+#include "protocol.h"
+#include "analysis/analyzer_factory.h"
 
 namespace Leaks {
 struct ExecCmd {
@@ -32,15 +34,20 @@ public:
     explicit Process(const AnalysisConfig &config);
     ~Process() = default;
     void Launch(const std::vector<std::string> &execParams);
-    void RegisterMsgHandlerHook(ClientMsgHandlerHook msgHandler);
 private:
     void SetPreloadEnv();
     void DoLaunch(const ExecCmd &cmd);
     void PostProcess(const ExecCmd &cmd);
+
+    void MsgHandle(size_t &clientId, std::string &msg);
 private:
     std::unique_ptr<ServerProcess> server_;
+    std::map<ClientId, Protocol> protocolList_;
+    AnalysisConfig config_;
 };
 
+// 工厂优化后该函数日落
+void RecordHandler(const ClientId &clientId, const EventRecord &record, AnalyzerFactory &analyzerfactory);
 }
 
 #endif
