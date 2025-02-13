@@ -11,8 +11,6 @@
 #include <typeinfo>
 #include <iostream>
 
-#include "log.h"
-
 namespace Utility {
     inline uint64_t GetTid()
     {

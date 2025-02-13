@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include "utils.h"
 #include "umask_guard.h"
+#include "utils.h"
 
 namespace Utility {
 
