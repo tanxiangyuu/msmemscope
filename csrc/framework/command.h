@@ -6,17 +6,9 @@
 #include <vector>
 #include <string>
 #include <memory>
-#include "analysis/analyzer_factory.h"
-#include "analysis/mstx_analyzer.h"
-#include "analysis/dump_record.h"
-#include "analysis/trace_record.h"
-#include "analysis/stepinter_analyzer.h"
+#include "config_info.h"
 
 namespace Leaks {
-
-constexpr double MICROSEC = 1000000.0;
-
-void RecordHandler(const ClientId &clientId, const EventRecord &record, AnalyzerFactory &analyzerfactory);
 
 // Command类主要针对解析后的命令进行处理，是串接流程的主要类
 class Command {
