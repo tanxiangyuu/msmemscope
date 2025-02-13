@@ -76,8 +76,8 @@ void StepInnerAnalyzer::NotifyTraceRecord(const int32_t &devId, const TorchNpuRe
     ) {
         TorchMemLeakInfo info{
             devId,
-            npumemusages_[devId].mempooltable[ptr].timestamp,
-            torchNpuRecord.timeStamp - npumemusages_[devId].mempooltable[ptr].timestamp,
+            npumemusages_[devId].mempooltable[ptr].kernelIndex,
+            torchNpuRecord.kernelIndex - npumemusages_[devId].mempooltable[ptr].kernelIndex,
             ptr,
             -torchNpuRecord.memoryUsage.allocSize
         };
@@ -104,7 +104,7 @@ void StepInnerAnalyzer::RecordNpuMalloc(const ClientId &clientId, const DeviceId
         memoryusage.allocSize,
         npumemptr,
         npumemusages_[deviceId].mstxStep);
-    npumemusages_[deviceId].mempooltable[npumemptr].timestamp = torchnpuRecord.timeStamp;
+    npumemusages_[deviceId].mempooltable[npumemptr].kernelIndex = torchnpuRecord.kernelIndex;
     npumemusages_[deviceId].mempooltable[npumemptr].duration = 0;
     npumemusages_[deviceId].mempooltable[npumemptr].stepId = npumemusages_[deviceId].mstxStep;
     npumemusages_[deviceId].totalAllocated = memoryusage.totalAllocated;
