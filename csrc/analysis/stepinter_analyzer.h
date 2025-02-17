@@ -104,6 +104,7 @@ private:
     std::string dirPath_ = "leaksDumpResults";
 };
 
+void StepInterCompare(const std::vector<std::string> &paths);
 }
 
 #endif
