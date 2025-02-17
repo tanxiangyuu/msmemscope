@@ -11,6 +11,19 @@
 
 using namespace Leaks;
 
+MstxRecord CreatMstxRecord(MarkType type, const char* message, uint64_t stepId, uint64_t rangeId, uint64_t streamId)
+{
+    auto mstxRecord = MstxRecord {};
+    mstxRecord.markType = type;
+    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage), message,
+    sizeof(mstxRecord.markMessage));
+    mstxRecord.stepId = stepId;
+    mstxRecord.rangeId = rangeId;
+    mstxRecord.streamId = streamId;
+
+    return mstxRecord;
+}
+
 TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_sucess) {
     AnalysisConfig analysisConfig;
     StepInnerAnalyzer stepinneranalyzer{analysisConfig};
@@ -33,7 +46,7 @@ TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_sucess) {
     auto npuRecordFree = TorchNpuRecord {};
     npuRecordFree.recordIndex = 2;
     auto memoryusage2 = MemoryUsage {};
-    memoryusage2.dataType = 1;
+    memoryusage2.dataType = 2;
     memoryusage2.ptr = 12345;
     memoryusage2.allocSize = -512;
     memoryusage2.totalAllocated = 0;
@@ -56,7 +69,7 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks_warning) {
     mstxRecordStart1.markType = MarkType::RANGE_START_A;
     strncpy_s(mstxRecordStart1.markMessage, sizeof(mstxRecordStart1.markMessage), "step start",
     sizeof(mstxRecordStart1.markMessage));
-    mstxRecordStart1.rangeId = 1;
+    mstxRecordStart1.stepId = 1;
     mstxRecordStart1.streamId = 123;
 
     // 经过第二个step，但仍然未释放
@@ -64,12 +77,12 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks_warning) {
     mstxRecordStart2.markType = MarkType::RANGE_START_A;
     strncpy_s(mstxRecordStart2.markMessage, sizeof(mstxRecordStart2.markMessage), "step start",
     sizeof(mstxRecordStart2.markMessage));
-    mstxRecordStart2.rangeId = 2;
+    mstxRecordStart2.stepId = 2;
     mstxRecordStart2.streamId = 123;
 
     auto mstxRecordEnd = MstxRecord {};
     mstxRecordEnd.markType = MarkType::RANGE_END;
-    mstxRecordEnd.rangeId = 2;
+    mstxRecordEnd.stepId = 2;
     mstxRecordEnd.streamId = 123;
 
     // 经过两个step的内存
@@ -162,7 +175,7 @@ TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_free_error) {
     auto memoryusage = MemoryUsage {};
     memoryusage.deviceType = 20;
     memoryusage.deviceIndex = 0;
-    memoryusage.dataType = 1;
+    memoryusage.dataType = 2;
     memoryusage.allocatorType = 0;
     memoryusage.ptr = 12345;
     memoryusage.allocSize = -512;
@@ -184,17 +197,20 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks) {
     MstxAnalyzer::Instance().RegisterAnalyzer(analyzer);
 
     ClientId clientId = 0;
-    auto mstxRecordStart = MstxRecord {};
-    mstxRecordStart.markType = MarkType::RANGE_START_A;
-    strncpy_s(mstxRecordStart.markMessage, sizeof(mstxRecordStart.markMessage), "step start",
-    sizeof(mstxRecordStart.markMessage));
-    mstxRecordStart.rangeId = 1;
-    mstxRecordStart.streamId = 123;
+    // 第一个step会跳过
+    auto mstxRecordStartFirst = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 1, 1, 123);
+    auto mstxRecordEndFirst = CreatMstxRecord(MarkType::RANGE_END, "", 1, 1, 123);
 
-    auto mstxRecordEnd = MstxRecord {};
-    mstxRecordEnd.markType = MarkType::RANGE_END;
-    mstxRecordEnd.rangeId = 1;
-    mstxRecordEnd.streamId = 123;
+
+    // 第二个step发生泄漏
+    auto mstxRecordStartSecond = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 2, 2, 123);
+    auto mstxRecordEndSecond = CreatMstxRecord(MarkType::RANGE_END, "", 2, 2, 123);
+
+
+    // 构造第三个step时仍未释放的情景
+    auto mstxRecordStartThird = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 3, 3, 123);
+    auto mstxRecordEndThird = CreatMstxRecord(MarkType::RANGE_END, "", 3, 3, 123);
+
 
     // step前后allocated内存不一致
     auto record = EventRecord{};
@@ -209,7 +225,12 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks) {
     npuRecordMalloc.memoryUsage = memoryusage;
     record.record.torchNpuRecord = npuRecordMalloc;
 
-    EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStart));
+    MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStartFirst);
+    MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordEndFirst);
+    MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStartSecond);
     EXPECT_TRUE(analyzer->Record(clientId, record));
-    EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordEnd));
+    MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStartSecond);
+    EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStartThird));
+    EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordEndThird));
+    analyzer->~AnalyzerBase();
 }

@@ -29,7 +29,7 @@ class HalAnalyzer : public AnalyzerBase {
 public:
     explicit HalAnalyzer(const AnalysisConfig &config);
     bool Record(const ClientId &clientId, const EventRecord &record) override;
-    void ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t &rangeid, const MstxRecord &mstxrecord) override;
+    void ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t &stepid, const MstxRecord &mstxrecord) override;
     ~HalAnalyzer();
 private:
     std::unordered_map<ClientId, MemoryRecordTable> memtables_{};
