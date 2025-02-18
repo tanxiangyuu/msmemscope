@@ -25,6 +25,7 @@ constexpr uint64_t MEM_SVM_VAL = 0x0;
 constexpr uint64_t MEM_DEV_VAL = 0x1;
 constexpr uint64_t MEM_HOST_VAL = 0x2;
 constexpr uint64_t MEM_DVPP_VAL = 0x3;
+constexpr uint32_t MAX_THREAD_NUM = 200;
 
 MemOpSpace GetMemOpSpace(unsigned long long flag)
 {
@@ -310,11 +311,6 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
 
     auto eventRecord = EventRecord{};
     eventRecord.type = RecordType::KERNEL_LAUNCH_RECORD;
-    // 解析kernelname信息，默认不解析，打开-p开关后才解析
-    if (config_.parseKernelName && strncpy_s(kernelLaunchRecord.kernelName, sizeof(kernelLaunchRecord.kernelName),
-        GetNameFromBinary(hdl).c_str(), sizeof(kernelLaunchRecord.kernelName) - 1) != EOK) {
-        ClientErrorLog("strncpy_s FAILED");
-    }
     eventRecord.record.kernelLaunchRecord = CreateKernelLaunchRecord(kernelLaunchRecord);
     eventRecord.record.kernelLaunchRecord.devId = devId;
     eventRecord.record.kernelLaunchRecord.kernelLaunchIndex = ++kernelLaunchRecordIndex_;
@@ -322,10 +318,10 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
 
     if (config_.parseKernelName) {
         std::thread th = std::thread([eventRecord, hdl, this]()mutable {
-            while (runningThreads >= maxThreadNum) { // 达到最大线程数，等待直到有可用的线程
+            while (runningThreads_ >= MAX_THREAD_NUM) { // 达到最大线程数，等待直到有可用的线程
                 std::this_thread::sleep_for(std::chrono::milliseconds(100)); // 等待100ms
             }
-            ++runningThreads;
+            ++runningThreads_;
             strncpy_s(eventRecord.record.kernelLaunchRecord.kernelName,
                 sizeof(eventRecord.record.kernelLaunchRecord.kernelName), GetNameFromBinary(hdl).c_str(),
                 sizeof(eventRecord.record.kernelLaunchRecord.kernelName) - 1);
@@ -335,7 +331,7 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
                 ClientErrorLog("rtKernelLaunch report FAILED");
                 return;
             }
-            --runningThreads;
+            --runningThreads_;
         });
         parseThreads_.emplace_back(std::move(th));
     } else {
