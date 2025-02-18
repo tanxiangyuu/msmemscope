@@ -9,6 +9,7 @@ namespace Leaks {
 
 void Command::Exec() const
 {
+    Utility::LogInfo("Msleaks starts executing commands");
     if (userCommand_.config.enableCompare) {
         StepInterCompare(userCommand_.paths);
         return;

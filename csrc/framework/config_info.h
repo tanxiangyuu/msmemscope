@@ -11,6 +11,11 @@ namespace Leaks {
 
 constexpr uint8_t SELECTED_STEP_MAX_NUM = 5; // 先设定最多指定5个step的信息采集
 
+enum class LevelType : uint8_t {
+    LEVEL_0 = 0,
+    LEVEL_1,
+};
+
 struct SelectedStepList {
     uint32_t stepIdList[SELECTED_STEP_MAX_NUM];
     uint8_t stepCount;
@@ -18,10 +23,10 @@ struct SelectedStepList {
 
 // 内存分析算法配置
 struct AnalysisConfig {
-    bool parseKernelName; // 解析kernelname的开关
     SelectedStepList stepList;
     bool enableCompare;
     bool inputCorrectPaths;
+    LevelType levelType;
 };
 
 // 用于承载用户命令行参数的解析结果
