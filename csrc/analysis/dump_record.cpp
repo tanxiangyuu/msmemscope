@@ -155,8 +155,20 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
     if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, headers_)) {
         return false;
     }
-    fprintf(leaksDataFile_, "aclItfRecord,N/A,%lu,%lu,%lu,N/A,%lu,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,"
-            "N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A\n", aclItfRecord.pid, aclItfRecord.tid, clientId,
+    std::string name;
+    switch (aclItfRecord.type) {
+        case AclOpType::INIT:
+            name = "Init";
+            break;
+        case AclOpType::FINALIZE:
+            name = "Finalize";
+            break;
+        default:
+            name = "N/A";
+            break;
+    }
+    fprintf(leaksDataFile_, "aclItfRecord,%s,%lu,%lu,%lu,N/A,%lu,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,"
+            "N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A\n", name.c_str(), aclItfRecord.pid, aclItfRecord.tid, clientId,
             aclItfRecord.recordIndex, aclItfRecord.timeStamp, aclItfRecord.aclItfRecordIndex);
     return true;
 }
