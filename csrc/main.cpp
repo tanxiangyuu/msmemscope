@@ -6,7 +6,6 @@
 #include "utility/log.h"
 int32_t main(int32_t argc, char **argv)
 {
-    Utility::LogInfo("Msleaks start");
     Leaks::ClientParser parser;
     parser.Interpretor(argc, argv);
     return 0;
