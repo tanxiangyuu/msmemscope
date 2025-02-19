@@ -56,18 +56,32 @@ TEST(ClientParser, pass_help_parameter_expect_show_help_info)
     ASSERT_NE(capture.find("Usage"), std::string::npos);
 }
 
-TEST(ClientParser, pass_parse_kernel_name_parameter_expect_get_kernel_name)
+TEST(ClientParser, pass_valid_level_value_expect_level1)
 {
     std::vector<const char*> argv = {
         "msleaks",
-        "-p"
+        "--level=1"
     };
  
     /// Reset getopt states
     optind = 1;
     ClientParser cliParser;
     UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
-    ASSERT_TRUE(cmd.config.parseKernelName);
+    ASSERT_EQ(cmd.config.levelType, Leaks::LevelType::LEVEL_1);
+}
+
+TEST(ClientParser, pass_invalid_level_expect_show_help_info)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--level=3"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.printHelpInfo);
 }
  
 TEST(ClientParser, pass_empty_prog_name_expect_get_empty_bin_cmd)
@@ -163,6 +177,20 @@ TEST(ClientParser, test_invalid_select_steps)
     };
  
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.printHelpInfo);
+}
+
+TEST(ClientParser, test_exceed_five_steps_expect_print_help_info)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--steps=1,2,3,4,5,6"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_TRUE(cmd.printHelpInfo);
 }
 

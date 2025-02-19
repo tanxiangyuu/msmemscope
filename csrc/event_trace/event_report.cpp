@@ -316,7 +316,7 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
     eventRecord.record.kernelLaunchRecord.kernelLaunchIndex = ++kernelLaunchRecordIndex_;
     eventRecord.record.kernelLaunchRecord.recordIndex = ++recordIndex_;
 
-    if (config_.parseKernelName) {
+    if (config_.levelType == LevelType::LEVEL_1) {
         std::thread th = std::thread([eventRecord, hdl, this]()mutable {
             while (runningThreads_ >= MAX_THREAD_NUM) { // 达到最大线程数，等待直到有可用的线程
                 std::this_thread::sleep_for(std::chrono::milliseconds(100)); // 等待100ms
