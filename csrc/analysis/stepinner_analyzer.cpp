@@ -57,7 +57,7 @@ bool StepInnerAnalyzer::CreateLeakSumTables(const DeviceId &deviceId)
 
 bool StepInnerAnalyzer::IsStepInnerAnalysisEnable()
 {
-    // 当开启--steps时，关闭所有分析功能，只保留记录torch_npu信息的功能
+    // 当开启--steps时，关闭所有分析功能
     if (config_.stepList.stepCount!=0) {
         return false;
     }
@@ -94,25 +94,26 @@ void StepInnerAnalyzer::CheckNpuLeak(const DeviceId &deviceId, const uint64_t st
         if (SkipCheck(pair.second)) {
             continue;
         }
-        if (pair.second.duration >= durationThreshold_) {
-            Utility::LogWarn(
-                "[npu %d][step %lu]: ptr: %llx has last for %lu steps. Please check if there is memory leaks.",
-                deviceId, stepId, pair.first, pair.second.duration);
-            if (!CreateLeakSumTables(deviceId)) {
-                Utility::LogError("[device %ld]: Create leaksums table failed.", deviceId);
-                return;
-            }
-            if (leakMemSums_[deviceId].find(LeakMemKey(pair.first, pair.second.stepId)) ==
-                leakMemSums_[deviceId].end()) {
-                LeakInfo leakInfo{};
-                leakMemSums_[deviceId].emplace(LeakMemKey(pair.first, pair.second.stepId), leakInfo);
-            }
-
-            leakMemSums_[deviceId][LeakMemKey(pair.first, pair.second.stepId)].kernelIndex =
-                pair.second.kernelIndex;
-            leakMemSums_[deviceId][LeakMemKey(pair.first, pair.second.stepId)].leakSize =
-                npuMemUsages_[deviceId].mempooltable[pair.first].memSize;
+        if (pair.second.duration < durationThreshold_) {
+            continue;
         }
+        Utility::LogWarn(
+            "[npu %d][step %lu]: ptr: %llx has last for %lu steps. Please check if there is memory leaks.",
+            deviceId, stepId, pair.first, pair.second.duration);
+        if (!CreateLeakSumTables(deviceId)) {
+            Utility::LogError("[device %ld]: Create leaksums table failed.", deviceId);
+            return;
+        }
+        if (leakMemSums_[deviceId].find(LeakMemKey(pair.first, pair.second.stepId)) ==
+            leakMemSums_[deviceId].end()) {
+            LeakInfo leakInfo{};
+            leakMemSums_[deviceId].emplace(LeakMemKey(pair.first, pair.second.stepId), leakInfo);
+        }
+
+        leakMemSums_[deviceId][LeakMemKey(pair.first, pair.second.stepId)].kernelIndex =
+            pair.second.kernelIndex;
+        leakMemSums_[deviceId][LeakMemKey(pair.first, pair.second.stepId)].leakSize =
+            npuMemUsages_[deviceId].mempooltable[pair.first].memSize;
     }
     return;
 }
@@ -125,8 +126,8 @@ void StepInnerAnalyzer::NotifyTraceRecord(const int32_t &devId, const TorchNpuRe
     ) {
         TorchMemLeakInfo info{
             devId,
-            npuMemUsages_[devId].mempooltable[ptr].timestamp,
-            torchNpuRecord.timeStamp - npuMemUsages_[devId].mempooltable[ptr].timestamp,
+            npuMemUsages_[devId].mempooltable[ptr].kernelIndex,
+            torchNpuRecord.kernelIndex - npuMemUsages_[devId].mempooltable[ptr].kernelIndex,
             ptr,
             -torchNpuRecord.memoryUsage.allocSize
         };
@@ -140,8 +141,7 @@ void StepInnerAnalyzer::RecordNpuMalloc(const ClientId &clientId, const DeviceId
 {
     MemoryUsage memoryusage = torchnpuRecord.memoryUsage;
     uint64_t npumemptr = memoryusage.ptr;
-    if (IsStepInnerAnalysisEnable() &&
-        (npuMemUsages_[deviceId].mempooltable.find(npumemptr) != npuMemUsages_[deviceId].mempooltable.end())) {
+    if ((npuMemUsages_[deviceId].mempooltable.find(npumemptr) != npuMemUsages_[deviceId].mempooltable.end())) {
         Utility::LogError(
             "[npu%d malloc][client %u]:!!! ------double malloc------!!!, ptr: %lld", deviceId, clientId, npumemptr);
     }
@@ -170,8 +170,7 @@ void  StepInnerAnalyzer::RecordNpuFree(const ClientId &clientId, const DeviceId 
 {
     MemoryUsage memoryusage = torchnpuRecord.memoryUsage;
     uint64_t npumemptr = memoryusage.ptr;
-    if (IsStepInnerAnalysisEnable() &&
-         (npuMemUsages_[deviceId].mempooltable.find(npumemptr) == npuMemUsages_[deviceId].mempooltable.end())) {
+    if ((npuMemUsages_[deviceId].mempooltable.find(npumemptr) == npuMemUsages_[deviceId].mempooltable.end())) {
         Utility::LogError(
             "[npu%d free][client %u]:!!! ------free error------!!!, ptr: %lld", deviceId, clientId, npumemptr);
     }
@@ -218,6 +217,10 @@ int64_t StepInnerAnalyzer::GetNowAllocated(const DeviceId &deviceId)
 
 bool StepInnerAnalyzer::Record(const ClientId &clientId, const EventRecord &record)
 {
+    // 当开启--steps时，关闭所有step内分析功能
+    if (!IsStepInnerAnalysisEnable()) {
+        return true;
+    }
     TorchNpuRecord torchnpuRecord = record.record.torchNpuRecord;
     DeviceId deviceId = torchnpuRecord.memoryUsage.deviceIndex;
     if (!CreateTables(deviceId)) {
@@ -295,7 +298,7 @@ void StepInnerAnalyzer::ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t 
     auto leakCompare = [](const std::pair<LeakMemKey, LeakInfo> &a, const std::pair<LeakMemKey, LeakInfo> &b) {
         if (a.first.leakStepId != b.first.leakStepId) {
             return a.first.leakStepId < b.first.leakStepId;
-        } 
+        }
     };
     std::sort(leakVec.begin(), leakVec.end(), leakCompare);
     // 输出泄漏信息总结

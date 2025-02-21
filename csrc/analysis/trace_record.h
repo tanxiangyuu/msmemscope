@@ -28,7 +28,7 @@ struct JsonBaseInfo {
 
 struct TorchMemLeakInfo {
     int32_t devId;
-    uint64_t timestamp;
+    uint64_t kernelIndex;
     uint64_t duration;
     uint64_t addr;
     int64_t size;
@@ -39,9 +39,32 @@ struct FileInfo {
     std::string filePath;
 };
 
+struct MemAllocationInfo {
+    uint64_t size;
+    int32_t devId;
+};
+
 struct EventPid {
     uint64_t pid;
     std::string name;
+};
+
+struct Device {
+    DeviceType type;
+    int32_t index;
+    bool operator==(const Device& other) const
+    {
+        return type == other.type && index == other.index;
+    }
+};
+
+struct DeviceStructHash {
+    size_t operator()(const Device& d) const
+    {
+        size_t hash1 = std::hash<uint8_t>{}(static_cast<uint8_t>(d.type));
+        size_t hash2 = std::hash<int32_t>{}(d.index);
+        return hash1 ^ (hash2 << 1);
+    }
 };
 
 class TraceRecord {
@@ -50,8 +73,8 @@ public:
     void TraceHandler(const EventRecord &record);
     void ProcessTorchMemLeakInfo(const TorchMemLeakInfo &info);
 
-    std::unordered_map<int32_t, std::unordered_set<uint64_t>> truePids_;
-    std::unordered_map<int32_t, FileInfo> traceFiles_;
+    std::unordered_map<Device, std::unordered_set<uint64_t>, DeviceStructHash> truePids_;
+    std::unordered_map<Device, FileInfo, DeviceStructHash> traceFiles_;
 
 private:
     TraceRecord();
@@ -61,32 +84,42 @@ private:
     TraceRecord(TraceRecord&& other) = delete;
     TraceRecord& operator=(TraceRecord&& other) = delete;
 
-    void RecordToString(const MemOpRecord &memrecord, std::string &str);
-    void RecordToString(const KernelLaunchRecord &kernelLaunchRecord, std::string &str);
-    void RecordToString(const AclItfRecord &aclItfRecord, std::string &str);
-    void RecordToString(const TorchNpuRecord &torchNpuRecord, std::string &str);
-    void RecordToString(const MstxRecord &mstxRecord, std::string &str);
+    void MemRecordToString(MemOpRecord &memRecord, std::string &str);
+    void NpuMemRecordToString(MemOpRecord &memRecord, std::string &str);
+    void CpuMemRecordToString(const MemOpRecord &memRecord, std::string &str);
+    void KernelLaunchRecordToString(const KernelLaunchRecord &kernelLaunchRecord, std::string &str);
+    void AclItfRecordToString(const AclItfRecord &aclItfRecord, std::string &str);
+    void TorchRecordToString(const TorchNpuRecord &torchNpuRecord, std::string &str);
+    void MstxRecordToString(const MstxRecord &mstxRecord, std::string &str);
     void TorchMemLeakInfoToString(const TorchMemLeakInfo &info, std::string &str);
 
     bool CheckStrHasContent(const std::string &str);
-    bool CheckFileExistWithDeviceId(const int32_t &devId);
-    void SafeWriteString(const std::string &str, const int32_t &devId);
-    bool CreateFileWithDeviceId(const int32_t &devId);
+    bool CheckFileExistByDevice(const Device &device);
+    void SafeWriteString(const std::string &str, const Device &device);
+    bool CreateFileByDevice(const Device &device);
 
-    bool ProcessRecord(const EventRecord &record);
-    void SetMetadataEvent(const int32_t &devId);
+    void ProcessRecord(const EventRecord &record);
+    void SetMetadataEvent(const Device &device);
 
     uint64_t mstxEventPid_ = 0;
     uint64_t leakEventPid_ = 1;
     std::vector<EventPid> eventPids_;
 
     std::mutex createFileMutex_;
-    std::unordered_map<int32_t, std::mutex> writeFileMutex_;
-    
-    std::unordered_map<int32_t, std::unordered_map<uint64_t, uint64_t>> deviceMemAllocation_;
-    std::unordered_map<int32_t, uint64_t> deviceMemUsage_;
+    std::unordered_map<Device, std::mutex, DeviceStructHash> writeFileMutex_;
 
-    std::unordered_map<int32_t, std::unordered_map<uint64_t, uint64_t>> stepStartTime_;
+    std::mutex halMemMutex_;
+    std::unordered_map<uint64_t, MemAllocationInfo> halDeviceMemAllocation_;
+    std::unordered_map<int32_t, uint64_t> halDeviceMemUsage_;
+    std::unordered_map<uint64_t, MemAllocationInfo> halHostMemAllocation_;
+    std::unordered_map<int32_t, uint64_t> halHostMemUsage_;
+
+    std::mutex hostMemMutex_;
+    std::unordered_map<uint64_t, uint64_t> hostMemAllocation_;
+    uint64_t hostMemUsage_ = 0;
+
+    std::mutex stepStartIndexMutex_;
+    std::unordered_map<int32_t, std::unordered_map<uint64_t, uint64_t>> stepStartIndex_;
 };
 }
 #endif

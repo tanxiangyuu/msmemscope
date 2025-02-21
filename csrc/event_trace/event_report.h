@@ -45,8 +45,7 @@ private:
     uint64_t currentStep_ = 0;
     AnalysisConfig config_;
     std::vector<std::thread> parseThreads_;
-    uint32_t maxThreadNum = 200;            // 最大同时运行线程数
-    std::atomic<uint32_t> runningThreads;   // 同时运行线程数
+    std::atomic<uint32_t> runningThreads_;   // 同时运行线程数
     std::unordered_map<int32_t, uint64_t> mstxRangeIdTables_{};
 };
 

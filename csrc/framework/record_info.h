@@ -28,7 +28,7 @@ enum class MemoryAllocatorType {
 };
 
 struct MemoryUsage {
-    int8_t deviceType;          // 20-npu; 0-cpu
+    int8_t deviceType;          // 20-npu
     int8_t deviceIndex;
     uint8_t dataType;           // 0-malloc, 1-free, 2-block_free
     uint8_t allocatorType;      // 0-Inner(for PTA), 1-external(for GE)
@@ -79,6 +79,11 @@ enum class KernelLaunchType : uint8_t {
     FLAGV2,
 };
 
+enum class DeviceType : uint8_t {
+    NPU = 0,
+    CPU = 1,
+};
+
 struct MemOpRecord {
     uint64_t recordIndex;       // 记录索引
     uint64_t kernelIndex;       // 当前所属kernellaunch索引
@@ -86,6 +91,7 @@ struct MemOpRecord {
     int32_t modid;              // moduleID
     uint64_t pid;
     uint64_t tid;
+    DeviceType devType;         // 所属device类型，0为npu，1为cpu
     int32_t devId;              // 所属device id
     MemOpType memType;          // 内存操作类型：malloc还是free
     MemOpSpace space;           // 内存操作空间：device还是host
@@ -99,7 +105,8 @@ struct AclItfRecord {
     uint64_t tid;
     int32_t devId;              // 所属device id
     uint64_t recordIndex;       // 记录索引
-    uint64_t aclItfRecordIndex;      // aclItf索引
+    uint64_t kernelIndex;       // 当前所属kernellaunch索引
+    uint64_t aclItfRecordIndex; // aclItf索引
     AclOpType type;             // 资源申请还是释放
     uint64_t timeStamp;
 };
@@ -133,7 +140,8 @@ struct MstxRecord {
     int32_t streamId;           // streamId, range end对应的值为-1
     uint64_t stepId;            // 只有Range类型才有stepId, 默认为0, 记录当前step的ID编号，从1开始递增
     char markMessage[64U];
-    uint64_t recordIndex; // 记录索引
+    uint64_t recordIndex;       // 记录索引
+    uint64_t kernelIndex;       // 当前所属kernellaunch索引
 };
 
 enum class RecordType {
