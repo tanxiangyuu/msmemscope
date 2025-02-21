@@ -6,6 +6,7 @@
 #include "utils.h"
 #include "file.h"
 #include "umask_guard.h"
+#include "config_info.h"
 
 namespace Leaks {
 constexpr uint32_t DEFAULT_UMASK_FOR_JSON_FILE = 0177;
@@ -106,14 +107,14 @@ bool TraceRecord::CreateFileWithDeviceId(const int32_t &devId)
         return true;
     }
 
-    std::string dirPath = "leaksDumpResults";
-    if (!Utility::MakeDir(dirPath)) {
+    if (!Utility::MakeDir(OUTPUT_DIR_PATH)) {
         return false;
     }
 
     std::lock_guard<std::mutex> lock(createFileMutex_);
 
-    std::string filePath = dirPath + "/device" + std::to_string(devId) + "_trace_" + Utility::GetDateStr() + ".json";
+    std::string filePath = OUTPUT_DIR_PATH + "/device" + std::to_string(devId) +
+            "_trace_" + Utility::GetDateStr() + ".json";
     Utility::UmaskGuard guard{DEFAULT_UMASK_FOR_JSON_FILE};
     FILE* fp = fopen(filePath.c_str(), "a");
     if (fp != nullptr) {

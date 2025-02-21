@@ -101,7 +101,6 @@ private:
         "total_reserved_diff,total_active_diff,total_allocated_diff,total_reserved_diff,total_active_diff,"
         "diff_total_allocated,diff_total_reserved,diff_total_active\n";
     std::string fileNamePrefix_ = "stepintercompare";
-    std::string dirPath_ = "leaksDumpResults";
 };
 
 void StepInterCompare(const std::vector<std::string> &paths);
