@@ -69,13 +69,13 @@ public:
     explicit StepInnerAnalyzer(const AnalysisConfig &config);
     bool Record(const ClientId &clientId, const EventRecord &record) override;
     void ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t &stepId, const MstxRecord &mstxRecord) override;
+    ~StepInnerAnalyzer();
+private:
     void AddDuration(const DeviceId &deviceId);
     void SetStepId(const DeviceId &deviceId, const uint64_t &stepId);
     int64_t GetNowAllocated(const DeviceId &deviceId);
     void CheckNpuLeak(const DeviceId &deviceId, const uint64_t stepId);
     void NotifyTraceRecord(const int32_t &devId, const TorchNpuRecord &torchnpuRecord);
-    ~StepInnerAnalyzer();
-private:
     bool CreateMstxTables(const DeviceId &deviceId);
     bool CreateTables(const DeviceId &deviceId);
     bool CreateLeakSumTables(const DeviceId &deviceId);

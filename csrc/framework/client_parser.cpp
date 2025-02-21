@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <getopt.h>
 #include <regex>
+#include <algorithm>
 #include "command.h"
 
 #include "ustring.h"
@@ -16,7 +17,8 @@ namespace Leaks {
 enum class OptVal : int32_t {
     SELECT_STEPS = 0,
     COMPARE,
-    INPUT
+    INPUT,
+    LEVEL
 };
 
 void ShowDescription()
@@ -35,7 +37,8 @@ void ShowHelpInfo()
         "  basic user options, with default in [ ]:" << std::endl <<
         "    -h --help                      Show this message." << std::endl <<
         "    -v --version                   Show version." << std::endl <<
-        "    -p --parse-kernel-name         Enable parse kernelLaunch name." << std::endl <<
+        "    --level=<level>                Set the data parsing level" << std::endl <<
+        "                                   Level [1] for more detail info(default:0)" << std::endl <<
         "    --steps=1,2,3,...              Select the steps to collect memory information." << std::endl <<
         "                                   The input step numbers need to be separated by, or ，." << std::endl <<
         "                                   The maximum number of steps is 5" << std::endl <<
@@ -92,10 +95,10 @@ std::vector<option> GetLongOptArray()
     std::vector<option> longOpts = {
         {"help", no_argument, nullptr, 'h'},
         {"version", no_argument, nullptr, 'v'},
-        {"parse-kernel-name", no_argument, nullptr, 'p'},
         {"steps", required_argument, nullptr, static_cast<int32_t>(OptVal::SELECT_STEPS)},
         {"compare", no_argument, nullptr, static_cast<int32_t>(OptVal::COMPARE)},
         {"input", required_argument, nullptr, static_cast<int32_t>(OptVal::INPUT)},
+        {"level", required_argument, nullptr, static_cast<int32_t>(OptVal::LEVEL)},
         {nullptr, 0, nullptr, 0},
     };
     return longOpts;
@@ -125,18 +128,21 @@ static void ParseSelectSteps(const std::string &param, UserCommand &userCommand)
     userCommand.config.stepList.stepCount = 0;
     std::regex numberPattern(R"(^[1-9]\d*$)");
 
+    auto parseFailed = [&userCommand](void) {
+        std::cout << "[msleaks] ERROR: invalid steps input." << std::endl;
+        userCommand.printHelpInfo = true;
+    };
+
     while (it != end) {
         SelectedStepList &stepListInfo = userCommand.config.stepList;
 
         if (stepListInfo.stepCount >= SELECTED_STEP_MAX_NUM) {
-            break;
+            return parseFailed();
         }
         std::string step = it->str();
         if (!step.empty()) {
             if (!std::regex_match(step, numberPattern)) {
-                std::cout << "[msleaks] ERROR: invalid steps input." << std::endl;
-                userCommand.printHelpInfo = true;
-                break;
+                return parseFailed();
             }
             stepListInfo.stepIdList[stepListInfo.stepCount] = stoi(it->str());
             stepListInfo.stepCount++;
@@ -170,6 +176,22 @@ static void ParseInputPaths(const std::string param, UserCommand &userCommand)
     }
 }
 
+static void ParseDataLevel(const std::string param, UserCommand &userCommand)
+{
+    std::vector<std::string> validLevelValues = {"0", "1"};
+
+    uint8_t mode;
+    if (std::find(validLevelValues.begin(), validLevelValues.end(), param) == validLevelValues.end()) {
+        std::cout << "[msleaks] ERROR: --level param is invalid. "
+                  << "optional value: 0,1, default:0" << std::endl;
+        userCommand.printHelpInfo = true;
+        return ;
+    } else {
+        mode = std::stoi(param);
+        userCommand.config.levelType = static_cast<LevelType>(mode);
+    }
+}
+
 void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand &userCommand)
 {
     switch (opt) {
@@ -183,9 +205,6 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
         case 'v': // for --version
             userCommand.printVersionInfo = true;
             break;
-        case 'p': // parse kernel name
-            userCommand.config.parseKernelName = true;
-            break;
         case static_cast<int32_t>(OptVal::SELECT_STEPS):
             ParseSelectSteps(param, userCommand);
             break;
@@ -195,6 +214,8 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
         case static_cast<int32_t>(OptVal::INPUT):
             ParseInputPaths(param, userCommand);
             break;
+        case static_cast<int32_t>(OptVal::LEVEL):
+            ParseDataLevel(param, userCommand);
         default:
             ;
     }
@@ -202,10 +223,10 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
 
 void ClientParser::InitialUserCommand(UserCommand &userCommand)
 {
-    userCommand.config.parseKernelName = false;
     userCommand.config.stepList.stepCount = 0;
     userCommand.config.enableCompare = false;
     userCommand.config.inputCorrectPaths = false;
+    userCommand.config.levelType = LevelType::LEVEL_0;
 }
 
 UserCommand ClientParser::Parse(int32_t argc, char **argv)

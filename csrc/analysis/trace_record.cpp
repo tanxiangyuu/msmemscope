@@ -81,6 +81,11 @@ inline std::string FormatMetadataEvent(JsonBaseInfo baseInfo, std::string args)
     return oss.str();
 }
 
+inline std::string FormatDeviceName(Device device)
+{
+    return device.type == DeviceType::CPU ? "cpu" : "npu" + std::to_string(device.index);
+}
+
 TraceRecord& TraceRecord::GetInstance()
 {
     static TraceRecord instance;
@@ -95,14 +100,12 @@ TraceRecord::TraceRecord()
 
 void TraceRecord::TraceHandler(const EventRecord &record)
 {
-    if (!ProcessRecord(record)) {
-        Utility::LogWarn("Record was not processed correctly.");
-    }
+    ProcessRecord(record);
 }
 
-bool TraceRecord::CreateFileWithDeviceId(const int32_t &devId)
+bool TraceRecord::CreateFileByDevice(const Device &device)
 {
-    if (traceFiles_[devId].fp != nullptr) {
+    if (traceFiles_[device].fp != nullptr) {
         return true;
     }
 
@@ -113,15 +116,16 @@ bool TraceRecord::CreateFileWithDeviceId(const int32_t &devId)
 
     std::lock_guard<std::mutex> lock(createFileMutex_);
 
-    std::string filePath = dirPath + "/device" + std::to_string(devId) + "_trace_" + Utility::GetDateStr() + ".json";
+    std::string fileHead = FormatDeviceName(device);
+    std::string filePath = dirPath + "/" + fileHead + "_trace_" + Utility::GetDateStr() + ".json";
     Utility::UmaskGuard guard{DEFAULT_UMASK_FOR_JSON_FILE};
     FILE* fp = fopen(filePath.c_str(), "a");
     if (fp != nullptr) {
         fprintf(fp, "[\n");
-        traceFiles_[devId].fp = fp;
-        traceFiles_[devId].filePath = filePath;
+        traceFiles_[device].fp = fp;
+        traceFiles_[device].filePath = filePath;
     } else {
-        Utility::LogError("Device %d open file %s error", devId, filePath.c_str());
+        Utility::LogError("Device %s open file %s error", fileHead.c_str(), filePath.c_str());
         return false;
     }
 
@@ -136,24 +140,25 @@ bool TraceRecord::CheckStrHasContent(const std::string &str)
     return true;
 }
 
-void TraceRecord::SafeWriteString(const std::string &str, const int32_t &devId)
+void TraceRecord::SafeWriteString(const std::string &str, const Device &device)
 {
-    if (devId < 0) {
+    if (device.index == GD_INVALID_NUM || device.index < 0) {
+        Utility::LogWarn("Invalid device id %d.", device.index);
         return;
     }
-    if (!CreateFileWithDeviceId(devId)) {
-        Utility::LogError("Create file for device %d failed.", devId);
+    if (!CreateFileByDevice(device)) {
+        Utility::LogError("Create file for device %s failed.", FormatDeviceName(device).c_str());
         return;
     }
-    std::lock_guard<std::mutex> lock(writeFileMutex_[devId]);
-    fprintf(traceFiles_[devId].fp, "%s", str.c_str());
+    std::lock_guard<std::mutex> lock(writeFileMutex_[device]);
+    fprintf(traceFiles_[device].fp, "%s", str.c_str());
 }
 
 void TraceRecord::ProcessTorchMemLeakInfo(const TorchMemLeakInfo &info)
 {
     std::string str;
     TorchMemLeakInfoToString(info, str);
-    SafeWriteString(str, info.devId);
+    SafeWriteString(str, Device{DeviceType::NPU, info.devId});
     return;
 }
 
@@ -161,43 +166,45 @@ void TraceRecord::TorchMemLeakInfoToString(const TorchMemLeakInfo &info, std::st
 {
     uint64_t tid = 0;
     std::string args = "\"addr\": " + std::to_string(info.addr) + ",\"size\": " + std::to_string(info.size);
-    JsonBaseInfo baseInfo{"mem " + std::to_string(info.addr) + " leak", leakEventPid_, tid, info.timestamp};
+    JsonBaseInfo baseInfo{"mem " + std::to_string(info.addr) + " leak", leakEventPid_, tid, info.kernelIndex};
     str = FormatCompleteEvent(baseInfo, info.duration, args);
 }
 
-bool TraceRecord::ProcessRecord(const EventRecord &record)
+void TraceRecord::ProcessRecord(const EventRecord &record)
 {
     std::string str = "";
-    int32_t devId = -1;
+    Device device{DeviceType::NPU, GD_INVALID_NUM};
+
     switch (record.type) {
         case RecordType::MEMORY_RECORD: {
             auto memRecord = record.record.memoryRecord;
-            devId = memRecord.devId;
-            RecordToString(memRecord, str);
+            MemRecordToString(memRecord, str);
+            device.type = memRecord.devType;
+            device.index = memRecord.devId;
             break;
         }
         case RecordType::KERNEL_LAUNCH_RECORD: {
             auto kernelLaunchRecord = record.record.kernelLaunchRecord;
-            devId = kernelLaunchRecord.devId;
-            RecordToString(kernelLaunchRecord, str);
+            device.index = kernelLaunchRecord.devId;
+            KernelLaunchRecordToString(kernelLaunchRecord, str);
             break;
         }
         case RecordType::ACL_ITF_RECORD: {
             auto aclItfRecord = record.record.aclItfRecord;
-            devId = aclItfRecord.devId;
-            RecordToString(aclItfRecord, str);
+            device.index = aclItfRecord.devId;
+            AclItfRecordToString(aclItfRecord, str);
             break;
         }
         case RecordType::TORCH_NPU_RECORD: {
             TorchNpuRecord torchNpuRecord = record.record.torchNpuRecord;
-            devId = torchNpuRecord.devId;
-            RecordToString(torchNpuRecord, str);
+            device.index = torchNpuRecord.devId;
+            TorchRecordToString(torchNpuRecord, str);
             break;
         }
         case RecordType::MSTX_MARK_RECORD: {
             MstxRecord mstxRecord = record.record.mstxRecord;
-            devId = mstxRecord.devId;
-            RecordToString(mstxRecord, str);
+            device.index = mstxRecord.devId;
+            MstxRecordToString(mstxRecord, str);
             break;
         }
         default:
@@ -205,52 +212,110 @@ bool TraceRecord::ProcessRecord(const EventRecord &record)
     }
 
     if (!CheckStrHasContent(str)) {
-        return false;
+        return;
     }
-    SafeWriteString(str, devId);
-    return true;
+    SafeWriteString(str, device);
+    return;
 }
 
-void TraceRecord::RecordToString(const MemOpRecord &memRecord, std::string &str)
+void TraceRecord::NpuMemRecordToString(MemOpRecord &memRecord, std::string &str)
 {
     int32_t devId = memRecord.devId;
     uint64_t addr = memRecord.addr;
     uint64_t size = memRecord.memSize;
+    MemOpSpace space = memRecord.space;
+    bool isHost = false;
 
-    // 最终统计的结果只包含device的数据
-    if (memRecord.space == MemOpSpace::DEVICE && memRecord.memType == MemOpType::MALLOC) {
-        deviceMemAllocation_[devId][addr] = size;
-        deviceMemUsage_[devId] = Utility::GetAddResult(deviceMemUsage_[devId], size);
-    } else if (memRecord.space == MemOpSpace::INVALID) {
-        if (deviceMemAllocation_[devId].find(addr) == deviceMemAllocation_[devId].end()) {
-            Utility::LogWarn("No memory allocation record for the freed addr %llx.", addr);
+    std::lock_guard<std::mutex> lock(halMemMutex_);
+    if (memRecord.memType == MemOpType::MALLOC) {
+        if (space == MemOpSpace::DEVICE) {
+            halDeviceMemAllocation_[addr] = MemAllocationInfo{size, devId};
+            halDeviceMemUsage_[devId] = Utility::GetAddResult(halDeviceMemUsage_[devId], size);
+        } else if (space == MemOpSpace::HOST) {
+            halHostMemAllocation_[addr] = MemAllocationInfo{size, devId};
+            halHostMemUsage_[devId] = Utility::GetAddResult(halHostMemUsage_[devId], size);
+            isHost = true;
+        } else {
+            Utility::LogWarn("Invalid space.");
             return;
         }
-        deviceMemUsage_[devId] = Utility::GetSubResult(deviceMemUsage_[devId], deviceMemAllocation_[devId][addr]);
-        deviceMemAllocation_[devId].erase(addr);
     } else {
-        return;
+        if (halDeviceMemAllocation_.find(addr) != halDeviceMemAllocation_.end()) {
+            devId = halDeviceMemAllocation_[addr].devId;
+            halDeviceMemUsage_[devId] = Utility::GetSubResult(halDeviceMemUsage_[devId],
+                                                              halDeviceMemAllocation_[addr].size);
+            halDeviceMemAllocation_.erase(addr);
+        } else if (halHostMemAllocation_.find(addr) != halHostMemAllocation_.end()) {
+            devId = halHostMemAllocation_[addr].devId;
+            halHostMemUsage_[devId] = Utility::GetSubResult(halHostMemUsage_[devId],
+                                                            halHostMemAllocation_[addr].size);
+            halHostMemAllocation_.erase(addr);
+            isHost = true;
+        } else {
+            Utility::LogWarn("Invalid free addr %llx.", addr);
+            return;
+        }
     }
 
-    truePids_[devId].insert(memRecord.pid);
-    JsonBaseInfo baseInfo{"device memory", memRecord.pid, memRecord.tid, memRecord.timeStamp};
-    str = FormatCounterEvent(baseInfo, std::to_string(deviceMemUsage_[devId]));
+    std::string spaceName = isHost ? "host memory" : "device memory";
+    uint64_t memUsage = isHost ? halHostMemUsage_[devId] : halDeviceMemUsage_[devId];
+    JsonBaseInfo baseInfo{spaceName, memRecord.pid, memRecord.tid, memRecord.kernelIndex};
+    str = FormatCounterEvent(baseInfo, std::to_string(memUsage));
+
+    memRecord.devId = devId;
     return;
 }
 
-void TraceRecord::RecordToString(const KernelLaunchRecord &kernelLaunchRecord, std::string &str)
+void TraceRecord::CpuMemRecordToString(const MemOpRecord &memRecord, std::string &str)
+{
+    uint64_t addr = memRecord.addr;
+    uint64_t size = memRecord.memSize;
+    MemOpSpace space = memRecord.space;
+
+    std::lock_guard<std::mutex> lock(hostMemMutex_);
+    if (memRecord.memType == MemOpType::MALLOC) {
+        hostMemAllocation_[addr] = size;
+        hostMemUsage_ = Utility::GetAddResult(hostMemUsage_, size);
+    } else {
+        if (hostMemAllocation_.find(addr) != hostMemAllocation_.end()) {
+            hostMemUsage_ = Utility::GetSubResult(hostMemUsage_, hostMemAllocation_[addr]);
+            hostMemAllocation_.erase(addr);
+        } else {
+            Utility::LogWarn("Invalid free addr %llx.", addr);
+            return;
+        }
+    }
+
+    JsonBaseInfo baseInfo{"memory", memRecord.pid, memRecord.tid, memRecord.kernelIndex};
+    str = FormatCounterEvent(baseInfo, std::to_string(hostMemUsage_));
+    return;
+}
+
+void TraceRecord::MemRecordToString(MemOpRecord &memRecord, std::string &str)
+{
+    if (memRecord.devType == DeviceType::NPU) {
+        NpuMemRecordToString(memRecord, str);
+    } else {
+        CpuMemRecordToString(memRecord, str);
+    }
+
+    truePids_[Device{memRecord.devType, memRecord.devId}].insert(memRecord.pid);
+    return;
+}
+
+void TraceRecord::KernelLaunchRecordToString(const KernelLaunchRecord &kernelLaunchRecord, std::string &str)
 {
     JsonBaseInfo baseInfo{
         "kernel_" + std::to_string(kernelLaunchRecord.kernelLaunchIndex),
         kernelLaunchRecord.pid,
         kernelLaunchRecord.tid,
-        kernelLaunchRecord.timeStamp
+        kernelLaunchRecord.kernelLaunchIndex
     };
     str = FormatInstantEvent(baseInfo);
     return;
 }
 
-void TraceRecord::RecordToString(const AclItfRecord &aclItfRecord, std::string &str)
+void TraceRecord::AclItfRecordToString(const AclItfRecord &aclItfRecord, std::string &str)
 {
     if (aclItfRecord.devId == GD_INVALID_NUM) {
         return;
@@ -258,49 +323,51 @@ void TraceRecord::RecordToString(const AclItfRecord &aclItfRecord, std::string &
     std::string name = aclItfRecord.type == AclOpType::INIT ? "acl_init" : "acl_finalize";
     JsonBaseInfo baseInfo{
         name,
+        aclItfRecord.pid,
         aclItfRecord.tid,
-        aclItfRecord.tid,
-        aclItfRecord.timeStamp
+        aclItfRecord.kernelIndex
     };
     str = FormatInstantEvent(baseInfo);
     return;
 }
 
-void TraceRecord::RecordToString(const TorchNpuRecord &torchNpuRecord, std::string &str)
+void TraceRecord::TorchRecordToString(const TorchNpuRecord &torchNpuRecord, std::string &str)
 {
     MemoryUsage memoryUsage = torchNpuRecord.memoryUsage;
-    uint64_t timestamp = torchNpuRecord.timeStamp;
+    uint64_t kernelIndex = torchNpuRecord.kernelIndex;
     uint64_t pid = torchNpuRecord.pid;
     uint64_t tid = torchNpuRecord.tid;
 
-    truePids_[torchNpuRecord.devId].insert(pid);
-    JsonBaseInfo reservedBaseInfo{"operators reserved", pid, tid, timestamp};
-    JsonBaseInfo activeBaseInfo{"operators active", pid, tid, timestamp};
-    JsonBaseInfo allocatedBaseInfo{"operators allocated", pid, tid, timestamp};
+    truePids_[Device{DeviceType::NPU, torchNpuRecord.devId}].insert(pid);
+    JsonBaseInfo reservedBaseInfo{"operators reserved", pid, tid, kernelIndex};
+    JsonBaseInfo activeBaseInfo{"operators active", pid, tid, kernelIndex};
+    JsonBaseInfo allocatedBaseInfo{"operators allocated", pid, tid, kernelIndex};
     
     str = FormatCounterEvent(reservedBaseInfo, std::to_string(memoryUsage.totalReserved));
     str += FormatCounterEvent(activeBaseInfo, std::to_string(memoryUsage.totalActive));
     str += FormatCounterEvent(allocatedBaseInfo, std::to_string(memoryUsage.totalAllocated));
-    
+
     return;
 }
 
-void TraceRecord::RecordToString(const MstxRecord &mstxRecord, std::string &str)
+void TraceRecord::MstxRecordToString(const MstxRecord &mstxRecord, std::string &str)
 {
     int32_t devId = mstxRecord.devId;
     std::string mstxEventName;
+
+    std::lock_guard<std::mutex> lock(stepStartIndexMutex_);
     if (mstxRecord.markType == MarkType::MARK_A) {
         mstxEventName = "mstx_mark";
     } else if (mstxRecord.markType == MarkType::RANGE_START_A) {
         if (strcmp(mstxRecord.markMessage, "step start") == 0) {
             mstxEventName = "mstx_step" + std::to_string(mstxRecord.stepId) + "_start";
-            stepStartTime_[devId][mstxRecord.rangeId] = mstxRecord.timeStamp;
+            stepStartIndex_[devId][mstxRecord.rangeId] = mstxRecord.kernelIndex;
         } else {
             mstxEventName = "mstx_range" + std::to_string(mstxRecord.rangeId) + "_start";
         }
     } else {
-        if (stepStartTime_.find(devId) == stepStartTime_.end() ||
-            stepStartTime_[devId].find(mstxRecord.rangeId) == stepStartTime_[devId].end()) {
+        if (stepStartIndex_.find(devId) == stepStartIndex_.end() ||
+            stepStartIndex_[devId].find(mstxRecord.rangeId) == stepStartIndex_[devId].end()) {
             mstxEventName = "mstx_range" + std::to_string(mstxRecord.rangeId) + "_end";
         } else {
             mstxEventName = "mstx_step" + std::to_string(mstxRecord.stepId) + "_end";
@@ -308,9 +375,10 @@ void TraceRecord::RecordToString(const MstxRecord &mstxRecord, std::string &str)
                 "step " + std::to_string(mstxRecord.stepId),
                 mstxEventPid_,
                 mstxRecord.tid,
-                stepStartTime_[devId][mstxRecord.rangeId]
+                stepStartIndex_[devId][mstxRecord.rangeId]
             };
-            str = FormatCompleteEvent(stepBaseInfo, mstxRecord.timeStamp - stepStartTime_[devId][mstxRecord.rangeId]);
+            str = FormatCompleteEvent(stepBaseInfo,
+                                      mstxRecord.kernelIndex - stepStartIndex_[devId][mstxRecord.rangeId]);
         }
     }
 
@@ -318,18 +386,18 @@ void TraceRecord::RecordToString(const MstxRecord &mstxRecord, std::string &str)
         mstxEventName,
         mstxEventPid_,
         mstxRecord.tid,
-        mstxRecord.timeStamp
+        mstxRecord.kernelIndex
     };
     str += FormatInstantEvent(baseInfo, mstxRecord.markMessage);
     return;
 }
 
-void TraceRecord::SetMetadataEvent(const int32_t &devId)
+void TraceRecord::SetMetadataEvent(const Device &device)
 {
     std::string str;
     uint64_t sortIndex = 0;
 
-    for (auto pid : truePids_[devId]) {
+    for (auto pid : truePids_[device]) {
         JsonBaseInfo sortBaseInfo{"process_sort_index", pid, 0, 0};
         str += FormatMetadataEvent(sortBaseInfo, "\"sort_index\": " + std::to_string(sortIndex++));
     }
@@ -342,7 +410,7 @@ void TraceRecord::SetMetadataEvent(const int32_t &devId)
         str += FormatMetadataEvent(sortBaseInfo, "\"sort_index\": " + std::to_string(sortIndex++));
     }
 
-    SafeWriteString(str, devId);
+    SafeWriteString(str, device);
 }
 
 // TraceRecord生命周期结束时，文件写入完毕，关闭文件
