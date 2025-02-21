@@ -164,6 +164,7 @@ bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord)
     eventrecord.record.torchNpuRecord.timeStamp = Utility::GetTimeMicroseconds();
     eventrecord.record.torchNpuRecord.devId = static_cast<int32_t>(torchNpuRecord.memoryUsage.deviceIndex);
     eventrecord.record.torchNpuRecord.recordIndex = ++recordIndex_;
+    eventrecord.record.torchNpuRecord.kernelIndex = kernelLaunchRecordIndex_;
     auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventrecord));
 
     g_isInReportFunction = false;

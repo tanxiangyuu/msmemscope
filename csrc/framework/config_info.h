@@ -10,6 +10,9 @@
 namespace Leaks {
 
 constexpr uint8_t SELECTED_STEP_MAX_NUM = 5; // 先设定最多指定5个step的信息采集
+const std::string LEAKS_HEADERS = "Record Index,Timestamp(us),Event,Event Type,Process Id,Thread Id,Device Id,"
+        "Kernel Index,Flag,Addr,Size(byte),Total Allocated(byte),Total Reserved(byte)\n";
+const std::string OUTPUT_DIR_PATH = "leaksDumpResults";
 
 enum class LevelType : uint8_t {
     LEVEL_0 = 0,

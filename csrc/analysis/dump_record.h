@@ -35,12 +35,8 @@ private:
     std::unordered_map<ClientId, std::unordered_map<uint64_t, MemOpSpace>> memOpMap_;
     std::unordered_map<ClientId, uint64_t> memHost_;
     std::unordered_map<ClientId, uint64_t> memDevice_;
-    std::string headers_ = "type,name,processID,threadID,clientID,deviceID,recordIndex,timeStamp,"
-        "kernelIndex,flag,moduleID,host/device,addr,size,sumMemory,device_type,device_index,data_type,"
-        "allocator_type,ptr,alloc_size,total_allocated,total_reserved,total_active,stream_ptr\n";
-    std::string dirPath_ = "leaksDumpResults";
     std::mutex fileMutex_;
-    std::string fileNamePrefix_ = "leaks";
+    std::string fileNamePrefix_ = "leaks_dump_";
 };
 }
 #endif

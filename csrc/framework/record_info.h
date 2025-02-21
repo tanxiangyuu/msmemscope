@@ -42,6 +42,7 @@ struct MemoryUsage {
 
 struct TorchNpuRecord {
     uint64_t recordIndex;
+    uint64_t kernelIndex;       // 当前所属kernellaunch索引
     uint64_t pid;
     uint64_t tid;
     uint64_t timeStamp;
