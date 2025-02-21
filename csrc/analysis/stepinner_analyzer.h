@@ -26,7 +26,7 @@ enum class MemActionType : uint8_t {
 };
 
 struct LeakInfo {
-    uint64_t timestamp;
+    uint64_t kernelIndex;
     uint64_t duration; // 目前经历的duration
     uint64_t stepId; // 来自哪个mstx的stepId
 };
