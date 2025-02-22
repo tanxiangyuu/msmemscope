@@ -5,8 +5,15 @@
 #include <sstream>
 #include "file.h"
 #include "utils.h"
+#include "config_info.h"
 
 namespace Leaks {
+
+StepInterAnalyzer& StepInterAnalyzer::GetInstance()
+{
+    static StepInterAnalyzer instance;
+    return instance;
+}
 
 std::vector<std::string> StepInterAnalyzer::SplitLineData(std::string line)
 {
@@ -29,9 +36,12 @@ void StepInterAnalyzer::ReadCsvFile(const std::string &path, std::unordered_map<
     std::string line;
     std::istringstream sin;
 
-    // 读取表头
     getline(csvFile, line);
     sin.str(line);
+    if ((line + "\n") != std::string(LEAKS_HEADERS)) {
+        Utility::LogError("The headers of %s file is illegal!", path.c_str());
+        return ;
+    }
     std::vector<std::string> headerData;
     headerData = SplitLineData(line);
 
@@ -43,8 +53,7 @@ void StepInterAnalyzer::ReadCsvFile(const std::string &path, std::unordered_map<
         for (size_t index = 0; index < headerData.size(); ++index) {
             tempLine.insert({headerData[index], lineData[index]});
         }
-
-        uint64_t deviceId = atoi(tempLine["deviceID"].c_str());
+        uint64_t deviceId = atoi(tempLine["Device Id"].c_str());
         data[deviceId].emplace_back(tempLine);
     }
 
@@ -53,7 +62,7 @@ void StepInterAnalyzer::ReadCsvFile(const std::string &path, std::unordered_map<
         // kernelName解析使用多线程，需要根据timeStamp排序保证顺序
         sort(data[deviceId].begin(), data[deviceId].end(), [](const std::unordered_map<std::string, std::string> &a,
              const std::unordered_map<std::string, std::string> &b) {
-                return atoi(a.at("timeStamp").c_str()) < atoi(b.at("timeStamp").c_str());
+                return atoi(a.at("Timestamp(us)").c_str()) < atoi(b.at("Timestamp(us)").c_str());
         });
     }
     csvFile.close();
@@ -64,65 +73,42 @@ KERNELNAME_INDEX StepInterAnalyzer::ReadKernelLaunchData(const CSV_FIELD_DATA &d
     KERNELNAME_INDEX result;
     for (size_t index = 0; index < data.size(); ++index) {
         auto lineData = data[index];
-        if (lineData["type"] == "kernelLaunch") {
-            result.emplace_back(std::make_pair(lineData["name"], index));
+        if (lineData["Event"] == "kernelLaunch") {
+            result.emplace_back(std::make_pair(lineData["Event Type"], index));
         }
     }
     return result;
 }
 
-void StepInterAnalyzer::GetKernelMemoryDiff(size_t index, const CSV_FIELD_DATA &data, TorchNouMemoryDiff &memDiff)
+void StepInterAnalyzer::GetKernelMemoryDiff(size_t index, const CSV_FIELD_DATA &data, int64_t &memDiff)
 {
-    std::unordered_map<std::string, std::string> preMemory;
-    std::unordered_map<std::string, std::string> nextMemory;
+    std::unordered_map<std::string, std::string> frameworkMemory;
     for (size_t i = index; i < data.size(); ++i) {
         auto lineData = data[i];
-        if (lineData["type"] == "torch_npu") {
-            nextMemory = lineData;
+        if (lineData["Event"] == "pytorch") {
+            frameworkMemory = lineData;
             break;
         }
     }
-    for (int i = index; i >= 0; --i) {
-        auto lineData = data[i];
-        if (lineData["type"] == "torch_npu") {
-            preMemory = lineData;
-            break;
-        }
+
+    if (frameworkMemory.empty()) {
+        memDiff = 0;
+        return ;
     }
-    if (preMemory.empty()) {
-        preMemory["total_allocated"] = "0";
-        preMemory["total_reserved"] = "0";
-        preMemory["total_active"] = "0";
-    }
-    if (nextMemory.empty()) {
-        nextMemory["total_allocated"] = "0";
-        nextMemory["total_reserved"] = "0";
-        nextMemory["total_active"] = "0";
-    }
-    int64_t pre = 0;
-    int64_t next = 0;
-    if (Utility::StrToInt64(pre, preMemory["total_allocated"]) &&
-        Utility::StrToInt64(next, nextMemory["total_allocated"])) {
-        memDiff.totalAllocated = Utility::GetSubResult(next, pre);
-    } else {
-        Utility::LogError("Totalallocated to int64_t failed!");
-    }
-    if (Utility::StrToInt64(pre, preMemory["total_reserved"]) &&
-        Utility::StrToInt64(next, nextMemory["total_reserved"])) {
-        memDiff.totalReserved = Utility::GetSubResult(next, pre);
-    } else {
-        Utility::LogError("Totalreserved to int64_t failed!");
-    }
-    if (Utility::StrToInt64(pre, preMemory["total_active"]) && Utility::StrToInt64(next, nextMemory["total_active"])) {
-        memDiff.totalActive = Utility::GetSubResult(next, pre);
-    } else {
-        Utility::LogError("Totalactive to int64_t failed!");
+
+    if (!Utility::StrToInt64(memDiff, frameworkMemory["Size(byte)"])) {
+        Utility::LogError("Alloc Size to int64_t failed!");
     }
 }
 
 bool StepInterAnalyzer::WriteCompareDataToCsv()
 {
-    if (!Utility::CreateCsvFile(&compareFile_, dirPath_, fileNamePrefix_, headers_)) {
+    if (compareOut_.empty()) {
+        Utility::LogInfo("Empty stepinter compare data!");
+        return false;
+    }
+
+    if (!Utility::CreateCsvFile(&compareFile_, dirPath_, fileNamePrefix_, std::string(STEP_INTER_HEADERS))) {
         Utility::LogError("Create stepintercompare csv file failed!");
         return false;
     }
@@ -144,38 +130,32 @@ void StepInterAnalyzer::SaveCompareKernelMemory(const DEVICEID deviceId,
 {
     std::string temp;
     std::string name;
-    TorchNouMemoryDiff baseDiff;
-    TorchNouMemoryDiff compareDiff;
+    int64_t baseAllocSize;
+    int64_t compareAllocSize;
 
     std::string baseMemDiff;
     if (!kernelBase.first.empty()) {
         name = kernelBase.first;
-        GetKernelMemoryDiff(kernelBase.second, output_[deviceId], baseDiff);
-        baseMemDiff = std::to_string(baseDiff.totalAllocated) + "," + std::to_string(baseDiff.totalReserved)
-        + "," + std::to_string(baseDiff.totalActive);
+        GetKernelMemoryDiff(kernelBase.second, output_[deviceId], baseAllocSize);
+        baseMemDiff = std::to_string(baseAllocSize);
     } else {
-        baseMemDiff = "null,null,null";
+        baseMemDiff = "N/A";
     }
 
     std::string compareMemDiff;
     if (!kernelCompare.first.empty()) {
         name = kernelCompare.first;
-        GetKernelMemoryDiff(kernelCompare.second, outputCompare_[deviceId], compareDiff);
-        compareMemDiff = std::to_string(compareDiff.totalAllocated) + "," + std::to_string(compareDiff.totalReserved)
-            + "," + std::to_string(compareDiff.totalActive);
+        GetKernelMemoryDiff(kernelCompare.second, outputCompare_[deviceId], compareAllocSize);
+        compareMemDiff = std::to_string(compareAllocSize);
     } else {
-        compareMemDiff = "null,null,null";
+        compareMemDiff = "N/A";
     }
 
     temp += name;
     temp = temp + "," + std::to_string(deviceId) + "," + baseMemDiff + "," + compareMemDiff;
 
-    int64_t diffTotalAllocated = compareDiff.totalAllocated - baseDiff.totalAllocated;
-    int64_t diffTotalReserved = compareDiff.totalReserved - baseDiff.totalReserved;
-    int64_t diffTotalActive = compareDiff.totalActive - baseDiff.totalActive;
-
-    temp = temp + "," + std::to_string(diffTotalAllocated) + "," + std::to_string(diffTotalReserved)
-            + "," + std::to_string(diffTotalActive);
+    int64_t diffAllocSize = Utility::GetSubResult(compareAllocSize, baseAllocSize);
+    temp = temp + "," + std::to_string(diffAllocSize);
     compareOut_[deviceId].emplace_back(temp);
 }
 
@@ -194,7 +174,7 @@ std::shared_ptr<PathNode> StepInterAnalyzer::buildPath(const KERNELNAME_INDEX &k
         for (int64_t k = -d; k <= d; k += KSTEPSIZE) {
             auto end_time = Utility::GetTimeMicroseconds();
             if ((end_time - start_time) >= MAXLOOPTIME) {
-                Utility::LogError("Analysis failed!Reaching maximum loop time limit!");
+                Utility::LogError("Stepinter analyze build path failed! Reaching maximum loop time limit!");
                 break;
             }
             int64_t kmiddle = middle + k;
@@ -232,7 +212,17 @@ std::shared_ptr<PathNode> StepInterAnalyzer::buildPath(const KERNELNAME_INDEX &k
 void StepInterAnalyzer::buildDiff(std::shared_ptr<PathNode> path, const DEVICEID deviceId,
     const KERNELNAME_INDEX &kernelIndexMap, const KERNELNAME_INDEX &kernelIndexCompareMap)
 {
+    if (path == nullptr) {
+        Utility::LogInfo("Empty stepinter myers path!");
+        return ;
+    }
+    auto start_time = Utility::GetTimeMicroseconds();
     while (path && path->prev && path->prev->j >= 0) {
+        auto end_time = Utility::GetTimeMicroseconds();
+        if ((end_time - start_time) >= MAXLOOPTIME) {
+                Utility::LogError("Stepinter analyze build diff failed! Reaching maximum loop time limit!");
+                break;
+            }
         if (path->IsSnake()) { // base kernelName = compare kernelName
             int endi = path->i;
 
@@ -267,13 +257,20 @@ void StepInterAnalyzer::MyersDiff(const DEVICEID deviceId, const KERNELNAME_INDE
     }
 }
 
-void StepInterAnalyzer::StepInterOfflineCompare(const std::vector<std::string> &paths)
+void StepInterAnalyzer::StepInterCompare(const std::vector<std::string> &paths)
 {
+    Utility::LogInfo("Start to analyze stepinter memory data.");
+    auto start_time = Utility::GetTimeMicroseconds();
     std::string path = paths[0];
     std::string pathCompare = paths[1];
     
     ReadCsvFile(path, output_);
     ReadCsvFile(pathCompare, outputCompare_);
+
+    if (output_.empty() || outputCompare_.empty()) {
+        Utility::LogInfo("Stepinter analyze failed! Empty data in csv file!");
+        return ;
+    }
 
     for (const auto& pair : output_) {
         uint64_t deviceId = pair.first;
@@ -282,22 +279,13 @@ void StepInterAnalyzer::StepInterOfflineCompare(const std::vector<std::string> &
         MyersDiff(deviceId, kernelIndexMap, kernelIndexCompareMap);
     }
 
-    if (WriteCompareDataToCsv()) {
-        Utility::LogInfo("Stepinter memory data analysis end!");
+    if (!WriteCompareDataToCsv()) {
+        Utility::LogInfo("Write stepinter analyze data to csv file failed!");
+    } else {
+        auto end_time = Utility::GetTimeMicroseconds();
+        Utility::LogInfo("The stepinter memory analysis has been completed"
+            "in a total time of %.6f(s)", (end_time-start_time) / MICROSEC);
     }
-}
-
-constexpr double MICROSEC = 1000000.0;
-
-void StepInterCompare(const std::vector<std::string> &paths)
-{
-    StepInterAnalyzer stepInterAnalyzer;
-    Utility::LogInfo("Start to analyze stepinter memory data, please wait!");
-    auto start_time = Utility::GetTimeMicroseconds();
-    stepInterAnalyzer.StepInterOfflineCompare(paths);
-    auto end_time = Utility::GetTimeMicroseconds();
-    Utility::LogInfo("The stepinter memory analysis has been completed"
-        "in a total time of %.6f(s)", (end_time-start_time) / MICROSEC);
     return ;
 }
 

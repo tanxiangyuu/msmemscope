@@ -11,7 +11,7 @@ void Command::Exec() const
 {
     Utility::LogInfo("Msleaks starts executing commands");
     if (userCommand_.config.enableCompare) {
-        StepInterCompare(userCommand_.paths);
+        StepInterAnalyzer::GetInstance().StepInterCompare(userCommand_.paths);
         return;
     }
     
