@@ -80,6 +80,10 @@ void HalAnalyzer::RecordFree(const ClientId &clientId, const MemOpRecord memreco
 
 bool HalAnalyzer::Record(const ClientId &clientId, const EventRecord &record)
 {
+    // 目前不处理CPU侧数据
+    if (record.record.memoryRecord.devType == DeviceType::CPU) {
+        return true;
+    }
     if (!CreateMemTables(clientId)) {
         Utility::LogError("[client %u]: Create hal Memory table failed.", clientId);
         return false;
@@ -105,7 +109,7 @@ void HalAnalyzer::CheckLeak(const size_t clientId)
         }
     }
     if (!foundLeaks) {
-        Utility::LogInfo("[client %u]: There is no leak memory.", clientId);
+        Utility::LogInfo("[client %u]: There is no hal leak memory.", clientId);
     }
 }
 
