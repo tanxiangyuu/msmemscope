@@ -51,7 +51,7 @@ void ShowVersion()
 {
     ShowDescription();
     std::cout <<
-        std::endl << "msleaks version " << "1.0" << std::endl;
+        std::endl << "msleaks version " << "1.0" << "-" << __MSLEAKS_COMMIT_ID__ << std::endl;
 }
 
 bool UserCommandPrecheck(const UserCommand &userCommand)
