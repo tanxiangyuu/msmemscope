@@ -64,7 +64,7 @@ bool DumpRecord::DumpData(const ClientId &clientId, const EventRecord &record)
 bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, OUTPUT_DIR_PATH, fileNamePrefix_, LEAKS_HEADERS)) {
+    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, LEAKS_HEADERS)) {
         return false;
     }
     uint64_t currentSize;
@@ -85,7 +85,7 @@ bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRec
 bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchRecord &kernelLaunchRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, OUTPUT_DIR_PATH, fileNamePrefix_, LEAKS_HEADERS)) {
+    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, LEAKS_HEADERS)) {
         return false;
     }
     std::string name;
@@ -103,7 +103,7 @@ bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchReco
 bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, OUTPUT_DIR_PATH, fileNamePrefix_, LEAKS_HEADERS)) {
+    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, LEAKS_HEADERS)) {
         return false;
     }
     std::string name;
@@ -134,7 +134,7 @@ bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRe
 bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, OUTPUT_DIR_PATH, fileNamePrefix_, LEAKS_HEADERS)) {
+    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, LEAKS_HEADERS)) {
         return false;
     }
     std::string name;
@@ -156,7 +156,7 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
 bool DumpRecord::DumpTorchData(const ClientId &clientId, const TorchNpuRecord &torchNpuRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, OUTPUT_DIR_PATH, fileNamePrefix_, LEAKS_HEADERS)) {
+    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, LEAKS_HEADERS)) {
         return false;
     }
     MemoryUsage memoryUsage = torchNpuRecord.memoryUsage;

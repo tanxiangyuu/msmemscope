@@ -5,7 +5,6 @@
 #include <sstream>
 #include "file.h"
 #include "utils.h"
-#include "config_info.h"
 
 namespace Leaks {
 
@@ -123,7 +122,7 @@ void StepInterAnalyzer::GetKernelMemoryDiff(size_t index, const CSV_FIELD_DATA &
 
 bool StepInterAnalyzer::WriteCompareDataToCsv()
 {
-    if (!Utility::CreateCsvFile(&compareFile_, OUTPUT_DIR_PATH, fileNamePrefix_, headers_)) {
+    if (!Utility::CreateCsvFile(&compareFile_, dirPath_, fileNamePrefix_, headers_)) {
         Utility::LogError("Create stepintercompare csv file failed!");
         return false;
     }

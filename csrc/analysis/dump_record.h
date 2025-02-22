@@ -35,6 +35,7 @@ private:
     std::unordered_map<ClientId, std::unordered_map<uint64_t, MemOpSpace>> memOpMap_;
     std::unordered_map<ClientId, uint64_t> memHost_;
     std::unordered_map<ClientId, uint64_t> memDevice_;
+    std::string dirPath_ = "leaksDumpResults";
     std::mutex fileMutex_;
     std::string fileNamePrefix_ = "leaks_dump_";
 };
