@@ -1,6 +1,7 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 #include <gtest/gtest.h>
 #include <gtest/internal/gtest-port.h>
+#include "config_info.h"
 
 #define private public
 #include "stepinter_analyzer.h"
@@ -11,23 +12,24 @@ using namespace Leaks;
 void CreateCsvData(CSV_FIELD_DATA &data)
 {
     std::unordered_map<std::string, std::string> temp;
-    temp["type"] = "torch_npu";
-    temp["name"] = "null";
-    temp["total_allocated"] = "123";
-    temp["total_reserved"] = "456";
-    temp["total_active"] = "789";
+    temp["Event"] = "pytorch";
+    temp["Event Type"] = "malloc";
+    temp["Size(byte)"] = "123";
+    temp["Device Id"] = "0";
+    temp["Timestamp(us)"] = "1";
     data.emplace_back(temp);
-    temp["type"] = "kernelLaunch";
-    temp["name"] = "matmul_v1";
+    temp["Event"] = "kernelLaunch";
+    temp["Event Type"] = "matmul_v1";
+    temp["Timestamp(us)"] = "2";
     data.emplace_back(temp);
-    temp["type"] = "kernelLaunch";
-    temp["name"] = "matmul_v2";
+    temp["Event"] = "kernelLaunch";
+    temp["Event Type"] = "matmul_v2";
+    temp["Timestamp(us)"] = "3";
     data.emplace_back(temp);
-    temp["type"] = "torch_npu";
-    temp["name"] = "null";
-    temp["total_allocated"] = "124";
-    temp["total_reserved"] = "456";
-    temp["total_active"] = "790";
+    temp["Event"] = "pytorch";
+    temp["Event Type"] = "malloc";
+    temp["Size(byte)"] = "124";
+    temp["Timestamp(us)"] = "4";
     data.emplace_back(temp);
 }
 
@@ -44,22 +46,22 @@ TEST(StepInterAnalyzerTest, do_split_line_data_expect_split_string)
 TEST(StepInterAnalyzerTest, do_read_csv_file_expect_read_correct_data)
 {
     FILE *fp = fopen("test_leaks.csv", "w");
-    fprintf(fp, "type,name,deviceID,timeStamp,total_allocated,total_reserved,total_active\n");
+    fprintf(fp, LEAKS_HEADERS);
 
     for (int index = 0; index < 10; ++index) {
-        fprintf(fp, "torch_npu,null,0,%d,%d,%d,%d\n", index, index+100, index+1000, index+100);
+        fprintf(fp, "1,%d,pytorch,malloc,123,234,0,0,N/A,N/A,0,%d,%d\n", index, index+100, index+1000);
     }
 
     for (int index = 0; index < 5; ++index) {
-        fprintf(fp, "kernelLaunch,null,0,%d,null,null,null\n", index+10);
+        fprintf(fp, "2,%d,kernelLaunch,null,123,234,0,0,N/A,N/A,0,0,0\n", index+10);
     }
 
     for (int index = 0; index < 5; ++index) {
-        fprintf(fp, "torch_npu,null,2,%d,%d,%d,%d\n", index+2, index+100, index+1000, index+100);
+        fprintf(fp, "3,%d,pytorch,malloc,123,234,2,0,N/A,N/A,0,%d,%d\n", index+2, index+100, index+1000);
     }
 
     for (int index = 4; index >= 0; --index) {
-        fprintf(fp, "kernelLaunch,null,2,%d,null,null,null\n", index+1);
+        fprintf(fp, "4,%d,kernelLaunch,null,123,234,2,0,N/A,N/A,0,0,0\n", index+1);
     }
 
     fclose(fp);
@@ -72,35 +74,21 @@ TEST(StepInterAnalyzerTest, do_read_csv_file_expect_read_correct_data)
     remove("test_leaks.csv");
 }
 
-TEST(StepInterAnalyzerTest, read_multi_clientId_with_one_deviceId_csv_file_expect_correct_data)
+TEST(StepInterAnalyzerTest, do_read_invalid_csv_file_expect_empty_data)
 {
     FILE *fp = fopen("test_leaks.csv", "w");
-    fprintf(fp, "type,name,clientID,deviceID,recordIndex,timeStamp,total_allocated,total_reserved,total_active\n");
-
-    for (int index = 0; index < 5; ++index) {
-        fprintf(fp, "torch_npu,null,1,0,1,%d,%d,%d,%d\n", 2+index, 10+index, 100+index, 1000+index, 100+index);
-    }
-    for (int index = 5; index < 10; ++index) {
-        fprintf(fp, "torch_npu,null,2,0,2,%d,%d,%d,%d\n", index, 10+index, 100+index, 1000+index, 100+index);
-    }
-    for (int index = 0; index < 3; ++index) {
-        fprintf(fp, "kernelLaunch,null,2,0,3,%d,null,null,null\n", 1+index);
-    }
-    for (int index = 3; index < 6; ++index) {
-        fprintf(fp, "kernelLaunch,null,1,0,4,%d,null,null,null\n", 1+index);
-    }
+    std::string headers = "testheader1,testheader2\n";
+    fprintf(fp, headers.c_str());
 
     fclose(fp);
     StepInterAnalyzer stepinteranalyzer{};
     std::unordered_map<DEVICEID, CSV_FIELD_DATA> data;
     stepinteranalyzer.ReadCsvFile("test_leaks.csv", data);
-    ASSERT_EQ(data.size(), 1);
-    ASSERT_EQ(data[0].size(), 16);
-    ASSERT_EQ(data[0][0]["type"], "kernelLaunch");
-    ASSERT_EQ(data[0][0]["timeStamp"], "1");
-    ASSERT_EQ(data[0][1]["type"], "torch_npu");
-    ASSERT_EQ(data[0][1]["timeStamp"], "2");
+    ASSERT_EQ(data.size(), 0);
     remove("test_leaks.csv");
+
+    stepinteranalyzer.ReadCsvFile("test.csv", data);
+    ASSERT_EQ(data.size(), 0);
 }
 
 TEST(StepInterAnalyzerTest, do_read_kernelLaunch_data_expect_cprrect_data)
@@ -129,16 +117,12 @@ TEST(StepInterAnalyzerTest, do_get_kernel_memory_diff_expect_correct_data)
     CSV_FIELD_DATA data;
     CreateCsvData(data);
     StepInterAnalyzer stepinteranalyzer{};
-    TorchNouMemoryDiff result;
+    int64_t result;
     stepinteranalyzer.GetKernelMemoryDiff(1, data, result);
-    ASSERT_EQ(result.totalAllocated, 1);
-    ASSERT_EQ(result.totalReserved, 0);
-    ASSERT_EQ(result.totalActive, 1);
+    ASSERT_EQ(result, 124);
 
     stepinteranalyzer.GetKernelMemoryDiff(2, data, result);
-    ASSERT_EQ(result.totalAllocated, 1);
-    ASSERT_EQ(result.totalReserved, 0);
-    ASSERT_EQ(result.totalActive, 1);
+    ASSERT_EQ(result, 124);
 }
 
 TEST(StepInterAnalyzerTest, do_write_compare_data_to_csv_expect_true)
@@ -154,25 +138,33 @@ TEST(StepInterAnalyzerTest, do_write_compare_data_to_csv_expect_true)
     remove("test_leaks.csv");
 }
 
+TEST(StepInterAnalyzerTest, do_empty_compare_data_to_csv_expect_false)
+{
+    StepInterAnalyzer stepinteranalyzer{};
+    FILE *fp = fopen("test_leaks.csv", "w");
+    stepinteranalyzer.compareFile_ = fp;
+    ASSERT_FALSE(stepinteranalyzer.WriteCompareDataToCsv());
+    fclose(fp);
+    remove("test_leaks.csv");
+}
+
 TEST(StepInterAnalyzerTest, do_save_compare_kernel_memory_expect_correct_data)
 {
     CSV_FIELD_DATA data;
     CreateCsvData(data);
     StepInterAnalyzer stepinteranalyzer{};
     stepinteranalyzer.output_[0] = data;
-    data[0]["total_allocated"] = "120";
-    data[0]["total_reserved"] = "456";
-    data[0]["total_active"] = "780";
+    data[3]["Size(byte)"] = "130";
     stepinteranalyzer.outputCompare_[0] = data;
 
     std::string temp;
-    temp = "matmul_v1,0,1,0,1,4,0,10,3,0,9";
+    temp = "matmul_v1,0,124,130,6";
 
     stepinteranalyzer.SaveCompareKernelMemory(0, {"matmul_v1", 1}, {"matmul_v1", 1});
     ASSERT_EQ(stepinteranalyzer.compareOut_[0][0], temp);
 
     stepinteranalyzer.SaveCompareKernelMemory(0, {"matmul_v2", 2}, {"matmul_v2", 2});
-    temp = "matmul_v2,0,1,0,1,4,0,10,3,0,9";
+    temp = "matmul_v2,0,124,130,6";
     ASSERT_EQ(stepinteranalyzer.compareOut_[0][1], temp);
 }
 
@@ -219,7 +211,8 @@ TEST(StepInterAnalyzerTest, do_build_diff_expect_correct_data)
 {
     std::shared_ptr<PathNode> pathNode1 = std::make_shared<DiffNode>(0, 0, nullptr);
     std::shared_ptr<PathNode> pathNode2 = std::make_shared<DiffNode>(1, 0, pathNode1);
-    std::shared_ptr<PathNode> pathNode3 = std::make_shared<Snake>(2, 2, pathNode2);
+    std::shared_ptr<PathNode> pathNode3 = std::make_shared<DiffNode>(1, 1, pathNode2);
+    std::shared_ptr<PathNode> pathNode4 = std::make_shared<Snake>(2, 2, pathNode3);
 
     CSV_FIELD_DATA data;
     CreateCsvData(data);
@@ -234,6 +227,6 @@ TEST(StepInterAnalyzerTest, do_build_diff_expect_correct_data)
     kernelIndexCompareMap.emplace_back(std::make_pair("mul", 1));
     kernelIndexCompareMap.emplace_back(std::make_pair("matmul_v2", 2));
 
-    stepinteranalyzer.buildDiff(pathNode3, 0, kernelIndexMap, kernelIndexCompareMap);
+    stepinteranalyzer.buildDiff(pathNode4, 0, kernelIndexMap, kernelIndexCompareMap);
     ASSERT_EQ(stepinteranalyzer.compareOut_[0].size(), 3);
 }
