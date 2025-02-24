@@ -19,6 +19,7 @@ namespace Leaks {
 constexpr uint32_t DIRMOD = 0777;
 constexpr uint32_t KSTEPSIZE = 2;
 constexpr uint32_t MAXLOOPTIME = 60 * 1000000; // 最大处理时间1分钟
+constexpr double MICROSEC = 1000000.0;
 
 struct TorchNouMemoryDiff {
     int64_t totalAllocated = 0;
@@ -78,12 +79,13 @@ public:
 
 class StepInterAnalyzer {
 public:
-    void StepInterOfflineCompare(const std::vector<std::string> &paths);
+    static StepInterAnalyzer& GetInstance();
+    void StepInterCompare(const std::vector<std::string> &paths);
 private:
     std::vector<std::string> SplitLineData(std::string line);
     void ReadCsvFile(const std::string &path, std::unordered_map<DEVICEID, CSV_FIELD_DATA> &data);
     KERNELNAME_INDEX ReadKernelLaunchData(const CSV_FIELD_DATA &data);
-    void GetKernelMemoryDiff(size_t index, const CSV_FIELD_DATA &data, TorchNouMemoryDiff &memDiff);
+    void GetKernelMemoryDiff(size_t index, const CSV_FIELD_DATA &data, int64_t &memDiff);
     void SaveCompareKernelMemory(const DEVICEID deviceId, const std::pair<std::string, size_t> &kernelBase,
         const std::pair<std::string, size_t> &kernelCompare);
     std::shared_ptr<PathNode> buildPath(const KERNELNAME_INDEX &kernelIndexMap,
@@ -97,14 +99,10 @@ private:
     std::unordered_map<DEVICEID, CSV_FIELD_DATA> output_;
     std::unordered_map<DEVICEID, CSV_FIELD_DATA> outputCompare_;
     std::unordered_map<DEVICEID, std::vector<std::string>> compareOut_;
-    std::string headers_ = ",,base memory,,,compare memory,,,diff memory\nname,deviceId,total_allocated_diff,"
-        "total_reserved_diff,total_active_diff,total_allocated_diff,total_reserved_diff,total_active_diff,"
-        "diff_total_allocated,diff_total_reserved,diff_total_active\n";
-    std::string fileNamePrefix_ = "stepintercompare";
+    std::string fileNamePrefix_ = "stepintercompare_";
     std::string dirPath_ = "leaksDumpResults";
 };
 
-void StepInterCompare(const std::vector<std::string> &paths);
 }
 
 #endif
