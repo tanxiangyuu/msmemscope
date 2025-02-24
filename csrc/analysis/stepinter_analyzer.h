@@ -99,7 +99,7 @@ private:
     std::unordered_map<DEVICEID, CSV_FIELD_DATA> output_;
     std::unordered_map<DEVICEID, CSV_FIELD_DATA> outputCompare_;
     std::unordered_map<DEVICEID, std::vector<std::string>> compareOut_;
-    std::string fileNamePrefix_ = "stepintercompare";
+    std::string fileNamePrefix_ = "stepintercompare_";
     std::string dirPath_ = "leaksDumpResults";
 };
 

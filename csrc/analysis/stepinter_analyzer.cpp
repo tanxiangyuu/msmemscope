@@ -25,12 +25,12 @@ std::vector<std::string> StepInterAnalyzer::SplitLineData(std::string line)
 void StepInterAnalyzer::ReadCsvFile(const std::string &path, std::unordered_map<DEVICEID, CSV_FIELD_DATA> &data)
 {
     if (!Utility::Exist(path)) {
-        Utility::LogError("The leaks csv file path: %s does not exist!", path);
+        Utility::LogError("The leaks csv file path: %s does not exist!", path.c_str());
     }
     
     std::ifstream csvFile(path, std::ios::in);
     if (!csvFile.is_open()) {
-        Utility::LogError("The path: %s open failed!", path);
+        Utility::LogError("The path: %s open failed!", path.c_str());
     }
 
     std::string line;
@@ -104,7 +104,7 @@ void StepInterAnalyzer::GetKernelMemoryDiff(size_t index, const CSV_FIELD_DATA &
 bool StepInterAnalyzer::WriteCompareDataToCsv()
 {
     if (compareOut_.empty()) {
-        Utility::LogInfo("Empty stepinter compare data!");
+        Utility::LogWarn("Empty stepinter compare data!");
         return false;
     }
 
@@ -213,7 +213,7 @@ void StepInterAnalyzer::buildDiff(std::shared_ptr<PathNode> path, const DEVICEID
     const KERNELNAME_INDEX &kernelIndexMap, const KERNELNAME_INDEX &kernelIndexCompareMap)
 {
     if (path == nullptr) {
-        Utility::LogInfo("Empty stepinter myers path!");
+        Utility::LogWarn("Empty stepinter myers path!");
         return ;
     }
     auto start_time = Utility::GetTimeMicroseconds();
@@ -249,7 +249,7 @@ void StepInterAnalyzer::MyersDiff(const DEVICEID deviceId, const KERNELNAME_INDE
     const KERNELNAME_INDEX &kernelIndexCompareMap)
 {
     if (kernelIndexMap.empty() && kernelIndexCompareMap.empty()) {
-        Utility::LogInfo("Empty kernelLaunch data!");
+        Utility::LogWarn("Empty kernelLaunch data!");
         return ;
     } else {
         auto pathNode = buildPath(kernelIndexMap, kernelIndexCompareMap);
@@ -268,7 +268,7 @@ void StepInterAnalyzer::StepInterCompare(const std::vector<std::string> &paths)
     ReadCsvFile(pathCompare, outputCompare_);
 
     if (output_.empty() || outputCompare_.empty()) {
-        Utility::LogInfo("Stepinter analyze failed! Empty data in csv file!");
+        Utility::LogError("Stepinter analyze failed! Empty data in csv file!");
         return ;
     }
 
@@ -280,7 +280,7 @@ void StepInterAnalyzer::StepInterCompare(const std::vector<std::string> &paths)
     }
 
     if (!WriteCompareDataToCsv()) {
-        Utility::LogInfo("Write stepinter analyze data to csv file failed!");
+        Utility::LogError("Write stepinter analyze data to csv file failed!");
     } else {
         auto end_time = Utility::GetTimeMicroseconds();
         Utility::LogInfo("The stepinter memory analysis has been completed"
