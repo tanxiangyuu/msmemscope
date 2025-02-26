@@ -34,21 +34,26 @@ extern "C" int __attribute__((visibility("default"))) InitInjectionMstx(MstxGetM
     unsigned int outSize = 0;
     MstxFuncTable outTable;
     if (getFuncTable == nullptr ||
-        getFuncTable(MstxFuncModule::MSTX_API_MODULE_CORE, &outTable, &outSize) != MSTX_SUCCESS ||
+        getFuncTable(mstxFuncModule::MSTX_API_MODULE_CORE, &outTable, &outSize) != MSTX_SUCCESS ||
         outTable == nullptr) {
         ClientErrorLog("Failed to call getFuncTable");
         return MSTX_FAIL;
     }
 
-    if (outSize != static_cast<unsigned int>(MstxFuncSeq::MSTX_FUNC_END)) {
-        ClientErrorLog("OutSize is not equal to MSTX_FUNC_END, Failed to init mstx funcs.");
-        return MSTX_FAIL; // 1 : init failed
+    if (outSize >= static_cast<unsigned int>(mstxImplCoreFuncId::MSTX_API_CORE_MARK_A)) {
+        *(outTable[static_cast<unsigned int>(mstxImplCoreFuncId::MSTX_API_CORE_MARK_A)]) =
+            reinterpret_cast<MstxFuncPointer>(MstxMarkAFunc);
     }
-    *(outTable[static_cast<unsigned int>(MstxFuncSeq::MSTX_FUNC_MARKA)]) =
-        reinterpret_cast<MstxFuncPointer>(MstxMarkAFunc);
-    *(outTable[static_cast<unsigned int>(MstxFuncSeq::MSTX_FUNC_RANGE_STARTA)]) =
-        reinterpret_cast<MstxFuncPointer>(MstxRangeStartAFunc);
-    *(outTable[static_cast<unsigned int>(MstxFuncSeq::MSTX_FUNC_RANGE_END)]) =
-        reinterpret_cast<MstxFuncPointer>(MstxRangeEndFunc);
+
+    if (outSize >= static_cast<unsigned int>(mstxImplCoreFuncId::MSTX_API_CORE_RANGE_START_A)) {
+        *(outTable[static_cast<unsigned int>(mstxImplCoreFuncId::MSTX_API_CORE_RANGE_START_A)]) =
+            reinterpret_cast<MstxFuncPointer>(MstxRangeStartAFunc);
+    }
+
+    if (outSize >= static_cast<unsigned int>(mstxImplCoreFuncId::MSTX_API_CORE_RANGE_END)) {
+        *(outTable[static_cast<unsigned int>(mstxImplCoreFuncId::MSTX_API_CORE_RANGE_END)]) =
+            reinterpret_cast<MstxFuncPointer>(MstxRangeEndFunc);
+    }
+
     return MSTX_SUCCESS;
 }
