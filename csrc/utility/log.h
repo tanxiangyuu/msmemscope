@@ -31,7 +31,7 @@ public:
     inline void Printf(std::string const &format, LogLv lv, Args &&...args);
     template <typename... Args>
     inline void PrintClientLog(std::string const &format, Args &&...args);
-    void SetLogLevel(const std::string &logLevel = "1");
+    void SetLogLevel(const LogLv &logLevel);
     inline bool CreateLogFile();
 private:
     Log(void) = default;
@@ -41,7 +41,7 @@ private:
     std::string AddPrefixInfo(std::string const &format, LogLv lv) const;
 
 private:
-    LogLv lv_{LogLv::INFO};
+    LogLv lv_{LogLv::WARN};
     FILE *fp_{nullptr};
     mutable std::mutex mtx_;
 };
@@ -49,9 +49,9 @@ private:
 bool Log::CreateLogFile()
 {
     if (fp_ == nullptr) {
-        std::string fileName = "msleaks_" + GetDateStr() + ".txt";
+        std::string fileName = "msleaks_" + GetDateStr() + ".log";
         UmaskGuard guard{DEFAULT_UMASK_FOR_LOG_FILE};
-        if ((fp_ = fopen(fileName.c_str(), "a")) == nullptr) {
+        if ((fp_ = fopen(fileName.c_str(), "w")) == nullptr) {
             return false;
         }
     }
@@ -120,7 +120,7 @@ inline void LogError(std::string const &format, Args &&...args)
     Log::GetLog().Printf(format, LogLv::ERROR, std::forward<Args>(args)...);
 }
 
-inline void SetLogLevel(const std::string &logLevel)
+inline void SetLogLevel(const LogLv &logLevel)
 {
     Log::GetLog().SetLogLevel(logLevel);
 }

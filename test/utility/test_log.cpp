@@ -35,6 +35,7 @@ TEST(Log, log_warn_expect_output_warn_log)
     Log &logger = Log::GetLog();
     logger.fp_ = fopen("output.txt", "w");
     std::string testLog = "test log warn";
+    Utility::SetLogLevel(Utility::LogLv::WARN);
     LogWarn(testLog);
     logger.fp_ = nullptr;
     EXPECT_TRUE(FindStr("output.txt", testLog));
@@ -46,6 +47,7 @@ TEST(Log, log_error_expect_output_erro_log)
     Log &logger = Log::GetLog();
     logger.fp_ = fopen("output.txt", "w");
     std::string testLog = "test log error";
+    Utility::SetLogLevel(Utility::LogLv::ERROR);
     LogError(testLog);
     logger.fp_ = nullptr;
     EXPECT_TRUE(FindStr("output.txt", testLog));
@@ -57,34 +59,11 @@ TEST(Log, log_info_expect_output_info_log)
     Log &logger = Log::GetLog();
     logger.fp_ = fopen("output.txt", "w");
     std::string testLog = "test log info";
+    Utility::SetLogLevel(Utility::LogLv::INFO);
     LogInfo(testLog);
     logger.fp_ = nullptr;
     EXPECT_TRUE(FindStr("output.txt", testLog));
     EXPECT_TRUE(FindStr("output.txt", "[INFO]"));
-}
-
-TEST(Log, invalid_log_level_expect_output_info_log)
-{
-    Log &logger = Log::GetLog();
-    logger.fp_ = fopen("output.txt", "w");
-    std::string logLevel = "5";
-    SetLogLevel(logLevel);
-    logger.fp_ = nullptr;
-    std::string warnInfo = "LOG_LEVEL can only be set 0,1,2,3";
-    EXPECT_TRUE(FindStr("output.txt", warnInfo));
-    EXPECT_TRUE(FindStr("output.txt", "[WARN]"));
-}
-
-TEST(Log, valid_log_level_expect_output_info_log)
-{
-    Log &logger = Log::GetLog();
-    logger.fp_ = fopen("output.txt", "w");
-    std::string logLevel = "2";
-    SetLogLevel(logLevel);
-    logger.fp_ = nullptr;
-    std::string warnInfo = "LOG_LEVEL can only be set 0,1,2,3";
-    EXPECT_FALSE(FindStr("output.txt", warnInfo));
-    EXPECT_FALSE(FindStr("output.txt", "[WARN]"));
 }
 
 TEST(Log, log_nullptr_expect_no_output)
@@ -100,7 +79,7 @@ TEST(Log, log_level_different_threashold_expect_success)
 {
     Log &logger = Log::GetLog();
     logger.fp_ = fopen("output.txt", "w");
-    logger.SetLogLevel("3");
+    logger.SetLogLevel(Utility::LogLv::INFO);
 
     logger.Printf("Debug message", LogLv::DEBUG);
     logger.Printf("Info message", LogLv::INFO);

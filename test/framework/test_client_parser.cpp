@@ -7,6 +7,7 @@
 
 #define private public
 #include "client_parser.h"
+#include "log.h"
 #undef private
 
 using namespace Leaks;
@@ -258,4 +259,54 @@ TEST(ClientParser, test_print_version)
     ClientParser cliParser;
     UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_TRUE(cmd.printVersionInfo);
+}
+
+TEST(ClientParser, test_input_valid_log_level_expect_valid_loglv)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--log-level=warn"
+    };
+ 
+    /// Reset getopt states
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(Utility::Log::GetLog().lv_, Utility::LogLv::WARN);
+
+    argv = {
+        "msleaks",
+        "--log-level=info"
+    };
+ 
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(Utility::Log::GetLog().lv_, Utility::LogLv::INFO);
+
+    argv = {
+        "msleaks",
+        "--log-level=error"
+    };
+ 
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(Utility::Log::GetLog().lv_, Utility::LogLv::ERROR);
+}
+
+TEST(ClientParser, test_input_invalid_log_level_expect_invalid_loglv)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--log-level=test"
+    };
+ 
+    /// Reset getopt states
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.printHelpInfo);
+
+    argv = {
+        "msleaks",
+        "--log-level="
+    };
+ 
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.printHelpInfo);
 }
