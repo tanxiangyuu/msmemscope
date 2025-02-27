@@ -12,8 +12,10 @@
 #include <algorithm>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <mutex>
 #include "log.h"
 #include "ustring.h"
+#include "framework/config_info.h"
 
 namespace Leaks {
 constexpr uint32_t DIRMOD = 0777;
@@ -82,6 +84,8 @@ public:
     static StepInterAnalyzer& GetInstance();
     void StepInterCompare(const std::vector<std::string> &paths);
 private:
+    StepInterAnalyzer();
+    void SetDirPath();
     std::vector<std::string> SplitLineData(std::string line);
     void ReadCsvFile(const std::string &path, std::unordered_map<DEVICEID, CSV_FIELD_DATA> &data);
     KERNELNAME_INDEX ReadKernelLaunchData(const CSV_FIELD_DATA &data);
@@ -100,7 +104,8 @@ private:
     std::unordered_map<DEVICEID, CSV_FIELD_DATA> outputCompare_;
     std::unordered_map<DEVICEID, std::vector<std::string>> compareOut_;
     std::string fileNamePrefix_ = "stepintercompare_";
-    std::string dirPath_ = "leaksDumpResults";
+    std::string dirPath_;
+    std::mutex fileMutex_;
 };
 
 }
