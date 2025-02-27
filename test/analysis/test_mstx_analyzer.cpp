@@ -3,7 +3,6 @@
 #include <gtest/internal/gtest-port.h>
 #include <string>
 #include <memory>
-#include "analyzer_factory.h"
 #include "mstx_analyzer.h"
 #include "record_info.h"
 #include "config_info.h"
@@ -33,22 +32,12 @@ TEST(MstxAnalyzerTest, do_mstx_record_expect_success) {
 }
 
 TEST(MstxAnalyzerTest, do_analyzer_register_and_unregister_expect_success) {
-    AnalysisConfig analysisConfig;
-    AnalyzerFactory analyzerfactory{analysisConfig};
-    RecordType type = RecordType::TORCH_NPU_RECORD;
-    std::shared_ptr<AnalyzerBase> analyzer = analyzerfactory.CreateAnalyzer(type);
-
-    MstxAnalyzer::Instance().RegisterAnalyzer(analyzer);
-    MstxAnalyzer::Instance().UnregisterAnalyzer(analyzer);
+    MstxAnalyzer::Instance().Subscribe(MstxEventSubscriber::STEP_INNER_ANALYZER, nullptr);
+    MstxAnalyzer::Instance().UnSubscribe(MstxEventSubscriber::STEP_INNER_ANALYZER);
 }
 
 TEST(MstxAnalyzerTest, do_analyzer_notify_expect_success) {
-    AnalysisConfig analysisConfig;
-    AnalyzerFactory analyzerfactory{analysisConfig};
-    RecordType type = RecordType::TORCH_NPU_RECORD;
-    std::shared_ptr<AnalyzerBase> analyzer = analyzerfactory.CreateAnalyzer(type);
-
-    MstxAnalyzer::Instance().RegisterAnalyzer(analyzer);
+    MstxAnalyzer::Instance().Subscribe(MstxEventSubscriber::STEP_INNER_ANALYZER, nullptr);
 
     ClientId clientId = 0;
     auto mstxRecordStart = MstxRecord {};

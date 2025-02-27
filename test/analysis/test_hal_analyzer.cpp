@@ -10,7 +10,6 @@ using namespace Leaks;
 
 TEST(HalAnalyzerTest, do_hal_record_except_leaks) {
     AnalysisConfig analysisConfig;
-    HalAnalyzer halanalyzer{analysisConfig};
  
     ClientId clientId = 0;
     auto record1 = EventRecord{};
@@ -49,15 +48,12 @@ TEST(HalAnalyzerTest, do_hal_record_except_leaks) {
     memRecordMalloc4.timeStamp = 1234557;
     record4.record.memoryRecord = memRecordMalloc4;
  
-    EXPECT_TRUE(halanalyzer.Record(clientId, record1));
-    EXPECT_TRUE(halanalyzer.Record(clientId, record2));
-    EXPECT_TRUE(halanalyzer.Record(clientId, record4));
+    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record1));
+    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record2));
+    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record4));
 }
 
 TEST(HalAnalyzerTest, do_record_except_no_leaks) {
-    AnalysisConfig analysisConfig;
-    HalAnalyzer halanalyzer{analysisConfig};
-
     ClientId clientId = 0;
     auto record1 = EventRecord{};
     record1.type = RecordType::MEMORY_RECORD;
@@ -81,14 +77,11 @@ TEST(HalAnalyzerTest, do_record_except_no_leaks) {
     memRecordFree.memSize = 0;
     record3.record.memoryRecord = memRecordFree;
 
-    EXPECT_TRUE(halanalyzer.Record(clientId, record1));
-    EXPECT_TRUE(halanalyzer.Record(clientId, record3));
+    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record1));
+    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record3));
 }
 
 TEST(HalAnalyzerTest, do_record_excpet_double_free) {
-    AnalysisConfig analysisConfig;
-    HalAnalyzer halanalyzer{analysisConfig};
-
     ClientId clientId = 0;
     auto record1 = EventRecord{};
     record1.type = RecordType::MEMORY_RECORD;
@@ -122,15 +115,12 @@ TEST(HalAnalyzerTest, do_record_excpet_double_free) {
     memRecordFree2.memSize = 0;
     record3.record.memoryRecord = memRecordFree2;
 
-    EXPECT_TRUE(halanalyzer.Record(clientId, record1));
-    EXPECT_TRUE(halanalyzer.Record(clientId, record2));
-    EXPECT_TRUE(halanalyzer.Record(clientId, record3));
+    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record1));
+    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record2));
+    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record3));
 }
 
 TEST(HalAnalyzerTest, do_record_except_double_malloc) {
-    AnalysisConfig analysisConfig;
-    HalAnalyzer halanalyzer{analysisConfig};
-
     ClientId clientId = 0;
     auto record1 = EventRecord{};
     record1.type = RecordType::MEMORY_RECORD;
@@ -156,14 +146,11 @@ TEST(HalAnalyzerTest, do_record_except_double_malloc) {
     memRecordMalloc2.timeStamp = 1234567;
     record2.record.memoryRecord = memRecordMalloc2;
 
-    EXPECT_TRUE(halanalyzer.Record(clientId, record1));
-    EXPECT_TRUE(halanalyzer.Record(clientId, record2));
+    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record1));
+    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record2));
 }
 
 TEST(HalAnalyzerTest, do_record_except_free_null) {
-    AnalysisConfig analysisConfig;
-    HalAnalyzer halanalyzer{analysisConfig};
-
     ClientId clientId = 0;
     auto record1 = EventRecord{};
     record1.type = RecordType::MEMORY_RECORD;
@@ -175,13 +162,10 @@ TEST(HalAnalyzerTest, do_record_except_free_null) {
     memRecordFree1.memSize = 0;
     record1.record.memoryRecord = memRecordFree1;
 
-    EXPECT_TRUE(halanalyzer.Record(clientId, record1));
+    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record1));
 }
 
 TEST(HalAnalyzerTest, do_record_fail) {
-    AnalysisConfig analysisConfig;
-    HalAnalyzer halanalyzer{analysisConfig};
-
     ClientId clientId = 0;
     auto record1 = EventRecord{};
     record1.type = RecordType::MEMORY_RECORD;
@@ -193,13 +177,10 @@ TEST(HalAnalyzerTest, do_record_fail) {
     memRecordFree1.memSize = 0;
     record1.record.memoryRecord = memRecordFree1;
 
-    EXPECT_TRUE(halanalyzer.Record(clientId, record1));
+    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record1));
 }
 
 TEST(HalAnalyzerTest, do_memory_record_nulltable) {
-    AnalysisConfig analysisConfig;
-    HalAnalyzer halanalyzer{analysisConfig};
-
     auto record = EventRecord{};
     record.type = RecordType::MEMORY_RECORD;
     auto memRecordFree = MemOpRecord {};
@@ -208,5 +189,5 @@ TEST(HalAnalyzerTest, do_memory_record_nulltable) {
     ClientId clientId = 0;
     memRecordFree.memType = MemOpType::FREE;
     record.record.memoryRecord = memRecordFree;
-    EXPECT_TRUE(halanalyzer.Record(clientId, record));
+    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record));
 }

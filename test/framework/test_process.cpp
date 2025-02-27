@@ -113,9 +113,6 @@ TEST(Process, do_dump_record_except_success)
 
 TEST(Process, do_record_handler_except_success)
 {
-    AnalysisConfig analysisConfig;
-    AnalyzerFactory analyzerfactory{analysisConfig};
-
     ClientId clientId = 0;
     auto record1 = EventRecord{};
     record1.type = RecordType::TORCH_NPU_RECORD;
@@ -147,10 +144,13 @@ TEST(Process, do_record_handler_except_success)
     record4.type = RecordType::ACL_ITF_RECORD;
     auto aclItfRecord = AclItfRecord {};
     record4.record.aclItfRecord = aclItfRecord;
-    RecordHandler(clientId, record1, analyzerfactory);
-    RecordHandler(clientId, record2, analyzerfactory);
-    RecordHandler(clientId, record3, analyzerfactory);
-    RecordHandler(clientId, record4, analyzerfactory);
+
+    AnalysisConfig config;
+    Process process(config);
+    process.RecordHandler(clientId, record1);
+    process.RecordHandler(clientId, record2);
+    process.RecordHandler(clientId, record3);
+    process.RecordHandler(clientId, record4);
 }
 
 TEST(Process, do_msg_handler_record_packet_type_except_success)

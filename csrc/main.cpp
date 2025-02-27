@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <iostream>
 #include "framework/client_parser.h"
-#include "utility/log.h"
+
 int32_t main(int32_t argc, char **argv)
 {
     Leaks::ClientParser parser;
