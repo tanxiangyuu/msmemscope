@@ -9,7 +9,6 @@
 #include <thread>
 #include "server_process.h"
 #include "protocol.h"
-#include "analysis/analyzer_factory.h"
 
 namespace Leaks {
 struct ExecCmd {
@@ -40,14 +39,13 @@ private:
     void PostProcess(const ExecCmd &cmd);
 
     void MsgHandle(size_t &clientId, std::string &msg);
+    void RecordHandler(const ClientId &clientId, const EventRecord &record);
 private:
     std::unique_ptr<ServerProcess> server_;
     std::map<ClientId, Protocol> protocolList_;
     AnalysisConfig config_;
 };
 
-// 工厂优化后该函数日落
-void RecordHandler(const ClientId &clientId, const EventRecord &record, AnalyzerFactory &analyzerfactory);
 }
 
 #endif

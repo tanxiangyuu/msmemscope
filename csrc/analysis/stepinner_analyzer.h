@@ -3,8 +3,8 @@
 #ifndef STEPINNER_ANALYZER_H
 #define STEPINNER_ANALYZER_H
 
-#include "analyzer_base.h"
 #include "trace_record.h"
+#include "config_info.h"
 
 namespace Leaks {
 /*
@@ -64,13 +64,19 @@ struct NpuMemUsage {
     uint64_t mstxStep = 0; // 用于更新当前到哪一个step，并将其应用于表中的stepId属性。
 };
 
-class StepInnerAnalyzer : public AnalyzerBase {
+class StepInnerAnalyzer {
 public:
-    explicit StepInnerAnalyzer(const AnalysisConfig &config);
-    bool Record(const ClientId &clientId, const EventRecord &record) override;
-    void ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t &stepId, const MstxRecord &mstxRecord) override;
-    ~StepInnerAnalyzer();
+    static StepInnerAnalyzer &GetInstance(AnalysisConfig config);
+    bool Record(const ClientId &clientId, const EventRecord &record);
 private:
+    explicit StepInnerAnalyzer(AnalysisConfig config);
+    ~StepInnerAnalyzer();
+    StepInnerAnalyzer(const StepInnerAnalyzer&) = delete;
+    StepInnerAnalyzer& operator=(const StepInnerAnalyzer&) = delete;
+    StepInnerAnalyzer(StepInnerAnalyzer&& other) = delete;
+    StepInnerAnalyzer& operator=(StepInnerAnalyzer&& other) = delete;
+    
+    void ReceiveMstxMsg(const MstxRecord &mstxRecord);
     void AddDuration(const DeviceId &deviceId);
     void SetStepId(const DeviceId &deviceId, const uint64_t &stepId);
     int64_t GetNowAllocated(const DeviceId &deviceId);
