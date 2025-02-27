@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <mutex>
 #include "framework/record_info.h"
+#include "framework/config_info.h"
 #include "host_injection/core/Communication.h"
 
 namespace Leaks {
@@ -18,8 +19,9 @@ public:
     static DumpRecord& GetInstance();
     bool DumpData(const ClientId &clientId, const EventRecord &record);
 private:
-    DumpRecord() = default;
+    DumpRecord();
     ~DumpRecord();
+    void SetDirPath();
     DumpRecord(const DumpRecord&) = delete;
     DumpRecord& operator=(const DumpRecord&) = delete;
     DumpRecord(DumpRecord&& other) = delete;
@@ -35,7 +37,7 @@ private:
     std::unordered_map<ClientId, std::unordered_map<uint64_t, MemOpSpace>> memOpMap_;
     std::unordered_map<ClientId, uint64_t> memHost_;
     std::unordered_map<ClientId, uint64_t> memDevice_;
-    std::string dirPath_ = "leaksDumpResults";
+    std::string dirPath_;
     std::mutex fileMutex_;
     std::string fileNamePrefix_ = "leaks_dump_";
 };

@@ -273,3 +273,24 @@ TEST(Path, check_not_exist_path_exists_expect_return_false)
     Path path("./not_exist");
     ASSERT_FALSE(path.Exists());
 }
+
+TEST(Path, check_valid_length)
+{
+    Path path("./valid_length");
+    ASSERT_TRUE(path.IsValidLength());
+}
+
+TEST(Path, check_invalid_length)
+{
+    std::string invalidName(256, 'A');
+    Path pathWithInvalidName("./" + invalidName);
+    ASSERT_FALSE(pathWithInvalidName.IsValidLength());
+
+    std::string validName(128, 'A');
+    std::string invalidPath;
+    for (int i = 0; i < 32; i++) {
+        invalidPath += "/" + invalidName;
+    }
+    Path pathWithInvalidPath(invalidName);
+    ASSERT_FALSE(pathWithInvalidPath.IsValidLength());
+}
