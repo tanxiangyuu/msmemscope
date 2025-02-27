@@ -16,6 +16,7 @@ namespace Leaks {
 using DeviceId = int32_t;
 using StepId = uint64_t;
 constexpr uint64_t BYTE_TO_MB = 1024 * 1024;
+constexpr double  PERCENT_SCALE_FACTOR = 100.0;
 
 struct StepInfo {
     int64_t totalAllocated = 0;
@@ -56,12 +57,22 @@ struct NpuMemInfo {
     uint64_t kernelIndex;   // 处于哪个event中
 };
 
+struct GapInfo  {
+    uint64_t gapStepId = 0;             // 记录计算比值时的stepId
+    double  dynStaticMemRatio = 0;      // 动态内存和静态内存的最小比值
+    int64_t staticMemory = 0;           // 最大比值对应的静态内存
+};
+
 struct NpuMemUsage {
     std::unordered_map<uint64_t, NpuMemInfo> mempooltable;
     int64_t totalAllocated = 0;
     int64_t totalReserved = 0;
     int64_t totalActive = 0;
+    int64_t stepMaxAllocated = 0;
+    int64_t stepMinAllocated = 0;
     uint64_t mstxStep = 0; // 用于更新当前到哪一个step，并将其应用于表中的stepId属性。
+    GapInfo maxGapInfo;    // 记录动态内存和静态内存比值最大的信息
+    GapInfo minGapInfo;    // 记录动态内存和静态内存比值最小的信息
 };
 
 class StepInnerAnalyzer {
@@ -77,9 +88,11 @@ private:
     StepInnerAnalyzer& operator=(StepInnerAnalyzer&& other) = delete;
     
     void ReceiveMstxMsg(const MstxRecord &mstxRecord);
+    void UpdateAllocated(const DeviceId &deviceId, const int64_t &totalAllocated);
     void AddDuration(const DeviceId &deviceId);
     void SetStepId(const DeviceId &deviceId, const uint64_t &stepId);
     int64_t GetNowAllocated(const DeviceId &deviceId);
+    void CheckGap(const DeviceId &deviceId);
     void CheckNpuLeak(const DeviceId &deviceId, const uint64_t stepId);
     void NotifyTraceRecord(const int32_t &devId, const TorchNpuRecord &torchnpuRecord);
     bool CreateMstxTables(const DeviceId &deviceId);
@@ -89,6 +102,7 @@ private:
     void RecordNpuFree(const ClientId &clientId, const DeviceId &deviceId, const TorchNpuRecord &torchnpuRecord);
     bool SkipCheck(const NpuMemInfo &npuMemInfo);
     void ReportLeak(const DeviceId &deviceId);
+    void ReportGap(const DeviceId &deviceId);
     bool IsStepInnerAnalysisEnable();
     std::unordered_map<DeviceId, NpuMemUsage> npuMemUsages_{};
     std::unordered_map<DeviceId, MstxRecordTable> mstxTables_{};
