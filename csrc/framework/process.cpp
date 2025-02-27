@@ -8,9 +8,11 @@
 #include "ustring.h"
 #include "log.h"
 #include "serializer.h"
-#include "analysis/mstx_analyzer.h"
 #include "analysis/dump_record.h"
 #include "analysis/trace_record.h"
+#include "analysis/mstx_analyzer.h"
+#include "analysis/hal_analyzer.h"
+#include "analysis/stepinner_analyzer.h"
 
 namespace Leaks {
 
@@ -64,31 +66,22 @@ Process::Process(const AnalysisConfig &config)
     server_->Start();
 }
 
-void RecordHandler(const ClientId &clientId, const EventRecord &record, AnalyzerFactory &analyzerfactory)
+void Process::RecordHandler(const ClientId &clientId, const EventRecord &record)
 {
+    DumpRecord::GetInstance().DumpData(clientId, record);
+    TraceRecord::GetInstance().TraceHandler(record);
+
     switch (record.type) {
         case RecordType::MSTX_MARK_RECORD:
             MstxAnalyzer::Instance().RecordMstx(clientId, record.record.mstxRecord);
             break;
-        case RecordType::KERNEL_LAUNCH_RECORD:
-            Utility::LogInfo(
-                "kernelLaunch record, name: %s, index: %u, type: %u, time: %u, streamId: %d, blockDim: %u",
-                record.record.kernelLaunchRecord.kernelName,
-                record.record.kernelLaunchRecord.kernelLaunchIndex,
-                record.record.kernelLaunchRecord.type,
-                record.record.kernelLaunchRecord.timeStamp,
-                record.record.kernelLaunchRecord.streamId,
-                record.record.kernelLaunchRecord.blockDim);
+        case RecordType::MEMORY_RECORD:
+            HalAnalyzer::GetInstance().Record(clientId, record);
             break;
-        case RecordType::ACL_ITF_RECORD:
-            Utility::LogInfo("aclItf record, index: %u, type: %u, time: %u",
-                record.record.aclItfRecord.aclItfRecordIndex,
-                record.record.aclItfRecord.type,
-                record.record.aclItfRecord.timeStamp);
+        case RecordType::TORCH_NPU_RECORD:
+            StepInnerAnalyzer::GetInstance(config_).Record(clientId, record);
             break;
         default:
-            auto analyzer = analyzerfactory.CreateAnalyzer(record.type);
-            analyzer->Record(clientId, record);
             break;
     }
 
@@ -97,8 +90,6 @@ void RecordHandler(const ClientId &clientId, const EventRecord &record, Analyzer
 
 void Process::MsgHandle(size_t &clientId, std::string &msg)
 {
-    static AnalyzerFactory analyzerfactory{config_}; // 后续优化去除工厂,暂时存储在BSS段
-
     if (protocolList_.find(clientId) == protocolList_.end()) {
         auto result = protocolList_.insert({clientId, Protocol{}});
         if (!result.second) {
@@ -113,9 +104,7 @@ void Process::MsgHandle(size_t &clientId, std::string &msg)
         auto packet = protocol.GetPacket();
         switch (packet.GetPacketHead().type) {
             case PacketType::RECORD:
-                DumpRecord::GetInstance().DumpData(clientId, packet.GetPacketBody().eventRecord);
-                TraceRecord::GetInstance().TraceHandler(packet.GetPacketBody().eventRecord);
-                RecordHandler(clientId, packet.GetPacketBody().eventRecord, analyzerfactory);
+                RecordHandler(clientId, packet.GetPacketBody().eventRecord);
                 break;
             case PacketType::LOG: {
                 auto log = packet.GetPacketBody().log;

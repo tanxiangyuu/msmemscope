@@ -3,8 +3,10 @@
 #ifndef HAL_ANALYZER_H
 #define HAL_ANALYZER_H
 
-#include "analyzer_base.h"
+#include <unordered_map>
 #include "module_info.h"
+#include "record_info.h"
+#include "host_injection/core/Communication.h"
 
 namespace Leaks {
 /*
@@ -25,20 +27,24 @@ struct HalMemInfo {
 
 using MemoryRecordTable = std::unordered_map<uint64_t, HalMemInfo>;
 
-class HalAnalyzer : public AnalyzerBase {
+class HalAnalyzer {
 public:
-    explicit HalAnalyzer(const AnalysisConfig &config);
-    bool Record(const ClientId &clientId, const EventRecord &record) override;
-    void ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t &stepid, const MstxRecord &mstxrecord) override;
-    ~HalAnalyzer();
+    static HalAnalyzer& GetInstance();
+    bool Record(const ClientId &clientId, const EventRecord &record);
 private:
+    HalAnalyzer() = default;
+    ~HalAnalyzer();
+    HalAnalyzer(const HalAnalyzer&) = delete;
+    HalAnalyzer& operator=(const HalAnalyzer&) = delete;
+    HalAnalyzer(HalAnalyzer&& other) = delete;
+    HalAnalyzer& operator=(HalAnalyzer&& other) = delete;
+
     std::unordered_map<ClientId, MemoryRecordTable> memtables_{};
     bool CreateMemTables(const ClientId &clientId);
     void RecordMalloc(const ClientId &clientId, const MemOpRecord memrecord);
     void RecordFree(const ClientId &clientId, const MemOpRecord memrecord);
     void LeakAnalyze();
     void CheckLeak(const size_t clientId);
-    AnalysisConfig config_;
 };
 
 }
