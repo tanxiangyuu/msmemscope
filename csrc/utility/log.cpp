@@ -36,20 +36,9 @@ std::string Log::AddPrefixInfo(std::string const &format, LogLv lv) const
     return std::string(buf) + " " + ToString(lv) + " " + format;
 }
 
-void Log::SetLogLevel(const std::string &logLevel)
+void Log::SetLogLevel(const LogLv &logLevel)
 {
-    std::map<std::string, LogLv> logLevelMap = {
-        {"0", LogLv::DEBUG},
-        {"1", LogLv::INFO},
-        {"2", LogLv::WARN},
-        {"3", LogLv::ERROR},
-    };
-    if (logLevelMap.count(logLevel) == 0) {
-        LogWarn("LOG_LEVEL can only be set 0,1,2,3 [0-debug, 1-info, 2-warn, 3-error], "
-                "use default 1 level.");
-        return;
-    }
-    lv_ = logLevelMap[logLevel];
+    lv_ = logLevel;
 }
 
 }  // namespace Utility
