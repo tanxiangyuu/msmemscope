@@ -3,8 +3,9 @@
 #ifndef MSTX_ANALYZER_H
 #define MSTX_ANALYZER_H
 
-#include <list>
-#include "analyzer_base.h"
+#include <unordered_map>
+#include "record_info.h"
+#include "host_injection/core/Communication.h"
 
 namespace Leaks {
 /*
@@ -13,24 +14,31 @@ namespace Leaks {
  * 2. 标识打点信息
 */
 
-
 using DeviceId = int32_t;
+using MstxEventCallBackFunc = std::function<void(const MstxRecord&)>;
+
+enum class MstxEventSubscriber : uint8_t {
+    STEP_INNER_ANALYZER = 0,
+};
 
 class MstxAnalyzer {
 public:
     static MstxAnalyzer& Instance();
     bool RecordMstx(const ClientId &clientId, const MstxRecord &mstxRecord);
-    void RegisterAnalyzer(std::shared_ptr<AnalyzerBase> analyzer);
-    void UnregisterAnalyzer(std::shared_ptr<AnalyzerBase> analyzer);
+    void Subscribe(const MstxEventSubscriber &subscriber, const MstxEventCallBackFunc &func);
+    void UnSubscribe(const MstxEventSubscriber &subscriber);
+private:
+    MstxAnalyzer() = default;
+    ~MstxAnalyzer() = default;
+
     MstxAnalyzer(const MstxAnalyzer&) = delete;
     MstxAnalyzer& operator=(const MstxAnalyzer&) = delete;
     MstxAnalyzer(MstxAnalyzer&&) = delete;
     MstxAnalyzer& operator=(MstxAnalyzer&&) = delete;
-    ~MstxAnalyzer() = default;
-private:
-    MstxAnalyzer() = default;
-    std::list<std::shared_ptr<AnalyzerBase>> analyzerList;
-    void Notify(const DeviceId &deviceId, const uint64_t &stepId, const MstxRecord &mstxRecord);
+
+    void Notify(const MstxRecord &mstxRecord);
+
+    std::unordered_map<MstxEventSubscriber, MstxEventCallBackFunc> subscriberList_;
 };
 
 }

@@ -1,16 +1,14 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
 #include "hal_analyzer.h"
+#include "utility/log.h"
 
 namespace Leaks {
 
-HalAnalyzer::HalAnalyzer(const AnalysisConfig &config)
+HalAnalyzer& HalAnalyzer::GetInstance()
 {
-    config_ = config;
-}
-
-void HalAnalyzer::ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t &stepid, const MstxRecord &mstxrecord)
-{
+    static HalAnalyzer analyzer;
+    return analyzer;
 }
 
 bool HalAnalyzer::CreateMemTables(const ClientId &clientId)

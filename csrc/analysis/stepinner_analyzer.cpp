@@ -5,12 +5,25 @@
 #include <iostream>
 #include <algorithm>
 #include "mstx_analyzer.h"
+#include "utility/log.h"
+#include "config_info.h"
 
 namespace Leaks {
 
-StepInnerAnalyzer::StepInnerAnalyzer(const AnalysisConfig &config)
+StepInnerAnalyzer &StepInnerAnalyzer::GetInstance(AnalysisConfig config)
+{
+    static StepInnerAnalyzer analyzer(config);
+    return analyzer;
+}
+
+StepInnerAnalyzer::StepInnerAnalyzer(AnalysisConfig config)
 {
     config_ = config;
+
+    auto func = std::bind(&StepInnerAnalyzer::ReceiveMstxMsg, this, std::placeholders::_1);
+    MstxAnalyzer::Instance().Subscribe(MstxEventSubscriber::STEP_INNER_ANALYZER, func);
+
+    return;
 }
 
 bool StepInnerAnalyzer::CreateTables(const DeviceId &deviceId)
@@ -236,8 +249,10 @@ bool StepInnerAnalyzer::Record(const ClientId &clientId, const EventRecord &reco
     return true;
 }
 
-void StepInnerAnalyzer::ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t &stepId, const MstxRecord &mstxRecord)
+void StepInnerAnalyzer::ReceiveMstxMsg(const MstxRecord &mstxRecord)
 {
+    auto deviceId = mstxRecord.devId;
+    auto stepId = mstxRecord.stepId;
     if (!IsStepInnerAnalysisEnable()) {
         return;
     }
@@ -321,6 +336,8 @@ void StepInnerAnalyzer::ReceiveMstxMsg(const DeviceId &deviceId, const uint64_t 
 
 StepInnerAnalyzer::~StepInnerAnalyzer()
 {
+    MstxAnalyzer::Instance().UnSubscribe(MstxEventSubscriber::STEP_INNER_ANALYZER);
+
     if (!IsStepInnerAnalysisEnable()) {
         return;
     }

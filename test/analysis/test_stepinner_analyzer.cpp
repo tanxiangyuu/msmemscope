@@ -5,7 +5,6 @@
 #include "securec.h"
 #include "stepinner_analyzer.h"
 #include "mstx_analyzer.h"
-#include "analyzer_factory.h"
 #include "record_info.h"
 #include "config_info.h"
 
@@ -26,7 +25,6 @@ MstxRecord CreatMstxRecord(MarkType type, const char* message, uint64_t stepId, 
 
 TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_sucess) {
     AnalysisConfig analysisConfig;
-    StepInnerAnalyzer stepinneranalyzer{analysisConfig};
     ClientId clientId = 0;
 
     auto record1 = EventRecord{};
@@ -53,17 +51,12 @@ TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_sucess) {
     npuRecordFree.memoryUsage = memoryusage2;
     record2.record.torchNpuRecord = npuRecordFree;
 
-    EXPECT_TRUE(stepinneranalyzer.Record(clientId, record1));
-    EXPECT_TRUE(stepinneranalyzer.Record(clientId, record2));
+    EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, record1));
+    EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, record2));
 }
 
-TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks_warning) {
-    AnalysisConfig analysisConfig;
-    AnalyzerFactory analyzerfactory{analysisConfig};
-    RecordType type = RecordType::TORCH_NPU_RECORD;
-    std::shared_ptr<AnalyzerBase> analyzer = analyzerfactory.CreateAnalyzer(type);
-    MstxAnalyzer::Instance().RegisterAnalyzer(analyzer);
-
+TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks_warning)
+{
     ClientId clientId = 0;
     auto mstxRecordStart1 = MstxRecord {};
     mstxRecordStart1.markType = MarkType::RANGE_START_A;
@@ -98,7 +91,8 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks_warning) {
     npuRecordMalloc.memoryUsage = memoryusage1;
     record1.record.torchNpuRecord = npuRecordMalloc;
 
-    EXPECT_TRUE(analyzer->Record(clientId, record1));
+    AnalysisConfig analysisConfig;
+    EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, record1));
     EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStart1));
     EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStart2));
     EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordEnd));
@@ -106,7 +100,6 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks_warning) {
 
 TEST(StepInnerAnalyzerTest, do_npu_malloc_record_expect_sucess) {
     AnalysisConfig analysisConfig;
-    StepInnerAnalyzer stepinneranalyzer{analysisConfig};
     ClientId clientId = 0;
 
     auto record = EventRecord{};
@@ -127,12 +120,11 @@ TEST(StepInnerAnalyzerTest, do_npu_malloc_record_expect_sucess) {
     npuRecordMalloc.memoryUsage = memoryusage;
     record.record.torchNpuRecord = npuRecordMalloc;
 
-    EXPECT_TRUE(stepinneranalyzer.Record(clientId, record));
+    EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, record));
 }
 
 TEST(StepInnerAnalyzerTest, do_npu_malloc_record_expect_double_malloc) {
     AnalysisConfig analysisConfig;
-    StepInnerAnalyzer stepinneranalyzer{analysisConfig};
     ClientId clientId = 0;
 
     auto record = EventRecord{};
@@ -158,14 +150,13 @@ TEST(StepInnerAnalyzerTest, do_npu_malloc_record_expect_double_malloc) {
     double_npuRecordMalloc.memoryUsage = double_memoryusage;
     double_record.record.torchNpuRecord = double_npuRecordMalloc;
 
-    EXPECT_TRUE(stepinneranalyzer.Record(clientId, record));
-    EXPECT_TRUE(stepinneranalyzer.Record(clientId, double_record));
+    EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, record));
+    EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, double_record));
 }
 
 
 TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_free_error) {
     AnalysisConfig analysisConfig;
-    StepInnerAnalyzer stepinneranalyzer{analysisConfig};
     ClientId clientId = 0;
 
     auto record = EventRecord{};
@@ -186,16 +177,10 @@ TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_free_error) {
     npuRecordFree.memoryUsage = memoryusage;
     record.record.torchNpuRecord = npuRecordFree;
 
-    EXPECT_TRUE(stepinneranalyzer.Record(clientId, record));
+    EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, record));
 }
 
 TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks) {
-    AnalysisConfig analysisConfig;
-    AnalyzerFactory analyzerfactory{analysisConfig};
-    RecordType type = RecordType::TORCH_NPU_RECORD;
-    std::shared_ptr<AnalyzerBase> analyzer = analyzerfactory.CreateAnalyzer(type);
-    MstxAnalyzer::Instance().RegisterAnalyzer(analyzer);
-
     ClientId clientId = 0;
     // 第一个step会跳过
     auto mstxRecordStartFirst = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 1, 1, 123);
@@ -228,9 +213,9 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks) {
     MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStartFirst);
     MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordEndFirst);
     MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStartSecond);
-    EXPECT_TRUE(analyzer->Record(clientId, record));
+    AnalysisConfig analysisConfig;
+    EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, record));
     MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStartSecond);
     EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStartThird));
     EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordEndThird));
-    analyzer->~AnalyzerBase();
 }
