@@ -2,10 +2,13 @@
 #include <gtest/gtest.h>
 #include <gtest/internal/gtest-port.h>
 #include <string>
+#define private public
 #include "dump_record.h"
+#undef private
 #include "record_info.h"
 #include "config_info.h"
 #include "securec.h"
+#include "file.h"
 
 using namespace Leaks;
 
@@ -194,4 +197,11 @@ TEST(DumpRecord, dump_msxt_range_end_expect_success)
     
     ClientId clientId = 0;
     EXPECT_TRUE(DumpRecord::GetInstance().DumpData(clientId, record));
+}
+
+TEST(DumpRecord, set_dir_path)
+{
+    Utility::SetDirPath("/MyPath", std::string(OUTPUT_PATH));
+    DumpRecord::GetInstance().SetDirPath();
+    EXPECT_EQ(DumpRecord::GetInstance().dirPath_, "/MyPath/" + std::string(DUMP_FILE));
 }

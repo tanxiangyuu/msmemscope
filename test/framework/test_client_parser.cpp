@@ -261,6 +261,119 @@ TEST(ClientParser, test_print_version)
     ASSERT_TRUE(cmd.printVersionInfo);
 }
 
+TEST(ClientParser, test_not_set_output)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.outputPath, "");
+}
+
+TEST(ClientParser, test_set_valid_output)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--output=./MyPath"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_FALSE(cmd.outputPath.empty());
+
+    argv = {
+        "msleaks",
+        "--output=../MyPath"
+    };
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_FALSE(cmd.outputPath.empty());
+
+    argv = {
+        "msleaks",
+        "--output=/MyPath1/MyPath2"
+    };
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_FALSE(cmd.outputPath.empty());
+
+    argv = {
+        "msleaks",
+        "--output=/MyPath1/MyPath2/"
+    };
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_FALSE(cmd.outputPath.empty());
+
+    argv = {
+        "msleaks",
+        "--output=MyPath"
+    };
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_FALSE(cmd.outputPath.empty());
+
+    argv = {
+        "msleaks",
+        "--output=.//MyPath"
+    };
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_FALSE(cmd.outputPath.empty());
+
+    argv = {
+        "msleaks",
+        "--output=./测试/测试"
+    };
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_FALSE(cmd.outputPath.empty());
+}
+
+TEST(ClientParser, test_set_invalid_output)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--output= "
+    };
+
+    // Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.outputPath.empty());
+
+    argv = {
+        "msleaks",
+        "--output=/MyPath1/MyPath2?"
+    };
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.outputPath.empty());
+
+    argv = {
+        "msleaks",
+        "--output=/MyPath1/MyPath2*/"
+    };
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.outputPath.empty());
+
+    argv = {
+        "msleaks",
+        "--output=MyPath|"
+    };
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.outputPath.empty());
+
+    std::string str(256, 'A');
+    str = "--output=" + str;
+    argv = {
+        "msleaks",
+        str.c_str()
+    };
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.outputPath.empty());
+}
+
 TEST(ClientParser, test_input_valid_log_level_expect_valid_loglv)
 {
     std::vector<const char*> argv = {

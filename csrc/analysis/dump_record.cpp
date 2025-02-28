@@ -18,6 +18,17 @@ DumpRecord& DumpRecord::GetInstance()
     return instance;
 }
 
+DumpRecord::DumpRecord()
+{
+    SetDirPath();
+}
+
+void DumpRecord::SetDirPath()
+{
+    std::lock_guard<std::mutex> lock(fileMutex_);
+    dirPath_ = Utility::g_dirPath + "/" + std::string(DUMP_FILE);
+}
+
 bool DumpRecord::DumpData(const ClientId &clientId, const EventRecord &record)
 {
     switch (record.type) {
