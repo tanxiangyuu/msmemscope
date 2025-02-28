@@ -94,6 +94,7 @@ TraceRecord& TraceRecord::GetInstance()
 
 TraceRecord::TraceRecord()
 {
+    SetDirPath();
     eventPids_.emplace_back(EventPid{mstxEventPid_, "mstx"});
     eventPids_.emplace_back(EventPid{leakEventPid_, "leak"});
 }
@@ -103,24 +104,30 @@ void TraceRecord::TraceHandler(const EventRecord &record)
     ProcessRecord(record);
 }
 
+void TraceRecord::SetDirPath()
+{
+    std::lock_guard<std::mutex> lock(fileMutex_);
+    dirPath_ = Utility::g_dirPath + "/" + std::string(TRACE_FILE);
+}
+
 bool TraceRecord::CreateFileByDevice(const Device &device)
 {
     if (traceFiles_[device].fp != nullptr) {
         return true;
     }
 
-    std::string dirPath = "leaksDumpResults";
-    if (!Utility::MakeDir(dirPath)) {
+    if (!Utility::MakeDir(dirPath_)) {
         return false;
     }
 
-    std::lock_guard<std::mutex> lock(createFileMutex_);
+    std::lock_guard<std::mutex> lock(fileMutex_);
 
     std::string fileHead = FormatDeviceName(device);
-    std::string filePath = dirPath + "/" + fileHead + "_trace_" + Utility::GetDateStr() + ".json";
+    std::string filePath = dirPath_ + "/" + fileHead + "_trace_" + Utility::GetDateStr() + ".json";
     Utility::UmaskGuard guard{DEFAULT_UMASK_FOR_JSON_FILE};
     FILE* fp = fopen(filePath.c_str(), "a");
     if (fp != nullptr) {
+        std::cout << "[msleaks] Info: create file " << filePath << "." << std::endl;
         fprintf(fp, "[\n");
         traceFiles_[device].fp = fp;
         traceFiles_[device].filePath = filePath;

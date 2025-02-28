@@ -160,4 +160,20 @@ bool Path::Exists(void) const
     return stat(this->ToString().c_str(), &st) == 0;
 }
 
+bool Path::IsValidLength(void) const
+{
+    std::size_t pathNameLength = 0;
+    for (auto it = this->route_.cbegin(); it != this->route_.cend(); ++it) {
+        std::size_t fileNameLength = it->length();
+        if (fileNameLength > NAME_MAX || fileNameLength == 0) {
+            return false;
+        }
+        pathNameLength += fileNameLength;
+    }
+    if (pathNameLength > PATH_MAX || pathNameLength == 0) {
+        return false;
+    }
+    return true;
+}
+
 }  // namespace Utility
