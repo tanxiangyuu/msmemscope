@@ -473,26 +473,19 @@ TEST(TraceRecord, process_torch_memory_record)
     MemoryUsage memoryUsage = MemoryUsage{};
     memoryUsage.totalAllocated = 10;
     memoryUsage.totalReserved = 30;
-    memoryUsage.totalActive = 20;
     torchNpuRecord.memoryUsage = memoryUsage;
     torchNpuRecord.devId = 2;
     record.record.torchNpuRecord = torchNpuRecord;
 
     std::string result = "{\n"
 "    \"ph\": \"C\",\n"
-"    \"name\": \"operators reserved\",\n"
+"    \"name\": \"torch reserved memory\",\n"
 "    \"pid\": 8,\n"
 "    \"tid\": 6,\n"
 "    \"ts\": 123,\n"
 "    \"args\": {\n        \"size\": 30\n    }\n},\n{\n"
 "    \"ph\": \"C\",\n"
-"    \"name\": \"operators active\",\n"
-"    \"pid\": 8,\n"
-"    \"tid\": 6,\n"
-"    \"ts\": 123,\n"
-"    \"args\": {\n        \"size\": 20\n    }\n},\n{\n"
-"    \"ph\": \"C\",\n"
-"    \"name\": \"operators allocated\",\n"
+"    \"name\": \"torch allocated memory\",\n"
 "    \"pid\": 8,\n"
 "    \"tid\": 6,\n"
 "    \"ts\": 123,\n"
