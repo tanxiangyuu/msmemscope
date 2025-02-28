@@ -46,6 +46,9 @@ public:
     /// 校验路径是否存在
     bool Exists(void) const;
 
+    /// 校验文件名长度
+    bool IsValidLength(void) const;
+
 private:
     bool absolute_;
     std::vector<std::string> route_;

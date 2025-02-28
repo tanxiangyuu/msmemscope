@@ -9,6 +9,8 @@
 #include <regex>
 #include <algorithm>
 #include "command.h"
+#include "file.h"
+#include "path.h"
 #include "log.h"
 #include "ustring.h"
 
@@ -18,6 +20,7 @@ enum class OptVal : int32_t {
     SELECT_STEPS = 0,
     COMPARE,
     INPUT,
+    OUTPUT,
     DATA_PARSING_LEVEL,
     LOG_LEVEL,
 };
@@ -46,6 +49,7 @@ void ShowHelpInfo()
         "    --compare                      Enable memory data comparison." << std::endl <<
         "    --input=path1,path2            Paths to compare files, valid with compare command on" << std::endl <<
         "                                   The input paths need to be separated by, or ，." << std::endl <<
+        "    --output=path                  The path to store the generated files." << std::endl <<
         "    --log-level                    Set log level to <level> [warn]." << std::endl;
 }
 
@@ -82,6 +86,8 @@ void DoUserCommand(const UserCommand &userCommand)
         return;
     }
 
+    Utility::SetDirPath(userCommand.outputPath, std::string(OUTPUT_PATH));
+
     Command command {userCommand};
     command.Exec();
 }
@@ -100,6 +106,7 @@ std::vector<option> GetLongOptArray()
         {"steps", required_argument, nullptr, static_cast<int32_t>(OptVal::SELECT_STEPS)},
         {"compare", no_argument, nullptr, static_cast<int32_t>(OptVal::COMPARE)},
         {"input", required_argument, nullptr, static_cast<int32_t>(OptVal::INPUT)},
+        {"output", required_argument, nullptr, static_cast<int32_t>(OptVal::OUTPUT)},
         {"level", required_argument, nullptr, static_cast<int32_t>(OptVal::DATA_PARSING_LEVEL)},
         {"log-level", required_argument, nullptr, static_cast<int32_t>(OptVal::LOG_LEVEL)},
         {nullptr, 0, nullptr, 0},
@@ -166,17 +173,49 @@ static void ParseInputPaths(const std::string param, UserCommand &userCommand)
     while (it != end) {
         std::string path = it->str();
         if (!path.empty()) {
-            userCommand.paths.emplace_back(path);
+            userCommand.inputPaths.emplace_back(path);
         }
         it++;
     }
 
-    if (userCommand.paths.size() != PATHSIZE) {
+    if (userCommand.inputPaths.size() != PATHSIZE) {
         std::cout << "[msleaks] ERROR: invalid paths input." << std::endl;
         userCommand.printHelpInfo = true;
     } else {
         userCommand.config.inputCorrectPaths = true;
     }
+}
+
+static void ParseOutputPath(const std::string param, UserCommand &userCommand)
+{
+    if (Utility::Strip(param).length() == 0) {
+        std::cout << "[msleaks] WARN: empty path, use the default path leaksDumpResults." << std::endl;
+        return;
+    }
+
+    Utility::Path path = Utility::Path{param};
+    Utility::Path realPath = path.Resolved();
+
+    if (!path.IsValidLength()) {
+        std::cout << "[msleaks] WARN: invalid output path length, use the default path leaksDumpResults." << std::endl;
+        return;
+    }
+
+    std::string pathStr = realPath.ToString();
+
+    struct stat statbuf;
+    if (lstat(pathStr.c_str(), &statbuf) == 0 && S_ISLNK(statbuf.st_mode)) {
+        std::cout << "[msleaks] WARN: the path is link, use the default path leaksDumpResults." << std::endl;
+        return;
+    }
+
+    std::regex pattern("(\\.|/|_|-|\\s|[~0-9a-zA-Z]|[\u4e00-\u9fa5])+");
+    if (!std::regex_match(pathStr, pattern)) {
+        std::cout << "[msleaks] WARN: invalid output path, use the default path leaksDumpResults." << std::endl;
+        return;
+    }
+
+    userCommand.outputPath = pathStr;
 }
 
 static void ParseDataLevel(const std::string param, UserCommand &userCommand)
@@ -235,10 +274,15 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
         case static_cast<int32_t>(OptVal::INPUT):
             ParseInputPaths(param, userCommand);
             break;
+        case static_cast<int32_t>(OptVal::OUTPUT):
+            ParseOutputPath(param, userCommand);
+            break;
         case static_cast<int32_t>(OptVal::DATA_PARSING_LEVEL):
             ParseDataLevel(param, userCommand);
+            break;
         case static_cast<int32_t>(OptVal::LOG_LEVEL):
             ParseLogLv(param, userCommand);
+            break;
         default:
             ;
     }

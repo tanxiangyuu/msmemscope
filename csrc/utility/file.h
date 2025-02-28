@@ -5,21 +5,59 @@
 
 #include <unistd.h>
 #include <sys/stat.h>
+#include <vector>
 #include "log.h"
+#include "path.h"
+#include "config_info.h"
 #include "umask_guard.h"
 
 namespace Utility {
     constexpr uint32_t DIRMOD = 0750;
     constexpr uint32_t DEFAULT_UMASK_FOR_CSV_FILE = 0177;
+    extern std::string g_dirPath;
+
+    inline void SetDirPath(const std::string& dirPath, const std::string& defaultDirPath)
+    {
+        if (dirPath.empty()) {
+            Utility::Path path = Utility::Path{defaultDirPath};
+            Utility::Path realPath = path.Resolved();
+            g_dirPath = realPath.ToString();
+        } else {
+            g_dirPath = dirPath;
+        }
+    }
 
     inline bool MakeDir(const std::string& dirPath)
     {
-        if (access(dirPath.c_str(), F_OK) == -1) {
-            Utility::LogInfo("dir %s does not exist", dirPath.c_str());
-            if (mkdir(dirPath.c_str(), DIRMOD) != 0) {
-                Utility::LogError("cannot create dir %s", dirPath.c_str());
+        if (dirPath.empty()) {
+            Utility::LogError("Invalid directory path.");
+            return false;
+        }
+
+        if (access(dirPath.c_str(), F_OK) != -1) {
+            return true;
+        }
+        Utility::LogInfo("dir %s does not exist", dirPath.c_str());
+        
+        size_t pos = dirPath[0] != '/' ? 0 : 1;
+        std::string tempPath = dirPath;
+        
+        // 遍历路径中的每一部分，递归创建父目录
+        while ((pos = tempPath.find('/', pos)) != std::string::npos) {
+            std::string partPath = tempPath.substr(0, pos);
+            pos++;
+            if (access(partPath.c_str(), F_OK) != -1) {
+                continue;
+            }
+            if (mkdir(partPath.c_str(), DIRMOD) != 0) {
+                Utility::LogError("Cannot create dir %s", partPath.c_str());
                 return false;
             }
+        }
+
+        if (mkdir(dirPath.c_str(), DIRMOD) != 0) {
+            Utility::LogError("Cannot create dir %s", dirPath.c_str());
+            return false;
         }
         return true;
     }
@@ -45,6 +83,7 @@ namespace Utility {
             UmaskGuard guard{DEFAULT_UMASK_FOR_CSV_FILE};
             FILE* fp = fopen(filePath.c_str(), "a");
             if (fp != nullptr) {
+                std::cout << "[msleaks] Info: create file " << filePath << "." << std::endl;
                 fprintf(fp, headers.c_str());
                 *filefp = fp;
             } else {

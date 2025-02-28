@@ -15,6 +15,7 @@
 #include <dirent.h>
 #include <mutex>
 #include "framework/record_info.h"
+#include "framework/config_info.h"
 #include "host_injection/core/Communication.h"
 
 namespace Leaks {
@@ -84,6 +85,8 @@ private:
     TraceRecord(TraceRecord&& other) = delete;
     TraceRecord& operator=(TraceRecord&& other) = delete;
 
+    void SetDirPath();
+
     void MemRecordToString(MemOpRecord &memRecord, std::string &str);
     void NpuMemRecordToString(MemOpRecord &memRecord, std::string &str);
     void CpuMemRecordToString(const MemOpRecord &memRecord, std::string &str);
@@ -105,7 +108,8 @@ private:
     uint64_t leakEventPid_ = 1;
     std::vector<EventPid> eventPids_;
 
-    std::mutex createFileMutex_;
+    std::mutex fileMutex_;
+    std::string dirPath_;
     std::unordered_map<Device, std::mutex, DeviceStructHash> writeFileMutex_;
 
     std::mutex halMemMutex_;
