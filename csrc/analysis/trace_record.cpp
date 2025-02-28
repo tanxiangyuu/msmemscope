@@ -346,12 +346,10 @@ void TraceRecord::TorchRecordToString(const TorchNpuRecord &torchNpuRecord, std:
     uint64_t tid = torchNpuRecord.tid;
 
     truePids_[Device{DeviceType::NPU, torchNpuRecord.devId}].insert(pid);
-    JsonBaseInfo reservedBaseInfo{"operators reserved", pid, tid, kernelIndex};
-    JsonBaseInfo activeBaseInfo{"operators active", pid, tid, kernelIndex};
-    JsonBaseInfo allocatedBaseInfo{"operators allocated", pid, tid, kernelIndex};
-    
+    JsonBaseInfo reservedBaseInfo{"torch reserved memory", pid, tid, kernelIndex};
+    JsonBaseInfo allocatedBaseInfo{"torch allocated memory", pid, tid, kernelIndex};
+
     str = FormatCounterEvent(reservedBaseInfo, std::to_string(memoryUsage.totalReserved));
-    str += FormatCounterEvent(activeBaseInfo, std::to_string(memoryUsage.totalActive));
     str += FormatCounterEvent(allocatedBaseInfo, std::to_string(memoryUsage.totalAllocated));
 
     return;
