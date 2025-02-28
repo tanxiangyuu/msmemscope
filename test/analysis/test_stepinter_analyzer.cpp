@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include <gtest/internal/gtest-port.h>
 #include "config_info.h"
+#include "file.h"
 
 #define private public
 #include "stepinter_analyzer.h"
@@ -229,4 +230,11 @@ TEST(StepInterAnalyzerTest, do_build_diff_expect_correct_data)
 
     stepinteranalyzer.buildDiff(pathNode4, 0, kernelIndexMap, kernelIndexCompareMap);
     ASSERT_EQ(stepinteranalyzer.compareOut_[0].size(), 3);
+}
+
+TEST(StepInterAnalyzerTest, set_dir_path)
+{
+    Utility::SetDirPath("/MyPath", std::string(OUTPUT_PATH));
+    StepInterAnalyzer::GetInstance().SetDirPath();
+    EXPECT_EQ(StepInterAnalyzer::GetInstance().dirPath_, "/MyPath/" + std::string(COMPARE_FILE));
 }

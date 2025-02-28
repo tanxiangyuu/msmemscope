@@ -94,6 +94,7 @@ TraceRecord& TraceRecord::GetInstance()
 
 TraceRecord::TraceRecord()
 {
+    SetDirPath();
     eventPids_.emplace_back(EventPid{mstxEventPid_, "mstx"});
     eventPids_.emplace_back(EventPid{leakEventPid_, "leak"});
 }
@@ -103,24 +104,30 @@ void TraceRecord::TraceHandler(const EventRecord &record)
     ProcessRecord(record);
 }
 
+void TraceRecord::SetDirPath()
+{
+    std::lock_guard<std::mutex> lock(fileMutex_);
+    dirPath_ = Utility::g_dirPath + "/" + std::string(TRACE_FILE);
+}
+
 bool TraceRecord::CreateFileByDevice(const Device &device)
 {
     if (traceFiles_[device].fp != nullptr) {
         return true;
     }
 
-    std::string dirPath = "leaksDumpResults";
-    if (!Utility::MakeDir(dirPath)) {
+    if (!Utility::MakeDir(dirPath_)) {
         return false;
     }
 
-    std::lock_guard<std::mutex> lock(createFileMutex_);
+    std::lock_guard<std::mutex> lock(fileMutex_);
 
     std::string fileHead = FormatDeviceName(device);
-    std::string filePath = dirPath + "/" + fileHead + "_trace_" + Utility::GetDateStr() + ".json";
+    std::string filePath = dirPath_ + "/" + fileHead + "_trace_" + Utility::GetDateStr() + ".json";
     Utility::UmaskGuard guard{DEFAULT_UMASK_FOR_JSON_FILE};
     FILE* fp = fopen(filePath.c_str(), "a");
     if (fp != nullptr) {
+        std::cout << "[msleaks] Info: create file " << filePath << "." << std::endl;
         fprintf(fp, "[\n");
         traceFiles_[device].fp = fp;
         traceFiles_[device].filePath = filePath;
@@ -339,12 +346,10 @@ void TraceRecord::TorchRecordToString(const TorchNpuRecord &torchNpuRecord, std:
     uint64_t tid = torchNpuRecord.tid;
 
     truePids_[Device{DeviceType::NPU, torchNpuRecord.devId}].insert(pid);
-    JsonBaseInfo reservedBaseInfo{"operators reserved", pid, tid, kernelIndex};
-    JsonBaseInfo activeBaseInfo{"operators active", pid, tid, kernelIndex};
-    JsonBaseInfo allocatedBaseInfo{"operators allocated", pid, tid, kernelIndex};
-    
+    JsonBaseInfo reservedBaseInfo{"torch reserved memory", pid, tid, kernelIndex};
+    JsonBaseInfo allocatedBaseInfo{"torch allocated memory", pid, tid, kernelIndex};
+
     str = FormatCounterEvent(reservedBaseInfo, std::to_string(memoryUsage.totalReserved));
-    str += FormatCounterEvent(activeBaseInfo, std::to_string(memoryUsage.totalActive));
     str += FormatCounterEvent(allocatedBaseInfo, std::to_string(memoryUsage.totalAllocated));
 
     return;

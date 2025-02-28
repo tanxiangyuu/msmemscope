@@ -15,6 +15,11 @@ StepInterAnalyzer& StepInterAnalyzer::GetInstance()
     return instance;
 }
 
+StepInterAnalyzer::StepInterAnalyzer()
+{
+    SetDirPath();
+}
+
 std::vector<std::string> StepInterAnalyzer::SplitLineData(std::string line)
 {
     std::vector<std::string> lineData;
@@ -289,4 +294,9 @@ void StepInterAnalyzer::StepInterCompare(const std::vector<std::string> &paths)
     return ;
 }
 
+void StepInterAnalyzer::SetDirPath()
+{
+    std::lock_guard<std::mutex> lock(fileMutex_);
+    dirPath_ = Utility::g_dirPath + "/" + std::string(COMPARE_FILE);
+}
 }

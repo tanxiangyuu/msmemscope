@@ -59,8 +59,8 @@ struct NpuMemInfo {
 
 struct GapInfo  {
     uint64_t gapStepId = 0;             // 记录计算比值时的stepId
-    double  dynStaticMemRatio = 0;      // 动态内存和静态内存的最小比值
-    int64_t staticMemory = 0;           // 最大比值对应的静态内存
+    double  minMaxAllocRatio = 0;       // 最大allocated内存和最小allocated内存的比值
+    int64_t minAllocMemory = 0;         // 最小allocated内存的值
 };
 
 struct NpuMemUsage {

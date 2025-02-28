@@ -179,17 +179,21 @@ void StepInnerAnalyzer::CheckGap(const DeviceId &deviceId)
     if (npuMemUsages_[deviceId].mstxStep <= skipSteps_) {
         return;
     }
-    double gap = (npuMemUsages_[deviceId].stepMaxAllocated - npuMemUsages_[deviceId].stepMinAllocated) /
-            static_cast<double>(npuMemUsages_[deviceId].stepMinAllocated);
+    if (npuMemUsages_[deviceId].stepMaxAllocated == 0) {
+        Utility::LogError("[npu %d]: StepMaxAllocated is 0, please check!", deviceId);
+        return;
+    }
+    double gap =
+    npuMemUsages_[deviceId].stepMinAllocated / static_cast<double>(npuMemUsages_[deviceId].stepMaxAllocated);
     // 第一次计算
-    if (npuMemUsages_[deviceId].maxGapInfo.dynStaticMemRatio == 0) {
+    if (npuMemUsages_[deviceId].maxGapInfo.minMaxAllocRatio == 0) {
         npuMemUsages_[deviceId].maxGapInfo.gapStepId = npuMemUsages_[deviceId].mstxStep;
-        npuMemUsages_[deviceId].maxGapInfo.dynStaticMemRatio = gap;
-        npuMemUsages_[deviceId].maxGapInfo.staticMemory = npuMemUsages_[deviceId].stepMinAllocated;
+        npuMemUsages_[deviceId].maxGapInfo.minMaxAllocRatio = gap;
+        npuMemUsages_[deviceId].maxGapInfo.minAllocMemory = npuMemUsages_[deviceId].stepMinAllocated;
 
         npuMemUsages_[deviceId].minGapInfo.gapStepId = npuMemUsages_[deviceId].mstxStep;
-        npuMemUsages_[deviceId].minGapInfo.dynStaticMemRatio = gap;
-        npuMemUsages_[deviceId].minGapInfo.staticMemory = npuMemUsages_[deviceId].stepMinAllocated;
+        npuMemUsages_[deviceId].minGapInfo.minMaxAllocRatio = gap;
+        npuMemUsages_[deviceId].minGapInfo.minAllocMemory = npuMemUsages_[deviceId].stepMinAllocated;
 
         // Step结束，还原初始化
         npuMemUsages_[deviceId].stepMaxAllocated = 0;
@@ -197,21 +201,21 @@ void StepInnerAnalyzer::CheckGap(const DeviceId &deviceId)
         return;
     }
     // 后续计算查看是否比值变化
-    if (gap > npuMemUsages_[deviceId].maxGapInfo.dynStaticMemRatio) {
-        Utility::LogError(
-            "[npu %d]: Dynamic/Static memory max gap increases to %f, last is %f",
-            deviceId, gap, npuMemUsages_[deviceId].maxGapInfo.dynStaticMemRatio);
+    if (gap > npuMemUsages_[deviceId].maxGapInfo.minMaxAllocRatio) {
+        Utility::LogWarn(
+            "[npu %d]: Min/Max Allocated memory largest gap increases to %f, last is %f",
+            deviceId, gap, npuMemUsages_[deviceId].maxGapInfo.minMaxAllocRatio);
         npuMemUsages_[deviceId].maxGapInfo.gapStepId = npuMemUsages_[deviceId].mstxStep;
-        npuMemUsages_[deviceId].maxGapInfo.dynStaticMemRatio = gap;
-        npuMemUsages_[deviceId].maxGapInfo.staticMemory = npuMemUsages_[deviceId].stepMinAllocated;
+        npuMemUsages_[deviceId].maxGapInfo.minMaxAllocRatio = gap;
+        npuMemUsages_[deviceId].maxGapInfo.minAllocMemory = npuMemUsages_[deviceId].stepMinAllocated;
     }
-    if (gap < npuMemUsages_[deviceId].minGapInfo.dynStaticMemRatio) {
-        Utility::LogError(
-            "[npu %d]: Dynamic/Static memory min gap decreases to %f, last is %f",
-            deviceId, gap, npuMemUsages_[deviceId].minGapInfo.dynStaticMemRatio);
+    if (gap < npuMemUsages_[deviceId].minGapInfo.minMaxAllocRatio) {
+        Utility::LogWarn(
+            "[npu %d]: Min/Max Allocated memory smallest gap decreases to %f, last is %f",
+            deviceId, gap, npuMemUsages_[deviceId].minGapInfo.minMaxAllocRatio);
         npuMemUsages_[deviceId].minGapInfo.gapStepId = npuMemUsages_[deviceId].mstxStep;
-        npuMemUsages_[deviceId].minGapInfo.dynStaticMemRatio = gap;
-        npuMemUsages_[deviceId].minGapInfo.staticMemory = npuMemUsages_[deviceId].stepMinAllocated;
+        npuMemUsages_[deviceId].minGapInfo.minMaxAllocRatio = gap;
+        npuMemUsages_[deviceId].minGapInfo.minAllocMemory = npuMemUsages_[deviceId].stepMinAllocated;
     }
     // Step结束，还原初始化
     npuMemUsages_[deviceId].stepMaxAllocated = 0;
@@ -409,14 +413,16 @@ void StepInnerAnalyzer::ReceiveMstxMsg(const MstxRecord &mstxRecord)
 void StepInnerAnalyzer::ReportGap(const DeviceId &deviceId)
 {
     std::cout << "======= Memory Gap Analysis of Device " << deviceId << " =======" << std::endl;
-    std::cout << "\tStepId\tDynamicMem/StatciMem(%)\tStaticMemSize(MB)" << std::endl;
-    std::cout << "min\t"<< npuMemUsages_[deviceId].minGapInfo.gapStepId << "\t\t"
-              << npuMemUsages_[deviceId].minGapInfo.dynStaticMemRatio * PERCENT_SCALE_FACTOR << "\t\t"
-              << npuMemUsages_[deviceId].minGapInfo.staticMemory / static_cast<double>(BYTE_TO_MB)
+    std::cout << "\tMinAlloc/MaxAlloc(%)\tMinAllocMem(MB)\tStepId" << std::endl;
+    std::cout << "minGap\t"
+              << npuMemUsages_[deviceId].minGapInfo.minMaxAllocRatio * PERCENT_SCALE_FACTOR << "\t\t\t"
+              << npuMemUsages_[deviceId].minGapInfo.minAllocMemory / static_cast<double>(BYTE_TO_MB) << "\t\t"
+              << npuMemUsages_[deviceId].minGapInfo.gapStepId
               << std::endl;
-    std::cout << "max\t"<< npuMemUsages_[deviceId].maxGapInfo.gapStepId << "\t\t"
-              << npuMemUsages_[deviceId].maxGapInfo.dynStaticMemRatio * PERCENT_SCALE_FACTOR << "\t\t"
-              << npuMemUsages_[deviceId].maxGapInfo.staticMemory / static_cast<double>(BYTE_TO_MB)
+    std::cout << "maxGap\t"
+              << npuMemUsages_[deviceId].maxGapInfo.minMaxAllocRatio * PERCENT_SCALE_FACTOR << "\t\t\t"
+              << npuMemUsages_[deviceId].maxGapInfo.minAllocMemory / static_cast<double>(BYTE_TO_MB) << "\t\t"
+              << npuMemUsages_[deviceId].minGapInfo.gapStepId
               << std::endl;
 }
 
