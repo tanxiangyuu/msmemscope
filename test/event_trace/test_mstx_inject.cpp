@@ -64,3 +64,42 @@ TEST(InitInjectionMstxTest, SuccessfulInitialization) {
 
     EXPECT_EQ(InitInjectionMstx(mockGetFuncTable), MSTX_SUCCESS);
 }
+
+TEST(MstxTest, ReportDomainTest) {
+    MstxDomainCreateAFunc("test");
+}
+
+TEST(MstxTest, ReportHeapRegisterTest) {
+    mstxDomainHandle_t msleaks = MstxDomainCreateAFunc("msleaks");
+    mstxMemHeapDesc_t heapDesc;
+    void const* ptr = reinterpret_cast<void const*>(123);
+    mstxMemVirtualRangeDesc_t memRangeDesc{1, ptr, 1};
+    heapDesc.typeSpecificDesc = reinterpret_cast<void const*>(&memRangeDesc);
+    MstxMemHeapRegisterFunc(msleaks, &heapDesc);
+}
+
+TEST(MstxTest, ReportHeapUnregisterTest) {
+    mstxDomainHandle_t msleaks = MstxDomainCreateAFunc("msleaks");
+    mstxMemHeapHandle_t heap;
+    MstxMemHeapUnregisterFunc(msleaks, heap);
+}
+
+TEST(MstxTest, ReportRegionsHandleTest) {
+    mstxDomainHandle_t msleaks = MstxDomainCreateAFunc("msleaks");
+    void const* ptr = reinterpret_cast<void const*>(123);
+    mstxMemVirtualRangeDesc_t memRangeDesc{1, ptr, 1};
+    mstxMemRegionsRegisterBatch_t desc;
+    desc.regionCount = 1;
+    desc.regionDescArray = reinterpret_cast<const void *>(&memRangeDesc);
+    MstxMemRegionsRegisterFunc(msleaks, &desc);
+
+
+    mstxMemRegionsUnregisterBatch_t unregisterBatch;
+    unregisterBatch.refCount = 1;
+    mstxMemRegionRef_t regionRef[1] = {};
+    regionRef[0].refType = MSTX_MEM_REGION_REF_TYPE_POINTER;
+    regionRef[0].pointer = ptr;
+    unregisterBatch.refArray = regionRef;
+
+    MstxMemRegionsUnregisterFunc(msleaks, &unregisterBatch);
+}
