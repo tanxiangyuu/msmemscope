@@ -397,16 +397,16 @@ TEST(TraceRecord, process_hal_host_memory_record)
     TraceRecord::GetInstance().ProcessRecord(mallocRecord);
     TraceRecord::GetInstance().ProcessRecord(freeRecord);
     std::string result = "{\n"
-"    \"ph\": \"C\",\n    \"name\": \"host memory\",\n"
+"    \"ph\": \"C\",\n    \"name\": \"pin memory\",\n"
 "    \"pid\": 8,\n    \"tid\": 6,\n    \"ts\": 123,\n"
 "    \"args\": {\n        \"size\": 10000\n    }\n},\n{\n"
-"    \"ph\": \"C\",\n    \"name\": \"host memory\",\n"
+"    \"ph\": \"C\",\n    \"name\": \"pin memory\",\n"
 "    \"pid\": 8,\n    \"tid\": 6,\n    \"ts\": 133,\n"
 "    \"args\": {\n        \"size\": 0\n    }\n},\n";
 
     std::string fileContent;
     bool hasReadFile = ReadFile(
-        TraceRecord::GetInstance().traceFiles_[Device{DeviceType::NPU, mallocMemOpRecord.devId}].filePath,
+        TraceRecord::GetInstance().traceFiles_[Device{DeviceType::CPU, 0}].filePath,
         fileContent);
     bool hasRemoveDir = RemoveDir(TraceRecord::GetInstance().dirPath_);
     EXPECT_NE(fileContent.find(result), std::string::npos);
@@ -437,7 +437,7 @@ TEST(TraceRecord, process_device_memory_record)
     freeMemOpRecord.kernelIndex = 133;
     freeMemOpRecord.space = MemOpSpace::INVALID;
     mallocMemOpRecord.devType = DeviceType::NPU;
-    freeMemOpRecord.devId = 2;
+    freeMemOpRecord.devId = GD_INVALID_NUM;
     freeMemOpRecord.memType = MemOpType::FREE;
     freeMemOpRecord.addr = 10000000;
     freeMemOpRecord.memSize = 0;

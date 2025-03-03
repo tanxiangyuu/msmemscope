@@ -264,12 +264,17 @@ void TraceRecord::NpuMemRecordToString(MemOpRecord &memRecord, std::string &str)
         }
     }
 
-    std::string spaceName = isHost ? "host memory" : "device memory";
+    std::string spaceName = isHost ? "pin memory" : "device memory";
     uint64_t memUsage = isHost ? halHostMemUsage_[devId] : halDeviceMemUsage_[devId];
     JsonBaseInfo baseInfo{spaceName, memRecord.pid, memRecord.tid, memRecord.kernelIndex};
     str = FormatCounterEvent(baseInfo, std::to_string(memUsage));
 
-    memRecord.devId = devId;
+    if (isHost) {
+        memRecord.devType = DeviceType::CPU;
+        memRecord.devId = 0;
+    } else {
+        memRecord.devId = devId;
+    }
     return;
 }
 
