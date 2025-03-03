@@ -54,6 +54,7 @@ bool Log::CreateLogFile()
         if ((fp_ = fopen(fileName.c_str(), "w")) == nullptr) {
             return false;
         }
+        std::cout << "[msleaks] Info: logging into file ./" << fileName << std::endl;
     }
     return true;
 }
