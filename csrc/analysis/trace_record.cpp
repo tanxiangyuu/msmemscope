@@ -161,6 +161,11 @@ void TraceRecord::SafeWriteString(const std::string &str, const Device &device)
     fprintf(traceFiles_[device].fp, "%s", str.c_str());
 }
 
+void TraceRecord::SaveKernelLaunchRecordToCpuTrace(const std::string &str)
+{
+    SafeWriteString(str, {DeviceType::CPU, 0});
+}
+
 void TraceRecord::ProcessTorchMemLeakInfo(const TorchMemLeakInfo &info)
 {
     std::string str;
@@ -194,6 +199,8 @@ void TraceRecord::ProcessRecord(const EventRecord &record)
             auto kernelLaunchRecord = record.record.kernelLaunchRecord;
             device.index = kernelLaunchRecord.devId;
             KernelLaunchRecordToString(kernelLaunchRecord, str);
+            // kernellaunch record should be shown in cpu_trace and npu_trace simutanously
+            SaveKernelLaunchRecordToCpuTrace(str);
             break;
         }
         case RecordType::ACL_ITF_RECORD: {
