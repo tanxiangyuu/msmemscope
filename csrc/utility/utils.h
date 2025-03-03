@@ -75,18 +75,32 @@ namespace Utility {
     inline bool StrToInt64(int64_t &dest, const std::string &str)
     {
         if (str.empty()) {
-            std::cout << "StrToU64 failed, the input string is empty." << std::endl;
             return false;
         }
         size_t pos = 0;
         try {
             dest = std::stoll(str, &pos);
         } catch (...) {
-            std::cout << "StrToU64 failed, the input string is " << str << "." << std::endl;
             return false;
         }
         if (pos != str.size()) {
-            std::cout << "StrToU64 failed, the input string is " << str << "." << std::endl;
+            return false;
+        }
+        return true;
+    }
+
+    inline bool StrToUint64(uint64_t &dest, const std::string &str)
+    {
+        if (str.empty()) {
+            return false;
+        }
+        size_t pos = 0;
+        try {
+            dest = std::stoull(str, &pos);
+        } catch (...) {
+            return false;
+        }
+        if (pos != str.size()) {
             return false;
         }
         return true;

@@ -93,7 +93,7 @@ void Process::MsgHandle(size_t &clientId, std::string &msg)
     if (protocolList_.find(clientId) == protocolList_.end()) {
         auto result = protocolList_.insert({clientId, Protocol{}});
         if (!result.second) {
-            Utility::LogError("Add elements to protocolList failed, clientId = %u", clientId);
+            LOG_ERROR("Add elements to protocolList failed, clientId = %u", clientId);
         }
     }
 
@@ -108,7 +108,7 @@ void Process::MsgHandle(size_t &clientId, std::string &msg)
                 break;
             case PacketType::LOG: {
                 auto log = packet.GetPacketBody().log;
-                Utility::LogRecv("%s", std::string(log.buf, log.buf + log.len).c_str());
+                LOG_RECV("%s", std::string(log.buf, log.buf + log.len).c_str());
                 break;
             }
             case PacketType::INVALID:
@@ -158,9 +158,9 @@ void Process::SetPreloadEnv()
         Path hookLibPath = (Path(hookLibDir) / Path(hookLib)).Resolved();
         if (hookLibPath.Exists()) {
             hookLib = hookLibPath.ToString();
-            Utility::LogInfo("Use preload lib [%s]", hookLib.c_str());
+            LOG_INFO("Use preload lib [%s]", hookLib.c_str());
         } else {
-            Utility::LogError("No such preload lib [%s]", hookLibPath.ToString().c_str());
+            LOG_ERROR("No such preload lib [%s]", hookLibPath.ToString().c_str());
         }
     }
 

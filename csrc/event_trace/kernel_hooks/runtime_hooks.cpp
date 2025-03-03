@@ -27,7 +27,7 @@ const void* GetHandleByStubFunc(const void *stubFunc)
 {
     auto it = HandleMapping::GetInstance().stubHandleMap_.find(stubFunc);
     if (it == HandleMapping::GetInstance().stubHandleMap_.end()) {
-        ClientErrorLog("stubFunc NOT registered in map");
+        CLIENT_ERROR_LOG("stubFunc NOT registered in map");
         return nullptr;
     }
     return const_cast<void *>(it->second);
@@ -50,7 +50,7 @@ RTS_API rtError_t rtKernelLaunch(
     using RtKernelLaunch = decltype(&rtKernelLaunch);
     auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtKernelLaunch>(__func__);
     if (vallina == nullptr) {
-        ClientErrorLog("vallina func get FAILED: " + std::string(__func__));
+        CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
         return RT_ERROR_RESERVED;
     }
 
@@ -59,7 +59,7 @@ RTS_API rtError_t rtKernelLaunch(
     record = CreateKernelLaunchRecord(blockDim, stm, KernelLaunchType::NORMAL);
     auto hdl = GetHandleByStubFunc(stubFunc);
     if (!EventReport::Instance(CommType::SOCKET).ReportKernelLaunch(record, hdl)) {
-        ClientErrorLog("rtKernelLaunch report FAILED");
+        CLIENT_ERROR_LOG("rtKernelLaunch report FAILED");
     }
     return ret;
 }
@@ -70,7 +70,7 @@ RTS_API rtError_t rtKernelLaunchWithHandleV2(void *hdl, const uint64_t tilingKey
     using RtKernelLaunchWithHandleV2 = decltype(&rtKernelLaunchWithHandleV2);
     auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtKernelLaunchWithHandleV2>(__func__);
     if (vallina == nullptr) {
-        ClientErrorLog("vallina func get FAILED: " + std::string(__func__));
+        CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
         return RT_ERROR_RESERVED;
     }
 
@@ -78,7 +78,7 @@ RTS_API rtError_t rtKernelLaunchWithHandleV2(void *hdl, const uint64_t tilingKey
     auto record = KernelLaunchRecord {};
     record = CreateKernelLaunchRecord(blockDim, stm, KernelLaunchType::HANDLEV2);
     if (!EventReport::Instance(CommType::SOCKET).ReportKernelLaunch(record, hdl)) {
-        ClientErrorLog("rtKernelLaunchWithHandleV2 report FAILED");
+        CLIENT_ERROR_LOG("rtKernelLaunchWithHandleV2 report FAILED");
     }
     return ret;
 }
@@ -89,7 +89,7 @@ RTS_API rtError_t rtKernelLaunchWithFlagV2(const void *stubFunc, uint32_t blockD
     using RtKernelLaunchWithFlagV2 = decltype(&rtKernelLaunchWithFlagV2);
     auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtKernelLaunchWithFlagV2>(__func__);
     if (vallina == nullptr) {
-        ClientErrorLog("vallina func get FAILED: " + std::string(__func__));
+        CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
         return RT_ERROR_RESERVED;
     }
 
@@ -98,7 +98,7 @@ RTS_API rtError_t rtKernelLaunchWithFlagV2(const void *stubFunc, uint32_t blockD
     record = CreateKernelLaunchRecord(blockDim, stm, KernelLaunchType::FLAGV2);
     auto hdl = GetHandleByStubFunc(stubFunc);
     if (!EventReport::Instance(CommType::SOCKET).ReportKernelLaunch(record, hdl)) {
-        ClientErrorLog("rtKernelLaunchWithFlagV2 report FAILED");
+        CLIENT_ERROR_LOG("rtKernelLaunchWithFlagV2 report FAILED");
     }
     return ret;
 }
@@ -108,7 +108,7 @@ RTS_API rtError_t rtGetStreamId(rtStream_t stm, int32_t *streamId)
     using rtGetStreamId = decltype(&rtGetStreamId);
     auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<rtGetStreamId>(__func__);
     if (vallina == nullptr) {
-        ClientErrorLog("vallina func get FAILED: " + std::string(__func__));
+        CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
         return RT_ERROR_RESERVED;
     }
     rtError_t ret = vallina(stm, streamId);
@@ -121,7 +121,7 @@ RTS_API rtError_t rtFunctionRegister(
     using RtFunctionRegister = decltype(&rtFunctionRegister);
     auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtFunctionRegister>(__func__);
     if (vallina == nullptr) {
-        ClientErrorLog("vallina func get FAILED: " + std::string(__func__));
+        CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
         return RT_ERROR_RESERVED;
     }
     rtError_t result = vallina(binHandle, stubFunc, stubName, kernelInfoExt, funcMode);
@@ -134,7 +134,7 @@ RTS_API rtError_t rtDevBinaryRegister(const rtDevBinary_t *bin, void **hdl)
     using RtDevBinaryRegister = decltype(&rtDevBinaryRegister);
     auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtDevBinaryRegister>(__func__);
     if (vallina == nullptr) {
-        ClientErrorLog("vallina func get FAILED: " + std::string(__func__));
+        CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
         return RT_ERROR_RESERVED;
     }
     
@@ -144,7 +144,7 @@ RTS_API rtError_t rtDevBinaryRegister(const rtDevBinary_t *bin, void **hdl)
         if (bin->length > MAX_BINARY_SIZE) {
             std::string errorInfo = "Illegal binary size: binary size[" + std::to_string(bin->length)
                                     + "] exceeds max binary size[" + std::to_string(MAX_BINARY_SIZE) + "].";
-            ClientErrorLog(errorInfo);
+            CLIENT_ERROR_LOG(errorInfo);
             return RT_ERROR_MEMORY_ALLOCATION ;
         }
         auto binData = static_cast<char const *>(bin->data);
@@ -160,7 +160,7 @@ RTS_API rtError_t rtRegisterAllKernel(const rtDevBinary_t *bin, void **hdl)
     using RtRegisterAllKernel = decltype(&rtRegisterAllKernel);
     auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtRegisterAllKernel>(__func__);
     if (vallina == nullptr) {
-        ClientErrorLog("vallina func get FAILED: " + std::string(__func__));
+        CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
         return RT_ERROR_RESERVED;
     }
     rtError_t result = vallina(bin, hdl);
@@ -169,7 +169,7 @@ RTS_API rtError_t rtRegisterAllKernel(const rtDevBinary_t *bin, void **hdl)
         if (bin->length > MAX_BINARY_SIZE) {
             std::string errorInfo = "Illegal binary size: binary size[" + std::to_string(bin->length)
                                     + "] exceeds max binary size[" + std::to_string(MAX_BINARY_SIZE) + "].";
-            ClientErrorLog(errorInfo);
+            CLIENT_ERROR_LOG(errorInfo);
             return RT_ERROR_MEMORY_ALLOCATION ;
         }
         auto binData = static_cast<char const *>(bin->data);
@@ -185,7 +185,7 @@ RTS_API rtError_t rtDevBinaryUnRegister(void *hdl)
     using RtDevBinaryUnRegister = decltype(&rtDevBinaryUnRegister);
     auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtDevBinaryUnRegister>(__func__);
     if (vallina == nullptr) {
-        ClientErrorLog("vallina func get FAILED: " + std::string(__func__));
+        CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
         return RT_ERROR_RESERVED;
     }
 

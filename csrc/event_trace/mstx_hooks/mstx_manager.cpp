@@ -17,11 +17,11 @@ void MstxManager::ReportMarkA(const char* msg, int32_t streamId)
     record.streamId = streamId;
 
     if (strncpy_s(record.markMessage, sizeof(record.markMessage), msg, sizeof(record.markMessage) - 1) != EOK) {
-        ClientErrorLog("strncpy_s FAILED");
+        CLIENT_ERROR_LOG("strncpy_s FAILED");
     }
     record.markMessage[sizeof(record.markMessage) - 1] = '\0';
     if (!EventReport::Instance(CommType::SOCKET).ReportMark(record)) {
-        ClientErrorLog("Report Mark FAILED");
+        CLIENT_ERROR_LOG("Report Mark FAILED");
     }
 }
 
@@ -32,12 +32,12 @@ uint64_t MstxManager::ReportRangeStart(const char* msg, int32_t streamId)
     record.markType = MarkType::RANGE_START_A;
     record.streamId = streamId;
     if (strncpy_s(record.markMessage, sizeof(record.markMessage), msg, sizeof(record.markMessage) - 1) != EOK) {
-        ClientErrorLog("strncpy_s FAILED");
+        CLIENT_ERROR_LOG("strncpy_s FAILED");
     }
     record.markMessage[sizeof(record.markMessage) - 1] = '\0';
     record.rangeId = GetRangeId();
     if (!EventReport::Instance(CommType::SOCKET).ReportMark(record)) {
-        ClientErrorLog("Report Mark FAILED");
+        CLIENT_ERROR_LOG("Report Mark FAILED");
     }
     return record.rangeId;
 }
@@ -51,11 +51,11 @@ void MstxManager::ReportRangeEnd(uint64_t id)
     record.streamId = -1;
     std::string msg = "Range end from id " + std::to_string(id);
     if (strncpy_s(record.markMessage, sizeof(record.markMessage), msg.c_str(), sizeof(record.markMessage) - 1) != EOK) {
-        ClientErrorLog("strncpy_s FAILED");
+        CLIENT_ERROR_LOG("strncpy_s FAILED");
     }
     record.markMessage[sizeof(record.markMessage) - 1] = '\0';
     if (!EventReport::Instance(CommType::SOCKET).ReportMark(record)) {
-        ClientErrorLog("Report Mark FAILED");
+        CLIENT_ERROR_LOG("Report Mark FAILED");
     }
 }
 
@@ -125,7 +125,7 @@ void MstxManager::ReportRegionsRegister(mstxDomainHandle_t domain, mstxMemRegion
         torchNpuRecord.pid = Utility::GetPid();
         torchNpuRecord.tid = Utility::GetTid();
         if (!EventReport::Instance(CommType::SOCKET).ReportTorchNpu(torchNpuRecord)) {
-            ClientErrorLog("Report Npu Data Failed");
+            CLIENT_ERROR_LOG("Report Npu Data Failed");
         }
     }
 }
@@ -152,7 +152,7 @@ void MstxManager::ReportRegionsUnregister(mstxDomainHandle_t domain, mstxMemRegi
         torchNpuRecord.pid = Utility::GetPid();
         torchNpuRecord.tid = Utility::GetTid();
         if (!EventReport::Instance(CommType::SOCKET).ReportTorchNpu(torchNpuRecord)) {
-            ClientErrorLog("Report Npu Data Failed");
+            CLIENT_ERROR_LOG("Report Npu Data Failed");
         }
     }
 }

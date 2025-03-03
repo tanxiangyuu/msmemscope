@@ -132,7 +132,7 @@ bool TraceRecord::CreateFileByDevice(const Device &device)
         traceFiles_[device].fp = fp;
         traceFiles_[device].filePath = filePath;
     } else {
-        Utility::LogError("Device %s open file %s error", fileHead.c_str(), filePath.c_str());
+        LOG_ERROR("Device %s open file %s error", fileHead.c_str(), filePath.c_str());
         return false;
     }
 
@@ -150,15 +150,20 @@ bool TraceRecord::CheckStrHasContent(const std::string &str)
 void TraceRecord::SafeWriteString(const std::string &str, const Device &device)
 {
     if (device.index == GD_INVALID_NUM || device.index < 0) {
-        Utility::LogWarn("Invalid device id %d.", device.index);
+        LOG_WARN("Invalid device id %d.", device.index);
         return;
     }
     if (!CreateFileByDevice(device)) {
-        Utility::LogError("Create file for device %s failed.", FormatDeviceName(device).c_str());
+        LOG_ERROR("Create file for device %s failed.", FormatDeviceName(device).c_str());
         return;
     }
     std::lock_guard<std::mutex> lock(writeFileMutex_[device]);
     fprintf(traceFiles_[device].fp, "%s", str.c_str());
+}
+
+void TraceRecord::SaveKernelLaunchRecordToCpuTrace(const std::string &str)
+{
+    SafeWriteString(str, {DeviceType::CPU, 0});
 }
 
 void TraceRecord::ProcessTorchMemLeakInfo(const TorchMemLeakInfo &info)
@@ -194,6 +199,8 @@ void TraceRecord::ProcessRecord(const EventRecord &record)
             auto kernelLaunchRecord = record.record.kernelLaunchRecord;
             device.index = kernelLaunchRecord.devId;
             KernelLaunchRecordToString(kernelLaunchRecord, str);
+            // kernellaunch record should be shown in cpu_trace and npu_trace simutanously
+            SaveKernelLaunchRecordToCpuTrace(str);
             break;
         }
         case RecordType::ACL_ITF_RECORD: {
@@ -243,7 +250,7 @@ void TraceRecord::NpuMemRecordToString(MemOpRecord &memRecord, std::string &str)
             halHostMemUsage_[devId] = Utility::GetAddResult(halHostMemUsage_[devId], size);
             isHost = true;
         } else {
-            Utility::LogWarn("Invalid space.");
+            LOG_WARN("Invalid space.");
             return;
         }
     } else {
@@ -259,7 +266,7 @@ void TraceRecord::NpuMemRecordToString(MemOpRecord &memRecord, std::string &str)
             halHostMemAllocation_.erase(addr);
             isHost = true;
         } else {
-            Utility::LogWarn("Invalid free addr %llx.", addr);
+            LOG_WARN("Invalid free addr %llx.", addr);
             return;
         }
     }
@@ -293,7 +300,7 @@ void TraceRecord::CpuMemRecordToString(const MemOpRecord &memRecord, std::string
             hostMemUsage_ = Utility::GetSubResult(hostMemUsage_, hostMemAllocation_[addr]);
             hostMemAllocation_.erase(addr);
         } else {
-            Utility::LogWarn("Invalid free addr %llx.", addr);
+            LOG_WARN("Invalid free addr %llx.", addr);
             return;
         }
     }

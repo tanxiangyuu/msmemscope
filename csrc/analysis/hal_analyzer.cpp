@@ -16,7 +16,7 @@ bool HalAnalyzer::CreateMemTables(const ClientId &clientId)
     if (memtables_.find(clientId) != memtables_.end()) {
         return true;
     }
-    Utility::LogInfo("[client %u]: Start Record hal Memory.", clientId);
+    LOG_INFO("[client %u]: Start Record hal Memory.", clientId);
     MemoryRecordTable memrecordtable{};
     auto result = memtables_.emplace(clientId, memrecordtable);
     if (result.second) {
@@ -36,19 +36,19 @@ void HalAnalyzer::RecordMalloc(const ClientId &clientId, const MemOpRecord memre
         foundModule = true;
     }
     if (!foundModule) {
-        Utility::LogError("[client %u][device: %ld]: Malloc operator did not find %d Module in index %u malloc record.",
+        LOG_ERROR("[client %u][device: %ld]: Malloc operator did not find %d Module in index %u malloc record.",
             clientId, memrecord.devId, memrecord.modid, memrecord.recordIndex);
     }
 
-    Utility::LogInfo(
+    LOG_INFO(
         "[client %u][device: %ld]: server malloc record, index: %u, addr: 0x%lx, size: %u, space: %u, module: %s",
         clientId, memrecord.devId, memrecord.recordIndex,
         memrecord.addr, memrecord.memSize, static_cast<uint8_t>(memrecord.space), modulename.c_str());
 
     if (memtables_[clientId].find(memkey) != memtables_[clientId].end() &&
         (memtables_[clientId].find(memkey)->second.addrStatus == AddrStatus::FREE_WAIT)) {
-        Utility::LogError("[client %u]: server already has malloc record in addr: 0x%lx ,", clientId, memrecord.addr);
-        Utility::LogError("[client %u]: but now malloc again in index: %u, addr: 0x%lx, size: %u, space: %u",
+        LOG_ERROR("[client %u]: server already has malloc record in addr: 0x%lx ,", clientId, memrecord.addr);
+        LOG_ERROR("[client %u]: but now malloc again in index: %u, addr: 0x%lx, size: %u, space: %u",
             clientId, memrecord.recordIndex, memrecord.addr, memrecord.memSize, memrecord.space);
     }
     memtables_[clientId][memkey].deviceId = memrecord.devId;
@@ -65,14 +65,14 @@ void HalAnalyzer::RecordFree(const ClientId &clientId, const MemOpRecord memreco
         if (it->second.addrStatus == AddrStatus::FREE_WAIT) {
             memtables_[clientId][memkey].addrStatus = AddrStatus::FREE_ALREADY;
         } else {
-            Utility::LogError("[client %u]: Double free operator found for malloc operation : addr: 0x%lx",
+            LOG_ERROR("[client %u]: Double free operator found for malloc operation : addr: 0x%lx",
                 clientId, memrecord.addr);
         }
     } else {
-            Utility::LogError("[client %u]: No matching malloc operation found for free operator: addr: 0x%lx",
+            LOG_ERROR("[client %u]: No matching malloc operation found for free operator: addr: 0x%lx",
                 clientId, memrecord.addr);
     }
-    Utility::LogInfo("[client %u][device: %ld]: server free record, index: %u, addr: 0x%lx",
+    LOG_INFO("[client %u][device: %ld]: server free record, index: %u, addr: 0x%lx",
         clientId, freeDevId, memrecord.recordIndex, memrecord.addr);
 }
 
@@ -83,7 +83,7 @@ bool HalAnalyzer::Record(const ClientId &clientId, const EventRecord &record)
         return true;
     }
     if (!CreateMemTables(clientId)) {
-        Utility::LogError("[client %u]: Create hal Memory table failed.", clientId);
+        LOG_ERROR("[client %u]: Create hal Memory table failed.", clientId);
         return false;
     }
     auto memrecord = record.record.memoryRecord;
@@ -103,18 +103,18 @@ void HalAnalyzer::CheckLeak(const size_t clientId)
     for (const auto& pair :memtables_[clientId]) {
         if (pair.second.addrStatus != AddrStatus::FREE_ALREADY) {
             foundLeaks = true;
-            Utility::LogWarn("[client %u]: Leak memory in Malloc operator, addr: 0x%lx", clientId, pair.first);
+            LOG_WARN("[client %u]: Leak memory in Malloc operator, addr: 0x%lx", clientId, pair.first);
         }
     }
     if (!foundLeaks) {
-        Utility::LogInfo("[client %u]: There is no hal leak memory.", clientId);
+        LOG_INFO("[client %u]: There is no hal leak memory.", clientId);
     }
 }
 
 void HalAnalyzer::LeakAnalyze()
 {
     if (memtables_.empty()) {
-        Utility::LogError("No memory records available.");
+        LOG_ERROR("No memory records available.");
     } else {
         for (const auto& pair :memtables_) {
             CheckLeak(pair.first);

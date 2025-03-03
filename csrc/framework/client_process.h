@@ -19,7 +19,7 @@ public:
     explicit ClientProcess(CommType type);
     static ClientProcess &GetInstance(CommType type = CommType::SOCKET);
     ~ClientProcess();
-    void Log(ClientLogLevel level, std::string msg);
+    void Log(ClientLogLevel level, std::string msg, const std::string fileName, const uint32_t line);
     int Notify(std::string const &msg);
     int Wait(std::string& msg, uint32_t timeOut = 10);
     int TerminateWithSignal(int signal = SIGINT);
@@ -29,12 +29,24 @@ int ClientNotify(std::string msg);
 
 int ClientWait(std::string& msg);
 
-void ClientDebugLog(std::string msg);
+#define CLIENT_DEBUG_LOG(format)                                                                                      \
+    do {                                                                                                              \
+        ClientProcess::GetInstance().Log(ClientLogLevel::DEBUG, format, Utility::GetFileName(__FILE__), __LINE__);    \
+    } while (0)
 
-void ClientInfoLog(std::string msg);
+#define CLIENT_INFO_LOG(format)                                                                                       \
+    do {                                                                                                              \
+        ClientProcess::GetInstance().Log(ClientLogLevel::INFO, format, Utility::GetFileName(__FILE__), __LINE__);     \
+    } while (0)
 
-void ClientWarnLog(std::string msg);
+#define CLIENT_WARN_LOG(format)                                                                                       \
+    do {                                                                                                              \
+        ClientProcess::GetInstance().Log(ClientLogLevel::INFO, format, Utility::GetFileName(__FILE__), __LINE__);     \
+    } while (0)
 
-void ClientErrorLog(std::string msg);
+#define CLIENT_ERROR_LOG(format)                                                                                      \
+    do {                                                                                                              \
+        ClientProcess::GetInstance().Log(ClientLogLevel::INFO, format, Utility::GetFileName(__FILE__), __LINE__);     \
+    } while (0)
 
 #endif // __CORE_CLIENT_PROCESS_H__

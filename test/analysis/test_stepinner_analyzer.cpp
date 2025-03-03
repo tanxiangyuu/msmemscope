@@ -259,3 +259,95 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks) {
     StepInnerAnalyzer::GetInstance(analysisConfig).ReportGap(deviceId);
     StepInnerAnalyzer::GetInstance(analysisConfig).ReportLeak(deviceId);
 }
+
+TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateTables_return_true)
+{
+    AnalysisConfig config;
+    StepInnerAnalyzer stepInner{config};
+    NpuMemUsage npumemusage{};
+    stepInner.npuMemUsages_.insert({1, npumemusage});
+    auto ret = stepInner.CreateTables(1);
+    ASSERT_TRUE(ret);
+}
+
+TEST(StepInnerAnalyzerTest, do_input_not_exist_deviceid_CreateTables_return_true)
+{
+    AnalysisConfig config;
+    StepInnerAnalyzer stepInner{config};
+    auto ret = stepInner.CreateTables(1);
+    ASSERT_TRUE(ret);
+}
+
+TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateMstxTables_return_true)
+{
+    AnalysisConfig config;
+    StepInnerAnalyzer stepInner{config};
+    MstxRecordTable mstxrecordtable{};
+    stepInner.mstxTables_.insert({1, mstxrecordtable});
+    auto ret = stepInner.CreateMstxTables(1);
+    ASSERT_TRUE(ret);
+}
+
+TEST(StepInnerAnalyzerTest, do_input_not_exist_deviceid_CreateMstxTables_return_true)
+{
+    AnalysisConfig config;
+    StepInnerAnalyzer stepInner{config};
+    auto ret = stepInner.CreateMstxTables(1);
+    ASSERT_TRUE(ret);
+}
+
+TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateLeakSumTables_return_true)
+{
+    AnalysisConfig config;
+    StepInnerAnalyzer stepInner{config};
+    LeakSumsTable leaksumstable{};
+    stepInner.leakMemSums_.insert({1, leaksumstable});
+    auto ret = stepInner.CreateLeakSumTables(1);
+    ASSERT_TRUE(ret);
+}
+
+TEST(StepInnerAnalyzerTest, do_input_not_exist_deviceid_CreateLeakSumTables_return_true)
+{
+    AnalysisConfig config;
+    StepInnerAnalyzer stepInner{config};
+    auto ret = stepInner.CreateLeakSumTables(1);
+    ASSERT_TRUE(ret);
+}
+
+TEST(StepInnerAnalyzerTest, do_input_steps_command_disable_analysis)
+{
+    AnalysisConfig config;
+    config.stepList.stepCount = 2;
+    StepInnerAnalyzer stepInner{config};
+    auto ret = stepInner.IsStepInnerAnalysisEnable();
+    ASSERT_FALSE(ret);
+}
+
+TEST(StepInnerAnalyzerTest, do_not_input_steps_command_enable_analysis)
+{
+    AnalysisConfig config;
+    config.stepList.stepCount = 0;
+    StepInnerAnalyzer stepInner{config};
+    auto ret = stepInner.IsStepInnerAnalysisEnable();
+    ASSERT_TRUE(ret);
+}
+
+TEST(StepInnerAnalyzerTest, do_stepId_below_1_SkipCheck_return_true)
+{
+    AnalysisConfig config;
+    StepInnerAnalyzer stepInner{config};
+    NpuMemInfo npuMemInfo{};
+    npuMemInfo.stepId = 0;
+    auto ret = stepInner.SkipCheck(npuMemInfo);
+    ASSERT_TRUE(ret);
+}
+
+TEST(StepInnerAnalyzerTest, do_stepId_up_1_SkipCheck_return_true)
+{
+    AnalysisConfig config;
+    StepInnerAnalyzer stepInner{config};
+    NpuMemInfo npuMemInfo{};
+    npuMemInfo.stepId = 3;
+    auto ret = stepInner.SkipCheck(npuMemInfo);
+    ASSERT_FALSE(ret);
+}
