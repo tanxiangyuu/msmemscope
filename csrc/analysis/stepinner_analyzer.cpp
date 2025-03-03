@@ -316,10 +316,10 @@ bool StepInnerAnalyzer::Record(const ClientId &clientId, const EventRecord &reco
         Utility::LogError("[device %ld]: Create npu Memory table failed.", deviceId);
         return false;
     }
-    // 目前不处理FREE操作
+    // 目前不处理BLOCK_FREE操作
     if (torchnpuRecord.memoryUsage.dataType == static_cast<uint8_t>(MemActionType::MALLOC)) {
         RecordNpuMalloc(clientId, deviceId, torchnpuRecord);
-    } else if (torchnpuRecord.memoryUsage.dataType == static_cast<uint8_t>(MemActionType::BLOCK_FREE)) {
+    } else if (torchnpuRecord.memoryUsage.dataType == static_cast<uint8_t>(MemActionType::FREE)) {
         RecordNpuFree(clientId, deviceId, torchnpuRecord);
     }
     return true;
