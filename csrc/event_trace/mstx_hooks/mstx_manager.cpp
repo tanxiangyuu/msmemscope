@@ -64,4 +64,97 @@ uint64_t MstxManager::GetRangeId()
     return rangeId_++;
 }
 
+mstxDomainHandle_t MstxManager::ReportDomainCreateA(char const *domainName)
+{
+    if (domainName == nullptr || std::string(domainName) != "msleaks") {
+        return nullptr;
+    }
+    return msleaksDomain_;
+}
+
+mstxMemHeapHandle_t MstxManager::ReportHeapRegister(mstxDomainHandle_t domain, mstxMemHeapDesc_t const *desc)
+{
+    if (domain == nullptr || desc == nullptr || domain != msleaksDomain_) {
+        return nullptr;
+    }
+    std::lock_guard<std::mutex> guard(mutex_);
+
+    const mstxMemVirtualRangeDesc_t *rangeDesc =
+        reinterpret_cast<const mstxMemVirtualRangeDesc_t *>(desc->typeSpecificDesc);
+    int64_t memSize = rangeDesc->size;
+    int devId = rangeDesc->deviceId;
+    memUsageMp_[devId].totalReserved = Utility::GetAddResult(memUsageMp_[devId].totalReserved, memSize);
+    heapHandleMp_[rangeDesc->ptr] = *rangeDesc;
+    return nullptr;
+}
+
+void MstxManager::ReportHeapUnregister(mstxDomainHandle_t domain, mstxMemHeapHandle_t heap)
+{
+    if (domain == nullptr || heap == nullptr || domain != msleaksDomain_) {
+        return;
+    }
+    void *ptr = reinterpret_cast<void *>(heap);
+    if (heapHandleMp_.count(ptr)) {
+        auto desc = heapHandleMp_[ptr];
+        memUsageMp_[desc.deviceId].totalReserved =
+            Utility::GetSubResult(memUsageMp_[desc.deviceId].totalReserved, desc.size);
+    }
+}
+
+void MstxManager::ReportRegionsRegister(mstxDomainHandle_t domain, mstxMemRegionsRegisterBatch_t const *desc)
+{
+    if (domain == nullptr || desc == nullptr || domain != msleaksDomain_) {
+        return;
+    }
+    std::lock_guard<std::mutex> guard(mutex_);
+
+    const mstxMemVirtualRangeDesc_t *rangeDescArray =
+        reinterpret_cast<const mstxMemVirtualRangeDesc_t *>(desc->regionDescArray);
+
+    for (int i = 0; i < desc->regionCount; i++) {
+        TorchNpuRecord torchNpuRecord;
+        int devId = rangeDescArray[i].deviceId;
+        memUsageMp_[devId].dataType = 0;
+        memUsageMp_[devId].deviceIndex = devId;
+        memUsageMp_[devId].ptr = reinterpret_cast<int64_t>(rangeDescArray[i].ptr);
+        memUsageMp_[devId].allocSize = rangeDescArray[i].size;
+        memUsageMp_[devId].totalAllocated =
+            Utility::GetAddResult(memUsageMp_[devId].totalAllocated, memUsageMp_[devId].allocSize);
+        regionHandleMp_[rangeDescArray[i].ptr] = rangeDescArray[i];
+        torchNpuRecord.memoryUsage = memUsageMp_[devId];
+        torchNpuRecord.pid = Utility::GetPid();
+        torchNpuRecord.tid = Utility::GetTid();
+        if (!EventReport::Instance(CommType::SOCKET).ReportTorchNpu(torchNpuRecord)) {
+            ClientErrorLog("Report Npu Data Failed");
+        }
+    }
+}
+
+void MstxManager::ReportRegionsUnregister(mstxDomainHandle_t domain, mstxMemRegionsUnregisterBatch_t const *desc)
+{
+    if (domain == nullptr || desc == nullptr || domain != msleaksDomain_) {
+        return;
+    }
+    std::lock_guard<std::mutex> guard(mutex_);
+    for (int i = 0; i < desc->refCount; i++) {
+        if (!regionHandleMp_.count(desc->refArray[i].pointer)) {
+            continue;
+        }
+        TorchNpuRecord torchNpuRecord;
+        mstxMemVirtualRangeDesc_t rangeDesc = regionHandleMp_[desc->refArray[i].pointer];
+        memUsageMp_[rangeDesc.deviceId].dataType = 1;
+        memUsageMp_[rangeDesc.deviceId].deviceIndex = rangeDesc.deviceId;
+        memUsageMp_[rangeDesc.deviceId].ptr = reinterpret_cast<int64_t>(rangeDesc.ptr);
+        memUsageMp_[rangeDesc.deviceId].totalAllocated =
+            Utility::GetSubResult(memUsageMp_[rangeDesc.deviceId].totalAllocated, rangeDesc.size);
+        memUsageMp_[rangeDesc.deviceId].allocSize = -rangeDesc.size;
+        torchNpuRecord.memoryUsage = memUsageMp_[rangeDesc.deviceId];
+        torchNpuRecord.pid = Utility::GetPid();
+        torchNpuRecord.tid = Utility::GetTid();
+        if (!EventReport::Instance(CommType::SOCKET).ReportTorchNpu(torchNpuRecord)) {
+            ClientErrorLog("Report Npu Data Failed");
+        }
+    }
+}
+
 }
