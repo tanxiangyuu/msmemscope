@@ -9,6 +9,7 @@
 #include "utils.h"
 #include "umask_guard.h"
 #include "utils.h"
+#include "cstring"
 
 namespace Utility {
 
@@ -28,9 +29,13 @@ public:
     static Log &GetLog(void);
 
     template <typename... Args>
-    inline void Printf(std::string const &format, LogLv lv, Args &&...args);
+    inline void Printf(const std::string &format, LogLv lv, const std::string fileName, const uint32_t line,
+        const Args& ...args);
     template <typename... Args>
-    inline void PrintClientLog(std::string const &format, Args &&...args);
+    inline void Printtest(const std::string &format, LogLv lv, const std::string fileName, const uint32_t line,
+        const Args& ...args);
+    template <typename... Args>
+    inline void PrintClientLog(std::string const &format, const Args &...args);
     void SetLogLevel(const LogLv &logLevel);
     inline bool CreateLogFile();
 private:
@@ -38,7 +43,8 @@ private:
     ~Log(void);
     Log(Log const &) = delete;
     Log &operator=(Log const &) = delete;
-    std::string AddPrefixInfo(std::string const &format, LogLv lv) const;
+    std::string AddPrefixInfo(std::string const &format, LogLv lv, const std::string fileName,
+        const uint32_t line) const;
 
 private:
     LogLv lv_{LogLv::WARN};
@@ -60,7 +66,8 @@ bool Log::CreateLogFile()
 }
 
 template <typename... Args>
-void Log::Printf(const std::string &format, LogLv lv, Args &&...args)
+void Log::Printf(const std::string &format, LogLv lv, const std::string fileName, const uint32_t line,
+    const Args& ...args)
 {
     std::lock_guard<std::mutex> lock(mtx_);
     if (!CreateLogFile()) {
@@ -69,13 +76,13 @@ void Log::Printf(const std::string &format, LogLv lv, Args &&...args)
     if (lv < lv_) {
         return;
     }
-    std::string f = AddPrefixInfo(format, lv).append("\n");
-    fprintf(fp_, f.c_str(), std::forward<Args>(args)...);
+    std::string f = AddPrefixInfo(format, lv, fileName, line).append("\n");
+    fprintf(fp_, f.c_str(), args...);
     fflush(fp_);
 }
 
 template <typename... Args>
-void Log::PrintClientLog(const std::string &format, Args &&...args)
+void Log::PrintClientLog(const std::string &format, const Args &...args)
 {
     std::lock_guard<std::mutex> lock(mtx_);
     if (!CreateLogFile()) {
@@ -87,39 +94,43 @@ void Log::PrintClientLog(const std::string &format, Args &&...args)
     std::tm *tm = std::localtime(&time);
     std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", tm);
     std::string f = std::string(std::string(buf) + " " + format).append("\n");
-    fprintf(fp_, f.c_str(), std::forward<Args>(args)...);
+    fprintf(fp_, f.c_str(), args...);
     fflush(fp_);
 }
 
-template <typename... Args>
-inline void LogRecv(std::string const &format, Args &&...args)
+inline std::string GetFileName(const std::string &path)
 {
-    Log::GetLog().PrintClientLog(format, std::forward<Args>(args)...);
+    return (strrchr(path.c_str(), '/')) ? (strrchr(path.c_str(), '/') + 1) : path;
 }
 
-template <typename... Args>
-inline void LogDebug(std::string const &format, Args &&...args)
-{
-    Log::GetLog().Printf(format, LogLv::DEBUG, std::forward<Args>(args)...);
-}
+#define LOG_RECV(format, ...)                                                                                          \
+    do {                                                                                                              \
+        Utility::Log::GetLog().PrintClientLog(format, ##__VA_ARGS__);       \
+    } while (0)
 
-template <typename... Args>
-inline void LogInfo(std::string const &format, Args &&...args)
-{
-    Log::GetLog().Printf(format, LogLv::INFO, std::forward<Args>(args)...);
-}
+#define LOG_DEBUG(format, ...)                                                                                         \
+    do {                                                                                                              \
+        Utility::Log::GetLog().Printf(format, Utility::LogLv::DEBUG, Utility::GetFileName(__FILE__), __LINE__,        \
+            ##__VA_ARGS__);                                                                                           \
+    } while (0)
 
-template <typename... Args>
-inline void LogWarn(std::string const &format, Args &&...args)
-{
-    Log::GetLog().Printf(format, LogLv::WARN, std::forward<Args>(args)...);
-}
+#define LOG_INFO(format, ...)                                                                                          \
+    do {                                                                                                              \
+        Utility::Log::GetLog().Printf(format, Utility::LogLv::INFO, Utility::GetFileName(__FILE__), __LINE__,         \
+            ##__VA_ARGS__);                                                                                           \
+    } while (0)
 
-template <typename... Args>
-inline void LogError(std::string const &format, Args &&...args)
-{
-    Log::GetLog().Printf(format, LogLv::ERROR, std::forward<Args>(args)...);
-}
+#define LOG_WARN(format, ...)                                                                                          \
+    do {                                                                                                              \
+        Utility::Log::GetLog().Printf(format, Utility::LogLv::WARN, Utility::GetFileName(__FILE__), __LINE__,         \
+            ##__VA_ARGS__);                                                                                           \
+    } while (0)
+
+#define LOG_ERROR(format, ...)                                                                                         \
+    do {                                                                                                              \
+        Utility::Log::GetLog().Printf(format, Utility::LogLv::ERROR, Utility::GetFileName(__FILE__), __LINE__,        \
+            ##__VA_ARGS__);                                                                                           \
+    } while (0)
 
 inline void SetLogLevel(const LogLv &logLevel)
 {

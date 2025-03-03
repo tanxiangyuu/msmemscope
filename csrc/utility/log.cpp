@@ -11,7 +11,7 @@ inline std::string ToString(LogLv lv)
 {
     using underlying = typename std::underlying_type<LogLv>::type;
     constexpr char const *lvString[static_cast<underlying>(LogLv::COUNT)] = {
-        "[DEBUG]", "[INFO] ", "[WARN] ", "[ERROR]"};
+        "[DEBUG]", "[INFO]", "[WARN]", "[ERROR]"};
     return lv < LogLv::COUNT ? lvString[static_cast<underlying>(lv)] : "N";
 }
 
@@ -26,19 +26,23 @@ Log::~Log()
         fclose(fp_);
     }
 }
-std::string Log::AddPrefixInfo(std::string const &format, LogLv lv) const
+std::string Log::AddPrefixInfo(std::string const &format, LogLv lv, const std::string fileName,
+    const uint32_t line) const
 {
     char buf[LOG_BUF_SIZE];
     auto now = std::chrono::system_clock::now();
     std::time_t time = std::chrono::system_clock::to_time_t(now);
     std::tm *tm = std::localtime(&time);
     std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", tm);
-    return std::string(buf) + " " + ToString(lv) + " " + format;
+    std::string codePosition = "[" + fileName + ":" + std::to_string(line) + "] ";
+    return std::string(buf) + " " + ToString(lv) + " " + codePosition + format;
 }
 
 void Log::SetLogLevel(const LogLv &logLevel)
 {
     lv_ = logLevel;
 }
+
+inline std::string GetFileName(const std::string &path);
 
 }  // namespace Utility

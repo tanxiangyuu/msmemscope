@@ -14,7 +14,7 @@ MstxAnalyzer& MstxAnalyzer::Instance()
 void MstxAnalyzer::Subscribe(const MstxEventSubscriber &subscriber, const MstxEventCallBackFunc &func)
 {
     if (subscriberList_.find(subscriber) != subscriberList_.end()) {
-        Utility::LogError("Add elements repeatedly, subscriber : %u", static_cast<uint8_t>(subscriber));
+        LOG_ERROR("Add elements repeatedly, subscriber : %u", static_cast<uint8_t>(subscriber));
         return;
     }
 
@@ -25,7 +25,7 @@ void MstxAnalyzer::Subscribe(const MstxEventSubscriber &subscriber, const MstxEv
 void MstxAnalyzer::UnSubscribe(const MstxEventSubscriber &subscriber)
 {
     if (subscriberList_.find(subscriber) == subscriberList_.end()) {
-        Utility::LogError("Cannot delete elements, subscriber : %u", static_cast<uint8_t>(subscriber));
+        LOG_ERROR("Cannot delete elements, subscriber : %u", static_cast<uint8_t>(subscriber));
         return;
     }
 
@@ -49,7 +49,7 @@ bool MstxAnalyzer::RecordMstx(const ClientId &clientId, const MstxRecord &mstxRe
     DeviceId deviceId = mstxRecord.devId;
     uint64_t stepId = mstxRecord.stepId;
     if (mstxRecord.markType == MarkType::RANGE_START_A) {
-        Utility::LogInfo("[npu %ld][client %u][stepid %llu][streamid %d][start]: %s",
+        LOG_INFO("[npu %ld][client %u][stepid %llu][streamid %d][start]: %s",
             deviceId,
             clientId,
             stepId,
@@ -58,7 +58,7 @@ bool MstxAnalyzer::RecordMstx(const ClientId &clientId, const MstxRecord &mstxRe
         Notify(mstxRecord);
         return true;
     } else if (mstxRecord.markType == MarkType::RANGE_END) {
-        Utility::LogInfo("[npu %ld][client %u][stepid %llu][streamid %d][end]: %s",
+        LOG_INFO("[npu %ld][client %u][stepid %llu][streamid %d][end]: %s",
             deviceId,
             clientId,
             stepId,
@@ -67,7 +67,7 @@ bool MstxAnalyzer::RecordMstx(const ClientId &clientId, const MstxRecord &mstxRe
         Notify(mstxRecord);
         return true;
     } else if (mstxRecord.markType == MarkType::MARK_A) {
-        Utility::LogInfo("[npu %ld][client %u][stepid %llu][streamid %d][mark]: %s",
+        LOG_INFO("[npu %ld][client %u][stepid %llu][streamid %d][mark]: %s",
             deviceId,
             clientId,
             stepId,

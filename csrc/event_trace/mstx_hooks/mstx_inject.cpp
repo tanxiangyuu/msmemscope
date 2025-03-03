@@ -33,7 +33,7 @@ bool MstxTableCoreInject(MstxGetModuleFuncTableFunc getFuncTable)
     if (getFuncTable == nullptr ||
         getFuncTable(mstxFuncModule::MSTX_API_MODULE_CORE, &outTable, &outSize) != MSTX_SUCCESS ||
         outTable == nullptr) {
-        ClientErrorLog("Failed to call getFuncTablecore");
+        CLIENT_ERROR_LOG("Failed to call getFuncTablecore");
         return false;
     }
 
@@ -61,7 +61,7 @@ bool MstxTableDomainCoreInject(MstxGetModuleFuncTableFunc getFuncTable)
     if (getFuncTable == nullptr ||
         getFuncTable(mstxFuncModule::MSTX_API_MODULE_CORE_DOMAIN, &outTable, &outSize) != MSTX_SUCCESS ||
         outTable == nullptr) {
-        ClientErrorLog("Failed to call getFuncTableDomaincore");
+        CLIENT_ERROR_LOG("Failed to call getFuncTableDomaincore");
         return false;
     }
 
@@ -79,7 +79,7 @@ bool MstxTableMemCoreInject(MstxGetModuleFuncTableFunc getFuncTable)
     if (getFuncTable == nullptr ||
         getFuncTable(mstxFuncModule::MSTX_API_MODULE_CORE_MEM, &outTable, &outSize) != MSTX_SUCCESS ||
         outTable == nullptr) {
-        ClientErrorLog("Failed to call getFuncTableMemcore");
+        CLIENT_ERROR_LOG("Failed to call getFuncTableMemcore");
         return false;
     }
 

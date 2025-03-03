@@ -91,6 +91,7 @@ private:
     void NpuMemRecordToString(MemOpRecord &memRecord, std::string &str);
     void CpuMemRecordToString(const MemOpRecord &memRecord, std::string &str);
     void KernelLaunchRecordToString(const KernelLaunchRecord &kernelLaunchRecord, std::string &str);
+    void SaveKernelLaunchRecordToCpuTrace(const std::string &str);
     void AclItfRecordToString(const AclItfRecord &aclItfRecord, std::string &str);
     void TorchRecordToString(const TorchNpuRecord &torchNpuRecord, std::string &str);
     void MstxRecordToString(const MstxRecord &mstxRecord, std::string &str);
