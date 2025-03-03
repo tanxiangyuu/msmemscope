@@ -149,6 +149,80 @@ void StepInnerAnalyzer::NotifyTraceRecord(const int32_t &devId, const TorchNpuRe
     return;
 }
 
+void StepInnerAnalyzer::UpdateAllocated(const DeviceId &deviceId, const int64_t &totalAllocated)
+{
+    if (!IsStepInnerAnalysisEnable()) {
+        return;
+    }
+    // 当step为0和1时，allocated尚未稳定不进行更新
+    if (npuMemUsages_[deviceId].mstxStep <= skipSteps_) {
+        return;
+    }
+    // 初值为0，Step开始，第一次更新
+    if (npuMemUsages_[deviceId].stepMaxAllocated == 0) {
+        npuMemUsages_[deviceId].stepMaxAllocated = totalAllocated;
+        npuMemUsages_[deviceId].stepMinAllocated = totalAllocated;
+        return;
+    }
+    if (totalAllocated > npuMemUsages_[deviceId].stepMaxAllocated) {
+        npuMemUsages_[deviceId].stepMaxAllocated = totalAllocated;
+    }
+    if (totalAllocated < npuMemUsages_[deviceId].stepMinAllocated) {
+        npuMemUsages_[deviceId].stepMinAllocated = totalAllocated;
+    }
+    return;
+}
+
+void StepInnerAnalyzer::CheckGap(const DeviceId &deviceId)
+{
+    // 当step为0和1时，allocated尚未稳定不进行更新
+    if (npuMemUsages_[deviceId].mstxStep <= skipSteps_) {
+        return;
+    }
+    if (npuMemUsages_[deviceId].stepMaxAllocated == 0) {
+        Utility::LogError("[npu %d]: StepMaxAllocated is 0, please check!", deviceId);
+        return;
+    }
+    double gap =
+    npuMemUsages_[deviceId].stepMinAllocated / static_cast<double>(npuMemUsages_[deviceId].stepMaxAllocated);
+    // 第一次计算
+    if (npuMemUsages_[deviceId].maxGapInfo.minMaxAllocRatio == 0) {
+        npuMemUsages_[deviceId].maxGapInfo.gapStepId = npuMemUsages_[deviceId].mstxStep;
+        npuMemUsages_[deviceId].maxGapInfo.minMaxAllocRatio = gap;
+        npuMemUsages_[deviceId].maxGapInfo.minAllocMemory = npuMemUsages_[deviceId].stepMinAllocated;
+
+        npuMemUsages_[deviceId].minGapInfo.gapStepId = npuMemUsages_[deviceId].mstxStep;
+        npuMemUsages_[deviceId].minGapInfo.minMaxAllocRatio = gap;
+        npuMemUsages_[deviceId].minGapInfo.minAllocMemory = npuMemUsages_[deviceId].stepMinAllocated;
+
+        // Step结束，还原初始化
+        npuMemUsages_[deviceId].stepMaxAllocated = 0;
+        npuMemUsages_[deviceId].stepMinAllocated = 0;
+        return;
+    }
+    // 后续计算查看是否比值变化
+    if (gap > npuMemUsages_[deviceId].maxGapInfo.minMaxAllocRatio) {
+        Utility::LogWarn(
+            "[npu %d]: Min/Max Allocated memory largest gap increases to %f, last is %f",
+            deviceId, gap, npuMemUsages_[deviceId].maxGapInfo.minMaxAllocRatio);
+        npuMemUsages_[deviceId].maxGapInfo.gapStepId = npuMemUsages_[deviceId].mstxStep;
+        npuMemUsages_[deviceId].maxGapInfo.minMaxAllocRatio = gap;
+        npuMemUsages_[deviceId].maxGapInfo.minAllocMemory = npuMemUsages_[deviceId].stepMinAllocated;
+    }
+    if (gap < npuMemUsages_[deviceId].minGapInfo.minMaxAllocRatio) {
+        Utility::LogWarn(
+            "[npu %d]: Min/Max Allocated memory smallest gap decreases to %f, last is %f",
+            deviceId, gap, npuMemUsages_[deviceId].minGapInfo.minMaxAllocRatio);
+        npuMemUsages_[deviceId].minGapInfo.gapStepId = npuMemUsages_[deviceId].mstxStep;
+        npuMemUsages_[deviceId].minGapInfo.minMaxAllocRatio = gap;
+        npuMemUsages_[deviceId].minGapInfo.minAllocMemory = npuMemUsages_[deviceId].stepMinAllocated;
+    }
+    // Step结束，还原初始化
+    npuMemUsages_[deviceId].stepMaxAllocated = 0;
+    npuMemUsages_[deviceId].stepMinAllocated = 0;
+    return;
+}
+
 void StepInnerAnalyzer::RecordNpuMalloc(const ClientId &clientId, const DeviceId &deviceId,
     const TorchNpuRecord &torchnpuRecord)
 {
@@ -172,6 +246,7 @@ void StepInnerAnalyzer::RecordNpuMalloc(const ClientId &clientId, const DeviceId
     npuMemUsages_[deviceId].mempooltable[npumemptr].duration = 0;
     npuMemUsages_[deviceId].mempooltable[npumemptr].stepId = npuMemUsages_[deviceId].mstxStep;
     npuMemUsages_[deviceId].mempooltable[npumemptr].kernelIndex = torchnpuRecord.kernelIndex;
+    UpdateAllocated(deviceId, memoryusage.totalAllocated);
     npuMemUsages_[deviceId].totalAllocated = memoryusage.totalAllocated;
     npuMemUsages_[deviceId].totalReserved = memoryusage.totalReserved;
     npuMemUsages_[deviceId].totalActive = memoryusage.totalActive;
@@ -201,6 +276,7 @@ void  StepInnerAnalyzer::RecordNpuFree(const ClientId &clientId, const DeviceId 
     NotifyTraceRecord(deviceId, torchnpuRecord);
 
     npuMemUsages_[deviceId].mempooltable.erase(npumemptr);
+    UpdateAllocated(deviceId, memoryusage.totalAllocated);
     npuMemUsages_[deviceId].totalAllocated = memoryusage.totalAllocated;
     npuMemUsages_[deviceId].totalReserved = memoryusage.totalReserved;
     npuMemUsages_[deviceId].totalActive = memoryusage.totalActive;
@@ -298,6 +374,7 @@ void StepInnerAnalyzer::ReceiveMstxMsg(const MstxRecord &mstxRecord)
             Utility::LogInfo("[npu %ld][step %llu][end]: ------leaks------", deviceId, stepId);
         }
         CheckNpuLeak(deviceId, stepId);
+        CheckGap(deviceId);
     }
     return;
 }
@@ -328,11 +405,26 @@ void StepInnerAnalyzer::ReceiveMstxMsg(const MstxRecord &mstxRecord)
         leakInfoCounts++;
         leakSizeSums += pair.second.leakSize;
     }
-    std::cout << "===== SUMMARY: " << leakSizeSums / BYTE_TO_MB << " Mb(s) leaked in " <<
-        leakInfoCounts << " allocation(s) =====" << std::endl;
+    std::cout << "====== SUMMARY: " << leakSizeSums / BYTE_TO_MB << " Mb(s) leaked in " <<
+        leakInfoCounts << " allocation(s) ======" << std::endl;
     return;
 }
 
+void StepInnerAnalyzer::ReportGap(const DeviceId &deviceId)
+{
+    std::cout << "======= Memory Gap Analysis of Device " << deviceId << " =======" << std::endl;
+    std::cout << "\tMinAlloc/MaxAlloc(%)\tMinAllocMem(MB)\tStepId" << std::endl;
+    std::cout << "minGap\t"
+              << npuMemUsages_[deviceId].minGapInfo.minMaxAllocRatio * PERCENT_SCALE_FACTOR << "\t\t\t"
+              << npuMemUsages_[deviceId].minGapInfo.minAllocMemory / static_cast<double>(BYTE_TO_MB) << "\t\t"
+              << npuMemUsages_[deviceId].minGapInfo.gapStepId
+              << std::endl;
+    std::cout << "maxGap\t"
+              << npuMemUsages_[deviceId].maxGapInfo.minMaxAllocRatio * PERCENT_SCALE_FACTOR << "\t\t\t"
+              << npuMemUsages_[deviceId].maxGapInfo.minAllocMemory / static_cast<double>(BYTE_TO_MB) << "\t\t"
+              << npuMemUsages_[deviceId].minGapInfo.gapStepId
+              << std::endl;
+}
 
 StepInnerAnalyzer::~StepInnerAnalyzer()
 {
@@ -341,13 +433,16 @@ StepInnerAnalyzer::~StepInnerAnalyzer()
     if (!IsStepInnerAnalysisEnable()) {
         return;
     }
-    if (leakMemSums_.empty()) {
-        return;
-    } else {
+    if (!leakMemSums_.empty()) {
         for (const auto& pair :leakMemSums_) {
             ReportLeak(pair.first);
         }
     }
+    // 输出内存波动与模型的权重内存大小
+    for (auto &device : npuMemUsages_) {
+        ReportGap(device.first);
+    }
+
     return;
 }
 
