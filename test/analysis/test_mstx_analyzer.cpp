@@ -46,4 +46,5 @@ TEST(MstxAnalyzerTest, do_analyzer_notify_expect_success) {
     mstxRecordStart.streamId = 123;
 
     EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStart));
+    MstxAnalyzer::Instance().UnSubscribe(MstxEventSubscriber::STEP_INNER_ANALYZER);
 }
