@@ -68,7 +68,8 @@ TEST(StepInterAnalyzerTest, do_read_csv_file_expect_read_correct_data)
     fclose(fp);
     StepInterAnalyzer stepinteranalyzer{};
     std::unordered_map<DEVICEID, CSV_FIELD_DATA> data;
-    stepinteranalyzer.ReadCsvFile("test_leaks.csv", data);
+    std::string str = "test_leaks.csv";
+    stepinteranalyzer.ReadCsvFile(str, data);
     ASSERT_EQ(data.size(), 2);
     ASSERT_EQ(data[0].size(), 15);
     ASSERT_EQ(data[2].size(), 10);
@@ -84,11 +85,12 @@ TEST(StepInterAnalyzerTest, do_read_invalid_csv_file_expect_empty_data)
     fclose(fp);
     StepInterAnalyzer stepinteranalyzer{};
     std::unordered_map<DEVICEID, CSV_FIELD_DATA> data;
-    stepinteranalyzer.ReadCsvFile("test_leaks.csv", data);
+    std::string str = "test_leaks.csv";
+    stepinteranalyzer.ReadCsvFile(str, data);
     ASSERT_EQ(data.size(), 0);
     remove("test_leaks.csv");
-
-    stepinteranalyzer.ReadCsvFile("test.csv", data);
+    str = "test.csv";
+    stepinteranalyzer.ReadCsvFile(str, data);
     ASSERT_EQ(data.size(), 0);
 }
 

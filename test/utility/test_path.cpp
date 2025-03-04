@@ -294,3 +294,42 @@ TEST(Path, check_invalid_length)
     Path pathWithInvalidPath(invalidName);
     ASSERT_FALSE(pathWithInvalidPath.IsValidLength());
 }
+
+TEST(Path, check_soft_link_expect_return_true)
+{
+    EXPECT_EQ(0, symlink("test_file", "test_file_soft_link"));
+    Path pathStr = Utility::Path("test_file");
+    EXPECT_FALSE(pathStr.IsSoftLink());
+    pathStr = Utility::Path("test_file_soft_link");
+    EXPECT_TRUE(pathStr.IsSoftLink());
+    remove("test_file_soft_link");
+}
+
+TEST(Path, check_not_soft_link_expect_return_false)
+{
+    std::string targetFile = "./test2.txt";
+    FILE *fp = fopen(targetFile.c_str(), "w");
+    fclose(fp);
+
+    Path inputPath = Utility::Path{targetFile};
+    ASSERT_FALSE(inputPath.IsSoftLink());
+    remove("test2.txt");
+}
+
+TEST(Path, check_invalid_path_expect_return_false)
+{
+    std::string pathStr;
+    ASSERT_FALSE(Utility::CheckIsValidPath(pathStr));
+
+    pathStr = "test.txt";
+    ASSERT_FALSE(Utility::CheckIsValidPath(pathStr));
+}
+
+TEST(Path, check_valid_path_expect_return_true)
+{
+    std::string pathStr = "test.txt";
+    FILE *fp = fopen(pathStr.c_str(), "w");
+    fclose(fp);
+    ASSERT_TRUE(Utility::CheckIsValidPath(pathStr));
+    remove(pathStr.c_str());
+}
