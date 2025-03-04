@@ -20,7 +20,6 @@ ClientProcess::ClientProcess(CommType type)
         constexpr uint64_t connectRetryDuration = 100;
         std::this_thread::sleep_for(std::chrono::milliseconds(connectRetryDuration));
     }
-    DEBUG_LOG("connect server success.");
 }
 
 ClientProcess &ClientProcess::GetInstance(CommType type)
