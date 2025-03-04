@@ -7,6 +7,8 @@
 #include <csignal>
 #include "host_injection/core/Communication.h"
 
+namespace Leaks {
+
 enum class ClientLogLevel : uint8_t {
     DEBUG = 0U,
     INFO,
@@ -36,5 +38,7 @@ void ClientInfoLog(std::string msg);
 void ClientWarnLog(std::string msg);
 
 void ClientErrorLog(std::string msg);
+
+}
 
 #endif // __CORE_CLIENT_PROCESS_H__
