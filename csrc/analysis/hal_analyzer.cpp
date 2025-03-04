@@ -36,7 +36,7 @@ void HalAnalyzer::RecordMalloc(const ClientId &clientId, const MemOpRecord memre
         foundModule = true;
     }
     if (!foundModule) {
-        Utility::LogError("[client %u][device: %ld]: Malloc operator did not find %d Module in index %u malloc record.",
+        Utility::LogWarn("[client %u][device: %ld]: Malloc operator did not find %d Module in index %u malloc record.",
             clientId, memrecord.devId, memrecord.modid, memrecord.recordIndex);
     }
 
