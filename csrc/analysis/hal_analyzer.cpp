@@ -31,8 +31,8 @@ void HalAnalyzer::RecordMalloc(const ClientId &clientId, const MemOpRecord memre
     // malloc操作需解析当前moduleId
     bool foundModule = false;
     std::string modulename = "INVLID_MOUDLE_ID";
-    if (g_ModuleHashTable.find(memrecord.modid) != g_ModuleHashTable.end()) {
-        modulename = g_ModuleHashTable.find(memrecord.modid)->second;
+    if (MODULE_HASH_TABLE.find(memrecord.modid) != MODULE_HASH_TABLE.end()) {
+        modulename = MODULE_HASH_TABLE.find(memrecord.modid)->second;
         foundModule = true;
     }
     if (!foundModule) {
@@ -100,10 +100,12 @@ bool HalAnalyzer::Record(const ClientId &clientId, const EventRecord &record)
 void HalAnalyzer::CheckLeak(const size_t clientId)
 {
     bool foundLeaks = false;
-    for (const auto& pair :memtables_[clientId]) {
-        if (pair.second.addrStatus != AddrStatus::FREE_ALREADY) {
-            foundLeaks = true;
-            Utility::LogWarn("[client %u]: Leak memory in Malloc operator, addr: 0x%lx", clientId, pair.first);
+    if (memtables_.find(clientId) != memtables_.end()) {
+        for (const auto& pair :memtables_[clientId]) {
+            if (pair.second.addrStatus != AddrStatus::FREE_ALREADY) {
+                foundLeaks = true;
+                Utility::LogWarn("[client %u]: Leak memory in Malloc operator, addr: 0x%lx", clientId, pair.first);
+            }
         }
     }
     if (!foundLeaks) {
