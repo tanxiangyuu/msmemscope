@@ -1,11 +1,19 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
-#include <thread>
 #include "server_process.h"
+#include <thread>
+#include "utility/log.h"
+
+namespace Leaks {
 
 ServerProcess::ServerProcess(CommType type)
 {
     server_ = new Server(type);
+
+    if (server_ == nullptr) {
+        LOG_ERROR("Initial server failed");
+        return;
+    }
 }
 
 void ServerProcess::Start()
@@ -46,4 +54,6 @@ void ServerProcess::SetClientConnectHook(ClientConnectHook &&hook)
     if (server_ != nullptr) {
         server_->SetClientConnectHook(std::move(hook));
     }
+}
+
 }

@@ -10,6 +10,7 @@
 #include <limits>
 #include <typeinfo>
 #include <iostream>
+#include <unistd.h>
 
 namespace Utility {
     inline uint64_t GetTid()

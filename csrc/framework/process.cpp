@@ -59,8 +59,8 @@ Process::Process(const AnalysisConfig &config)
     server_->SetClientConnectHook([this, config](ClientId clientId) {
             this->server_->Notify(clientId, Serialize<AnalysisConfig>(config));
         });
-
     auto func = std::bind(&Process::MsgHandle, this, std::placeholders::_1, std::placeholders::_2);
+
     server_->SetMsgHandlerHook(func);
 
     server_->Start();
@@ -94,6 +94,7 @@ void Process::MsgHandle(size_t &clientId, std::string &msg)
         auto result = protocolList_.insert({clientId, Protocol{}});
         if (!result.second) {
             LOG_ERROR("Add elements to protocolList failed, clientId = %u", clientId);
+            return;
         }
     }
 

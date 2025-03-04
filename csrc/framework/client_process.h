@@ -7,6 +7,8 @@
 #include <csignal>
 #include "host_injection/core/Communication.h"
 
+namespace Leaks {
+
 enum class ClientLogLevel : uint8_t {
     DEBUG = 0U,
     INFO,
@@ -48,5 +50,7 @@ int ClientWait(std::string& msg);
     do {                                                                                                              \
         ClientProcess::GetInstance().Log(ClientLogLevel::INFO, format, Utility::GetFileName(__FILE__), __LINE__);     \
     } while (0)
+
+}
 
 #endif // __CORE_CLIENT_PROCESS_H__
