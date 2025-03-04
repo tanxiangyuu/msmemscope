@@ -6,6 +6,7 @@
 #include "file.h"
 #include "utils.h"
 #include "config_info.h"
+#include "record_info.h"
 
 namespace Leaks {
 
@@ -27,12 +28,28 @@ std::vector<std::string> StepInterAnalyzer::SplitLineData(std::string line)
     return lineData;
 }
 
-void StepInterAnalyzer::ReadCsvFile(const std::string &path, std::unordered_map<DEVICEID, CSV_FIELD_DATA> &data)
+bool Compare(const std::unordered_map<std::string, std::string> &a,
+    const std::unordered_map<std::string, std::string> &b)
 {
-    if (!Utility::Exist(path)) {
-        Utility::LogError("The leaks csv file path: %s does not exist!", path.c_str());
+    uint64_t compareA;
+    uint64_t compareB;
+    if (!Utility::StrToUint64(compareA, a.at("Timestamp(us)"))) {
+        Utility::LogWarn("StrToUint64 failed, the str is %s.", a.at("Timestamp(us)").c_str());
+        compareA = UINT64_MAX;
     }
-    
+    if (!Utility::StrToUint64(compareB, b.at("Timestamp(us)"))) {
+        Utility::LogWarn("StrToUint64 failed, the str is %s.", b.at("Timestamp(us)").c_str());
+        compareB = UINT64_MAX;
+    }
+
+    return compareA < compareB;
+}
+
+void StepInterAnalyzer::ReadCsvFile(std::string &path, std::unordered_map<DEVICEID, CSV_FIELD_DATA> &data)
+{
+    if (!Utility::CheckIsValidPath(path)) {
+        return ;
+    }
     std::ifstream csvFile(path, std::ios::in);
     if (!csvFile.is_open()) {
         Utility::LogError("The path: %s open failed!", path.c_str());
@@ -58,17 +75,22 @@ void StepInterAnalyzer::ReadCsvFile(const std::string &path, std::unordered_map<
         for (size_t index = 0; index < headerData.size(); ++index) {
             tempLine.insert({headerData[index], lineData[index]});
         }
-        uint64_t deviceId = atoi(tempLine["Device Id"].c_str());
+        uint64_t deviceId;
+        if (tempLine["Device Id"] == std::to_string(GD_INVALID_NUM) || tempLine["Device Id"] == "host" ||
+            tempLine["Device Id"] == "N/A") {
+            continue;
+        }
+        if (!Utility::StrToUint64(deviceId, tempLine["Device Id"])) {
+            Utility::LogWarn("StrToUint64 failed, the str is %s.", tempLine["Device Id"].c_str());
+            continue;
+        }
         data[deviceId].emplace_back(tempLine);
     }
 
     for (const auto& pair : data) {
         uint64_t deviceId = pair.first;
         // kernelName解析使用多线程，需要根据timeStamp排序保证顺序
-        sort(data[deviceId].begin(), data[deviceId].end(), [](const std::unordered_map<std::string, std::string> &a,
-             const std::unordered_map<std::string, std::string> &b) {
-                return atoi(a.at("Timestamp(us)").c_str()) < atoi(b.at("Timestamp(us)").c_str());
-        });
+        sort(data[deviceId].begin(), data[deviceId].end(), Compare);
     }
     csvFile.close();
 }
@@ -167,8 +189,8 @@ void StepInterAnalyzer::SaveCompareKernelMemory(const DEVICEID deviceId,
 std::shared_ptr<PathNode> StepInterAnalyzer::buildPath(const KERNELNAME_INDEX &kernelIndexMap,
     const KERNELNAME_INDEX &kernelIndexCompareMap)
 {
-    const int64_t n = kernelIndexMap.size();
-    const int64_t m = kernelIndexCompareMap.size();
+    const int64_t n = static_cast<int64_t>(kernelIndexMap.size());
+    const int64_t m = static_cast<int64_t>(kernelIndexCompareMap.size());
     const int64_t max = m + n + 1;
     const int64_t size = 1 + 2 * max;
     const int64_t middle = size / 2;

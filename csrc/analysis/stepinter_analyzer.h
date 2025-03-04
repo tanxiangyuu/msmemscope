@@ -87,7 +87,7 @@ private:
     StepInterAnalyzer();
     void SetDirPath();
     std::vector<std::string> SplitLineData(std::string line);
-    void ReadCsvFile(const std::string &path, std::unordered_map<DEVICEID, CSV_FIELD_DATA> &data);
+    void ReadCsvFile(std::string &path, std::unordered_map<DEVICEID, CSV_FIELD_DATA> &data);
     KERNELNAME_INDEX ReadKernelLaunchData(const CSV_FIELD_DATA &data);
     void GetKernelMemoryDiff(size_t index, const CSV_FIELD_DATA &data, int64_t &memDiff);
     void SaveCompareKernelMemory(const DEVICEID deviceId, const std::pair<std::string, size_t> &kernelBase,
