@@ -5,10 +5,9 @@
 #include <type_traits>
 #include <string>
 #include <mutex>
-#include <unistd.h>
 #include "utils.h"
 #include "umask_guard.h"
-#include "utils.h"
+#include "path.h"
 
 namespace Utility {
 
@@ -51,7 +50,22 @@ bool Log::CreateLogFile()
     if (fp_ == nullptr) {
         std::string fileName = "msleaks_" + GetDateStr() + ".log";
         UmaskGuard guard{DEFAULT_UMASK_FOR_LOG_FILE};
-        if ((fp_ = fopen(fileName.c_str(), "w")) == nullptr) {
+
+        // 规范化路径
+        char *canonicalPath = realpath(fileName.c_str(), nullptr);
+        if (canonicalPath == nullptr) {
+            std::cerr << "Error: Invalid path " << fileName << std::endl;
+            return false;
+        }
+        std::string canonicalPathStr = canonicalPath;
+        // 校验路径合法性
+        if (!CheckIsValidOutputPath(canonicalPathStr)) {
+            std::cerr << "Error: Invalid path " << canonicalPath << std::endl;
+            free(canonicalPath);
+            return false;
+        }
+
+        if ((fp_ = fopen(canonicalPath, "w")) == nullptr) {
             return false;
         }
         std::cout << "[msleaks] Info: logging into file ./" << fileName << std::endl;
