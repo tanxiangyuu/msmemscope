@@ -5,8 +5,7 @@
 #include <cstdint>
 #include <cstddef>
 #include "mstx_info.h"
-constexpr int MSTX_SUCCESS = 0;
-constexpr int MSTX_FAIL = 1;
+
 
 using aclrtStream = void*;
 using MstxFuncPointer = void (*)(void);
@@ -14,6 +13,10 @@ using MstxFuncTable = MstxFuncPointer**;
 using MstxGetModuleFuncTableFunc = int (*)(mstxFuncModule module, MstxFuncTable *outTable, unsigned int *outSize);
 
 namespace Leaks {
+
+constexpr int MSTX_SUCCESS = 0;
+constexpr int MSTX_FAIL = 1;
+
 void MstxMarkAFunc(const char* msg, aclrtStream stream);
 uint64_t MstxRangeStartAFunc(const char *msg, aclrtStream stream);
 void MstxRangeEndFunc(uint64_t id);
