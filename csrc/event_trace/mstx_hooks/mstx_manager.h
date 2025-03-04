@@ -24,8 +24,8 @@ public:
     MstxManager(const MstxManager&) = delete;
     MstxManager& operator=(const MstxManager&) = delete;
 
-    void ReportMarkA(const char* msg, int32_t stream);
-    uint64_t ReportRangeStart(const char* msg, int32_t stream);
+    void ReportMarkA(const char* msg, int32_t streamId);
+    uint64_t ReportRangeStart(const char* msg, int32_t streamId);
     void ReportRangeEnd(uint64_t id);
     mstxDomainHandle_t ReportDomainCreateA(char const *domainName);
     mstxMemHeapHandle_t ReportHeapRegister(mstxDomainHandle_t domain, mstxMemHeapDesc_t const *desc);
