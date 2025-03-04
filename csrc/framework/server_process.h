@@ -6,6 +6,7 @@
 #include <string>
 #include "host_injection/core/Communication.h"
 
+namespace Leaks {
 // ServerProcess类是远端进程的抽象，主要是工具所在的进程
 // 该类主要提供与LocalProcess协同的能力
 class ServerProcess {
@@ -52,4 +53,5 @@ private:
     Server* server_ = nullptr;
 };
 
+}
 #endif // __CORE_REMOTE_PROCESS_H__

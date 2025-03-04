@@ -4,11 +4,9 @@
 #define RECORD_INFO_H
 
 #include <cstdint>
-#include <vector>
 #include <string>
 #include <unordered_map>
 #include <sys/types.h>
-#include <unistd.h>
 
 namespace Leaks {
 

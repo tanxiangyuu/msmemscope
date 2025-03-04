@@ -154,7 +154,7 @@ static void ParseSelectSteps(const std::string &param, UserCommand &userCommand)
             if (!std::regex_match(step, numberPattern)) {
                 return parseFailed();
             }
-            stepListInfo.stepIdList[stepListInfo.stepCount] = stoi(it->str());
+            stepListInfo.stepIdList[stepListInfo.stepCount] = static_cast<uint32_t>(stoi(it->str()));
             stepListInfo.stepCount++;
         }
         
