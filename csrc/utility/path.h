@@ -49,10 +49,15 @@ public:
     /// 校验文件名长度
     bool IsValidLength(void) const;
 
+    /// 校验软链接
+    bool IsSoftLink(void) const;
+
 private:
     bool absolute_;
     std::vector<std::string> route_;
 };
+
+bool CheckIsValidPath(std::string &path);
 
 }  // namespace Utility
 

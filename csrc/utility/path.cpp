@@ -7,6 +7,8 @@
 #include <linux/limits.h>
 
 #include "ustring.h"
+#include "securec.h"
+#include "log.h"
 
 namespace Utility {
 
@@ -173,6 +175,42 @@ bool Path::IsValidLength(void) const
     if (pathNameLength > PATH_MAX || pathNameLength == 0) {
         return false;
     }
+    return true;
+}
+
+bool Path::IsSoftLink(void) const
+{
+    struct stat buf{};
+    (void)memset_s(&buf, sizeof(buf), 0, sizeof(buf));
+    return lstat(this->ToString().c_str(), &buf) == 0 && (S_IFMT & buf.st_mode) == S_IFLNK;
+}
+
+bool CheckIsValidPath(std::string &path)
+{
+    if (path.empty()) {
+        Utility::LogError("The file path is empty.");
+        return false;
+    }
+
+    Utility::Path inputPath = Utility::Path{path};
+    Utility::Path realPath = inputPath.Resolved();
+    path = realPath.ToString();
+
+    if (!realPath.Exists()) {
+        Utility::LogError("The path %s not exists", path.c_str());
+        return false;
+    }
+
+    if (!realPath.IsValidLength()) {
+        Utility::LogError("The length of file path %s exceeds the maximum length.", path.c_str());
+        return false;
+    }
+
+    if (realPath.IsSoftLink()) {
+        Utility::LogError("The file path %s is invalid: soft link is not allowed.", path.c_str());
+        return false;
+    }
+
     return true;
 }
 
