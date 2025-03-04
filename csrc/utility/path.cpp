@@ -185,7 +185,35 @@ bool Path::IsSoftLink(void) const
     return lstat(this->ToString().c_str(), &buf) == 0 && (S_IFMT & buf.st_mode) == S_IFLNK;
 }
 
-bool CheckIsValidPath(std::string &path)
+bool CheckIsValidPath(std::string &path, Utility::Path &realPath)
+{
+    if (!realPath.IsValidLength()) {
+        Utility::LogError("The length of file path %s exceeds the maximum length.", path.c_str());
+        return false;
+    }
+
+    if (realPath.IsSoftLink()) {
+        Utility::LogError("The file path %s is invalid: soft link is not allowed.", path.c_str());
+        return false;
+    }
+    return true;
+}
+
+bool CheckIsValidOutputPath(std::string &path)
+{
+    if (path.empty()) {
+        Utility::LogError("The file path is empty.");
+        return false;
+    }
+
+    Utility::Path inputPath = Utility::Path{path};
+    Utility::Path realPath = inputPath.Resolved();
+    path = realPath.ToString();
+
+    return CheckIsValidPath(path, realPath);
+}
+
+bool CheckIsValidInputPath(std::string &path)
 {
     if (path.empty()) {
         Utility::LogError("The file path is empty.");
@@ -201,17 +229,7 @@ bool CheckIsValidPath(std::string &path)
         return false;
     }
 
-    if (!realPath.IsValidLength()) {
-        Utility::LogError("The length of file path %s exceeds the maximum length.", path.c_str());
-        return false;
-    }
-
-    if (realPath.IsSoftLink()) {
-        Utility::LogError("The file path %s is invalid: soft link is not allowed.", path.c_str());
-        return false;
-    }
-
-    return true;
+    return CheckIsValidPath(path, realPath);
 }
 
 }  // namespace Utility
