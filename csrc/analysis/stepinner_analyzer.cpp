@@ -422,7 +422,7 @@ void StepInnerAnalyzer::ReportGap(const DeviceId &deviceId)
     std::cout << "maxGap\t"
               << npuMemUsages_[deviceId].maxGapInfo.minMaxAllocRatio * PERCENT_SCALE_FACTOR << "\t\t\t"
               << npuMemUsages_[deviceId].maxGapInfo.minAllocMemory / static_cast<double>(BYTE_TO_MB) << "\t\t"
-              << npuMemUsages_[deviceId].minGapInfo.gapStepId
+              << npuMemUsages_[deviceId].maxGapInfo.gapStepId
               << std::endl;
 }
 
