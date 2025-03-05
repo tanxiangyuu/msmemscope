@@ -7,6 +7,8 @@
 #include <iostream>
 #include <dlfcn.h>
 
+namespace Leaks {
+
 /* VallinaSymbol 类用于从指定的动态库句柄中获取函数符号
  * @tparam LibLoader 动态库加载器，需要实现 Load 方法
  */
@@ -51,5 +53,5 @@ private:
 private:
     void *handle_;
 };
-
+}
 #endif

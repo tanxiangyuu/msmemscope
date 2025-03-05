@@ -322,7 +322,7 @@ TEST(Path, check_invalid_path_expect_return_false)
     ASSERT_FALSE(Utility::CheckIsValidPath(pathStr));
 
     pathStr = "test.txt";
-    ASSERT_FALSE(Utility::CheckIsValidPath(pathStr));
+    ASSERT_FALSE(Utility::IsFileExist(pathStr));
 }
 
 TEST(Path, check_valid_path_expect_return_true)
@@ -330,6 +330,6 @@ TEST(Path, check_valid_path_expect_return_true)
     std::string pathStr = "test.txt";
     FILE *fp = fopen(pathStr.c_str(), "w");
     fclose(fp);
-    ASSERT_TRUE(Utility::CheckIsValidPath(pathStr));
+    ASSERT_TRUE(Utility::CheckIsValidPath(pathStr) && Utility::IsFileExist(pathStr));
     remove(pathStr.c_str());
 }

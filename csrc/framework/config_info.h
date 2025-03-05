@@ -35,6 +35,7 @@ struct AnalysisConfig {
     SelectedStepList stepList;
     bool enableCompare;
     bool inputCorrectPaths;
+    bool outputCorrectPaths;
     LevelType levelType;
 };
 

@@ -31,25 +31,21 @@ int ClientNotify(std::string msg);
 
 int ClientWait(std::string& msg);
 
-#define CLIENT_DEBUG_LOG(format)                                                                                      \
-    do {                                                                                                              \
-        ClientProcess::GetInstance().Log(ClientLogLevel::DEBUG, format, Utility::GetFileName(__FILE__), __LINE__);    \
-    } while (0)
+#define CLIENT_DEBUG_LOG(format) do {                                                                                  \
+    ClientProcess::GetInstance().Log(ClientLogLevel::DEBUG, format, Utility::GetLogSourceFileName(__FILE__), __LINE__);\
+} while (0)
 
-#define CLIENT_INFO_LOG(format)                                                                                       \
-    do {                                                                                                              \
-        ClientProcess::GetInstance().Log(ClientLogLevel::INFO, format, Utility::GetFileName(__FILE__), __LINE__);     \
-    } while (0)
+#define CLIENT_INFO_LOG(format) do {                                                                                   \
+    ClientProcess::GetInstance().Log(ClientLogLevel::INFO, format, Utility::GetLogSourceFileName(__FILE__), __LINE__); \
+} while (0)
 
-#define CLIENT_WARN_LOG(format)                                                                                       \
-    do {                                                                                                              \
-        ClientProcess::GetInstance().Log(ClientLogLevel::INFO, format, Utility::GetFileName(__FILE__), __LINE__);     \
-    } while (0)
+#define CLIENT_WARN_LOG(format) do {                                                                                   \
+    ClientProcess::GetInstance().Log(ClientLogLevel::INFO, format, Utility::GetLogSourceFileName(__FILE__), __LINE__); \
+} while (0)
 
-#define CLIENT_ERROR_LOG(format)                                                                                      \
-    do {                                                                                                              \
-        ClientProcess::GetInstance().Log(ClientLogLevel::INFO, format, Utility::GetFileName(__FILE__), __LINE__);     \
-    } while (0)
+#define CLIENT_ERROR_LOG(format) do {                                                                                  \
+    ClientProcess::GetInstance().Log(ClientLogLevel::INFO, format, Utility::GetLogSourceFileName(__FILE__), __LINE__); \
+} while (0)
 
 }
 

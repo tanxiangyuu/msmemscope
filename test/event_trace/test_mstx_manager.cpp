@@ -10,8 +10,8 @@ TEST(MstxManagerTest, ReportMarkATest) {
     MstxManager::GetInstance().ReportMarkA(msg, streamId);
 }
 
-TEST(MstxManagerTest, ReportMarkATest_Maximum_Strlen_Strcpy_Failed) {
-    const char* msg = "This message is way too lonmg and will not fit in the buffer completely.";
+TEST(MstxManagerTest, ReportMarkATest_Nullptr_Msg_Strcpy_Failed) {
+    const char* msg = nullptr;
     uint32_t streamId = 0;
     MstxManager::GetInstance().ReportMarkA(msg, streamId);
 }
@@ -23,8 +23,8 @@ TEST(MstxManagerTest, ReportRangeStartTest) {
     EXPECT_GT(rangeId, 0);
 }
 
-TEST(MstxManagerTest, ReportRangeStartTest_Maximum_Strlen_Strcpy_Failed) {
-    const char* msg = "This message is way too lonmg and will not fit in the buffer completely.";
+TEST(MstxManagerTest, ReportRangeStartTest_Nullptr_Msg_Strcpy_Failed) {
+    const char* msg = nullptr;
     uint32_t streamId = 0;
     std::uint64_t rangeId = MstxManager::GetInstance().ReportRangeStart(msg, streamId);
     EXPECT_GT(rangeId, 0);

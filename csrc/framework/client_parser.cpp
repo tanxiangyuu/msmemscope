@@ -67,6 +67,10 @@ bool UserCommandPrecheck(const UserCommand &userCommand)
         return false;
     }
 
+    if (!userCommand.config.outputCorrectPaths) {
+        std::cout << "Please use correct output path!" << std::endl;
+        return false;
+    }
     return true;
 }
 
@@ -83,6 +87,7 @@ void DoUserCommand(const UserCommand &userCommand)
     }
 
     if (!UserCommandPrecheck(userCommand)) {
+        ShowHelpInfo();
         return;
     }
 
@@ -189,29 +194,19 @@ static void ParseInputPaths(const std::string param, UserCommand &userCommand)
 static void ParseOutputPath(const std::string param, UserCommand &userCommand)
 {
     if (Utility::Strip(param).length() == 0) {
-        std::cout << "[msleaks] WARN: empty path, use the default path leaksDumpResults." << std::endl;
+        userCommand.config.outputCorrectPaths = false;
+        std::cout << "[msleaks] WARN: empty output path." << std::endl;
         return;
     }
 
     Utility::Path path = Utility::Path{param};
     Utility::Path realPath = path.Resolved();
-
-    if (!path.IsValidLength()) {
-        std::cout << "[msleaks] WARN: invalid output path length, use the default path leaksDumpResults." << std::endl;
-        return;
-    }
-
     std::string pathStr = realPath.ToString();
 
-    struct stat statbuf;
-    if (lstat(pathStr.c_str(), &statbuf) == 0 && S_ISLNK(statbuf.st_mode)) {
-        std::cout << "[msleaks] WARN: the path is link, use the default path leaksDumpResults." << std::endl;
-        return;
-    }
-
     std::regex pattern("(\\.|/|_|-|\\s|[~0-9a-zA-Z]|[\u4e00-\u9fa5])+");
-    if (!std::regex_match(pathStr, pattern)) {
-        std::cout << "[msleaks] WARN: invalid output path, use the default path leaksDumpResults." << std::endl;
+    if (!Utility::CheckIsValidPath(pathStr) || !std::regex_match(pathStr, pattern)) {
+        userCommand.config.outputCorrectPaths = false;
+        std::cout << "[msleaks] WARN: invalid output path." << std::endl;
         return;
     }
 
@@ -243,7 +238,7 @@ static void ParseLogLv(const std::string &param, UserCommand &userCommand)
     };
     auto it = logLevelMap.find(param);
     if (it == logLevelMap.end()) {
-        std::cout << "[msleaks] ERROR: --log-level param is invalid"
+        std::cout << "[msleaks] ERROR: --log-level param is invalid. "
                   << "LOG_LEVEL can only be set info,warn,error." << std::endl;
         userCommand.printHelpInfo = true;
     } else {
@@ -293,6 +288,7 @@ void ClientParser::InitialUserCommand(UserCommand &userCommand)
     userCommand.config.stepList.stepCount = 0;
     userCommand.config.enableCompare = false;
     userCommand.config.inputCorrectPaths = false;
+    userCommand.config.outputCorrectPaths = true;
     userCommand.config.levelType = LevelType::LEVEL_0;
 }
 

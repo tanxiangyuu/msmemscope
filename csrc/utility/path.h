@@ -58,6 +58,7 @@ private:
 };
 
 bool CheckIsValidPath(std::string &path);
+bool IsFileExist(std::string &path);
 
 }  // namespace Utility
 

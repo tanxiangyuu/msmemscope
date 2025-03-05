@@ -29,7 +29,6 @@ ClientProcess::ClientProcess(CommType type)
         constexpr uint64_t connectRetryDuration = 100;
         std::this_thread::sleep_for(std::chrono::milliseconds(connectRetryDuration));
     }
-    DEBUG_LOG("connect server success.");
 }
 
 ClientProcess &ClientProcess::GetInstance(CommType type)
@@ -46,8 +45,8 @@ void ClientProcess::Log(ClientLogLevel level, std::string msg, const std::string
 {
     static std::map<ClientLogLevel, std::string> levelStrMap = {
         {ClientLogLevel::DEBUG, "[DEBUG]"},
-        {ClientLogLevel::INFO, "[INFO]"},
-        {ClientLogLevel::WARN, "[WARN]"},
+        {ClientLogLevel::INFO, "[INFO] "},
+        {ClientLogLevel::WARN, "[WARN] "},
         {ClientLogLevel::ERROR, "[ERROR]"}
     };
 

@@ -79,15 +79,35 @@ bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRec
         return false;
     }
     uint64_t currentSize;
-    if (memRecord.memType == MemOpType::MALLOC) {
-        memSizeMap_[clientId][memRecord.addr] = memRecord.memSize;
-        currentSize = memRecord.memSize;
+    if (memRecord.devType == DeviceType::CPU) {
+        if (memRecord.memType == MemOpType::MALLOC) {
+            hostMemSizeMap_[clientId][memRecord.addr] = memRecord.memSize;
+            currentSize = memRecord.memSize;
+        } else if (hostMemSizeMap_.find(clientId) != hostMemSizeMap_.end()
+            && hostMemSizeMap_[clientId].find(memRecord.addr) != hostMemSizeMap_[clientId].end()) {
+            currentSize = hostMemSizeMap_[clientId][memRecord.addr];
+            hostMemSizeMap_[clientId].erase(memRecord.addr);
+        } else {
+            return false;
+        }
     } else {
-        currentSize = memSizeMap_[clientId][memRecord.addr];
-        memSizeMap_[clientId][memRecord.addr] = 0;
+        if (memRecord.memType == MemOpType::MALLOC) {
+            memSizeMap_[clientId][memRecord.addr] = memRecord.memSize;
+            currentSize = memRecord.memSize;
+        } else {
+            currentSize = memSizeMap_[clientId][memRecord.addr];
+            memSizeMap_[clientId][memRecord.addr] = 0;
+        }
     }
     std::string memOp = memRecord.memType == MemOpType::MALLOC ? "malloc" : "free";
-    std::string deviceType = memRecord.space == MemOpSpace::HOST ? "host" : std::to_string(memRecord.devId);
+    std::string deviceType;
+    if (memRecord.devId == GD_INVALID_NUM) {
+        deviceType = "N/A";
+    } else {
+        deviceType = memRecord.space == MemOpSpace::HOST
+                     || memRecord.devType == DeviceType::CPU ?
+                     "host" : std::to_string(memRecord.devId);
+    }
     fprintf(leaksDataFile_, "%lu,%lu,%s,N/A,%lu,%lu,%s,%lu,%llu,%lu,%lu,N/A,N/A\n",
             memRecord.recordIndex, memRecord.timeStamp, memOp.c_str(), memRecord.pid, memRecord.tid,
             deviceType.c_str(), memRecord.kernelIndex, memRecord.flag, memRecord.addr, currentSize);
