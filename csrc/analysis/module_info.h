@@ -7,7 +7,7 @@
 namespace Leaks {
 
 // Module id
-const std::unordered_map<int, std::string> g_ModuleHashTable = {
+const std::unordered_map<int, std::string> MODULE_HASH_TABLE = {
     {0, "SLOG"},          /**< Slog */
     {1, "IDEDD"},         /**< IDE daemon device */
     {2, "IDEDH"},         /**< IDE daemon host */
