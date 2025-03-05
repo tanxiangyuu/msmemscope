@@ -448,8 +448,12 @@ TraceRecord::~TraceRecord()
     for (auto &file : traceFiles_) {
         FILE *fp = file.second.fp;
         if (fp != nullptr) {
-            SetMetadataEvent(file.first);
-            fprintf(fp, "{\n}\n]");
+            try {
+                SetMetadataEvent(file.first);
+                fprintf(fp, "{\n}\n]");
+            } catch (const std::exception &ex) {
+                std::cerr << "SetMetadataEvent fail, " << ex.what();
+            }
             fclose(fp);
         }
     }
