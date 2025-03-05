@@ -246,51 +246,50 @@ void TraceRecord::NpuMemRecordToString(MemOpRecord &memRecord, std::string &str)
     uint64_t addr = memRecord.addr;
     uint64_t size = memRecord.memSize;
     MemOpSpace space = memRecord.space;
+    uint64_t pid = memRecord.pid;
     bool isHost = false;
-
     std::lock_guard<std::mutex> lock(halMemMutex_);
     if (memRecord.memType == MemOpType::MALLOC) {
         if (space == MemOpSpace::DEVICE) {
-            halDeviceMemAllocation_[addr] = MemAllocationInfo{size, devId};
-            halDeviceMemUsage_[devId] = Utility::GetAddResult(halDeviceMemUsage_[devId], size);
+            halDeviceMemAllocation_[pid][addr] = MemAllocationInfo{size, devId};
+            halDeviceMemUsage_[pid][devId] = Utility::GetAddResult(halDeviceMemUsage_[pid][devId], size);
         } else if (space == MemOpSpace::HOST) {
-            halHostMemAllocation_[addr] = MemAllocationInfo{size, devId};
-            halHostMemUsage_[devId] = Utility::GetAddResult(halHostMemUsage_[devId], size);
+            halHostMemAllocation_[pid][addr] = MemAllocationInfo{size, devId};
+            halHostMemUsage_[pid][devId] = Utility::GetAddResult(halHostMemUsage_[pid][devId], size);
             isHost = true;
         } else {
             Utility::LogWarn("Invalid space.");
             return;
         }
     } else {
-        if (halDeviceMemAllocation_.find(addr) != halDeviceMemAllocation_.end()) {
-            devId = halDeviceMemAllocation_[addr].devId;
-            halDeviceMemUsage_[devId] = Utility::GetSubResult(halDeviceMemUsage_[devId],
-                                                              halDeviceMemAllocation_[addr].size);
-            halDeviceMemAllocation_.erase(addr);
-        } else if (halHostMemAllocation_.find(addr) != halHostMemAllocation_.end()) {
-            devId = halHostMemAllocation_[addr].devId;
-            halHostMemUsage_[devId] = Utility::GetSubResult(halHostMemUsage_[devId],
-                                                            halHostMemAllocation_[addr].size);
-            halHostMemAllocation_.erase(addr);
+        if (halDeviceMemAllocation_.find(pid) != halDeviceMemAllocation_.end()
+            && halDeviceMemAllocation_[pid].find(addr) != halDeviceMemAllocation_[pid].end()) {
+            devId = halDeviceMemAllocation_[pid][addr].devId;
+            halDeviceMemUsage_[pid][devId] = Utility::GetSubResult(halDeviceMemUsage_[pid][devId],
+                                                                   halDeviceMemAllocation_[pid][addr].size);
+            halDeviceMemAllocation_[pid].erase(addr);
+        } else if (halHostMemAllocation_.find(pid) != halHostMemAllocation_.end()
+            && halHostMemAllocation_[pid].find(addr) != halHostMemAllocation_[pid].end()) {
+            devId = halHostMemAllocation_[pid][addr].devId;
+            halHostMemUsage_[pid][devId] = Utility::GetSubResult(halHostMemUsage_[pid][devId],
+                                                                 halHostMemAllocation_[pid][addr].size);
+            halHostMemAllocation_[pid].erase(addr);
             isHost = true;
         } else {
             Utility::LogWarn("Invalid free addr %llx.", addr);
             return;
         }
     }
-
     std::string spaceName = isHost ? "pin memory" : "device memory";
-    uint64_t memUsage = isHost ? halHostMemUsage_[devId] : halDeviceMemUsage_[devId];
-    JsonBaseInfo baseInfo{spaceName, memRecord.pid, memRecord.tid, memRecord.kernelIndex};
+    uint64_t memUsage = isHost ? halHostMemUsage_[pid][devId] : halDeviceMemUsage_[pid][devId];
+    JsonBaseInfo baseInfo{spaceName, pid, memRecord.tid, memRecord.kernelIndex};
     str = FormatCounterEvent(baseInfo, std::to_string(memUsage));
-
     if (isHost) {
         memRecord.devType = DeviceType::CPU;
         memRecord.devId = 0;
     } else {
         memRecord.devId = devId;
     }
-    return;
 }
 
 void TraceRecord::CpuMemRecordToString(const MemOpRecord &memRecord, std::string &str)
