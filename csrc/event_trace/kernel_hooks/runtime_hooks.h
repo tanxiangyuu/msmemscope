@@ -12,7 +12,18 @@
 #include <cstring>
 #include <dlfcn.h>
 
+namespace Leaks {
 constexpr uint64_t MAX_BINARY_SIZE = 32ULL * 1024 * 1024 * 1024; // 32GB
+
+struct RuntimeLibLoader {
+    static void *Load(void)
+    {
+        return dlopen("libruntime.so", RTLD_NOW | RTLD_GLOBAL);
+    }
+};
+ 
+const void* GetHandleByStubFunc(const void *stubFunc);
+}
 
 #ifdef __cplusplus
 extern "C" {
@@ -21,13 +32,6 @@ extern "C" {
 #ifndef RTS_API
 #define RTS_API
 #endif  // RTS_API
-
-struct RuntimeLibLoader {
-    static void *Load(void)
-    {
-        return dlopen("libruntime.so", RTLD_NOW | RTLD_GLOBAL);
-    }
-};
 
 typedef enum tagRtError {
     RT_ERROR_NONE = 0x0,                      // success
@@ -137,7 +141,5 @@ RTS_API rtError_t rtDevBinaryUnRegister(void *hdl);
 #ifdef __cplusplus
 }  // extern "C"
 #endif
-
-const void* GetHandleByStubFunc(const void *stubFunc);
 
 #endif

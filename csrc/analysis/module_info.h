@@ -3,6 +3,7 @@
 #ifndef MODULE_INFO_H
 #define MODULE_INFO_H
 
+#include <string>
 
 namespace Leaks {
 
