@@ -83,6 +83,7 @@ void DoUserCommand(const UserCommand &userCommand)
     }
 
     if (!UserCommandPrecheck(userCommand)) {
+        ShowHelpInfo();
         return;
     }
 
@@ -243,7 +244,7 @@ static void ParseLogLv(const std::string &param, UserCommand &userCommand)
     };
     auto it = logLevelMap.find(param);
     if (it == logLevelMap.end()) {
-        std::cout << "[msleaks] ERROR: --log-level param is invalid"
+        std::cout << "[msleaks] ERROR: --log-level param is invalid. "
                   << "LOG_LEVEL can only be set info,warn,error." << std::endl;
         userCommand.printHelpInfo = true;
     } else {
