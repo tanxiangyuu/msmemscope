@@ -124,10 +124,8 @@ bool TraceRecord::CreateFileByDevice(const Device &device)
 
     std::string fileHead = FormatDeviceName(device);
     std::string filePath = dirPath_ + "/" + fileHead + "_trace_" + Utility::GetDateStr() + ".json";
-
-    // 校验文件路径是否合法
-    if (!Utility::CheckIsValidPath(dirPath_) || !Utility::IsFileExist(dirPath_)) {
-        Utility::LogError("Device %s invalid file path %s", fileHead.c_str(), dirPath_.c_str());
+    if (!Utility::CheckIsValidPath(filePath) || !Utility::IsFileExist(dirPath_)) {
+        Utility::LogError("Device %s invalid file path %s", fileHead.c_str(), filePath.c_str());
         return false;
     }
 
