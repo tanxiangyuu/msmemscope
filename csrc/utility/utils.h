@@ -3,6 +3,7 @@
 #ifndef LEAKS_UTILITY_UTILS_H
 #define LEAKS_UTILITY_UTILS_H
 
+#include <unistd.h>
 #include <syscall.h>
 #include <chrono>
 #include <sstream>

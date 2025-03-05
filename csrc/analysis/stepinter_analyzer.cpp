@@ -47,7 +47,7 @@ bool Compare(const std::unordered_map<std::string, std::string> &a,
 
 void StepInterAnalyzer::ReadCsvFile(std::string &path, std::unordered_map<DEVICEID, CSV_FIELD_DATA> &data)
 {
-    if (!Utility::CheckIsValidPath(path)) {
+    if (!Utility::CheckIsValidPath(path) || !Utility::IsFileExist(path)) {
         return ;
     }
     std::ifstream csvFile(path, std::ios::in);

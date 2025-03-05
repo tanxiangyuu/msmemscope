@@ -5,10 +5,9 @@
 #include <type_traits>
 #include <string>
 #include <mutex>
-#include <unistd.h>
 #include "utils.h"
 #include "umask_guard.h"
-#include "utils.h"
+#include "path.h"
 
 namespace Utility {
 
@@ -51,6 +50,13 @@ bool Log::CreateLogFile()
     if (fp_ == nullptr) {
         std::string fileName = "msleaks_" + GetDateStr() + ".log";
         UmaskGuard guard{DEFAULT_UMASK_FOR_LOG_FILE};
+
+        // 校验路径合法性
+        if (!CheckIsValidPath(fileName)) {
+            std::cerr << "Error: Invalid path " << fileName << std::endl;
+            return false;
+        }
+
         if ((fp_ = fopen(fileName.c_str(), "w")) == nullptr) {
             return false;
         }
