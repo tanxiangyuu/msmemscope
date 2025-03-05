@@ -61,6 +61,9 @@ bool CheckIsValidPath(std::string &path, Utility::Path &realPath);
 bool CheckIsValidInputPath(std::string &path);
 bool CheckIsValidOutputPath(std::string &path);
 
+bool CheckIsValidPath(std::string &path);
+bool IsFileExist(std::string &path);
+
 }  // namespace Utility
 
 #endif

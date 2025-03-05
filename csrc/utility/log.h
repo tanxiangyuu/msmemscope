@@ -52,7 +52,7 @@ bool Log::CreateLogFile()
         UmaskGuard guard{DEFAULT_UMASK_FOR_LOG_FILE};
 
         // 校验路径合法性
-        if (!CheckIsValidOutputPath(fileName)) {
+        if (!CheckIsValidPath(fileName)) {
             std::cerr << "Error: Invalid path " << fileName << std::endl;
             return false;
         }
