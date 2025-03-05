@@ -9,14 +9,6 @@ using namespace Leaks;
 // reportInfo为true时开启数据上报，设为false时暂停数据上报
 thread_local bool g_reportInfo = true;
 
-// 只在以下条件均满足时进行report：
-// 1. 在用户使用mstx打点指定的范围内调用malloc/free；
-// 2. 不在各个Report函数中。
-inline bool IsReportHostMem()
-{
-    return g_isReportHostMem && !g_isInReportFunction;
-}
-
 extern "C" void* malloc(size_t size)
 {
     static void* (*realMalloc)(size_t) = (void* (*)(size_t))dlsym(RTLD_NEXT, "malloc");     // 获取系统malloc函数
@@ -25,7 +17,10 @@ extern "C" void* malloc(size_t size)
         return ptr;
     }
 
-    if (!IsReportHostMem()) {
+    // 只在以下条件均满足时进行report：
+    // 1. 在用户使用mstx打点指定的范围内调用malloc/free；
+    // 2. 不在各个Report函数中。
+    if (!g_isReportHostMem || g_isInReportFunction) {
         return ptr;
     }
 
@@ -48,7 +43,7 @@ extern "C" void free(void* ptr)
         return;
     }
 
-    if (!IsReportHostMem()) {
+    if (!g_isReportHostMem || g_isInReportFunction) {
         return;
     }
 
