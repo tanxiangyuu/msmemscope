@@ -128,7 +128,11 @@ void HalAnalyzer::LeakAnalyze()
 
 HalAnalyzer::~HalAnalyzer()
 {
-    LeakAnalyze();
+    try {
+        LeakAnalyze();
+    } catch (const std::exception &ex) {
+        std::cerr << "HalAnalyzer destructor catch exception: " << ex.what();
+    }
 }
 
 }

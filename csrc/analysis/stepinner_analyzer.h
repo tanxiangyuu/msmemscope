@@ -39,7 +39,7 @@ struct  LeakMemKey  {
 };
 
 struct LeakInfo {
-    uint64_t leakSize;
+    int64_t leakSize;
     uint64_t kernelIndex;
 };
 
