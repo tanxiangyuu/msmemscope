@@ -351,3 +351,67 @@ TEST(StepInnerAnalyzerTest, do_stepId_up_1_SkipCheck_return_true)
     auto ret = stepInner.SkipCheck(npuMemInfo);
     ASSERT_FALSE(ret);
 }
+
+TEST(StepInnerAnalyzerTest, do_updateallocated_step_0_update_0)
+{
+    AnalysisConfig config;
+    config.stepList.stepCount = 2;
+    StepInnerAnalyzer stepInner{config};
+    NpuMemUsage npumemusage;
+    npumemusage.mstxStep = 0;
+    npumemusage.stepMaxAllocated = 0;
+    npumemusage.stepMinAllocated = 0;
+    stepInner.npuMemUsages_.insert({0, npumemusage});
+    stepInner.UpdateAllocated(0, 100);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].stepMaxAllocated, 0);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].stepMinAllocated, 0);
+}
+
+TEST(StepInnerAnalyzerTest, do_updateallocated_step_2_update_allocated)
+{
+    AnalysisConfig config;
+    config.stepList.stepCount = 2;
+    StepInnerAnalyzer stepInner{config};
+    NpuMemUsage npumemusage;
+    npumemusage.mstxStep = 2;
+
+    npumemusage.stepMaxAllocated = 20;
+    npumemusage.stepMinAllocated = 20;
+    stepInner.npuMemUsages_.insert({0, npumemusage});
+    stepInner.UpdateAllocated(0, 100);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].stepMaxAllocated, 20);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].stepMinAllocated, 20);
+}
+
+TEST(StepInnerAnalyzerTest, do_checkgap_minmaxallocratio_equal_0_expect_reset_allocated)
+{
+    AnalysisConfig config;
+    config.stepList.stepCount = 2;
+    StepInnerAnalyzer stepInner{config};
+    NpuMemUsage npumemusage;
+    npumemusage.mstxStep = 2;
+    npumemusage.stepMaxAllocated = 100;
+    npumemusage.stepMinAllocated = 20;
+    stepInner.npuMemUsages_.insert({0, npumemusage});
+    stepInner.CheckGap(0);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].stepMaxAllocated, 0);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].stepMinAllocated, 0);
+}
+
+TEST(StepInnerAnalyzerTest, do_checkgap_minmaxallocratio_expect_true_allocated)
+{
+    AnalysisConfig config;
+    config.stepList.stepCount = 2;
+    StepInnerAnalyzer stepInner{config};
+    NpuMemUsage npumemusage;
+    GapInfo gapinfo;
+    gapinfo.minMaxAllocRatio = 0.1;
+    npumemusage.mstxStep = 2;
+    npumemusage.stepMaxAllocated = 100;
+    npumemusage.stepMinAllocated = 20;
+    npumemusage.maxGapInfo = gapinfo;
+    stepInner.npuMemUsages_.insert({0, npumemusage});
+    stepInner.CheckGap(0);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].stepMaxAllocated, 0);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].stepMinAllocated, 0);
+}

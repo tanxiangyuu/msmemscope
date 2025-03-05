@@ -227,7 +227,7 @@ void StepInnerAnalyzer::RecordNpuMalloc(const ClientId &clientId, const DeviceId
     const TorchNpuRecord &torchnpuRecord)
 {
     MemoryUsage memoryusage = torchnpuRecord.memoryUsage;
-    uint64_t npumemptr = memoryusage.ptr;
+    int64_t npumemptr = memoryusage.ptr;
     if ((npuMemUsages_[deviceId].mempooltable.find(npumemptr) != npuMemUsages_[deviceId].mempooltable.end())) {
         LOG_ERROR(
             "[npu%d malloc][client %u]:!!! ------double malloc------!!!, ptr: %lld", deviceId, clientId, npumemptr);
@@ -257,7 +257,7 @@ void  StepInnerAnalyzer::RecordNpuFree(const ClientId &clientId, const DeviceId 
     const TorchNpuRecord &torchnpuRecord)
 {
     MemoryUsage memoryusage = torchnpuRecord.memoryUsage;
-    uint64_t npumemptr = memoryusage.ptr;
+    int64_t npumemptr = memoryusage.ptr;
     if ((npuMemUsages_[deviceId].mempooltable.find(npumemptr) == npuMemUsages_[deviceId].mempooltable.end())) {
         LOG_ERROR(
             "[npu%d free][client %u]:!!! ------free error------!!!, ptr: %lld", deviceId, clientId, npumemptr);
@@ -422,7 +422,7 @@ void StepInnerAnalyzer::ReportGap(const DeviceId &deviceId)
     std::cout << "maxGap\t"
               << npuMemUsages_[deviceId].maxGapInfo.minMaxAllocRatio * PERCENT_SCALE_FACTOR << "\t\t\t"
               << npuMemUsages_[deviceId].maxGapInfo.minAllocMemory / static_cast<double>(BYTE_TO_MB) << "\t\t"
-              << npuMemUsages_[deviceId].minGapInfo.gapStepId
+              << npuMemUsages_[deviceId].maxGapInfo.gapStepId
               << std::endl;
 }
 

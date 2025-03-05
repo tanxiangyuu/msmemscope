@@ -11,7 +11,7 @@ inline std::string ToString(LogLv lv)
 {
     using underlying = typename std::underlying_type<LogLv>::type;
     constexpr char const *lvString[static_cast<underlying>(LogLv::COUNT)] = {
-        "[DEBUG]", "[INFO]", "[WARN]", "[ERROR]"};
+        "[DEBUG]", "[INFO] ", "[WARN] ", "[ERROR]"};
     return lv < LogLv::COUNT ? lvString[static_cast<underlying>(lv)] : "N";
 }
 
@@ -43,6 +43,6 @@ void Log::SetLogLevel(const LogLv &logLevel)
     lv_ = logLevel;
 }
 
-inline std::string GetFileName(const std::string &path);
+inline std::string GetLogSourceFileName(const std::string &path);
 
 }  // namespace Utility

@@ -33,6 +33,7 @@ private:
     bool DumpTorchData(const ClientId &clientId, const TorchNpuRecord &torchNpuRecord);
     bool DumpMstxData(const ClientId &clientId, const MstxRecord &msxtRecord);
     FILE *leaksDataFile_ = nullptr;
+    std::unordered_map<ClientId, std::unordered_map<uint64_t, uint64_t>> hostMemSizeMap_;
     std::unordered_map<ClientId, std::unordered_map<uint64_t, uint64_t>> memSizeMap_;
     std::unordered_map<ClientId, std::unordered_map<uint64_t, MemOpSpace>> memOpMap_;
     std::unordered_map<ClientId, uint64_t> memHost_;

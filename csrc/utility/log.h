@@ -5,10 +5,9 @@
 #include <type_traits>
 #include <string>
 #include <mutex>
-#include <unistd.h>
 #include "utils.h"
 #include "umask_guard.h"
-#include "utils.h"
+#include "path.h"
 #include "cstring"
 
 namespace Utility {
@@ -57,10 +56,17 @@ bool Log::CreateLogFile()
     if (fp_ == nullptr) {
         std::string fileName = "msleaks_" + GetDateStr() + ".log";
         UmaskGuard guard{DEFAULT_UMASK_FOR_LOG_FILE};
+
+        // 校验路径合法性
+        if (!CheckIsValidPath(fileName)) {
+            std::cerr << "Error: Invalid path " << fileName << std::endl;
+            return false;
+        }
+
         if ((fp_ = fopen(fileName.c_str(), "w")) == nullptr) {
             return false;
         }
-        std::cout << "[msleaks] Info: logging into file ./" << fileName << std::endl;
+        std::cout << "[msleaks] Info: logging into file " << fileName << std::endl;
     }
     return true;
 }
@@ -98,38 +104,38 @@ void Log::PrintClientLog(const std::string &format, const Args &...args)
     fflush(fp_);
 }
 
-inline std::string GetFileName(const std::string &path)
+inline std::string GetLogSourceFileName(const std::string &path)
 {
     return (strrchr(path.c_str(), '/')) ? (strrchr(path.c_str(), '/') + 1) : path;
 }
 
 #define LOG_RECV(format, ...)                                                                                          \
-    do {                                                                                                              \
-        Utility::Log::GetLog().PrintClientLog(format, ##__VA_ARGS__);       \
+    do {                                                                                                               \
+        Utility::Log::GetLog().PrintClientLog(format, ##__VA_ARGS__);                                                  \
     } while (0)
 
 #define LOG_DEBUG(format, ...)                                                                                         \
-    do {                                                                                                              \
-        Utility::Log::GetLog().Printf(format, Utility::LogLv::DEBUG, Utility::GetFileName(__FILE__), __LINE__,        \
-            ##__VA_ARGS__);                                                                                           \
+    do {                                                                                                               \
+        Utility::Log::GetLog().Printf(format, Utility::LogLv::DEBUG, Utility::GetLogSourceFileName(__FILE__), __LINE__,\
+            ##__VA_ARGS__);                                                                                            \
     } while (0)
 
 #define LOG_INFO(format, ...)                                                                                          \
-    do {                                                                                                              \
-        Utility::Log::GetLog().Printf(format, Utility::LogLv::INFO, Utility::GetFileName(__FILE__), __LINE__,         \
-            ##__VA_ARGS__);                                                                                           \
+    do {                                                                                                               \
+        Utility::Log::GetLog().Printf(format, Utility::LogLv::INFO, Utility::GetLogSourceFileName(__FILE__), __LINE__, \
+            ##__VA_ARGS__);                                                                                            \
     } while (0)
 
 #define LOG_WARN(format, ...)                                                                                          \
-    do {                                                                                                              \
-        Utility::Log::GetLog().Printf(format, Utility::LogLv::WARN, Utility::GetFileName(__FILE__), __LINE__,         \
-            ##__VA_ARGS__);                                                                                           \
+    do {                                                                                                               \
+        Utility::Log::GetLog().Printf(format, Utility::LogLv::WARN, Utility::GetLogSourceFileName(__FILE__), __LINE__, \
+            ##__VA_ARGS__);                                                                                            \
     } while (0)
 
 #define LOG_ERROR(format, ...)                                                                                         \
-    do {                                                                                                              \
-        Utility::Log::GetLog().Printf(format, Utility::LogLv::ERROR, Utility::GetFileName(__FILE__), __LINE__,        \
-            ##__VA_ARGS__);                                                                                           \
+    do {                                                                                                               \
+        Utility::Log::GetLog().Printf(format, Utility::LogLv::ERROR, Utility::GetLogSourceFileName(__FILE__), __LINE__,\
+            ##__VA_ARGS__);                                                                                            \
     } while (0)
 
 inline void SetLogLevel(const LogLv &logLevel)
