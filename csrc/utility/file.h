@@ -14,7 +14,7 @@
 namespace Utility {
     constexpr uint32_t DIRMOD = 0750;
     constexpr uint32_t DEFAULT_UMASK_FOR_CSV_FILE = 0177;
-    static std::string g_dirPath;
+    extern std::string g_dirPath;
 
     inline void SetDirPath(const std::string& dirPath, const std::string& defaultDirPath)
     {
