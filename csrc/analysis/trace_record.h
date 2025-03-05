@@ -114,10 +114,10 @@ private:
     std::unordered_map<Device, std::mutex, DeviceStructHash> writeFileMutex_;
 
     std::mutex halMemMutex_;
-    std::unordered_map<uint64_t, MemAllocationInfo> halDeviceMemAllocation_;
-    std::unordered_map<int32_t, uint64_t> halDeviceMemUsage_;
-    std::unordered_map<uint64_t, MemAllocationInfo> halHostMemAllocation_;
-    std::unordered_map<int32_t, uint64_t> halHostMemUsage_;
+    std::unordered_map<uint64_t, std::unordered_map<uint64_t, MemAllocationInfo>> halDeviceMemAllocation_;
+    std::unordered_map<uint64_t, std::unordered_map<int32_t, uint64_t>> halDeviceMemUsage_;
+    std::unordered_map<uint64_t, std::unordered_map<uint64_t, MemAllocationInfo>> halHostMemAllocation_;
+    std::unordered_map<uint64_t, std::unordered_map<int32_t, uint64_t>> halHostMemUsage_;
 
     std::mutex hostMemMutex_;
     std::unordered_map<uint64_t, uint64_t> hostMemAllocation_;
