@@ -14,11 +14,11 @@
 #include <thread>
 #include <atomic>
 
-constexpr mode_t REGULAR_MODE_MASK = 0177;
-
 namespace Leaks {
 extern bool g_isReportHostMem;
 extern bool g_isInReportFunction;
+
+constexpr mode_t REGULAR_MODE_MASK = 0177;
 
 /*
  * EventReport类主要功能：

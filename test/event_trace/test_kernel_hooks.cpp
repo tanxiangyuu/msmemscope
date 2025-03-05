@@ -8,7 +8,7 @@
 #include "handle_mapping.h"
 
 using namespace testing;
-
+using namespace Leaks;
 RTS_API rtError_t MockRtKernelLaunch(
     const void *stubFunc, uint32_t blockDim, void *args, uint32_t argsSize, rtSmDesc_t *smDesc, rtStream_t stm)
 {
