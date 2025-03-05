@@ -2,9 +2,6 @@
 #ifndef LEAKS_HOOK_ASCEND_HAL_H
 #define LEAKS_HOOK_ASCEND_HAL_H
 
-#include <cstddef>
-#include <cstdint>
-
 typedef enum tagDrvError {
     DRV_ERROR_NONE = 0,                /**< success */
     DRV_ERROR_NO_DEVICE = 1,           /**< no valid device */

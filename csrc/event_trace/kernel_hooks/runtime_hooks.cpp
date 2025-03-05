@@ -22,6 +22,7 @@
 
 using namespace Leaks;
 
+namespace Leaks {
 // 通过stubFunc获取二进制文件的句柄
 const void* GetHandleByStubFunc(const void *stubFunc)
 {
@@ -42,6 +43,7 @@ KernelLaunchRecord CreateKernelLaunchRecord(uint32_t blockDim, rtStream_t stm, K
     record.blockDim = blockDim;
     record.streamId = streamId;
     return record;
+}
 }
 
 RTS_API rtError_t rtKernelLaunch(
