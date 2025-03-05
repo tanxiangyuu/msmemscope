@@ -8,8 +8,8 @@
 #include <dlfcn.h>
 
 namespace Leaks {
-static const int ACL_SUCCESS = 0;
-static const int ACL_ERROR_INTERNAL_ERROR = 500000;
+constexpr int ACL_SUCCESS = 0;
+constexpr int ACL_ERROR_INTERNAL_ERROR = 500000;
  
 struct AclLibLoader {
     static void *Load(void)
