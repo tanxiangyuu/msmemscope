@@ -51,21 +51,13 @@ bool Log::CreateLogFile()
         std::string fileName = "msleaks_" + GetDateStr() + ".log";
         UmaskGuard guard{DEFAULT_UMASK_FOR_LOG_FILE};
 
-        // 规范化路径
-        char *canonicalPath = realpath(fileName.c_str(), nullptr);
-        if (canonicalPath == nullptr) {
+        // 校验路径合法性
+        if (!CheckIsValidOutputPath(fileName)) {
             std::cerr << "Error: Invalid path " << fileName << std::endl;
             return false;
         }
-        std::string canonicalPathStr = canonicalPath;
-        // 校验路径合法性
-        if (!CheckIsValidOutputPath(canonicalPathStr)) {
-            std::cerr << "Error: Invalid path " << canonicalPath << std::endl;
-            free(canonicalPath);
-            return false;
-        }
 
-        if ((fp_ = fopen(canonicalPath, "w")) == nullptr) {
+        if ((fp_ = fopen(fileName.c_str(), "w")) == nullptr) {
             return false;
         }
         std::cout << "[msleaks] Info: logging into file ./" << fileName << std::endl;
