@@ -124,10 +124,17 @@ bool TraceRecord::CreateFileByDevice(const Device &device)
 
     std::string fileHead = FormatDeviceName(device);
     std::string filePath = dirPath_ + "/" + fileHead + "_trace_" + Utility::GetDateStr() + ".json";
+
+    // 校验文件路径是否合法
+    if (!Utility::CheckIsValidPath(dirPath_)) {
+        Utility::LogError("Device %s invalid file path %s", fileHead.c_str(), dirPath_.c_str());
+        return false;
+    }
+
     Utility::UmaskGuard guard{DEFAULT_UMASK_FOR_JSON_FILE};
     FILE* fp = fopen(filePath.c_str(), "a");
     if (fp != nullptr) {
-        std::cout << "[msleaks] Info: create file " << filePath << "." << std::endl;
+        std::cout << "[msleaks] Info: create file " << filePath.c_str() << "." << std::endl;
         fprintf(fp, "[\n");
         traceFiles_[device].fp = fp;
         traceFiles_[device].filePath = filePath;
@@ -157,8 +164,11 @@ void TraceRecord::SafeWriteString(const std::string &str, const Device &device)
         Utility::LogError("Create file for device %s failed.", FormatDeviceName(device).c_str());
         return;
     }
+
     std::lock_guard<std::mutex> lock(writeFileMutex_[device]);
-    fprintf(traceFiles_[device].fp, "%s", str.c_str());
+    if (traceFiles_[device].fp != nullptr) {
+        fprintf(traceFiles_[device].fp, "%s", str.c_str());
+    }
 }
 
 void TraceRecord::SaveKernelLaunchRecordToCpuTrace(const std::string &str)
@@ -414,9 +424,11 @@ void TraceRecord::SetMetadataEvent(const Device &device)
     std::string str;
     uint64_t sortIndex = 0;
 
-    for (auto pid : truePids_[device]) {
-        JsonBaseInfo sortBaseInfo{"process_sort_index", pid, 0, 0};
-        str += FormatMetadataEvent(sortBaseInfo, "\"sort_index\": " + std::to_string(sortIndex++));
+    if (truePids_.find(device) != truePids_.end()) {
+        for (auto pid : truePids_[device]) {
+            JsonBaseInfo sortBaseInfo{"process_sort_index", pid, 0, 0};
+            str += FormatMetadataEvent(sortBaseInfo, "\"sort_index\": " + std::to_string(sortIndex++));
+        }
     }
 
     for (auto eventPid : eventPids_) {

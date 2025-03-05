@@ -50,7 +50,7 @@ struct LeakMemKeyHash {
 using LeakSumsTable = std::unordered_map<LeakMemKey, LeakInfo, LeakMemKeyHash>;
 
 struct NpuMemInfo {
-    uint64_t memSize;
+    int64_t memSize;
     uint64_t timestamp;
     uint64_t duration;      // 目前经历的duration
     uint64_t stepId;        // 来自哪个mstx的stepId

@@ -11,16 +11,23 @@
 #include "host_injection/core/FuncSelector.h"
 #include "host_injection/utils/InjectLogger.h"
 
+namespace Leaks {
+
 static Client* client_ = nullptr;
 ClientProcess::ClientProcess(CommType type)
 {
     client_ = new Client(type);
+
+    if (client_ == nullptr) {
+        std::cout << "Initial client failed" << std::endl;
+        return;
+    }
+
     while (!client_->Connect()) {
         // server 启动前 client 会连接失败，等待 100ms 后重试
         constexpr uint64_t connectRetryDuration = 100;
         std::this_thread::sleep_for(std::chrono::milliseconds(connectRetryDuration));
     }
-    DEBUG_LOG("connect server success.");
 }
 
 ClientProcess &ClientProcess::GetInstance(CommType type)
@@ -85,9 +92,10 @@ int ClientProcess::Wait(std::string& msg, uint32_t timeOut)
             continue;
         }
         // 读取成功不占用超时时间，读取失败则增加超时计数
-        if (timeOut > 0 && count++ >= timeOut) {
+        if (timeOut > 0 && count >= timeOut) {
             return static_cast<int>(msg.size());
         }
+        count++;
     }
     return static_cast<int>(msg.size());
 }
@@ -125,4 +133,6 @@ void ClientWarnLog(std::string msg)
 void ClientErrorLog(std::string msg)
 {
     ClientProcess::GetInstance().Log(ClientLogLevel::ERROR, msg);
+}
+
 }
