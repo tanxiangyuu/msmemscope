@@ -388,16 +388,14 @@ void StepInnerAnalyzer::ReceiveMstxMsg(const MstxRecord &mstxRecord)
     std::vector<std::pair<LeakMemKey, LeakInfo>> leakVec(
         leakMemSums_[deviceId].begin(), leakMemSums_[deviceId].end());
     auto leakCompare = [](const std::pair<LeakMemKey, LeakInfo> &a, const std::pair<LeakMemKey, LeakInfo> &b) {
-        if (a.first.leakStepId != b.first.leakStepId) {
-            return a.first.leakStepId < b.first.leakStepId;
-        }
+            return a.first.leakStepId <= b.first.leakStepId;
     };
     std::sort(leakVec.begin(), leakVec.end(), leakCompare);
     // 输出泄漏信息总结
     uint64_t leakInfoCounts = 0;
     long double leakSizeSums = 0;
     for (const auto& pair :leakVec) {
-        printf("Direct leak of %f Mb(s) at 0x%llx in kernel_%lu at step %lu.\n",
+        printf("Direct leak of %f Mb(s) at 0x%lx in kernel_%lu at step %lu.\n",
             (pair.second.leakSize / static_cast<double>(BYTE_TO_MB)),
             pair.first.torchNpuPtr,
             pair.second.kernelIndex,
