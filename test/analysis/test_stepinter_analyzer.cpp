@@ -126,6 +126,13 @@ TEST(StepInterAnalyzerTest, do_get_kernel_memory_diff_expect_correct_data)
 
     stepinteranalyzer.GetKernelMemoryDiff(2, data, result);
     ASSERT_EQ(result, 124);
+
+    data[3]["Size(byte)"] = "test";
+    stepinteranalyzer.GetKernelMemoryDiff(1, data, result);
+
+    data[3]["Event"] = "kernelLaunch";
+    stepinteranalyzer.GetKernelMemoryDiff(1, data, result);
+    ASSERT_EQ(result, 0);
 }
 
 TEST(StepInterAnalyzerTest, do_write_compare_data_to_csv_expect_true)
@@ -239,4 +246,70 @@ TEST(StepInterAnalyzerTest, set_dir_path)
     Utility::SetDirPath("/MyPath", std::string(OUTPUT_PATH));
     StepInterAnalyzer::GetInstance().SetDirPath();
     EXPECT_EQ(StepInterAnalyzer::GetInstance().dirPath_, "/MyPath/" + std::string(COMPARE_FILE));
+}
+
+TEST(StepInterAnalyzerTest, do_myersdiff_input_kernelLaunch_data)
+{
+    KERNELNAME_INDEX kernelIndexMap {};
+    KERNELNAME_INDEX kernelIndexCompareMap {};
+    StepInterAnalyzer stepinteranalyzer{};
+    stepinteranalyzer.MyersDiff(0, kernelIndexMap, kernelIndexCompareMap);
+    ASSERT_EQ(stepinteranalyzer.compareOut_[0].size(), 0);
+
+    CSV_FIELD_DATA data;
+    CreateCsvData(data);
+    data[1]["name"] = "mul";
+    kernelIndexMap.clear();
+    kernelIndexMap.emplace_back(std::make_pair("matmul_v1", 1));
+    kernelIndexMap.emplace_back(std::make_pair("matmul_v2", 2));
+    kernelIndexCompareMap.clear();
+    kernelIndexCompareMap.emplace_back(std::make_pair("mul", 1));
+    kernelIndexCompareMap.emplace_back(std::make_pair("matmul_v2", 2));
+
+    stepinteranalyzer.MyersDiff(0, kernelIndexMap, kernelIndexCompareMap);
+    ASSERT_EQ(stepinteranalyzer.compareOut_[0].size(), 3);
+}
+
+TEST(StepInterAnalyzerTest, do_stepinter_compare_input_invalid_path_return_empty_data)
+{
+    std::vector<std::string> paths;
+    paths.emplace_back("test_path1");
+    paths.emplace_back("test_path2");
+
+    StepInterAnalyzer stepinteranalyzer{};
+    stepinteranalyzer.StepInterCompare(paths);
+    ASSERT_EQ(stepinteranalyzer.output_.size(), 0);
+}
+
+TEST(StepInterAnalyzerTest, do_stepinter_compare)
+{
+    FILE *fp = fopen("test_leaks.csv", "w");
+    fprintf(fp, LEAKS_HEADERS);
+
+    for (int index = 0; index < 10; ++index) {
+        fprintf(fp, "1,%d,pytorch,malloc,123,234,0,0,N/A,N/A,0,%d,%d\n", index, index+100, index+1000);
+    }
+
+    for (int index = 0; index < 5; ++index) {
+        fprintf(fp, "2,%d,kernelLaunch,null,123,234,0,0,N/A,N/A,0,0,0\n", index+10);
+    }
+
+    for (int index = 0; index < 5; ++index) {
+        fprintf(fp, "3,%d,pytorch,malloc,123,234,2,0,N/A,N/A,0,%d,%d\n", index+2, index+100, index+1000);
+    }
+
+    for (int index = 4; index >= 0; --index) {
+        fprintf(fp, "4,%d,kernelLaunch,null,123,234,2,0,N/A,N/A,0,0,0\n", index+1);
+    }
+
+    fclose(fp);
+
+    std::vector<std::string> paths;
+    paths.emplace_back("test_leaks.csv");
+    paths.emplace_back("test_leaks.csv");
+
+    StepInterAnalyzer stepinteranalyzer{};
+    stepinteranalyzer.StepInterCompare(paths);
+    ASSERT_EQ(stepinteranalyzer.output_.size(), 2);
+    remove("test_leaks.csv");
 }

@@ -30,14 +30,14 @@ namespace Utility {
     inline bool MakeDir(const std::string& dirPath)
     {
         if (dirPath.empty()) {
-            Utility::LogError("Invalid directory path.");
+            LOG_ERROR("Invalid directory path.");
             return false;
         }
 
         if (access(dirPath.c_str(), F_OK) != -1) {
             return true;
         }
-        Utility::LogInfo("dir %s does not exist", dirPath.c_str());
+        LOG_INFO("dir %s does not exist", dirPath.c_str());
         
         size_t pos = dirPath[0] != '/' ? 0 : 1;
         std::string tempPath = dirPath;
@@ -50,13 +50,13 @@ namespace Utility {
                 continue;
             }
             if (mkdir(partPath.c_str(), DIRMOD) != 0) {
-                Utility::LogError("Cannot create dir %s", partPath.c_str());
+                LOG_ERROR("Cannot create dir %s", partPath.c_str());
                 return false;
             }
         }
 
         if (mkdir(dirPath.c_str(), DIRMOD) != 0) {
-            Utility::LogError("Cannot create dir %s", dirPath.c_str());
+            LOG_ERROR("Cannot create dir %s", dirPath.c_str());
             return false;
         }
         return true;
@@ -65,7 +65,7 @@ namespace Utility {
     inline bool Exist(const std::string &path)
     {
         if (path.empty()) {
-            Utility::LogInfo("The file path is empty.");
+            LOG_INFO("The file path is empty.");
             return false;
         }
         return access(path.c_str(), F_OK) == 0;
@@ -87,7 +87,7 @@ namespace Utility {
                 fprintf(fp, headers.c_str());
                 *filefp = fp;
             } else {
-                Utility::LogError("open file %s error", filePath.c_str());
+                LOG_ERROR("open file %s error", filePath.c_str());
                 return false;
             }
         }

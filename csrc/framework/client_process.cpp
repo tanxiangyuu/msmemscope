@@ -10,6 +10,7 @@
 #include "serializer.h"
 #include "host_injection/core/FuncSelector.h"
 #include "host_injection/utils/InjectLogger.h"
+#include "log.h"
 
 namespace Leaks {
 
@@ -40,7 +41,7 @@ ClientProcess::~ClientProcess()
 {
 }
 
-void ClientProcess::Log(ClientLogLevel level, std::string msg)
+void ClientProcess::Log(ClientLogLevel level, std::string msg, const std::string fileName, const uint32_t line)
 {
     static std::map<ClientLogLevel, std::string> levelStrMap = {
         {ClientLogLevel::DEBUG, "[DEBUG]"},
@@ -49,7 +50,7 @@ void ClientProcess::Log(ClientLogLevel level, std::string msg)
         {ClientLogLevel::ERROR, "[ERROR]"}
     };
 
-    std::string logMsg = levelStrMap[level] + " " + msg;
+    std::string logMsg = levelStrMap[level] + " [" + fileName + ":" + std::to_string(line) + "] " + msg;
     Leaks::PacketHead head {Leaks::PacketType::LOG};
     std::string buffer = Leaks::Serialize<Leaks::PacketHead, uint64_t>(head, logMsg.size());
     buffer += logMsg;
@@ -113,26 +114,6 @@ int ClientNotify(std::string msg)
 int ClientWait(std::string& msg)
 {
     return ClientProcess::GetInstance().Wait(msg);
-}
-
-void ClientDebugLog(std::string msg)
-{
-    ClientProcess::GetInstance().Log(ClientLogLevel::DEBUG, msg);
-}
-
-void ClientInfoLog(std::string msg)
-{
-    ClientProcess::GetInstance().Log(ClientLogLevel::INFO, msg);
-}
-
-void ClientWarnLog(std::string msg)
-{
-    ClientProcess::GetInstance().Log(ClientLogLevel::WARN, msg);
-}
-
-void ClientErrorLog(std::string msg)
-{
-    ClientProcess::GetInstance().Log(ClientLogLevel::ERROR, msg);
 }
 
 }
