@@ -296,7 +296,6 @@ void TraceRecord::CpuMemRecordToString(const MemOpRecord &memRecord, std::string
 {
     uint64_t addr = memRecord.addr;
     uint64_t size = memRecord.memSize;
-    MemOpSpace space = memRecord.space;
 
     std::lock_guard<std::mutex> lock(hostMemMutex_);
     if (memRecord.memType == MemOpType::MALLOC) {
