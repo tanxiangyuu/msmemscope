@@ -11,7 +11,7 @@ typedef enum mstxFuncModule {
     MSTX_API_MODULE_CORE_MEM = 3,
     MSTX_API_MODULE_SIZE,  // end of the enum, new enum items must be added before this
     MSTX_API_MODULE_FORCE_INT = 0x7fffffff
-};
+} mstxFuncModule;
 
 typedef enum mstxImplCoreMemFuncId {
     MSTX_API_CORE_MEM_INVALID               = 0,
@@ -21,7 +21,7 @@ typedef enum mstxImplCoreMemFuncId {
     MSTX_API_CORE_MEM_REGIONS_UNREGISTER    = 4,
     MSTX_API_CORE_MEM_SIZE,                   // end of the enum, new enum items must be added before this
     MSTX_API_CORE_MEM_FORCE_INT             = 0x7fffffff
-};
+} mstxImplCoreMemFuncId;
 
 typedef enum mstxImplCoreFuncId {
     MSTX_API_CORE_INVALID                   = 0,
@@ -30,7 +30,7 @@ typedef enum mstxImplCoreFuncId {
     MSTX_API_CORE_RANGE_END                 = 3,
     MSTX_API_CORE_SIZE,                   // end of the enum, new enum items must be added before this
     MSTX_API_CORE_FORCE_INT = 0x7fffffff
-};
+} mstxImplCoreFuncId;
 
 typedef enum mstxImplCoreDomainFuncId {
     MSTX_API_CORE2_INVALID                 =  0,
@@ -41,7 +41,7 @@ typedef enum mstxImplCoreDomainFuncId {
     MSTX_API_CORE2_DOMAIN_RANGE_END        =  5,
     MSTX_API_CORE2_SIZE,                   // end of the enum, new enum items must be added before this
     MSTX_API_CORE2_FORCE_INT = 0x7fffffff
-};
+} mstxImplCoreDomainFuncId;
 
 struct mstxDomainRegistration_st {};
 typedef struct mstxDomainRegistration_st mstxDomainRegistration_t;
