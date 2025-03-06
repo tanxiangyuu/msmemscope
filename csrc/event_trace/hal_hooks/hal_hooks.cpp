@@ -19,7 +19,7 @@ drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long fl
     // report to leaks here
     uintptr_t addr = reinterpret_cast<uintptr_t>(*pp);
     if (!EventReport::Instance(CommType::SOCKET).ReportMalloc(reinterpret_cast<uint64_t>(addr), size, flag)) {
-        ClientErrorLog("halMemAlloc report failed");
+        CLIENT_ERROR_LOG("halMemAlloc report failed");
     }
 
     return ret;
@@ -31,7 +31,7 @@ drvError_t halMemFree(void *pp)
     uintptr_t addr = reinterpret_cast<uintptr_t>(pp);
 
     if (!EventReport::Instance(CommType::SOCKET).ReportFree(reinterpret_cast<uint64_t>(addr))) {
-        ClientErrorLog("halMemFree report failed");
+        CLIENT_ERROR_LOG("halMemFree report failed");
     }
 
     drvError_t ret = halMemFreeInner(pp);

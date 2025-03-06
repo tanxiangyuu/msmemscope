@@ -11,7 +11,7 @@ ServerProcess::ServerProcess(CommType type)
     server_ = new Server(type);
 
     if (server_ == nullptr) {
-        Utility::LogError("Initial server failed");
+        LOG_ERROR("Initial server failed");
         return;
     }
 }

@@ -188,7 +188,7 @@ bool Path::IsSoftLink(void) const
 bool CheckIsValidPath(std::string &path)
 {
     if (path.empty()) {
-        Utility::LogError("The file path is empty.");
+        LOG_ERROR("The file path is empty.");
         return false;
     }
 
@@ -197,12 +197,12 @@ bool CheckIsValidPath(std::string &path)
     path = realPath.ToString();
 
     if (!realPath.IsValidLength()) {
-        Utility::LogError("The length of file path %s exceeds the maximum length.", path.c_str());
+        LOG_ERROR("The length of file path %s exceeds the maximum length.", path.c_str());
         return false;
     }
 
     if (realPath.IsSoftLink()) {
-        Utility::LogError("The file path %s is invalid: soft link is not allowed.", path.c_str());
+        LOG_ERROR("The file path %s is invalid: soft link is not allowed.", path.c_str());
         return false;
     }
     return true;
@@ -211,7 +211,7 @@ bool CheckIsValidPath(std::string &path)
 bool IsFileExist(std::string &path)
 {
     if (path.empty()) {
-        Utility::LogError("The file path is empty.");
+        LOG_ERROR("The file path is empty.");
         return false;
     }
 
@@ -220,7 +220,7 @@ bool IsFileExist(std::string &path)
     path = realPath.ToString();
 
     if (!realPath.Exists()) {
-        Utility::LogError("The path %s not exists", path.c_str());
+        LOG_ERROR("The path %s not exists", path.c_str());
         return false;
     }
     return true;

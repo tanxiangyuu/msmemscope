@@ -25,7 +25,7 @@ TEST(Log, log_debug_with_default_log_level_warn_expect_not_output)
     Log &logger = Log::GetLog();
     logger.fp_ = fopen("output.txt", "w");
     std::string testLog = "test log debug";
-    LogDebug(testLog);
+    LOG_DEBUG(testLog);
     logger.fp_ = nullptr;
     EXPECT_FALSE(FindStr("output.txt", testLog));
 }
@@ -36,7 +36,7 @@ TEST(Log, log_warn_expect_output_warn_log)
     logger.fp_ = fopen("output.txt", "w");
     std::string testLog = "test log warn";
     Utility::SetLogLevel(Utility::LogLv::WARN);
-    LogWarn(testLog);
+    LOG_WARN(testLog);
     logger.fp_ = nullptr;
     EXPECT_TRUE(FindStr("output.txt", testLog));
     EXPECT_TRUE(FindStr("output.txt", "[WARN]"));
@@ -48,7 +48,7 @@ TEST(Log, log_error_expect_output_erro_log)
     logger.fp_ = fopen("output.txt", "w");
     std::string testLog = "test log error";
     Utility::SetLogLevel(Utility::LogLv::ERROR);
-    LogError(testLog);
+    LOG_ERROR(testLog);
     logger.fp_ = nullptr;
     EXPECT_TRUE(FindStr("output.txt", testLog));
     EXPECT_TRUE(FindStr("output.txt", "[ERROR]"));
@@ -60,7 +60,7 @@ TEST(Log, log_info_expect_output_info_log)
     logger.fp_ = fopen("output.txt", "w");
     std::string testLog = "test log info";
     Utility::SetLogLevel(Utility::LogLv::INFO);
-    LogInfo(testLog);
+    LOG_INFO(testLog);
     logger.fp_ = nullptr;
     EXPECT_TRUE(FindStr("output.txt", testLog));
     EXPECT_TRUE(FindStr("output.txt", "[INFO]"));
@@ -71,7 +71,7 @@ TEST(Log, log_nullptr_expect_no_output)
     Log &logger = Log::GetLog();
     logger.fp_ = nullptr;
 
-    logger.Printf("Test message", LogLv::INFO);
+    logger.Printf("Test message", LogLv::INFO, "test.cpp", 74);
     EXPECT_FALSE(FindStr("output.txt", "message"));
 }
 
@@ -81,10 +81,10 @@ TEST(Log, log_level_different_threashold_expect_success)
     logger.fp_ = fopen("output.txt", "w");
     logger.SetLogLevel(Utility::LogLv::INFO);
 
-    logger.Printf("Debug message", LogLv::DEBUG);
-    logger.Printf("Info message", LogLv::INFO);
-    logger.Printf("Warning message", LogLv::WARN);
-    logger.Printf("Error message", LogLv::ERROR);
+    logger.Printf("Debug message", LogLv::DEBUG, "test.cpp", 84);
+    logger.Printf("Info message", LogLv::INFO, "test.cpp", 85);
+    logger.Printf("Warning message", LogLv::WARN, "test.cpp", 86);
+    logger.Printf("Error message", LogLv::ERROR, "test.cpp", 87);
     logger.fp_ = nullptr;
     EXPECT_TRUE(FindStr("output.txt", "message"));
 }
@@ -94,7 +94,7 @@ TEST(Log, log_recv_expect_success)
     Log &logger = Log::GetLog();
     logger.fp_ = fopen("output.txt", "w");
     std::string testLog = "test log debug";
-    LogRecv(testLog);
+    LOG_RECV(testLog);
     logger.fp_ = nullptr;
     EXPECT_TRUE(FindStr("output.txt", testLog));
 }
