@@ -180,7 +180,7 @@ void StepInnerAnalyzer::CheckGap(const DeviceId &deviceId)
         return;
     }
     if (npuMemUsages_[deviceId].stepMaxAllocated == 0) {
-        LOG_ERROR("[npu %d]: StepMaxAllocated is 0, please check!", deviceId);
+        LOG_WARN("[npu %d]: StepMaxAllocated is 0, please check!", deviceId);
         return;
     }
     double gap =
@@ -229,23 +229,12 @@ void StepInnerAnalyzer::RecordNpuMalloc(const ClientId &clientId, const DeviceId
     MemoryUsage memoryusage = torchnpuRecord.memoryUsage;
     int64_t npumemptr = memoryusage.ptr;
     if ((npuMemUsages_[deviceId].mempooltable.find(npumemptr) != npuMemUsages_[deviceId].mempooltable.end())) {
-        LOG_ERROR(
+        LOG_WARN(
             "[npu%d malloc][client %u]:!!! ------double malloc------!!!, ptr: %lld", deviceId, clientId, npumemptr);
     }
-    LOG_INFO(
-        "[npu%d malloc][client %u]: index:%llu, totalAllocated: %lld, allocSize: %lld, ptr: %lld, step: %llu",
-        deviceId,
-        clientId,
-        torchnpuRecord.recordIndex,
-        memoryusage.totalAllocated,
-        memoryusage.allocSize,
-        npumemptr,
-        npuMemUsages_[deviceId].mstxStep);
-    npuMemUsages_[deviceId].mempooltable[npumemptr].memSize = memoryusage.allocSize;
-    npuMemUsages_[deviceId].mempooltable[npumemptr].timestamp = torchnpuRecord.timeStamp;
-    npuMemUsages_[deviceId].mempooltable[npumemptr].duration = 0;
-    npuMemUsages_[deviceId].mempooltable[npumemptr].stepId = npuMemUsages_[deviceId].mstxStep;
-    npuMemUsages_[deviceId].mempooltable[npumemptr].kernelIndex = torchnpuRecord.kernelIndex;
+    NpuMemInfo npuMemInfo = {
+    memoryusage.allocSize, torchnpuRecord.timeStamp, 0, npuMemUsages_[deviceId].mstxStep, torchnpuRecord.kernelIndex};
+    npuMemUsages_[deviceId].mempooltable.emplace(npumemptr, npuMemInfo);
     UpdateAllocated(deviceId, memoryusage.totalAllocated);
     npuMemUsages_[deviceId].totalAllocated = memoryusage.totalAllocated;
     npuMemUsages_[deviceId].totalReserved = memoryusage.totalReserved;
@@ -259,19 +248,10 @@ void  StepInnerAnalyzer::RecordNpuFree(const ClientId &clientId, const DeviceId 
     MemoryUsage memoryusage = torchnpuRecord.memoryUsage;
     int64_t npumemptr = memoryusage.ptr;
     if ((npuMemUsages_[deviceId].mempooltable.find(npumemptr) == npuMemUsages_[deviceId].mempooltable.end())) {
-        LOG_ERROR(
+        LOG_WARN(
             "[npu%d free][client %u]:!!! ------free error------!!!, ptr: %lld", deviceId, clientId, npumemptr);
     }
-    LOG_INFO(
-        "[npu%d free][client %u]: index:%llu, totalAllocated: %lld, allocSize: %lld, ptr: %lld, duration: %llu steps",
-        deviceId,
-        clientId,
-        torchnpuRecord.recordIndex,
-        memoryusage.totalAllocated,
-        memoryusage.allocSize,
-        npumemptr,
-        npuMemUsages_[deviceId].mempooltable[npumemptr].duration);
-    
+
     // 在释放时获取跨多个Step释放内存信息
     NotifyTraceRecord(deviceId, torchnpuRecord);
 
@@ -333,22 +313,21 @@ void StepInnerAnalyzer::ReceiveMstxMsg(const MstxRecord &mstxRecord)
         return;
     }
     MarkType markType = mstxRecord.markType;
-    if (!CreateMstxTables(deviceId)) {
-        LOG_ERROR("[device %ld]: Create mstx-npu table failed.", deviceId);
-        return;
-    }
-    if (!CreateTables(deviceId)) {
-        LOG_ERROR("[device %ld]: Create npu Memory table failed.", deviceId);
+    if (!CreateMstxTables(deviceId) || !CreateTables(deviceId)) {
+        LOG_WARN("[device %ld]: Create mstx-npu table failed.", deviceId);
         return;
     }
     if (markType == MarkType::RANGE_START_A) {
-        // 看是否有固化的语句来判断是否要分析
         if (strcmp(mstxRecord.markMessage, "step start") != 0) {
             return;
         }
         int64_t startAllocated = GetNowAllocated(deviceId);
         LOG_INFO("[npu %ld][step %llu][start]: ------Start totalAllocated: %lld------",
             deviceId, stepId, startAllocated);
+        if (mstxTables_[deviceId].find(stepId) == mstxTables_[deviceId].end()) {
+            StepInfo stepInfo{};
+            mstxTables_[deviceId].emplace(stepId, stepInfo);
+        }
         mstxTables_[deviceId][stepId].totalAllocated = startAllocated;
         mstxTables_[deviceId][stepId].rangeId = mstxRecord.rangeId;
         SetStepId(deviceId, stepId);
@@ -362,7 +341,6 @@ void StepInnerAnalyzer::ReceiveMstxMsg(const MstxRecord &mstxRecord)
         int64_t endAllocated = GetNowAllocated(deviceId);
         LOG_INFO("[npu %ld][step %llu][end]: ------End totalAllocated: %lld------",
             deviceId, stepId, endAllocated);
-        
         int64_t startAllocated = mstxTables_[deviceId][stepId].totalAllocated;
         // step1不考虑前后内存不一致
         if (stepId == 1) {
@@ -388,16 +366,14 @@ void StepInnerAnalyzer::ReceiveMstxMsg(const MstxRecord &mstxRecord)
     std::vector<std::pair<LeakMemKey, LeakInfo>> leakVec(
         leakMemSums_[deviceId].begin(), leakMemSums_[deviceId].end());
     auto leakCompare = [](const std::pair<LeakMemKey, LeakInfo> &a, const std::pair<LeakMemKey, LeakInfo> &b) {
-        if (a.first.leakStepId != b.first.leakStepId) {
-            return a.first.leakStepId < b.first.leakStepId;
-        }
+            return a.first.leakStepId <= b.first.leakStepId;
     };
     std::sort(leakVec.begin(), leakVec.end(), leakCompare);
     // 输出泄漏信息总结
     uint64_t leakInfoCounts = 0;
     long double leakSizeSums = 0;
     for (const auto& pair :leakVec) {
-        printf("Direct leak of %f Mb(s) at 0x%llx in kernel_%lu at step %lu.\n",
+        printf("Direct leak of %f Mb(s) at 0x%lx in kernel_%lu at step %lu.\n",
             (pair.second.leakSize / static_cast<double>(BYTE_TO_MB)),
             pair.first.torchNpuPtr,
             pair.second.kernelIndex,
