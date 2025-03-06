@@ -1,6 +1,6 @@
-add_library(ascend_hal_hook SHARED hal_hooks.cpp)
+add_library(leaks_ascend_hal_hook SHARED hal_hooks.cpp)
 
-target_sources(ascend_hal_hook PRIVATE
+target_sources(leaks_ascend_hal_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/event_report.cpp
   ${FRAMEWORK_INC_DIR}/client_process.cpp
   ${FUNC_INJECTION_CORE_DIR}/Communication.cpp
@@ -10,7 +10,7 @@ target_sources(ascend_hal_hook PRIVATE
   ${FUNC_HOSTINJECTION_DIR}/utils/Ustring.cpp
 )
 
-target_include_directories(ascend_hal_hook PUBLIC
+target_include_directories(leaks_ascend_hal_hook PUBLIC
   ${FRAMEWORK_INC_DIR}
   ${EVENT_TRACE_INC_DIR}
   ${FUNC_INJECTION_DIR}
@@ -18,4 +18,4 @@ target_include_directories(ascend_hal_hook PUBLIC
   ${UTILITY_INC_DIR}
   ${SECUREC_INC_DIR}
 )
-target_link_libraries(ascend_hal_hook ascend_hal stdc++fs c_sec)
+target_link_libraries(leaks_ascend_hal_hook ascend_hal stdc++fs c_sec)
