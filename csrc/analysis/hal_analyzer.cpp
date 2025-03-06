@@ -59,9 +59,7 @@ void HalAnalyzer::RecordFree(const ClientId &clientId, const MemOpRecord memreco
 {
     uint64_t memkey = memrecord.addr;
     auto it = memtables_[clientId].find(memkey);
-    int32_t freeDevId = GD_INVALID_NUM;
     if (it != memtables_[clientId].end()) {
-        freeDevId = memtables_[clientId][memkey].deviceId;
         if (it->second.addrStatus == AddrStatus::FREE_WAIT) {
             memtables_[clientId][memkey].addrStatus = AddrStatus::FREE_ALREADY;
         } else {
