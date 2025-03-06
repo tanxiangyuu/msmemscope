@@ -111,7 +111,7 @@ void MstxManager::ReportRegionsRegister(mstxDomainHandle_t domain, mstxMemRegion
     const mstxMemVirtualRangeDesc_t *rangeDescArray =
         reinterpret_cast<const mstxMemVirtualRangeDesc_t *>(desc->regionDescArray);
 
-    for (int i = 0; i < desc->regionCount; i++) {
+    for (size_t i = 0; i < desc->regionCount; i++) {
         TorchNpuRecord torchNpuRecord;
         int devId = rangeDescArray[i].deviceId;
         memUsageMp_[devId].dataType = 0;
@@ -136,7 +136,7 @@ void MstxManager::ReportRegionsUnregister(mstxDomainHandle_t domain, mstxMemRegi
         return;
     }
     std::lock_guard<std::mutex> guard(mutex_);
-    for (int i = 0; i < desc->refCount; i++) {
+    for (size_t i = 0; i < desc->refCount; i++) {
         if (!regionHandleMp_.count(desc->refArray[i].pointer)) {
             continue;
         }

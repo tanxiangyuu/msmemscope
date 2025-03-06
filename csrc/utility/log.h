@@ -116,26 +116,26 @@ inline std::string GetLogSourceFileName(const std::string &path)
 
 #define LOG_DEBUG(format, ...)                                                                                         \
     do {                                                                                                               \
-        Utility::Log::GetLog().Printf(format, Utility::LogLv::DEBUG, Utility::GetLogSourceFileName(__FILE__), __LINE__,\
-            ##__VA_ARGS__);                                                                                            \
+        Utility::Log::GetLog().Printf(format, Utility::LogLv::DEBUG, Utility::GetLogSourceFileName(__FILE__),          \
+        __LINE__, ##__VA_ARGS__);                                                                                      \
     } while (0)
 
 #define LOG_INFO(format, ...)                                                                                          \
     do {                                                                                                               \
-        Utility::Log::GetLog().Printf(format, Utility::LogLv::INFO, Utility::GetLogSourceFileName(__FILE__), __LINE__, \
-            ##__VA_ARGS__);                                                                                            \
+        Utility::Log::GetLog().Printf(format, Utility::LogLv::INFO, Utility::GetLogSourceFileName(__FILE__),           \
+        __LINE__, ##__VA_ARGS__);                                                                                      \
     } while (0)
 
 #define LOG_WARN(format, ...)                                                                                          \
     do {                                                                                                               \
-        Utility::Log::GetLog().Printf(format, Utility::LogLv::WARN, Utility::GetLogSourceFileName(__FILE__), __LINE__, \
-            ##__VA_ARGS__);                                                                                            \
+        Utility::Log::GetLog().Printf(format, Utility::LogLv::WARN, Utility::GetLogSourceFileName(__FILE__),           \
+        __LINE__, ##__VA_ARGS__);                                                                                      \
     } while (0)
 
 #define LOG_ERROR(format, ...)                                                                                         \
     do {                                                                                                               \
-        Utility::Log::GetLog().Printf(format, Utility::LogLv::ERROR, Utility::GetLogSourceFileName(__FILE__), __LINE__,\
-            ##__VA_ARGS__);                                                                                            \
+        Utility::Log::GetLog().Printf(format, Utility::LogLv::ERROR, Utility::GetLogSourceFileName(__FILE__),          \
+        __LINE__, ##__VA_ARGS__);                                                                                      \
     } while (0)
 
 inline void SetLogLevel(const LogLv &logLevel)

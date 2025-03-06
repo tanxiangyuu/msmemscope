@@ -20,7 +20,7 @@ constexpr double  PERCENT_SCALE_FACTOR = 100.0;
 
 struct StepInfo {
     int64_t totalAllocated = 0;
-    int64_t rangeId = 0;  // rangeId唯一标识，用于判断是否为固化信息的打点信息
+    uint64_t rangeId = 0;  // rangeId唯一标识，用于判断是否为固化信息的打点信息
 };
 
 using MstxRecordTable = std::unordered_map<StepId, StepInfo>;
