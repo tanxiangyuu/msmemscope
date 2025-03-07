@@ -16,8 +16,8 @@
 #include "securec.h"
 
 namespace Leaks {
-bool g_isReportHostMem = false;
-bool g_isInReportFunction = false;
+thread_local bool g_isReportHostMem = false;
+thread_local bool g_isInReportFunction = false;
 
 constexpr uint64_t MEM_MODULE_ID_BIT = 56;
 constexpr uint64_t MEM_VIRT_BIT = 10;
