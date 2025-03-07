@@ -157,8 +157,8 @@ void StepInterAnalyzer::SaveCompareKernelMemory(const DEVICEID deviceId,
 {
     std::string temp;
     std::string name;
-    int64_t baseAllocSize;
-    int64_t compareAllocSize;
+    int64_t baseAllocSize = 0;
+    int64_t compareAllocSize = 0;
 
     std::string baseMemDiff;
     if (!kernelBase.first.empty()) {
