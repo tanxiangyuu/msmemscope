@@ -15,8 +15,8 @@
 #include <atomic>
 
 namespace Leaks {
-extern bool g_isReportHostMem;
-extern bool g_isInReportFunction;
+extern thread_local bool g_isReportHostMem;
+extern thread_local bool g_isInReportFunction;
 
 constexpr mode_t REGULAR_MODE_MASK = 0177;
 
