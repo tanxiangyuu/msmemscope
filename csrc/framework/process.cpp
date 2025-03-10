@@ -149,7 +149,7 @@ void Process::SetPreloadEnv()
     }
 
     std::vector<string> hookLibNames{
-        "libascend_hal_hook.so",
+        "libleaks_ascend_hal_hook.so",
         "libhost_memory_hook.so",
         "libascend_mstx_hook.so",
         "libascend_kernel_hook.so"
