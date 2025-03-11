@@ -123,20 +123,124 @@ TEST(EventReportTest, VallinaSymbolTest) {
     va::Instance().Get(symbol);
 }
 
-TEST(EventReportTest, TestReportSkipStepsFuc)
+void ResetEventReportStepInfo()
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
-    instance.currentStep_ = 5;
+    instance.stepInfo_.currentStepId = 0;
+    instance.stepInfo_.inStepRange = false;
+    instance.stepInfo_.stepMarkRangeIdList.clear();
+    return;
+}
+
+TEST(EventReportTest, TestReportSkipStepsNormal)
+{
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    MstxRecord mstxRecord = {};
+    mstxRecord.markType = MarkType::RANGE_START_A;
+    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage),
+        "step start", sizeof(mstxRecord.markMessage));
+    mstxRecord.rangeId = 8;
+    instance.SetStepInfo(mstxRecord);
     instance.config_.stepList.stepCount = 3;
     instance.config_.stepList.stepIdList[0] = 1;
     instance.config_.stepList.stepIdList[1] = 2;
     instance.config_.stepList.stepIdList[2] = 6;
-    
+    EXPECT_EQ(instance.IsNeedSkip(), false);
+
+    mstxRecord.markType = MarkType::RANGE_END;
+    instance.SetStepInfo(mstxRecord);
     EXPECT_EQ(instance.IsNeedSkip(), true);
 
-    instance.currentStep_ = 6;
-
+    mstxRecord.markType = MarkType::RANGE_START_A;
+    mstxRecord.rangeId = 9;
+    instance.SetStepInfo(mstxRecord);
     EXPECT_EQ(instance.IsNeedSkip(), false);
+
+    mstxRecord.markType = MarkType::RANGE_END;
+    instance.SetStepInfo(mstxRecord);
+    EXPECT_EQ(instance.IsNeedSkip(), true);
+
+    mstxRecord.markType = MarkType::RANGE_START_A;
+    mstxRecord.rangeId = 10;
+    instance.SetStepInfo(mstxRecord);
+    EXPECT_EQ(instance.IsNeedSkip(), true);
+
+    mstxRecord.markType = MarkType::RANGE_END;
+    instance.SetStepInfo(mstxRecord);
+    EXPECT_EQ(instance.IsNeedSkip(), true);
+
+    ResetEventReportStepInfo();
+}
+
+TEST(EventReportTest, TestReportSkipStepsWithNoMstx)
+{
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.config_.stepList.stepCount = 3;
+    instance.config_.stepList.stepIdList[0] = 1;
+    instance.config_.stepList.stepIdList[1] = 2;
+    instance.config_.stepList.stepIdList[2] = 6;
+    EXPECT_EQ(instance.IsNeedSkip(), true);
+
+    ResetEventReportStepInfo();
+}
+
+TEST(EventReportTest, TestReportSkipStepsWithOtherMessageMstx)
+{
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    MstxRecord mstxRecord = {};
+    mstxRecord.markType = MarkType::RANGE_START_A;
+    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage),
+        "report host memory info start", sizeof(mstxRecord.markMessage));
+    mstxRecord.rangeId = 8;
+    instance.SetStepInfo(mstxRecord);
+    instance.config_.stepList.stepCount = 3;
+    instance.config_.stepList.stepIdList[0] = 1;
+    instance.config_.stepList.stepIdList[1] = 2;
+    instance.config_.stepList.stepIdList[2] = 6;
+    EXPECT_EQ(instance.IsNeedSkip(), true);
+
+    ResetEventReportStepInfo();
+}
+
+TEST(EventReportTest, TestReportSkipStepsWithMstxEndMismatch)
+{
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    MstxRecord mstxRecord = {};
+    mstxRecord.markType = MarkType::RANGE_START_A;
+    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage),
+        "step start", sizeof(mstxRecord.markMessage));
+    mstxRecord.rangeId = 8;
+    instance.SetStepInfo(mstxRecord);
+    instance.config_.stepList.stepCount = 3;
+    instance.config_.stepList.stepIdList[0] = 1;
+    instance.config_.stepList.stepIdList[1] = 2;
+    instance.config_.stepList.stepIdList[2] = 6;
+    EXPECT_EQ(instance.IsNeedSkip(), false);
+
+    mstxRecord.markType = MarkType::RANGE_END;
+    mstxRecord.rangeId = 9;
+    instance.SetStepInfo(mstxRecord);
+    EXPECT_EQ(instance.IsNeedSkip(), false);
+
+    ResetEventReportStepInfo();
+}
+
+TEST(EventReportTest, TestReportSkipStepsWithOnlyMstxEnd)
+{
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    
+    instance.config_.stepList.stepCount = 3;
+    instance.config_.stepList.stepIdList[0] = 1;
+    instance.config_.stepList.stepIdList[1] = 2;
+    instance.config_.stepList.stepIdList[2] = 6;
+
+    MstxRecord mstxRecord = {};
+    mstxRecord.markType = MarkType::RANGE_END;
+    mstxRecord.rangeId = 9;
+    instance.SetStepInfo(mstxRecord);
+    EXPECT_EQ(instance.IsNeedSkip(), true);
+
+    ResetEventReportStepInfo();
 }
 
 TEST(KernelNameFunc, PipeCallGivenLsCommandReturnFalse)

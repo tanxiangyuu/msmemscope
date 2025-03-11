@@ -5,20 +5,30 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 #include <mutex>
+#include <thread>
+#include <atomic>
 #include "client_process.h"
 #include "kernel_hooks/runtime_hooks.h"
 #include "record_info.h"
 #include "config_info.h"
-
-#include <thread>
-#include <atomic>
 
 namespace Leaks {
 extern thread_local bool g_isReportHostMem;
 extern thread_local bool g_isInReportFunction;
 
 constexpr mode_t REGULAR_MODE_MASK = 0177;
+
+struct MstxStepInfo {
+    uint64_t currentStepId = 0;
+    bool inStepRange = false; // 不在mstx_range_start和mstx_range_end之间的数据，不采集
+
+    // 暂存用mstx标记Step的RangeId,与用mstx标记host采集的RangeId区分开
+    // 可能存在多线程操作，例如线程A mstx_range_start,线程B mstx_range_start,线程A mstx_range_end,线程B mstx_range_end
+    // 因此是数组
+    std::vector<uint64_t> stepMarkRangeIdList;
+};
 
 /*
  * EventReport类主要功能：
@@ -38,11 +48,16 @@ public:
     ~EventReport();
 private:
     explicit EventReport(CommType type);
+    bool IsNeedSkip(); // 支持采集指定step
+    void SetStepInfo(const MstxRecord &mstxRecord);
+private:
     std::atomic<uint64_t> recordIndex_;
     std::atomic<uint64_t> kernelLaunchRecordIndex_;
     std::atomic<uint64_t> aclItfRecordIndex_;
-    bool IsNeedSkip();                      // 支持采集指定step
-    uint64_t currentStep_ = 0;
+
+    MstxStepInfo stepInfo_;
+    std::mutex mutex_;
+
     AnalysisConfig config_;
     std::vector<std::thread> parseThreads_;
     std::atomic<uint32_t> runningThreads_;   // 同时运行线程数

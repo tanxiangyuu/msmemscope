@@ -133,7 +133,7 @@ bool EventReport::IsNeedSkip()
     }
 
     for (uint8_t loop = 0; (loop < stepList.stepCount && loop < SELECTED_STEP_MAX_NUM); loop++) {
-        if (currentStep_ == stepList.stepIdList[loop]) {
+        if (stepInfo_.currentStepId == stepList.stepIdList[loop] && stepInfo_.inStepRange) {
             return false;
         }
     }
@@ -258,6 +258,36 @@ bool EventReport::ReportHostFree(uint64_t addr)
     return (sendNums >= 0);
 }
 
+void EventReport::SetStepInfo(const MstxRecord &mstxRecord)
+{
+    if (mstxRecord.markType == MarkType::MARK_A) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (mstxRecord.markType == MarkType::RANGE_START_A) {
+        if (strcmp(mstxRecord.markMessage, "step start") != 0) {
+            return;
+        }
+        stepInfo_.currentStepId++;
+        stepInfo_.inStepRange = true;
+        stepInfo_.stepMarkRangeIdList.emplace_back(mstxRecord.rangeId);
+        return;
+    }
+
+    if (mstxRecord.markType == MarkType::RANGE_END) {
+        auto ret = find(stepInfo_.stepMarkRangeIdList.begin(), stepInfo_.stepMarkRangeIdList.end(), mstxRecord.rangeId);
+        if (ret == stepInfo_.stepMarkRangeIdList.end()) {
+            return;
+        }
+        stepInfo_.inStepRange = false;
+        stepInfo_.stepMarkRangeIdList.erase(ret);
+        return;
+    }
+
+    return;
+}
+
 bool EventReport::ReportMark(MstxRecord& mstxRecord)
 {
     g_isInReportFunction = true;
@@ -265,10 +295,6 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord)
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
-    }
-
-    if (mstxRecord.markType == MarkType::RANGE_START_A && strcmp(mstxRecord.markMessage, "step start") == 0) {
-        currentStep_++;
     }
 
     PacketHead head = {PacketType::RECORD};
@@ -281,7 +307,9 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord)
     eventRecord.record.mstxRecord.timeStamp = Utility::GetTimeMicroseconds();
     eventRecord.record.mstxRecord.kernelIndex = kernelLaunchRecordIndex_;
     eventRecord.record.mstxRecord.recordIndex = ++recordIndex_;
-    eventRecord.record.mstxRecord.stepId = currentStep_;
+
+    SetStepInfo(mstxRecord);
+    eventRecord.record.mstxRecord.stepId = stepInfo_.currentStepId;
     auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
 
     // 通过有无固化语句判断是否要采集host侧内存数据

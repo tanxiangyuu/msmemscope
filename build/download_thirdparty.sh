@@ -22,7 +22,7 @@ fi
 FUNC_INJECTION_DIR="${TOP_DIR}/platform/func_injection"
 if [ ! -d "$FUNC_INJECTION_DIR" ]; then
     cd ${TOP_DIR}/platform
-    git clone https://codehub-dg-y.huawei.com/mindstudio/MindStudio-Backend/func_injection.git func_injection -b br_noncom_MindStudio_7.0.T3_POC_20240930
+    git clone https://codehub-dg-y.huawei.com/mindstudio/MindStudio-Backend/func_injection.git func_injection -b master
 else
     echo "platform/func_injection already exists. no need to download. exit."
 fi
