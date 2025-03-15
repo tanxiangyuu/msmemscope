@@ -19,6 +19,7 @@ add_link_options("-Wl,-z,relro")
 add_link_options("-Wl,-z,noexecstack")
 add_link_options("-pie")
 add_link_options("-s") #strip
+set(CMAKE_SKIP_RPATH TRUE)
 
 option(BUILD_TESTS "build unit tests" OFF)
 
