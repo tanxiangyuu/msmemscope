@@ -92,6 +92,14 @@ TEST(StepInterAnalyzerTest, do_read_invalid_csv_file_expect_empty_data)
     str = "test.csv";
     stepinteranalyzer.ReadCsvFile(str, data);
     ASSERT_EQ(data.size(), 0);
+
+    fp = fopen("test_leaks.csv", "w");
+    fprintf(fp, LEAKS_HEADERS);
+    fprintf(fp, "1,0,pytorch,malloc,123,234,0,0,N/A,N/A,0\n");
+    fclose(fp);
+    stepinteranalyzer.ReadCsvFile(str, data);
+    ASSERT_EQ(data.size(), 0);
+    remove("test_leaks.csv");
 }
 
 TEST(StepInterAnalyzerTest, do_read_kernelLaunch_data_expect_cprrect_data)
