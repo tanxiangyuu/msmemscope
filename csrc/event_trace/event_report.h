@@ -45,11 +45,17 @@ public:
     bool ReportAclItf(AclOpType aclOpType);
     bool ReportMark(MstxRecord &mstxRecord);
     bool ReportTorchNpu(TorchNpuRecord &torchNpuRecord);
-    ~EventReport();
 private:
+    void Init();
     explicit EventReport(CommType type);
+    ~EventReport();
+
     bool IsNeedSkip(); // 支持采集指定step
     void SetStepInfo(const MstxRecord &mstxRecord);
+
+    // socket通信在某些场景下，client调用connect返回true并不一定代表真实连接成功
+    // 这里以接收到server发过来消息为准
+    bool IsConnectToServer();
 private:
     std::atomic<uint64_t> recordIndex_;
     std::atomic<uint64_t> kernelLaunchRecordIndex_;
@@ -60,8 +66,10 @@ private:
 
     AnalysisConfig config_;
     std::vector<std::thread> parseThreads_;
-    std::atomic<uint32_t> runningThreads_;   // 同时运行线程数
+    std::atomic<uint32_t> runningThreads_;  // 同时运行线程数
     std::unordered_map<int32_t, uint64_t> mstxRangeIdTables_{};
+
+    std::atomic<bool> isReceiveServerInfo_;
 };
 
 MemOpSpace GetMemOpSpace(unsigned long long flag);
