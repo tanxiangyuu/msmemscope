@@ -7,6 +7,7 @@
 #include "utils.h"
 #include "config_info.h"
 #include "record_info.h"
+#include "ustring.h"
 
 namespace Leaks {
 
@@ -101,16 +102,20 @@ void StepInterAnalyzer::ReadCsvFile(std::string &path, std::unordered_map<DEVICE
     csvFile.close();
 }
 
-KERNELNAME_INDEX StepInterAnalyzer::ReadKernelLaunchData(const CSV_FIELD_DATA &data)
+bool StepInterAnalyzer::ReadKernelLaunchData(const CSV_FIELD_DATA &data, KERNELNAME_INDEX &result)
 {
-    KERNELNAME_INDEX result;
     for (size_t index = 0; index < data.size(); ++index) {
         auto lineData = data[index];
         if (lineData["Event"] == "kernelLaunch") {
+            if (!Utility::CheckStrIsStartsWithInvalidChar(lineData["Event Type"].c_str())) {
+                LOG_ERROR("KenelName %s is invalid!", lineData["Event Type"].c_str());
+                result.clear();
+                return false;
+            }
             result.emplace_back(std::make_pair(lineData["Event Type"], index));
         }
     }
-    return result;
+    return true;
 }
 
 void StepInterAnalyzer::GetKernelMemoryDiff(size_t index, const CSV_FIELD_DATA &data, int64_t &memDiff)
@@ -307,8 +312,13 @@ void StepInterAnalyzer::StepInterCompare(const std::vector<std::string> &paths)
 
     for (const auto& pair : output_) {
         uint64_t deviceId = pair.first;
-        KERNELNAME_INDEX kernelIndexMap = ReadKernelLaunchData(output_[deviceId]);
-        KERNELNAME_INDEX kernelIndexCompareMap = ReadKernelLaunchData(outputCompare_[deviceId]);
+        KERNELNAME_INDEX kernelIndexMap {};
+        KERNELNAME_INDEX kernelIndexCompareMap {};
+        if (!ReadKernelLaunchData(output_[deviceId], kernelIndexMap) ||
+            !ReadKernelLaunchData(outputCompare_[deviceId], kernelIndexCompareMap)) {
+            compareOut_.clear();
+            break;
+        }
         MyersDiff(deviceId, kernelIndexMap, kernelIndexCompareMap);
     }
 
