@@ -4,6 +4,7 @@
 #define LEAKS_UTILITY_USTRING_H
 
 #include <string>
+#include <set>
 
 namespace Utility {
 
@@ -71,6 +72,15 @@ inline std::string RStrip(std::string str, std::string const &cs = " ")
 inline bool EndWith(std::string const &str, std::string const &target)
 {
     return str.length() >= target.length() && str.substr(str.length() - target.length()) == target;
+}
+
+inline bool CheckStrIsStartsWithInvalidChar(const char *str)
+{
+    const std::set<char> invalidCharList = {'=', '+', '-', '@'};
+    if (invalidCharList.count(*str)) {
+        return false;
+    }
+    return true;
 }
 
 }  // namespace Utility

@@ -102,12 +102,14 @@ TEST(StepInterAnalyzerTest, do_read_invalid_csv_file_expect_empty_data)
     remove("test_leaks.csv");
 }
 
-TEST(StepInterAnalyzerTest, do_read_kernelLaunch_data_expect_cprrect_data)
+TEST(StepInterAnalyzerTest, do_read_kernelLaunch_data_expect_return_true_and_correct_data)
 {
     CSV_FIELD_DATA data;
     CreateCsvData(data);
     StepInterAnalyzer stepinteranalyzer{};
-    KERNELNAME_INDEX result = stepinteranalyzer.ReadKernelLaunchData(data);
+    KERNELNAME_INDEX result;
+    auto ret = stepinteranalyzer.ReadKernelLaunchData(data, result);
+    ASSERT_TRUE(ret);
     ASSERT_EQ(result.size(), 2);
     ASSERT_EQ(result[0].first, "matmul_v1");
     ASSERT_EQ(result[0].second, 1);
@@ -115,11 +117,25 @@ TEST(StepInterAnalyzerTest, do_read_kernelLaunch_data_expect_cprrect_data)
     ASSERT_EQ(result[1].second, 2);
 }
 
-TEST(StepInterAnalyzerTest, do_read_no_kernelLaunch_data_expect_empty_data)
+TEST(StepInterAnalyzerTest, do_read_no_kernelLaunch_data_expect_return_false_and_empty_data)
 {
     CSV_FIELD_DATA data;
     StepInterAnalyzer stepinteranalyzer{};
-    KERNELNAME_INDEX result = stepinteranalyzer.ReadKernelLaunchData(data);
+    KERNELNAME_INDEX result;
+    auto ret = stepinteranalyzer.ReadKernelLaunchData(data, result);
+    ASSERT_TRUE(ret);
+    ASSERT_EQ(result.size(), 0);
+}
+
+TEST(StepInterAnalyzerTest, do_read_invalid_kernelLaunch_data_expect_falseand_empty_data)
+{
+    CSV_FIELD_DATA data;
+    CreateCsvData(data);
+    data[1]["Event Type"] = "+test";
+    StepInterAnalyzer stepinteranalyzer{};
+    KERNELNAME_INDEX result;
+    auto ret = stepinteranalyzer.ReadKernelLaunchData(data, result);
+    ASSERT_FALSE(ret);
     ASSERT_EQ(result.size(), 0);
 }
 
