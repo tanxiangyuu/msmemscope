@@ -66,11 +66,17 @@ void StepInterAnalyzer::ReadCsvFile(std::string &path, std::unordered_map<DEVICE
     }
     std::vector<std::string> headerData;
     headerData = SplitLineData(line);
-
+    uint64_t countLine = 1;
     while (getline(csvFile, line)) {
         sin.str(line);
+        ++countLine;
         std::vector<std::string> lineData;
         lineData = SplitLineData(line);
+        if (lineData.size() != headerData.size()) {
+            LOG_ERROR("The file %s on line %d is invalid!", path.c_str(), countLine);
+            data.clear();
+            return ;
+        }
         std::unordered_map<std::string, std::string> tempLine;
         for (size_t index = 0; index < headerData.size(); ++index) {
             tempLine.insert({headerData[index], lineData[index]});
@@ -295,7 +301,7 @@ void StepInterAnalyzer::StepInterCompare(const std::vector<std::string> &paths)
     ReadCsvFile(pathCompare, outputCompare_);
 
     if (output_.empty() || outputCompare_.empty()) {
-        LOG_ERROR("Stepinter analyze failed! Empty data in csv file!");
+        std::cout << "[msleaks] ERROR: Stepinter analyze failed!" << std::endl;
         return ;
     }
 
@@ -307,7 +313,7 @@ void StepInterAnalyzer::StepInterCompare(const std::vector<std::string> &paths)
     }
 
     if (!WriteCompareDataToCsv()) {
-        LOG_ERROR("Write stepinter analyze data to csv file failed!");
+        std::cout << "[msleaks] ERROR: Stepinter analyze failed!" << std::endl;
     } else {
         auto end_time = Utility::GetTimeMicroseconds();
         LOG_INFO("The stepinter memory analysis has been completed"
