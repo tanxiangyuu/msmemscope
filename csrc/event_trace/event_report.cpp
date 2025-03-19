@@ -113,13 +113,23 @@ EventReport& EventReport::Instance(CommType type)
     return instance;
 }
 
+void EventReport::Init()
+{
+    recordIndex_.store(0);
+    kernelLaunchRecordIndex_.store(0);
+    aclItfRecordIndex_.store(0);
+    runningThreads_.store(0);
+    isReceiveServerInfo_.store(false);
+}
+
 EventReport::EventReport(CommType type)
 {
+    Init();
+
     (void)ClientProcess::GetInstance(type); // 连接server
-    // 接受server端发送的消息
     std::string msg;
-    // 默认10次重试
-    ClientProcess::GetInstance(type).Wait(msg);
+    uint32_t reTryTimes = 5; // 当前系统设置（setsockopt）的read超时时长是1s，默认至多尝试5次
+    isReceiveServerInfo_ = (ClientProcess::GetInstance(type).Wait(msg, reTryTimes) > 0) ? true : false;
     Deserialize(msg, config_);
     return;
 }
@@ -141,11 +151,16 @@ bool EventReport::IsNeedSkip()
     return true;
 }
 
+bool EventReport::IsConnectToServer()
+{
+    return isReceiveServerInfo_;
+}
+
 EventReport::~EventReport()
 {
     for (std::thread &t : parseThreads_) {
-    if (t.joinable()) {
-        t.join();
+        if (t.joinable()) {
+            t.join();
         }
     }
 }
@@ -153,6 +168,10 @@ EventReport::~EventReport()
 bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord)
 {
     g_isInReportFunction = true;
+
+    if (!IsConnectToServer()) {
+        return true;
+    }
 
     if (IsNeedSkip()) {
         return true;
@@ -174,6 +193,10 @@ bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord)
 bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag)
 {
     g_isInReportFunction = true;
+
+    if (!IsConnectToServer()) {
+        return true;
+    }
 
     if (IsNeedSkip()) {
         return true;
@@ -201,6 +224,10 @@ bool EventReport::ReportFree(uint64_t addr)
 {
     g_isInReportFunction = true;
 
+    if (!IsConnectToServer()) {
+        return true;
+    }
+
     if (IsNeedSkip()) {
         return true;
     }
@@ -223,6 +250,10 @@ bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size)
 {
     g_isInReportFunction = true;
 
+    if (!IsConnectToServer()) {
+        return true;
+    }
+
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord {};
     eventRecord.type = RecordType::MEMORY_RECORD;
@@ -242,6 +273,10 @@ bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size)
 bool EventReport::ReportHostFree(uint64_t addr)
 {
     g_isInReportFunction = true;
+
+    if (!IsConnectToServer()) {
+        return true;
+    }
 
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord {};
@@ -292,6 +327,10 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord)
 {
     g_isInReportFunction = true;
 
+    if (!IsConnectToServer()) {
+        return true;
+    }
+
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
@@ -333,6 +372,10 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord)
 bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, const void *hdl)
 {
     g_isInReportFunction = true;
+
+    if (!IsConnectToServer()) {
+        return true;
+    }
 
     if (IsNeedSkip()) {
         return true;
@@ -384,6 +427,10 @@ bool EventReport::ReportAclItf(AclOpType aclOpType)
 {
     g_isInReportFunction = true;
 
+    if (!IsConnectToServer()) {
+        return true;
+    }
+    
     if (IsNeedSkip()) {
         return true;
     }
