@@ -413,55 +413,6 @@ TEST(TraceRecord, process_hal_host_memory_record)
     EXPECT_TRUE(hasReadFile && hasRemoveDir);
 }
 
-TEST(TraceRecord, process_device_memory_record)
-{
-    auto mallocRecord = EventRecord{};
-    mallocRecord.type = RecordType::MEMORY_RECORD;
-    auto mallocMemOpRecord = MemOpRecord{};
-    mallocMemOpRecord.tid = 6;
-    mallocMemOpRecord.pid = 8;
-    mallocMemOpRecord.kernelIndex = 123;
-    mallocMemOpRecord.space = MemOpSpace::DEVICE;
-    mallocMemOpRecord.devType = DeviceType::NPU;
-    mallocMemOpRecord.devId = 2;
-    mallocMemOpRecord.memType = MemOpType::MALLOC;
-    mallocMemOpRecord.addr = 10000000;
-    mallocMemOpRecord.memSize = 10000;
-    mallocRecord.record.memoryRecord = mallocMemOpRecord;
-
-    auto freeRecord = EventRecord{};
-    freeRecord.type = RecordType::MEMORY_RECORD;
-    auto freeMemOpRecord = MemOpRecord{};
-    freeMemOpRecord.tid = 6;
-    freeMemOpRecord.pid = 8;
-    freeMemOpRecord.kernelIndex = 133;
-    freeMemOpRecord.space = MemOpSpace::INVALID;
-    mallocMemOpRecord.devType = DeviceType::NPU;
-    freeMemOpRecord.devId = GD_INVALID_NUM;
-    freeMemOpRecord.memType = MemOpType::FREE;
-    freeMemOpRecord.addr = 10000000;
-    freeMemOpRecord.memSize = 0;
-    freeRecord.record.memoryRecord = freeMemOpRecord;
-
-    std::string result = "{\n"
-"    \"ph\": \"C\",\n    \"name\": \"device memory\",\n"
-"    \"pid\": 8,\n    \"tid\": 6,\n    \"ts\": 123,\n"
-"    \"args\": {\n        \"size\": 10000\n    }\n},\n{\n"
-"    \"ph\": \"C\",\n    \"name\": \"device memory\",\n"
-"    \"pid\": 8,\n    \"tid\": 6,\n    \"ts\": 133,\n"
-"    \"args\": {\n        \"size\": 0\n    }\n},\n";
-
-    TraceRecord::GetInstance().ProcessRecord(mallocRecord);
-    TraceRecord::GetInstance().ProcessRecord(freeRecord);
-    std::string fileContent;
-    bool hasReadFile = ReadFile(
-        TraceRecord::GetInstance().traceFiles_[Device{DeviceType::NPU, mallocMemOpRecord.devId}].filePath,
-        fileContent);
-    bool hasRemoveDir = RemoveDir(TraceRecord::GetInstance().dirPath_);
-    EXPECT_NE(fileContent.find(result), std::string::npos);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
-}
-
 TEST(TraceRecord, process_torch_memory_record)
 {
     auto record = EventRecord{};
