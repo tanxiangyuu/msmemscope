@@ -11,6 +11,7 @@
 #include <fstream>
 #include <cstring>
 #include <dlfcn.h>
+#include "vallina_symbol.h"
 
 namespace Leaks {
 constexpr uint64_t MAX_BINARY_SIZE = 32ULL * 1024 * 1024 * 1024; // 32GB
@@ -18,7 +19,7 @@ constexpr uint64_t MAX_BINARY_SIZE = 32ULL * 1024 * 1024 * 1024; // 32GB
 struct RuntimeLibLoader {
     static void *Load(void)
     {
-        return dlopen("libruntime.so", RTLD_NOW | RTLD_GLOBAL);
+        return LibLoad("libruntime.so");
     }
 };
  

@@ -9,6 +9,24 @@
 
 namespace Leaks {
 
+inline void *LibLoad(std::string libName)
+{
+    if (libName.empty()) {
+        std::cout << "Null library name." << std::endl;
+        return nullptr;
+    }
+    const char *pathEnv = std::getenv("ASCEND_HOME_PATH");
+    if (!pathEnv || std::string(pathEnv).empty()) {
+        std::cout << "[msleaks] Failed to acquire ASCEND_HOME_PATH environment variable while loading "
+            << libName << "."
+            << std::endl;
+        return nullptr;
+    }
+    std::string libPath = pathEnv;
+    libPath += "/lib64/" + libName;
+    return dlopen(libPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
+}
+
 /* VallinaSymbol 类用于从指定的动态库句柄中获取函数符号
  * @tparam LibLoader 动态库加载器，需要实现 Load 方法
  */

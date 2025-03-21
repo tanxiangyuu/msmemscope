@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <dlfcn.h>
+#include "vallina_symbol.h"
 
 namespace Leaks {
 constexpr int ACL_SUCCESS = 0;
@@ -14,7 +15,7 @@ constexpr int ACL_ERROR_INTERNAL_ERROR = 500000;
 struct AclLibLoader {
     static void *Load(void)
     {
-        return dlopen("libascendcl.so", RTLD_NOW | RTLD_GLOBAL);
+        return LibLoad("libascendcl.so");
     }
 };
 }
