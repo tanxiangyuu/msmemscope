@@ -7,7 +7,6 @@
 #include <mutex>
 #include "utils.h"
 #include "umask_guard.h"
-#include "path.h"
 #include "cstring"
 
 namespace Utility {
@@ -36,7 +35,7 @@ public:
     template <typename... Args>
     inline void PrintClientLog(std::string const &format, const Args &...args);
     void SetLogLevel(const LogLv &logLevel);
-    inline bool CreateLogFile();
+    bool CreateLogFile();
 private:
     Log(void) = default;
     ~Log(void);
@@ -50,26 +49,6 @@ private:
     FILE *fp_{nullptr};
     mutable std::mutex mtx_;
 };
-
-bool Log::CreateLogFile()
-{
-    if (fp_ == nullptr) {
-        std::string fileName = "msleaks_" + GetDateStr() + ".log";
-        UmaskGuard guard{DEFAULT_UMASK_FOR_LOG_FILE};
-
-        // 校验路径合法性
-        if (!CheckIsValidPath(fileName)) {
-            std::cerr << "Error: Invalid path " << fileName << std::endl;
-            return false;
-        }
-
-        if ((fp_ = fopen(fileName.c_str(), "w")) == nullptr) {
-            return false;
-        }
-        std::cout << "[msleaks] Info: logging into file " << fileName << std::endl;
-    }
-    return true;
-}
 
 template <typename... Args>
 void Log::Printf(const std::string &format, LogLv lv, const std::string fileName, const uint32_t line,

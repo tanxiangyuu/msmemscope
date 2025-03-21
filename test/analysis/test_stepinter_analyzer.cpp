@@ -46,6 +46,7 @@ TEST(StepInterAnalyzerTest, do_split_line_data_expect_split_string)
 
 TEST(StepInterAnalyzerTest, do_read_csv_file_expect_read_correct_data)
 {
+    Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
     FILE *fp = fopen("test_leaks.csv", "w");
     fprintf(fp, LEAKS_HEADERS);
 
@@ -78,6 +79,7 @@ TEST(StepInterAnalyzerTest, do_read_csv_file_expect_read_correct_data)
 
 TEST(StepInterAnalyzerTest, do_read_invalid_csv_file_expect_empty_data)
 {
+    Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
     FILE *fp = fopen("test_leaks.csv", "w");
     std::string headers = "testheader1,testheader2\n";
     fprintf(fp, headers.c_str());
@@ -165,6 +167,7 @@ TEST(StepInterAnalyzerTest, do_write_compare_data_to_csv_expect_true)
     std::string temp;
     temp = "matmul,0,10,0,11,20,0,21,10,0,10\n";
     stepinteranalyzer.compareOut_[0].emplace_back(temp);
+    Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
     FILE *fp = fopen("test_leaks.csv", "w");
     stepinteranalyzer.compareFile_ = fp;
     ASSERT_TRUE(stepinteranalyzer.WriteCompareDataToCsv());
@@ -174,6 +177,7 @@ TEST(StepInterAnalyzerTest, do_write_compare_data_to_csv_expect_true)
 
 TEST(StepInterAnalyzerTest, do_empty_compare_data_to_csv_expect_false)
 {
+    Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
     StepInterAnalyzer stepinteranalyzer{};
     FILE *fp = fopen("test_leaks.csv", "w");
     stepinteranalyzer.compareFile_ = fp;
@@ -307,6 +311,7 @@ TEST(StepInterAnalyzerTest, do_stepinter_compare_input_invalid_path_return_empty
 
 TEST(StepInterAnalyzerTest, do_stepinter_compare)
 {
+    Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
     FILE *fp = fopen("test_leaks.csv", "w");
     fprintf(fp, LEAKS_HEADERS);
 
