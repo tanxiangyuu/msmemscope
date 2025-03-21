@@ -4,6 +4,7 @@
 #include <ctime>
 #include <type_traits>
 #include <map>
+#include "file.h"
 
 namespace Utility {
 
@@ -37,7 +38,17 @@ std::string Log::AddPrefixInfo(std::string const &format, LogLv lv, const std::s
     std::string codePosition = "[" + fileName + ":" + std::to_string(line) + "] ";
     return std::string(buf) + " " + ToString(lv) + " " + codePosition + format;
 }
-
+bool Log::CreateLogFile()
+{
+    if (fp_ == nullptr) {
+        std::string fileName = "msleaks_" + GetDateStr() + ".log";
+        if ((fp_ = CreateFile(".", fileName, DEFAULT_UMASK_FOR_LOG_FILE)) == nullptr) {
+            return false;
+        }
+        std::cout << "[msleaks] Info: logging into file " << fileName << std::endl;
+    }
+    return true;
+}
 void Log::SetLogLevel(const LogLv &logLevel)
 {
     lv_ = logLevel;

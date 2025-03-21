@@ -177,7 +177,7 @@ static void ParseInputPaths(const std::string param, UserCommand &userCommand)
 
     while (it != end) {
         std::string path = it->str();
-        if (!path.empty()) {
+        if (!path.empty() && Utility::CheckIsValidInputPath(path) && Utility::IsFileSizeSafe(path)) {
             userCommand.inputPaths.emplace_back(path);
         }
         it++;
@@ -204,7 +204,7 @@ static void ParseOutputPath(const std::string param, UserCommand &userCommand)
     std::string pathStr = realPath.ToString();
 
     std::regex pattern("(\\.|/|_|-|\\s|[~0-9a-zA-Z]|[\u4e00-\u9fa5])+");
-    if (!Utility::CheckIsValidPath(pathStr) || !std::regex_match(pathStr, pattern)) {
+    if (!Utility::CheckIsValidOutputPath(pathStr) || !std::regex_match(pathStr, pattern)) {
         userCommand.config.outputCorrectPaths = false;
         std::cout << "[msleaks] WARN: invalid output path." << std::endl;
         return;

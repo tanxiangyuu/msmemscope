@@ -6,6 +6,8 @@ target_sources(ascend_kernel_hook PRIVATE
   ${FUNC_INJECTION_CORE_DIR}/Communication.cpp
   ${FUNC_INJECTION_CORE_DIR}/DomainSocket.cpp
   ${UTILITY_INC_DIR}/log.cpp
+  ${UTILITY_INC_DIR}/file.cpp
+  ${UTILITY_INC_DIR}/path.cpp
   ${FUNC_HOSTINJECTION_DIR}/utils/FileSystem.cpp
   ${FUNC_HOSTINJECTION_DIR}/utils/Ustring.cpp
 )

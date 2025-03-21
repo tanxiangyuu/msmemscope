@@ -2,19 +2,20 @@
 
 #include "path.h"
 
+#include <algorithm>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <linux/limits.h>
 
 #include "ustring.h"
 #include "securec.h"
-#include "log.h"
 
 namespace Utility {
 
 constexpr char const *PATH_SEP = "/";
 constexpr char const *CURRENT_SEGMENT = ".";
 constexpr char const *PARENT_SEGMENT = "..";
+constexpr const uint32_t PATH_DEPTH_MAX = 32;
 
 Path::Path(void) noexcept : absolute_{false}
 {}
@@ -162,6 +163,17 @@ bool Path::Exists(void) const
     return stat(this->ToString().c_str(), &st) == 0;
 }
 
+bool Path::IsReadable(void) const
+{
+    return access(this->ToString().c_str(), R_OK) == 0;
+}
+
+bool Path::IsValidDepth(void) const
+{
+    std::string path = this->ToString();
+    return std::count(path.begin(), path.end(), *PATH_SEP) <= PATH_DEPTH_MAX;
+}
+
 bool Path::IsValidLength(void) const
 {
     std::size_t pathNameLength = 0;
@@ -185,45 +197,113 @@ bool Path::IsSoftLink(void) const
     return lstat(this->ToString().c_str(), &buf) == 0 && (S_IFMT & buf.st_mode) == S_IFLNK;
 }
 
-bool CheckIsValidPath(std::string &path)
+bool Path::IsPermissionValid(void) const
 {
-    if (path.empty()) {
-        LOG_ERROR("The file path is empty.");
+    struct stat st;
+    if (stat(this->ToString().c_str(), &st) != 0) {
+        printf("Failed to stat path: %s", this->ToString().c_str());
         return false;
     }
 
-    Utility::Path inputPath = Utility::Path{path};
-    Utility::Path realPath = inputPath.Resolved();
-    path = realPath.ToString();
-
-    if (!realPath.IsValidLength()) {
-        LOG_ERROR("The length of file path %s exceeds the maximum length.", path.c_str());
+    // 检查属主是否为 root 或当前用户
+    uid_t currentUid = geteuid();
+    if (st.st_uid != 0 && st.st_uid != currentUid) {
+        printf("File owner is not root or current user.");
+        return false;
+    }
+    // root用户不强制要求权限，仅对风险权限进行告警
+    if (currentUid == 0) {
+        printf("Current user is root, skip permission check.");
+        return true;
+    }
+    // 检查 group 和 other 是否有写权限
+    if ((st.st_mode & S_IWGRP) || (st.st_mode & S_IWOTH)) {
+        printf("Group or others have write permission.");
         return false;
     }
 
-    if (realPath.IsSoftLink()) {
-        LOG_ERROR("The file path %s is invalid: soft link is not allowed.", path.c_str());
-        return false;
-    }
     return true;
 }
 
-bool IsFileExist(std::string &path)
+// 对于所有路径的公共检查：包含可读性，路径长度，是否为软链接，权限校验（group和other用户组不可写，属主为root或当前用户
+bool CheckIsValidInputPath(const std::string &path)
 {
     if (path.empty()) {
-        LOG_ERROR("The file path is empty.");
+        printf("The file path is empty.");
         return false;
     }
 
     Utility::Path inputPath = Utility::Path{path};
     Utility::Path realPath = inputPath.Resolved();
-    path = realPath.ToString();
+    std::string temp = realPath.ToString();
 
     if (!realPath.Exists()) {
-        LOG_ERROR("The path %s not exists", path.c_str());
+        printf("The path %s not exists", temp.c_str());
+        return false;
+    }
+    if (!realPath.IsReadable()) {
+        printf("The file %s is not readable.", temp.c_str());
+        return false;
+    }
+    if (!realPath.IsValidLength()) {
+        printf("The length of file path %s exceeds the maximum length.", temp.c_str());
+        return false;
+    }
+    if (!realPath.IsValidDepth()) {
+        printf("The depth of file path %s exceeds the maximum depth.", temp.c_str());
+        return false;
+    }
+    if (realPath.IsSoftLink()) {
+        printf("The file path %s is invalid: soft link is not allowed.", temp.c_str());
+        return false;
+    }
+
+    if (!realPath.IsPermissionValid()) {
+        printf("The file path %s is invalid: permission is not valid.", temp.c_str());
         return false;
     }
     return true;
 }
+// 特别的，对--output的参数校验，不应校验其存在性，全面的校验在Create前完成
+// --output指定的参数是一个路径同时也是一个字符串，该路径未必存在，对不存在的路径校验权限、可读性是没有意义的
+// 但是长度、深度、非法字符是字符串层面的校验，与路径是否存在无关，可以直接执行
+// 至于软链接，非软链接才会通过校验，即使路径不存在（不存在的路径一定不会是软链接），也不妨碍通过校验
+bool CheckIsValidOutputPath(const std::string &path)
+{
+    if (path.empty()) {
+        printf("The file path is empty.");
+        return false;
+    }
 
+    Utility::Path inputPath = Utility::Path{path};
+    Utility::Path realPath = inputPath.Resolved();
+    std::string temp = realPath.ToString();
+    if (!realPath.IsValidLength()) {
+        printf("The length of file path %s exceeds the maximum length.", temp.c_str());
+        return false;
+    }
+    if (!realPath.IsValidDepth()) {
+        printf("The depth of file path %s exceeds the maximum depth.", temp.c_str());
+        return false;
+    }
+    if (realPath.IsSoftLink()) {
+        printf("The file path %s is invalid: soft link is not allowed.", temp.c_str());
+        return false;
+    }
+    if (!CheckStrIsStartsWithInvalidChar(temp.c_str())) {
+        printf("The path %s is invalid", temp.c_str());
+        return false;
+    }
+    if (realPath.Exists()) {
+        if (!realPath.IsReadable()) {
+            printf("The path %s is not readable.", temp.c_str());
+            return false;
+        }
+        if (!realPath.IsPermissionValid()) {
+            printf("The file path %s is invalid: permission is not valid.", temp.c_str());
+            return false;
+        }
+    }
+    return true;
+}
 }  // namespace Utility
