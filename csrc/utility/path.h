@@ -46,19 +46,28 @@ public:
     /// 校验路径是否存在
     bool Exists(void) const;
 
+    /// 校验路径是否可读
+    bool IsReadable(void) const;
+
     /// 校验文件名长度
     bool IsValidLength(void) const;
 
+    /// 校验路径深度
+    bool IsValidDepth(void) const;
+
     /// 校验软链接
     bool IsSoftLink(void) const;
+
+    /// 校验路径权限
+    bool IsPermissionValid(void) const;
 
 private:
     bool absolute_;
     std::vector<std::string> route_;
 };
 
-bool CheckIsValidPath(std::string &path);
-bool IsFileExist(std::string &path);
+bool CheckIsValidOutputPath(const std::string &path);
+bool CheckIsValidInputPath(const std::string &path);
 
 }  // namespace Utility
 

@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 #include <linux/limits.h>
 
+#include "file.h"
 #include "utility/path.h"
 
 using namespace Utility;
@@ -319,17 +320,15 @@ TEST(Path, check_not_soft_link_expect_return_false)
 TEST(Path, check_invalid_path_expect_return_false)
 {
     std::string pathStr;
-    ASSERT_FALSE(Utility::CheckIsValidPath(pathStr));
-
-    pathStr = "test.txt";
-    ASSERT_FALSE(Utility::IsFileExist(pathStr));
+    ASSERT_FALSE(Utility::CheckIsValidInputPath(pathStr));
 }
 
 TEST(Path, check_valid_path_expect_return_true)
 {
+    Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
     std::string pathStr = "test.txt";
     FILE *fp = fopen(pathStr.c_str(), "w");
     fclose(fp);
-    ASSERT_TRUE(Utility::CheckIsValidPath(pathStr) && Utility::IsFileExist(pathStr));
+    ASSERT_TRUE(Utility::CheckIsValidInputPath(pathStr));
     remove(pathStr.c_str());
 }

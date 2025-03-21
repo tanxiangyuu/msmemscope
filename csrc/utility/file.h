@@ -6,15 +6,19 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <vector>
-#include "log.h"
 #include "path.h"
 #include "config_info.h"
 #include "umask_guard.h"
+#include "ustring.h"
 
 namespace Utility {
     constexpr uint32_t DIRMOD = 0750;
+    constexpr uint32_t LEAST_OUTPUT_FILE_MODE = 0775;
     constexpr uint32_t DEFAULT_UMASK_FOR_CSV_FILE = 0177;
+    constexpr mode_t FULL_PERMISSIONS = 0777;
     extern std::string g_dirPath;
+    constexpr uint64_t MAX_INPUT_FILE_SIZE = 1UL << 33; // 8GB
+    constexpr mode_t WRITE_FILE_NOT_PERMITTED = S_IWGRP | S_IWOTH | S_IROTH | S_IXOTH;
 
     inline void SetDirPath(const std::string& dirPath, const std::string& defaultDirPath)
     {
@@ -30,14 +34,13 @@ namespace Utility {
     inline bool MakeDir(const std::string& dirPath)
     {
         if (dirPath.empty()) {
-            LOG_ERROR("Invalid directory path.");
+            printf("Invalid directory path.\n");
             return false;
         }
 
         if (access(dirPath.c_str(), F_OK) != -1) {
             return true;
         }
-        LOG_INFO("dir %s does not exist", dirPath.c_str());
         
         size_t pos = dirPath[0] != '/' ? 0 : 1;
         std::string tempPath = dirPath;
@@ -50,13 +53,13 @@ namespace Utility {
                 continue;
             }
             if (mkdir(partPath.c_str(), DIRMOD) != 0) {
-                LOG_ERROR("Cannot create dir %s", partPath.c_str());
+                printf("Cannot create dir %s.\n", partPath.c_str());
                 return false;
             }
         }
 
         if (mkdir(dirPath.c_str(), DIRMOD) != 0) {
-            LOG_ERROR("Cannot create dir %s", dirPath.c_str());
+            printf("Cannot create dir %s.\n", dirPath.c_str());
             return false;
         }
         return true;
@@ -65,34 +68,43 @@ namespace Utility {
     inline bool Exist(const std::string &path)
     {
         if (path.empty()) {
-            LOG_INFO("The file path is empty.");
+            printf("The file path is empty.");
             return false;
         }
         return access(path.c_str(), F_OK) == 0;
     }
 
     // 多线程情况下调用，需加锁保护
-    inline bool CreateCsvFile(FILE **filefp, std::string dirPath, std::string fileName, std::string headers)
+    bool CreateCsvFile(FILE **filefp, std::string dirPath, std::string fileName, std::string headers);
+
+    // 输入+输出文件专属校验：文件大小
+    inline bool IsFileSizeSafe(const std::string& path)
     {
-        if (!MakeDir(dirPath)) {
+        struct stat buffer;
+        if (stat(path.c_str(), &buffer) != 0) {
+            printf("Error getting file size for %s:", path.c_str());
             return false;
         }
-        if (*filefp == nullptr) {
-            fileName = fileName + Utility::GetDateStr() + ".csv";
-            std::string filePath = dirPath + "/" + fileName;
-            UmaskGuard guard{DEFAULT_UMASK_FOR_CSV_FILE};
-            FILE* fp = fopen(filePath.c_str(), "a");
-            if (fp != nullptr) {
-                std::cout << "[msleaks] Info: create file " << filePath << "." << std::endl;
-                fprintf(fp, headers.c_str());
-                *filefp = fp;
-            } else {
-                LOG_ERROR("open file %s error", filePath.c_str());
-                return false;
-            }
+
+        if (!S_ISREG(buffer.st_mode)) {
+            printf("File %s is not a regular file.", path.c_str());
+            return false;
+        }
+
+        if (buffer.st_size > MAX_INPUT_FILE_SIZE) {
+            printf("File %s exceeds maximum size (%d bytes).", path.c_str(), MAX_INPUT_FILE_SIZE);
+            return false;
         }
         return true;
     }
+
+    /// 输出文件校验
+    bool CheckFileBeforeCreate(const std::string &path);
+
+    /// 创建文件
+    FILE* CreateFileWithUmask(const std::string &path, const std::string &mode, mode_t mask);
+    FILE* CreateFile(const std::string &dir, const std::string &name, mode_t mask);
+
 }
 
 #endif

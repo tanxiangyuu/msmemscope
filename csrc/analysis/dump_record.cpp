@@ -10,7 +10,6 @@
 #include "config_info.h"
 
 namespace Leaks {
-constexpr uint32_t DIRMOD = 0777;
 
 DumpRecord& DumpRecord::GetInstance()
 {

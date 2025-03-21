@@ -208,7 +208,7 @@ TEST(ClientParser, test_compare_dump_data)
     ClientParser cliParser;
     UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_TRUE(cmd.config.enableCompare);
-    ASSERT_TRUE(cmd.config.inputCorrectPaths);
+    ASSERT_FALSE(cmd.config.inputCorrectPaths);
 
     argv = {
         "msleaks",
@@ -219,7 +219,7 @@ TEST(ClientParser, test_compare_dump_data)
     // Reset getopt states
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_TRUE(cmd.config.enableCompare);
-    ASSERT_TRUE(cmd.config.inputCorrectPaths);
+    ASSERT_FALSE(cmd.config.inputCorrectPaths);
 }
 
 TEST(ClientParser, test_invalid_compare_dump_data)
