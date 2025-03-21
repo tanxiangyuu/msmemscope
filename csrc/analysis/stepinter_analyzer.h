@@ -18,7 +18,6 @@
 #include "framework/config_info.h"
 
 namespace Leaks {
-constexpr uint32_t DIRMOD = 0777;
 constexpr uint32_t KSTEPSIZE = 2;
 constexpr uint32_t MAXLOOPTIME = 60 * 1000000; // 最大处理时间1分钟
 constexpr double MICROSEC = 1000000.0;

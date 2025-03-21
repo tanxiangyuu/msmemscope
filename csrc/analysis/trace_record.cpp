@@ -109,28 +109,18 @@ void TraceRecord::SetDirPath()
     std::lock_guard<std::mutex> lock(fileMutex_);
     dirPath_ = Utility::g_dirPath + "/" + std::string(TRACE_FILE);
 }
-
 bool TraceRecord::CreateFileByDevice(const Device &device)
 {
     if (traceFiles_[device].fp != nullptr) {
         return true;
     }
-
-    if (!Utility::MakeDir(dirPath_)) {
-        return false;
-    }
-
     std::lock_guard<std::mutex> lock(fileMutex_);
 
     std::string fileHead = FormatDeviceName(device);
-    std::string filePath = dirPath_ + "/" + fileHead + "_trace_" + Utility::GetDateStr() + ".json";
-    if (!Utility::CheckIsValidPath(filePath) || !Utility::IsFileExist(dirPath_)) {
-        LOG_ERROR("Device %s invalid file path %s", fileHead.c_str(), filePath.c_str());
-        return false;
-    }
+    std::string fileName = fileHead + "_trace_" + Utility::GetDateStr() + ".json";
+    std::string filePath = dirPath_ + "/" + fileName;
 
-    Utility::UmaskGuard guard{DEFAULT_UMASK_FOR_JSON_FILE};
-    FILE* fp = fopen(filePath.c_str(), "a");
+    FILE* fp = Utility::CreateFile(dirPath_, fileName, DEFAULT_UMASK_FOR_JSON_FILE);
     if (fp != nullptr) {
         std::cout << "[msleaks] Info: create file " << filePath.c_str() << "." << std::endl;
         fprintf(fp, "[\n");
