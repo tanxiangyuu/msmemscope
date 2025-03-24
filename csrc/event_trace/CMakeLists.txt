@@ -1,6 +1,6 @@
 set(FUNC_INJECTION_CORE_DIR ${FUNC_INJECTION_DIR}/host_injection/core)
 
-file(GLOB SOURCE "*.cpp"
+file(GLOB SOURCE "*.cpp, *.h"
 ${FRAMEWORK_INC_DIR}/client_process.cpp
 ${FUNC_INJECTION_CORE_DIR}/Communication.cpp
 ${FUNC_INJECTION_CORE_DIR}/DomainSocket.cpp
