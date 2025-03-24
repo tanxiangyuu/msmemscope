@@ -15,31 +15,35 @@ namespace Utility {
         std::string users;
 
         if (!curPath.Exists()) {
-            printf("The path %s not exists", curPathStr.c_str());
+            std::cout << "[msleaks] Error: The path " << curPathStr << " do not exist." << std::endl;
             return false;
         }
         if (!CheckStrIsStartsWithInvalidChar(curPathStr.c_str())) {
-            printf("The path %s is invalid", curPathStr.c_str());
+            std::cout << "[msleaks] Error: The path " << curPathStr << " is invalid." << std::endl;
             return false;
         }
         if (!curPath.IsReadable()) {
-            printf("The file path %s is not readable.", curPathStr.c_str());
+            std::cout << "[msleaks] Error: The file path " << curPathStr << " is not readable." << std::endl;
             return false;
         }
         if (!curPath.IsValidLength()) {
-            printf("The length of file path %s exceeds the maximum length.", curPathStr.c_str());
+            std::cout << "[msleaks] Error: The length of file path " << curPathStr
+                      << " exceeds the maximum length." << std::endl;
             return false;
         }
         if (!curPath.IsValidDepth()) {
-            printf("The depth of file path %s exceeds the maximum depth.", curPathStr.c_str());
+            std::cout << "[msleaks] Error: The depth of file path " << curPathStr
+                      << " exceeds the maximum depth." << std::endl;
             return false;
         }
         if (curPath.IsSoftLink()) {
-            printf("The file path %s is invalid: soft link is not allowed.", curPathStr.c_str());
+            std::cout << "[msleaks] Error: The file path " << curPathStr
+                      << " is invalid: soft link is not allowed." << std::endl;
             return false;
         }
         if (!curPath.IsPermissionValid()) {
-            printf("The file path %s is invalid: permission is not valid.", curPathStr.c_str());
+            std::cout << "[msleaks] Error: The file path " << curPathStr
+                      << " is invalid: permission is not valid." << std::endl;
             return false;
         }
         return true;
@@ -78,7 +82,7 @@ namespace Utility {
                 fprintf(fp, headers.c_str());
                 *filefp = fp;
             } else {
-                printf("open file %s error", filePath.c_str());
+                std::cout << "[msleaks] Error: open file " << filePath << " failed." << std::endl;
                 return false;
             }
         }

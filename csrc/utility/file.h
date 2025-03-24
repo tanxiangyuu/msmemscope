@@ -5,6 +5,7 @@
 
 #include <unistd.h>
 #include <sys/stat.h>
+#include <iostream>
 #include <vector>
 #include "path.h"
 #include "config_info.h"
@@ -13,12 +14,9 @@
 
 namespace Utility {
     constexpr uint32_t DIRMOD = 0750;
-    constexpr uint32_t LEAST_OUTPUT_FILE_MODE = 0775;
     constexpr uint32_t DEFAULT_UMASK_FOR_CSV_FILE = 0177;
-    constexpr mode_t FULL_PERMISSIONS = 0777;
     extern std::string g_dirPath;
     constexpr uint64_t MAX_INPUT_FILE_SIZE = 1UL << 33; // 8GB
-    constexpr mode_t WRITE_FILE_NOT_PERMITTED = S_IWGRP | S_IWOTH | S_IROTH | S_IXOTH;
 
     inline void SetDirPath(const std::string& dirPath, const std::string& defaultDirPath)
     {
@@ -34,7 +32,7 @@ namespace Utility {
     inline bool MakeDir(const std::string& dirPath)
     {
         if (dirPath.empty()) {
-            printf("Invalid directory path.\n");
+            std::cout << "[msleaks] Error: The directory path is empty." << std::endl;
             return false;
         }
 
@@ -53,13 +51,13 @@ namespace Utility {
                 continue;
             }
             if (mkdir(partPath.c_str(), DIRMOD) != 0) {
-                printf("Cannot create dir %s.\n", partPath.c_str());
+                std::cout << "[msleaks] Error: Cannot create dir " << partPath << " ." << std::endl;
                 return false;
             }
         }
 
         if (mkdir(dirPath.c_str(), DIRMOD) != 0) {
-            printf("Cannot create dir %s.\n", dirPath.c_str());
+            std::cout << "[msleaks] Error: Cannot create dir " << dirPath << " ." << std::endl;
             return false;
         }
         return true;
@@ -68,7 +66,7 @@ namespace Utility {
     inline bool Exist(const std::string &path)
     {
         if (path.empty()) {
-            printf("The file path is empty.");
+            std::cout << "[msleaks] Error: The file path is empty." << std::endl;
             return false;
         }
         return access(path.c_str(), F_OK) == 0;
@@ -82,17 +80,18 @@ namespace Utility {
     {
         struct stat buffer;
         if (stat(path.c_str(), &buffer) != 0) {
-            printf("Error getting file size for %s:", path.c_str());
+            std::cout << "[msleaks] Error: Error getting file size for " << path << "." << std::endl;
             return false;
         }
 
         if (!S_ISREG(buffer.st_mode)) {
-            printf("File %s is not a regular file.", path.c_str());
+            std::cout << "[msleaks] Error: File " << path << " is not a regular file." << std::endl;
             return false;
         }
 
         if (buffer.st_size > MAX_INPUT_FILE_SIZE) {
-            printf("File %s exceeds maximum size (%d bytes).", path.c_str(), MAX_INPUT_FILE_SIZE);
+            std::cout << "[msleaks] Error: File " << path << " exceeds maximum size ("
+                      << MAX_INPUT_FILE_SIZE << " bytes)." << std::endl;
             return false;
         }
         return true;
