@@ -3,6 +3,7 @@
 #include "path.h"
 
 #include <algorithm>
+#include <iostream>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <linux/limits.h>
@@ -201,24 +202,24 @@ bool Path::IsPermissionValid(void) const
 {
     struct stat st;
     if (stat(this->ToString().c_str(), &st) != 0) {
-        printf("Failed to stat path: %s", this->ToString().c_str());
+        std::cout << "[msleaks] Error: Failed to stat path: " << this->ToString() << " ." << std::endl;
         return false;
     }
 
     // 检查属主是否为 root 或当前用户
     uid_t currentUid = geteuid();
     if (st.st_uid != 0 && st.st_uid != currentUid) {
-        printf("File owner is not root or current user.");
+        std::cout << "[msleaks] Error: File " << this->ToString() << " owner is not root or current user." << std::endl;
         return false;
     }
     // root用户不强制要求权限，仅对风险权限进行告警
     if (currentUid == 0) {
-        printf("Current user is root, skip permission check.");
+        std::cout << "[msleaks] Warn: Current user is root, skip permission check." << std::endl;
         return true;
     }
     // 检查 group 和 other 是否有写权限
     if ((st.st_mode & S_IWGRP) || (st.st_mode & S_IWOTH)) {
-        printf("Group or others have write permission.");
+        std::cout << "[msleaks] Error: Permission is not valid: Group or others have write permission." << std::endl;
         return false;
     }
 
@@ -229,7 +230,7 @@ bool Path::IsPermissionValid(void) const
 bool CheckIsValidInputPath(const std::string &path)
 {
     if (path.empty()) {
-        printf("The file path is empty.");
+        std::cout << "[msleaks] Error: The file path is empty." << std::endl;
         return false;
     }
 
@@ -238,28 +239,27 @@ bool CheckIsValidInputPath(const std::string &path)
     std::string temp = realPath.ToString();
 
     if (!realPath.Exists()) {
-        printf("The path %s not exists", temp.c_str());
+        std::cout << "[msleaks] Error: The file path " << temp << " do not exist." << std::endl;
         return false;
     }
     if (!realPath.IsReadable()) {
-        printf("The file %s is not readable.", temp.c_str());
+        std::cout << "[msleaks] Error: The path " << temp << " is not readable." << std::endl;
         return false;
     }
     if (!realPath.IsValidLength()) {
-        printf("The length of file path %s exceeds the maximum length.", temp.c_str());
+        std::cout << "[msleaks] Error: The length of path " << temp << " exceeds the maximum length." << std::endl;
         return false;
     }
     if (!realPath.IsValidDepth()) {
-        printf("The depth of file path %s exceeds the maximum depth.", temp.c_str());
+        std::cout << "[msleaks] Error: The depth of path " << temp << " exceeds the maximum depth." << std::endl;
         return false;
     }
     if (realPath.IsSoftLink()) {
-        printf("The file path %s is invalid: soft link is not allowed.", temp.c_str());
+        std::cout << "[msleaks] Error: The path " << temp << " is invalid: soft link is not allowed." << std::endl;
         return false;
     }
-
     if (!realPath.IsPermissionValid()) {
-        printf("The file path %s is invalid: permission is not valid.", temp.c_str());
+        std::cout << "[msleaks] Error: The path " << temp << " is invalid: permission is not valid." << std::endl;
         return false;
     }
     return true;
@@ -271,36 +271,37 @@ bool CheckIsValidInputPath(const std::string &path)
 bool CheckIsValidOutputPath(const std::string &path)
 {
     if (path.empty()) {
-        printf("The file path is empty.");
+        std::cout << "[msleaks] Error: The file path is empty." << std::endl;
         return false;
     }
 
     Utility::Path inputPath = Utility::Path{path};
     Utility::Path realPath = inputPath.Resolved();
     std::string temp = realPath.ToString();
+    if (!CheckStrIsStartsWithInvalidChar(temp.c_str())) {
+        std::cout << "[msleaks] Error: The path " << temp << " is invalid." << std::endl;
+        return false;
+    }
     if (!realPath.IsValidLength()) {
-        printf("The length of file path %s exceeds the maximum length.", temp.c_str());
+        std::cout << "[msleaks] Error: The length of path " << temp << " exceeds the maximum length." << std::endl;
         return false;
     }
     if (!realPath.IsValidDepth()) {
-        printf("The depth of file path %s exceeds the maximum depth.", temp.c_str());
+        std::cout << "[msleaks] Error: The depth of path " << temp << " exceeds the maximum depth." << std::endl;
         return false;
     }
     if (realPath.IsSoftLink()) {
-        printf("The file path %s is invalid: soft link is not allowed.", temp.c_str());
-        return false;
-    }
-    if (!CheckStrIsStartsWithInvalidChar(temp.c_str())) {
-        printf("The path %s is invalid", temp.c_str());
+        std::cout << "[msleaks] Error: The path " << temp << " is invalid: soft link is not allowed." << std::endl;
         return false;
     }
     if (realPath.Exists()) {
         if (!realPath.IsReadable()) {
-            printf("The path %s is not readable.", temp.c_str());
+            std::cout << "[msleaks] Error: The path " << temp << " is not readable." << std::endl;
             return false;
         }
         if (!realPath.IsPermissionValid()) {
-            printf("The file path %s is invalid: permission is not valid.", temp.c_str());
+            std::cout << "[msleaks] Error: The path " << temp
+                      << " is invalid: permission is not valid." << std::endl;
             return false;
         }
     }
