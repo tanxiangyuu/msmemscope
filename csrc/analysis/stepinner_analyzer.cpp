@@ -6,6 +6,7 @@
 #include <algorithm>
 #include "mstx_analyzer.h"
 #include "utility/log.h"
+#include "utility/utils.h"
 #include "config_info.h"
 
 namespace Leaks {
@@ -379,7 +380,8 @@ void StepInnerAnalyzer::ReceiveMstxMsg(const MstxRecord &mstxRecord)
             pair.second.kernelIndex,
             pair.first.leakStepId);
         leakInfoCounts++;
-        leakSizeSums += pair.second.leakSize;
+        long double leakTempSize = static_cast<long double>(pair.second.leakSize);
+        leakSizeSums = Utility::GetAddResult(leakTempSize, leakSizeSums);
     }
     std::cout << "====== SUMMARY: " << leakSizeSums / BYTE_TO_MB << " Mb(s) leaked in " <<
         leakInfoCounts << " allocation(s) ======" << std::endl;
