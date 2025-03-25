@@ -79,7 +79,7 @@ namespace Utility {
             FILE* fp = CreateFile(dirPath, fileName, DEFAULT_UMASK_FOR_CSV_FILE);
             if (fp != nullptr) {
                 std::cout << "[msleaks] Info: create file " << filePath << "." << std::endl;
-                fprintf(fp, headers.c_str());
+                fprintf(fp, "%s", headers.c_str());
                 *filefp = fp;
             } else {
                 std::cout << "[msleaks] Error: open file " << filePath << " failed." << std::endl;
