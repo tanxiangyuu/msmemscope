@@ -75,12 +75,27 @@ namespace Utility {
     // 多线程情况下调用，需加锁保护
     bool CreateCsvFile(FILE **filefp, std::string dirPath, std::string fileName, std::string headers);
 
+    // 常规文件校验
+    inline bool IsRegFile(const std::string& path)
+    {
+        struct stat buffer;
+        if (lstat(path.c_str(), &buffer) != 0) {
+            std::cout << "[msleaks] Error: Error getting file state for " << path << "." << std::endl;
+            return false;
+        }
+
+        if (!S_ISREG(buffer.st_mode)) {
+            std::cout << "[msleaks] Error: File " << path << " is not a regular file." << std::endl;
+            return false;
+        }
+        return true;
+    }
     // 输入+输出文件专属校验：文件大小
     inline bool IsFileSizeSafe(const std::string& path)
     {
         struct stat buffer;
-        if (stat(path.c_str(), &buffer) != 0) {
-            std::cout << "[msleaks] Error: Error getting file size for " << path << "." << std::endl;
+        if (lstat(path.c_str(), &buffer) != 0) {
+            std::cout << "[msleaks] Error: Error getting file state for " << path << "." << std::endl;
             return false;
         }
 
@@ -89,7 +104,7 @@ namespace Utility {
             return false;
         }
 
-        if (buffer.st_size > MAX_INPUT_FILE_SIZE) {
+        if (buffer.st_size > static_cast<int64_t>(MAX_INPUT_FILE_SIZE)) {
             std::cout << "[msleaks] Error: File " << path << " exceeds maximum size ("
                       << MAX_INPUT_FILE_SIZE << " bytes)." << std::endl;
             return false;
