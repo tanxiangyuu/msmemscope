@@ -83,7 +83,7 @@ mstxMemHeapHandle_t MstxManager::ReportHeapRegister(mstxDomainHandle_t domain, m
         reinterpret_cast<const mstxMemVirtualRangeDesc_t *>(desc->typeSpecificDesc);
     int64_t memSize = rangeDesc->size;
     int devId = rangeDesc->deviceId;
-    memUsageMp_[devId].totalReserved = Utility::GetAddResult(memUsageMp_[devId].totalReserved, memSize);
+    memUsageMp_[devId].totalReserved = memSize;
     heapHandleMp_[rangeDesc->ptr] = *rangeDesc;
     return nullptr;
 }
