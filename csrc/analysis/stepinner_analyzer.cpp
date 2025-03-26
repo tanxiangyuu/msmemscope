@@ -4,6 +4,7 @@
 #include <cstring>
 #include <iostream>
 #include <algorithm>
+#include <iomanip>
 #include "mstx_analyzer.h"
 #include "utility/log.h"
 #include "utility/utils.h"
@@ -390,17 +391,33 @@ void StepInnerAnalyzer::ReceiveMstxMsg(const MstxRecord &mstxRecord)
 
 void StepInnerAnalyzer::ReportGap(const DeviceId &deviceId)
 {
+    // 打屏为保持格式统一需调整小数精度，打屏结束后还原
+    int currentPrecision = std::cout.precision();
+    int outputPrecision = 4;
+    int outputWidth = 25;
     std::cout << "======= Memory Gap Analysis of Device " << deviceId << " =======" << std::endl;
-    std::cout << "\tMinAlloc/MaxAlloc(%)\tMinAllocMem(MB)\tStepId" << std::endl;
-    std::cout << "minGap\t"
-              << npuMemUsages_[deviceId].minGapInfo.minMaxAllocRatio * PERCENT_SCALE_FACTOR << "\t\t\t"
-              << npuMemUsages_[deviceId].minGapInfo.minAllocMemory / static_cast<double>(BYTE_TO_MB) << "\t\t"
+    std::cout << "\t"
+              << std::setw(outputWidth) << std::left << "MinAlloc/MaxAlloc(%)"
+              << std::setw(outputWidth) << std::left << "MinAllocMem(MB)"
+              << std::setw(outputWidth) << std::left << "StepId"
+              << std::endl;
+    std::cout << "MinGap\t"
+              << std::fixed << std::setprecision(outputPrecision)
+              << std::setw(outputWidth) << std::left
+              << npuMemUsages_[deviceId].minGapInfo.minMaxAllocRatio * PERCENT_SCALE_FACTOR
+              << std::setw(outputWidth) << std::left
+              << npuMemUsages_[deviceId].minGapInfo.minAllocMemory / static_cast<double>(BYTE_TO_MB)
+              << std::setw(outputWidth) << std::left
               << npuMemUsages_[deviceId].minGapInfo.gapStepId
               << std::endl;
-    std::cout << "maxGap\t"
-              << npuMemUsages_[deviceId].maxGapInfo.minMaxAllocRatio * PERCENT_SCALE_FACTOR << "\t\t\t"
-              << npuMemUsages_[deviceId].maxGapInfo.minAllocMemory / static_cast<double>(BYTE_TO_MB) << "\t\t"
+    std::cout << "MaxGap\t"
+              << std::setw(outputWidth) << std::left
+              << npuMemUsages_[deviceId].maxGapInfo.minMaxAllocRatio * PERCENT_SCALE_FACTOR
+              << std::setw(outputWidth) << std::left
+              << npuMemUsages_[deviceId].maxGapInfo.minAllocMemory / static_cast<double>(BYTE_TO_MB)
+              << std::setw(outputWidth) << std::left
               << npuMemUsages_[deviceId].maxGapInfo.gapStepId
+              << std::setprecision(currentPrecision)
               << std::endl;
 }
 
