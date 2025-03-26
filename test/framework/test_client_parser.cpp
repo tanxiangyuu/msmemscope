@@ -137,7 +137,7 @@ TEST(ClientParser, test_parse_select_steps)
         "msleaks",
         "--steps=2,3,123"
     };
- 
+
     /// Reset getopt states
     optind = 1;
     ClientParser cliParser;
@@ -151,12 +151,21 @@ TEST(ClientParser, test_parse_select_steps)
         "msleaks",
         "--steps=2，3,234"
     };
- 
+
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_EQ(cmd.config.stepList.stepCount, 3);
     ASSERT_EQ(cmd.config.stepList.stepIdList[0], 2);
     ASSERT_EQ(cmd.config.stepList.stepIdList[1], 3);
     ASSERT_EQ(cmd.config.stepList.stepIdList[2], 234);
+
+    argv = {
+        "msleaks",
+        "--steps=4294967295"
+    };
+
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.stepList.stepCount, 1);
+    ASSERT_EQ(cmd.config.stepList.stepIdList[0], 4294967295);
 }
 
 TEST(ClientParser, test_invalid_select_steps)
@@ -165,7 +174,7 @@ TEST(ClientParser, test_invalid_select_steps)
         "msleaks",
         "--steps=-1,0,3"
     };
- 
+
     /// Reset getopt states
     optind = 1;
     ClientParser cliParser;
@@ -176,7 +185,23 @@ TEST(ClientParser, test_invalid_select_steps)
         "msleaks",
         "--steps=2:3.4"
     };
- 
+
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.printHelpInfo);
+
+    argv = {
+        "msleaks",
+        "--steps=4294967296"
+    };
+
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.printHelpInfo);
+
+    argv = {
+        "msleaks",
+        "--steps=429496729500"
+    };
+
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_TRUE(cmd.printHelpInfo);
 }

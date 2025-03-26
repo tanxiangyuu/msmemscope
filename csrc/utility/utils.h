@@ -108,6 +108,23 @@ namespace Utility {
         return true;
     }
 
+    inline bool StrToUint32(uint32_t &dest, const std::string &str)
+    {
+        if (str.empty()) {
+            return false;
+        }
+        size_t pos = 0;
+        try {
+            unsigned long value = std::stoul(str, &pos);
+            if (pos == str.size() && value <= std::numeric_limits<uint32_t>::max()) {
+                dest = static_cast<uint32_t>(value);
+                return true;
+            }
+        } catch (...) {
+            return false;
+        }
+        return false;
+    }
 }
 
 #endif
