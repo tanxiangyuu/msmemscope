@@ -82,8 +82,12 @@ void Log::Printf(const std::string &format, LogLv lv, const std::string fileName
     if (LogSize() + static_cast<int64_t>(f.size()) > MAX_LOG_FILE_SIZE) {
         RotateLogFile();
     }
-    fprintf(fp_, f.c_str(), args...);
-    fflush(fp_);
+    if (fp_ != nullptr) {
+        fprintf(fp_, f.c_str(), args...);
+        fflush(fp_);
+    } else {
+        std::cout << "[msleaks] Error: open file " << logFilePath_ << " failed." << std::endl;
+    }
 }
 
 template <typename... Args>
@@ -102,8 +106,12 @@ void Log::PrintClientLog(const std::string &format, const Args &...args)
     if (LogSize() + static_cast<int64_t>(f.size()) > MAX_LOG_FILE_SIZE) {
         RotateLogFile();
     }
-    fprintf(fp_, f.c_str(), args...);
-    fflush(fp_);
+    if (fp_ != nullptr) {
+        fprintf(fp_, f.c_str(), args...);
+        fflush(fp_);
+    } else {
+        std::cout << "[msleaks] Error: open file " << logFilePath_ << " failed." << std::endl;
+    }
 }
 
 inline std::string GetLogSourceFileName(const std::string &path)

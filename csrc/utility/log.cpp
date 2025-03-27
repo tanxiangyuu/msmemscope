@@ -46,6 +46,7 @@ bool Log::CreateLogFile()
         std::string fileName = "msleaks_" + GetDateStr() + ".log";
         logFilePath_ = "./" + fileName;
         if ((fp_ = CreateFile(".", fileName, DEFAULT_UMASK_FOR_LOG_FILE)) == nullptr) {
+            std::cout << "[msleaks] Error: Create log file failed: " << fileName << std::endl;
             return false;
         }
         std::cout << "[msleaks] Info: logging into file " << fileName << std::endl;
