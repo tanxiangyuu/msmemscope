@@ -11,10 +11,9 @@
 
 namespace Utility {
 
-constexpr int16_t LOG_BUF_SIZE = 32;
+constexpr uint16_t LOG_BUF_SIZE = 32;
 constexpr uint32_t DEFAULT_UMASK_FOR_LOG_FILE = 0177;
-constexpr int64_t MAX_LOG_FILE_SIZE = 100L * 1024L * 1024L; // 100M
-constexpr long MAX_LOG_FILE_NUMBER = 10L;
+constexpr int16_t DOUBLE = 2;
 
 enum class LogLv { DEBUG = 0, INFO, WARN, ERROR, COUNT };
 
@@ -59,11 +58,10 @@ private:
     }
 
 private:
-    void RotateLogFile();
     LogLv lv_{LogLv::WARN};
     FILE *fp_{nullptr};
     mutable std::mutex mtx_;
-    long rotateCount_ = 1;
+    int64_t maxLogSize_ = 100L * 1024L * 1024L; // 100M
     std::string logFilePath_;
 };
 
@@ -79,8 +77,9 @@ void Log::Printf(const std::string &format, LogLv lv, const std::string fileName
         return;
     }
     std::string f = AddPrefixInfo(format, lv, fileName, line).append("\n");
-    if (LogSize() + static_cast<int64_t>(f.size()) > MAX_LOG_FILE_SIZE) {
-        RotateLogFile();
+    if (LogSize() + static_cast<int64_t>(f.size()) > maxLogSize_) {
+        std::cout << "[msleaks] Warn: Log file size is too large, please check: " << logFilePath_ << std::endl;
+        maxLogSize_ *= DOUBLE;
     }
     if (fp_ != nullptr) {
         fprintf(fp_, f.c_str(), args...);
@@ -103,8 +102,9 @@ void Log::PrintClientLog(const std::string &format, const Args &...args)
     std::tm *tm = std::localtime(&time);
     std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", tm);
     std::string f = std::string(std::string(buf) + " " + format).append("\n");
-    if (LogSize() + static_cast<int64_t>(f.size()) > MAX_LOG_FILE_SIZE) {
-        RotateLogFile();
+    if (LogSize() + static_cast<int64_t>(f.size()) > maxLogSize_) {
+        std::cout << "[msleaks] Warn: Log file size is too large, please check: " << logFilePath_ << std::endl;
+        maxLogSize_ *= DOUBLE;
     }
     if (fp_ != nullptr) {
         fprintf(fp_, f.c_str(), args...);
