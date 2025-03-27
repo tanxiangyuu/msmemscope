@@ -30,6 +30,7 @@ ExecCmd::ExecCmd(std::vector<std::string> const &args) : path_{}, argc_{0}, args
     if (absPath) {
         path_ = std::string(absPath);
         free(absPath);
+        absPath = nullptr;
     } else {
         path_ = args[0];
     }
