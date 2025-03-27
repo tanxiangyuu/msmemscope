@@ -63,6 +63,7 @@ private:
 
     MstxStepInfo stepInfo_;
     std::mutex mutex_;
+    std::mutex threadMutex_;
 
     AnalysisConfig config_;
     std::vector<std::thread> parseThreads_;
@@ -70,6 +71,7 @@ private:
     std::unordered_map<int32_t, uint64_t> mstxRangeIdTables_{};
 
     std::atomic<bool> isReceiveServerInfo_;
+    std::map<const void*, std::string> hdlKernelNameMap_;
 };
 
 MemOpSpace GetMemOpSpace(unsigned long long flag);
