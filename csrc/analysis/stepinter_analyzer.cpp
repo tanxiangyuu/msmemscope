@@ -153,7 +153,11 @@ bool StepInterAnalyzer::WriteCompareDataToCsv()
         std::reverse(compareOut_[deviceId].begin(), compareOut_[deviceId].end());
 
         for (const auto& str : compareOut_[deviceId]) {
-            fprintf(compareFile_, "%s\n", str.c_str());
+            int fpRes = fprintf(compareFile_, "%s\n", str.c_str());
+            if (fpRes < 0) {
+                std::cout << "[msleaks] Error: Fail to write data to csv file, errno:" << fpRes << std::endl;
+                return false;
+            }
         }
     }
 
