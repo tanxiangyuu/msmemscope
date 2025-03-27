@@ -417,6 +417,7 @@ TraceRecord::~TraceRecord()
                 std::cerr << "SetMetadataEvent fail, " << ex.what();
             }
             fclose(fp);
+            fp = nullptr;
         }
     }
 }
