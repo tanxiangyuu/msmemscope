@@ -107,9 +107,13 @@ bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRec
                      || memRecord.devType == DeviceType::CPU ?
                      "host" : std::to_string(memRecord.devId);
     }
-    fprintf(leaksDataFile_, "%lu,%lu,%s,N/A,%lu,%lu,%s,%lu,%llu,%lu,%lu,N/A,N/A\n",
-            memRecord.recordIndex, memRecord.timeStamp, memOp.c_str(), memRecord.pid, memRecord.tid,
-            deviceType.c_str(), memRecord.kernelIndex, memRecord.flag, memRecord.addr, currentSize);
+    int fpRes = fprintf(leaksDataFile_, "%lu,%lu,%s,N/A,%lu,%lu,%s,%lu,%llu,%lu,%lu,N/A,N/A\n",
+                        memRecord.recordIndex, memRecord.timeStamp, memOp.c_str(), memRecord.pid, memRecord.tid,
+                        deviceType.c_str(), memRecord.kernelIndex, memRecord.flag, memRecord.addr, currentSize);
+    if (fpRes < 0) {
+        std::cout << "[msleaks] Error: Fail to write data to csv file, errno:" << fpRes << std::endl;
+        return false;
+    }
     return true;
 }
 bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchRecord &kernelLaunchRecord)
@@ -124,9 +128,14 @@ bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchReco
     } else {
         name = kernelLaunchRecord.kernelName;
     }
-    fprintf(leaksDataFile_, "%lu,%lu,kernelLaunch,%s,%lu,%lu,%d,%lu,N/A,N/A,N/A,N/A,N/A\n",
-            kernelLaunchRecord.recordIndex, kernelLaunchRecord.timeStamp, name.c_str(), kernelLaunchRecord.pid,
-            kernelLaunchRecord.tid, kernelLaunchRecord.devId, kernelLaunchRecord.kernelLaunchIndex);
+    int fpRes = fprintf(leaksDataFile_, "%lu,%lu,kernelLaunch,%s,%lu,%lu,%d,%lu,N/A,N/A,N/A,N/A,N/A\n",
+                        kernelLaunchRecord.recordIndex, kernelLaunchRecord.timeStamp,
+                        name.c_str(), kernelLaunchRecord.pid,
+                        kernelLaunchRecord.tid, kernelLaunchRecord.devId, kernelLaunchRecord.kernelLaunchIndex);
+    if (fpRes < 0) {
+        std::cout << "[msleaks] Error: Fail to write data to csv file, errno:" << fpRes << std::endl;
+        return false;
+    }
     return true;
 }
 
@@ -155,9 +164,13 @@ bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRe
             break;
         }
     }
-    fprintf(leaksDataFile_, "%lu,%lu,mstx,%s,%lu,%lu,%d,N/A,N/A,N/A,N/A,N/A,N/A\n",
-            mstxRecord.recordIndex, mstxRecord.timeStamp, name.c_str(), mstxRecord.pid,
-            mstxRecord.tid, mstxRecord.devId);
+    int fpRes = fprintf(leaksDataFile_, "%lu,%lu,mstx,%s,%lu,%lu,%d,N/A,N/A,N/A,N/A,N/A,N/A\n",
+                        mstxRecord.recordIndex, mstxRecord.timeStamp, name.c_str(), mstxRecord.pid,
+                        mstxRecord.tid, mstxRecord.devId);
+    if (fpRes < 0) {
+        std::cout << "[msleaks] Error: Fail to write data to csv file, errno:" << fpRes << std::endl;
+        return false;
+    }
     return true;
 }
 
@@ -179,8 +192,13 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
             name = "N/A";
             break;
     }
-    fprintf(leaksDataFile_, "%lu,%lu,aclItfRecord,%s,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,N/A\n",
-            aclItfRecord.recordIndex, aclItfRecord.timeStamp, name.c_str(), aclItfRecord.pid, aclItfRecord.tid);
+    int fpRes = fprintf(leaksDataFile_, "%lu,%lu,aclItfRecord,%s,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,N/A\n",
+                        aclItfRecord.recordIndex, aclItfRecord.timeStamp, name.c_str(), aclItfRecord.pid,
+                        aclItfRecord.tid);
+    if (fpRes < 0) {
+        std::cout << "[msleaks] Error: Fail to write data to csv file, errno:" << fpRes << std::endl;
+        return false;
+    }
     return true;
 }
 bool DumpRecord::DumpTorchData(const ClientId &clientId, const TorchNpuRecord &torchNpuRecord)
@@ -191,10 +209,14 @@ bool DumpRecord::DumpTorchData(const ClientId &clientId, const TorchNpuRecord &t
     }
     MemoryUsage memoryUsage = torchNpuRecord.memoryUsage;
     std::string eventType = memoryUsage.allocSize >= 0 ? "malloc" : "free";
-    fprintf(leaksDataFile_, "%lu,%lu,pytorch,%s,%lu,%lu,%d,%lu,N/A,%ld,%ld,%ld,%ld\n",
-            torchNpuRecord.recordIndex, torchNpuRecord.timeStamp, eventType.c_str(), torchNpuRecord.pid,
-            torchNpuRecord.tid, torchNpuRecord.devId, torchNpuRecord.kernelIndex, memoryUsage.ptr,
-            memoryUsage.allocSize, memoryUsage.totalAllocated, memoryUsage.totalReserved);
+    int fpRes = fprintf(leaksDataFile_, "%lu,%lu,pytorch,%s,%lu,%lu,%d,%lu,N/A,%ld,%ld,%ld,%ld\n",
+                        torchNpuRecord.recordIndex, torchNpuRecord.timeStamp, eventType.c_str(), torchNpuRecord.pid,
+                        torchNpuRecord.tid, torchNpuRecord.devId, torchNpuRecord.kernelIndex, memoryUsage.ptr,
+                        memoryUsage.allocSize, memoryUsage.totalAllocated, memoryUsage.totalReserved);
+    if (fpRes < 0) {
+        std::cout << "[msleaks] Error: Fail to write data to csv file, errno:" << fpRes << std::endl;
+        return false;
+    }
     return true;
 }
 
