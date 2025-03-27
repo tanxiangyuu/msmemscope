@@ -24,6 +24,7 @@ enum class OptVal : int32_t {
     DATA_PARSING_LEVEL,
     LOG_LEVEL,
 };
+constexpr uint16_t INPUT_STR_MAX_LEN = 4096;
 
 void ShowDescription()
 {
@@ -173,6 +174,11 @@ static void ParseSelectSteps(const std::string &param, UserCommand &userCommand)
 
 static void ParseInputPaths(const std::string param, UserCommand &userCommand)
 {
+    if (param.length() > INPUT_STR_MAX_LEN) {
+        std::cout << "[msleaks] Error: Parameter --input length exceeds the maximum length:"
+                  << INPUT_STR_MAX_LEN << "." << std::endl;
+        return;
+    }
     std::regex pattern(R"([，,])");
     std::sregex_token_iterator  it(param.begin(), param.end(), pattern, -1);
     std::sregex_token_iterator  end;
@@ -195,6 +201,11 @@ static void ParseInputPaths(const std::string param, UserCommand &userCommand)
 
 static void ParseOutputPath(const std::string param, UserCommand &userCommand)
 {
+    if (param.length() > PATH_MAX) {
+        std::cout << "[msleaks] Error: Parameter --output length exceeds the maximum length:"
+                  << PATH_MAX << " output path will be set to default(./leaksDumpResults)." << std::endl;
+        return;
+    }
     if (Utility::Strip(param).length() == 0) {
         userCommand.config.outputCorrectPaths = false;
         std::cout << "[msleaks] WARN: empty output path." << std::endl;

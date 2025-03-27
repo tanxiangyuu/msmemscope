@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <iostream>
 #include <vector>
+#include <linux/limits.h>
 #include "path.h"
 #include "config_info.h"
 #include "umask_guard.h"
@@ -20,6 +21,11 @@ namespace Utility {
 
     inline void SetDirPath(const std::string& dirPath, const std::string& defaultDirPath)
     {
+        if (dirPath.length() > PATH_MAX) {
+            std::cout << "[msleaks] Error: Path " << dirPath << " length exceeds the maximum length:"
+                      << PATH_MAX << "." << std::endl;
+            return;
+        }
         if (dirPath.empty()) {
             Utility::Path path = Utility::Path{defaultDirPath};
             Utility::Path realPath = path.Resolved();
@@ -75,21 +81,6 @@ namespace Utility {
     // 多线程情况下调用，需加锁保护
     bool CreateCsvFile(FILE **filefp, std::string dirPath, std::string fileName, std::string headers);
 
-    // 常规文件校验
-    inline bool IsRegFile(const std::string& path)
-    {
-        struct stat buffer;
-        if (lstat(path.c_str(), &buffer) != 0) {
-            std::cout << "[msleaks] Error: Error getting file state for " << path << "." << std::endl;
-            return false;
-        }
-
-        if (!S_ISREG(buffer.st_mode)) {
-            std::cout << "[msleaks] Error: File " << path << " is not a regular file." << std::endl;
-            return false;
-        }
-        return true;
-    }
     // 输入+输出文件专属校验：文件大小
     inline bool IsFileSizeSafe(const std::string& path)
     {
