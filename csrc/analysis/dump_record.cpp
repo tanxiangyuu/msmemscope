@@ -202,6 +202,7 @@ DumpRecord::~DumpRecord()
 {
     if (leaksDataFile_ != nullptr) {
         fclose(leaksDataFile_);
+        leaksDataFile_ = nullptr;
     }
 }
 }

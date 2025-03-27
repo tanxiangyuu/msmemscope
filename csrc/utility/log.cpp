@@ -26,6 +26,7 @@ Log::~Log()
 {
     if (fp_ != nullptr) {
         fclose(fp_);
+        fp_ = nullptr;
     }
 }
 std::string Log::AddPrefixInfo(std::string const &format, LogLv lv, const std::string fileName,
