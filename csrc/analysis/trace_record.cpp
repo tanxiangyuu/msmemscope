@@ -155,7 +155,10 @@ void TraceRecord::SafeWriteString(const std::string &str, const Device &device)
 
     std::lock_guard<std::mutex> lock(writeFileMutex_[device]);
     if (traceFiles_[device].fp != nullptr) {
-        fprintf(traceFiles_[device].fp, "%s", str.c_str());
+        int fpRes = fprintf(traceFiles_[device].fp, "%s", str.c_str());
+        if (fpRes < 0) {
+            std::cout << "[msleaks] Error: Fail to write data to json file, errno:" << fpRes << std::endl;
+        }
     }
 }
 
