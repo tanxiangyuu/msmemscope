@@ -394,14 +394,43 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
     eventRecord.record.kernelLaunchRecord.recordIndex = ++recordIndex_;
 
     if (config_.levelType == LevelType::LEVEL_1) {
+        std::string kernelName;
+        {
+            std::lock_guard<std::mutex> lock(threadMutex_);
+            auto it = hdlKernelNameMap_.find(hdl);
+            if (it != hdlKernelNameMap_.end()) {
+                kernelName = it->second;
+            }
+        }
+        if (!kernelName.empty()) {
+            auto ret = strncpy_s(eventRecord.record.kernelLaunchRecord.kernelName,
+                sizeof(eventRecord.record.kernelLaunchRecord.kernelName), kernelName.c_str(), kernelName.size());
+            if (ret != EOK) {
+                CLIENT_WARN_LOG("strncpy_s FAILED");
+            }
+            PacketHead head = {PacketType::RECORD};
+            auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+            if (sendNums < 0) {
+                CLIENT_ERROR_LOG("rtKernelLaunch report FAILED");
+                return false;
+            }
+            return true;
+        }
         std::thread th = std::thread([eventRecord, hdl, this]()mutable {
             while (runningThreads_ >= MAX_THREAD_NUM) { // 达到最大线程数，等待直到有可用的线程
                 std::this_thread::sleep_for(std::chrono::milliseconds(100)); // 等待100ms
             }
             ++runningThreads_;
-            strncpy_s(eventRecord.record.kernelLaunchRecord.kernelName,
-                sizeof(eventRecord.record.kernelLaunchRecord.kernelName), GetNameFromBinary(hdl).c_str(),
-                sizeof(eventRecord.record.kernelLaunchRecord.kernelName) - 1);
+            std::string tempName = GetNameFromBinary(hdl);
+            auto ret = strncpy_s(eventRecord.record.kernelLaunchRecord.kernelName,
+                sizeof(eventRecord.record.kernelLaunchRecord.kernelName), tempName.c_str(), tempName.size());
+            if (ret != EOK) {
+                CLIENT_WARN_LOG("strncpy_s FAILED");
+            }
+            {
+                std::lock_guard<std::mutex> lock(threadMutex_);
+                hdlKernelNameMap_.insert({hdl, tempName});
+            }
             PacketHead head = {PacketType::RECORD};
             auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
             if (sendNums < 0) {
