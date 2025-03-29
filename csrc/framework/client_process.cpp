@@ -14,6 +14,8 @@
 
 namespace Leaks {
 
+constexpr uint32_t MAX_TRY_COUNT = 100;
+
 static Client* client_ = nullptr;
 ClientProcess::ClientProcess(CommType type)
 {
@@ -23,11 +25,15 @@ ClientProcess::ClientProcess(CommType type)
         std::cout << "Initial client failed" << std::endl;
         return;
     }
-
-    while (!client_->Connect()) {
+    uint32_t count = 0;
+    while (!client_->Connect() && count < MAX_TRY_COUNT) {
         // server 启动前 client 会连接失败，等待 100ms 后重试
         constexpr uint64_t connectRetryDuration = 100;
+        count++;
         std::this_thread::sleep_for(std::chrono::milliseconds(connectRetryDuration));
+    }
+    if (count == MAX_TRY_COUNT) {
+        std::cout << "connect to server fail" << std::endl;
     }
 }
 
