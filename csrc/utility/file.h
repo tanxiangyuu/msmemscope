@@ -29,6 +29,7 @@ namespace Utility {
         if (dirPath.empty()) {
             Utility::Path path = Utility::Path{defaultDirPath};
             Utility::Path realPath = path.Resolved();
+            if (realPath.ErrorOccured()) { return; }
             g_dirPath = realPath.ToString();
         } else {
             g_dirPath = dirPath;

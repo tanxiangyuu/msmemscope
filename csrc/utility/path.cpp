@@ -111,6 +111,9 @@ Path Path::Absolute(void) &&
     std::string cwd;
     if (getcwd(buf, sizeof(buf))) {
         cwd = buf;
+    } else {
+        std::cout << "[msleaks] Error: Failed to get current working directory" << std::endl;
+        errorOccurred_ = true;
     }
     return Path(cwd) / std::move(*this);
 }
@@ -236,6 +239,9 @@ bool CheckIsValidInputPath(const std::string &path)
 
     Utility::Path inputPath = Utility::Path{path};
     Utility::Path realPath = inputPath.Resolved();
+    if (realPath.ErrorOccured()) {
+        return false;
+    }
     std::string temp = realPath.ToString();
 
     if (!realPath.Exists()) {
@@ -275,8 +281,11 @@ bool CheckIsValidOutputPath(const std::string &path)
         return false;
     }
 
-    Utility::Path inputPath = Utility::Path{path};
-    Utility::Path realPath = inputPath.Resolved();
+    Utility::Path outputPath = Utility::Path{path};
+    Utility::Path realPath = outputPath.Resolved();
+    if (realPath.ErrorOccured()) {
+        return false;
+    }
     std::string temp = realPath.ToString();
     if (!CheckStrIsStartsWithInvalidChar(temp.c_str())) {
         std::cout << "[msleaks] Error: The path " << temp << " is invalid." << std::endl;

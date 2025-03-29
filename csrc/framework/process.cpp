@@ -158,6 +158,7 @@ void Process::SetPreloadEnv()
 
     for (string &hookLib : hookLibNames) {
         Path hookLibPath = (Path(hookLibDir) / Path(hookLib)).Resolved();
+        if (hookLibPath.ErrorOccured()) { return; }
         if (hookLibPath.Exists()) {
             hookLib = hookLibPath.ToString();
             LOG_INFO("Use preload lib [%s]", hookLib.c_str());
