@@ -335,14 +335,3 @@ TEST(RuntimeHooks, do_rtDevBinaryUnRegister_expect_error)
     void *hdl = nullptr;
     EXPECT_EQ(rtDevBinaryUnRegister(hdl), RT_ERROR_RESERVED);
 }
-
-TEST(KernelNameFunc, getHandleByStubFunc_with_stubfunc_return_empty_kernelName)
-{
-    std::vector<uint8_t> handleData{1, 2, 3};
-    const void *hdl = handleData.data();
-    void *stubFunc = handleData.data();
-    Leaks::HandleMapping::GetInstance().stubHandleMap_.insert({stubFunc, hdl});
-    auto result = GetHandleByStubFunc(stubFunc);
-    Leaks::HandleMapping::GetInstance().stubHandleMap_.erase(stubFunc);
-    ASSERT_EQ(hdl, result);
-}

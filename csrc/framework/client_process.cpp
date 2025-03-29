@@ -10,7 +10,6 @@
 #include "serializer.h"
 #include "host_injection/core/FuncSelector.h"
 #include "host_injection/utils/InjectLogger.h"
-#include "log.h"
 
 namespace Leaks {
 

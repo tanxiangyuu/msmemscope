@@ -584,12 +584,10 @@ std::string ParseNameFromOutput(std::string output)
 std::string GetNameFromBinary(const void *hdl)
 {
     std::string kernelName;
-    auto it = HandleMapping::GetInstance().handleBinKernelMap_.find(hdl);
-    if (it == HandleMapping::GetInstance().handleBinKernelMap_.end()) {
-        CLIENT_ERROR_LOG("kernel handle NOT registered in map");
+    std::vector<char> binary = HandleMapping::GetInstance().BinKernelMapFind(hdl);
+    if (binary.empty()) {
         return kernelName;
     }
-    std::vector<char> binary = it->second.bin;
     auto time = Utility::GetTimeNanoseconds();
     std::string kernelPath = "./kernel.o." + std::to_string(time);
     {
