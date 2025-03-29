@@ -61,9 +61,13 @@ public:
     /// 校验路径权限
     bool IsPermissionValid(void) const;
 
+    /// 校验getcwd是否失败
+    bool ErrorOccured(void) const { return errorOccurred_; }
+
 private:
     bool absolute_;
     std::vector<std::string> route_;
+    bool errorOccurred_ = false; // 对外提供getcwd失败的标记
 };
 
 bool CheckIsValidOutputPath(const std::string &path);
