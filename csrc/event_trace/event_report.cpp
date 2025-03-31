@@ -353,7 +353,7 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord)
 
     // 通过有无固化语句判断是否要采集host侧内存数据
     {
-        std::lock_guard<std::mutex> lock(threadMutex_);
+        std::lock_guard<std::mutex> lock(rangeIdTableMutex_);
         uint64_t pid = eventRecord.record.mstxRecord.pid;
         uint64_t tid = eventRecord.record.mstxRecord.tid;
         if (mstxRecord.markType == MarkType::RANGE_START_A &&
