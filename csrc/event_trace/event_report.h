@@ -68,7 +68,7 @@ private:
     AnalysisConfig config_;
     std::vector<std::thread> parseThreads_;
     std::atomic<uint32_t> runningThreads_;  // 同时运行线程数
-    std::unordered_map<int32_t, uint64_t> mstxRangeIdTables_{};
+    std::unordered_map<uint64_t, std::unordered_map<uint64_t, uint64_t>> mstxRangeIdTables_{};
 
     std::atomic<bool> isReceiveServerInfo_;
     std::map<const void*, std::string> hdlKernelNameMap_;

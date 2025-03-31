@@ -352,17 +352,23 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord)
     auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
 
     // 通过有无固化语句判断是否要采集host侧内存数据
-    if (mstxRecord.markType == MarkType::RANGE_START_A &&
-        strcmp(mstxRecord.markMessage, "report host memory info start") == 0) {
-        mstxRangeIdTables_[devId] = mstxRecord.rangeId;
-        CLIENT_INFO_LOG("Start Report Host Memory Info...");
-        g_isReportHostMem = true;
-    } else if (mstxRecord.markType == MarkType::RANGE_END &&
-        mstxRangeIdTables_.find(devId) != mstxRangeIdTables_.end() &&
-        mstxRangeIdTables_[devId] == mstxRecord.rangeId) {
-        mstxRangeIdTables_.erase(devId);
-        CLIENT_INFO_LOG("Stop Report Host Memory Info.");
-        g_isReportHostMem = false;
+    {
+        std::lock_guard<std::mutex> lock(threadMutex_);
+        uint64_t pid = eventRecord.record.mstxRecord.pid;
+        uint64_t tid = eventRecord.record.mstxRecord.tid;
+        if (mstxRecord.markType == MarkType::RANGE_START_A &&
+            strcmp(mstxRecord.markMessage, "report host memory info start") == 0) {
+            mstxRangeIdTables_[pid][tid] = mstxRecord.rangeId;
+            CLIENT_INFO_LOG("[mark] Start report host memory info...");
+            g_isReportHostMem = true;
+        } else if (mstxRecord.markType == MarkType::RANGE_END &&
+            mstxRangeIdTables_.find(pid) != mstxRangeIdTables_.end() &&
+            mstxRangeIdTables_[pid].find(tid) != mstxRangeIdTables_[pid].end() &&
+            mstxRangeIdTables_[pid][tid] == mstxRecord.rangeId) {
+            mstxRangeIdTables_[pid].erase(tid);
+            CLIENT_INFO_LOG("[mark] Stop report host memory info.");
+            g_isReportHostMem = false;
+        }
     }
 
     g_isInReportFunction = false;
