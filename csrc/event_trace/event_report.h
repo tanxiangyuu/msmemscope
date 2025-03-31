@@ -64,6 +64,7 @@ private:
     MstxStepInfo stepInfo_;
     std::mutex mutex_;
     std::mutex threadMutex_;
+    std::mutex rangeIdTableMutex_;
 
     AnalysisConfig config_;
     std::vector<std::thread> parseThreads_;
