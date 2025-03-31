@@ -23,16 +23,6 @@
 using namespace Leaks;
 
 namespace Leaks {
-// 通过stubFunc获取二进制文件的句柄
-const void* GetHandleByStubFunc(const void *stubFunc)
-{
-    auto it = HandleMapping::GetInstance().stubHandleMap_.find(stubFunc);
-    if (it == HandleMapping::GetInstance().stubHandleMap_.end()) {
-        CLIENT_ERROR_LOG("stubFunc NOT registered in map");
-        return nullptr;
-    }
-    return const_cast<void *>(it->second);
-}
 
 KernelLaunchRecord CreateKernelLaunchRecord(uint32_t blockDim, rtStream_t stm, KernelLaunchType type)
 {
@@ -59,7 +49,7 @@ RTS_API rtError_t rtKernelLaunch(
     rtError_t ret = vallina(stubFunc, blockDim, args, argsSize, smDesc, stm);
     auto record = KernelLaunchRecord {};
     record = CreateKernelLaunchRecord(blockDim, stm, KernelLaunchType::NORMAL);
-    auto hdl = GetHandleByStubFunc(stubFunc);
+    auto hdl = HandleMapping::GetInstance().StubHandleMapFind(stubFunc);
     if (!EventReport::Instance(CommType::SOCKET).ReportKernelLaunch(record, hdl)) {
         CLIENT_ERROR_LOG("rtKernelLaunch report FAILED");
     }
@@ -98,7 +88,7 @@ RTS_API rtError_t rtKernelLaunchWithFlagV2(const void *stubFunc, uint32_t blockD
     rtError_t ret = vallina(stubFunc, blockDim, argsInfo, smDesc, stm, flags, cfgInfo);
     auto record = KernelLaunchRecord {};
     record = CreateKernelLaunchRecord(blockDim, stm, KernelLaunchType::FLAGV2);
-    auto hdl = GetHandleByStubFunc(stubFunc);
+    auto hdl = HandleMapping::GetInstance().StubHandleMapFind(stubFunc);
     if (!EventReport::Instance(CommType::SOCKET).ReportKernelLaunch(record, hdl)) {
         CLIENT_ERROR_LOG("rtKernelLaunchWithFlagV2 report FAILED");
     }
@@ -127,7 +117,7 @@ RTS_API rtError_t rtFunctionRegister(
         return RT_ERROR_RESERVED;
     }
     rtError_t result = vallina(binHandle, stubFunc, stubName, kernelInfoExt, funcMode);
-    HandleMapping::GetInstance().stubHandleMap_[stubFunc] = binHandle;
+    HandleMapping::GetInstance().StubHandleMapInsert(stubFunc, binHandle);
     return result;
 }
 
@@ -152,7 +142,7 @@ RTS_API rtError_t rtDevBinaryRegister(const rtDevBinary_t *bin, void **hdl)
         auto binData = static_cast<char const *>(bin->data);
         BinKernel binKernel {};
         binKernel.bin = std::vector<char>(binData, binData + bin->length);
-        HandleMapping::GetInstance().handleBinKernelMap_[*hdl] = std::move(binKernel);
+        HandleMapping::GetInstance().BinKernelMapInsert(*hdl, binKernel);
     }
     return result;
 }
@@ -177,7 +167,7 @@ RTS_API rtError_t rtRegisterAllKernel(const rtDevBinary_t *bin, void **hdl)
         auto binData = static_cast<char const *>(bin->data);
         BinKernel binKernel {};
         binKernel.bin = std::vector<char>(binData, binData + bin->length);
-        HandleMapping::GetInstance().handleBinKernelMap_[*hdl] = std::move(binKernel);
+        HandleMapping::GetInstance().BinKernelMapInsert(*hdl, binKernel);
     }
     return result;
 }
@@ -194,19 +184,9 @@ RTS_API rtError_t rtDevBinaryUnRegister(void *hdl)
     rtError_t result = vallina(hdl);
     if (result == RT_ERROR_NONE) {
         // unregister handle bin map
-        auto it = HandleMapping::GetInstance().handleBinKernelMap_.find(hdl);
-        if (it != HandleMapping::GetInstance().handleBinKernelMap_.end()) {
-            HandleMapping::GetInstance().handleBinKernelMap_.erase(hdl);
-        }
+        HandleMapping::GetInstance().BinKernelMapErase(hdl);
         // unregister stub handle map
-        for (auto it = HandleMapping::GetInstance().stubHandleMap_.begin();
-             it != HandleMapping::GetInstance().stubHandleMap_.end();) {
-            if (it->second == hdl) {
-                it = HandleMapping::GetInstance().stubHandleMap_.erase(it);
-            } else {
-                ++it;
-            }
-        }
+        HandleMapping::GetInstance().StubHandleMapErase(hdl);
     }
     return result;
 }

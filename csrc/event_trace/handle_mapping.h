@@ -3,6 +3,8 @@
 #ifndef __HOOK_HANDLE_MAPPING_H__
 #define __HOOK_HANDLE_MAPPING_H__
 
+#include "client_process.h"
+
 namespace Leaks {
 
 enum class KernelType : uint8_t {
@@ -45,10 +47,66 @@ public:
     HandleBinKernelMapType handleBinKernelMap_;
     StubHandleMapType stubHandleMap_;
 
+    void BinKernelMapInsert(const void* hdl, BinKernel &binKernel)
+    {
+        std::lock_guard<std::mutex> lock(handleMappingMutex_);
+        handleBinKernelMap_.insert({hdl, binKernel});
+    }
+
+    std::vector<char> BinKernelMapFind(const void* hdl)
+    {
+        std::lock_guard<std::mutex> lock(handleMappingMutex_);
+        auto it = handleBinKernelMap_.find(hdl);
+        if (it == handleBinKernelMap_.end()) {
+            CLIENT_ERROR_LOG("kernel handle NOT registered in map");
+            return BinKernel{}.bin;
+        }
+        return it->second.bin;
+    }
+
+    void BinKernelMapErase(const void* hdl)
+    {
+        std::lock_guard<std::mutex> lock(handleMappingMutex_);
+        auto it = handleBinKernelMap_.find(hdl);
+        if (it != handleBinKernelMap_.end()) {
+            handleBinKernelMap_.erase(hdl);
+        }
+    }
+
+    void StubHandleMapInsert(const void* subFunc, const void* hdl)
+    {
+        std::lock_guard<std::mutex> lock(handleMappingMutex_);
+        stubHandleMap_.insert({subFunc, hdl});
+    }
+
+    const void* StubHandleMapFind(const void* subFunc)
+    {
+        std::lock_guard<std::mutex> lock(handleMappingMutex_);
+        auto it = stubHandleMap_.find(subFunc);
+        if (it == stubHandleMap_.end()) {
+            CLIENT_ERROR_LOG("stubFunc NOT registered in map");
+            return nullptr;
+        }
+        return it->second;
+    }
+
+    void StubHandleMapErase(const void* hdl)
+    {
+        std::lock_guard<std::mutex> lock(handleMappingMutex_);
+        for (auto it = stubHandleMap_.begin(); it != stubHandleMap_.end();) {
+            if (it->second == hdl) {
+                it = stubHandleMap_.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
 private:
     HandleMapping() = default;
     HandleMapping(const HandleMapping&) = delete;
     HandleMapping& operator=(const HandleMapping&) = delete;
+    std::mutex handleMappingMutex_;
 };
 
 }

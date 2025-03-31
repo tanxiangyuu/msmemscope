@@ -6,6 +6,7 @@
 #include <string>
 #include <csignal>
 #include "host_injection/core/Communication.h"
+#include "log.h"
 
 namespace Leaks {
 
