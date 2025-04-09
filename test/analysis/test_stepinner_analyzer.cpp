@@ -415,3 +415,219 @@ TEST(StepInnerAnalyzerTest, do_checkgap_minmaxallocratio_expect_true_allocated)
     ASSERT_EQ(stepInner.npuMemUsages_[0].stepMaxAllocated, 0);
     ASSERT_EQ(stepInner.npuMemUsages_[0].stepMinAllocated, 0);
 }
+
+TEST(StepInnerAnalyzerRecordFuncTest, Recordtest)
+{
+    Leaks::AnalysisConfig config;
+    config.enableCompare = false;
+    config.inputCorrectPaths = true;
+    config.outputCorrectPaths = false;
+    config.levelType = Leaks::LevelType::LEVEL_0;
+    config.stepList.stepCount = 0;
+    ClientId clientId = 1;
+    Leaks::EventRecord record;
+    EXPECT_TRUE(Leaks::StepInnerAnalyzer::GetInstance(config).Record(clientId, record));
+}
+
+TEST(StepInnerAnalyzerRecordFuncTest, recordMallocSuccess) {
+    // 先初始化注册
+    Leaks::AnalysisConfig config;
+    config.enableCompare = false;
+    config.inputCorrectPaths = true;
+    config.outputCorrectPaths = false;
+    config.levelType = Leaks::LevelType::LEVEL_0;
+    config.stepList.stepCount = 0;
+    ClientId clientId = 1;
+
+    auto record1 = EventRecord{};
+    record1.type = RecordType::TORCH_NPU_RECORD;
+    auto npuRecordMalloc = TorchNpuRecord {};
+    npuRecordMalloc.recordIndex = 1;
+    auto memoryusage1 = MemoryUsage {};
+    memoryusage1.deviceIndex = 0;
+    memoryusage1.dataType = 0;
+    memoryusage1.ptr = 12345;
+    memoryusage1.allocSize = 512;
+    memoryusage1.totalAllocated = 512;
+    npuRecordMalloc.memoryUsage = memoryusage1;
+    record1.record.torchNpuRecord = npuRecordMalloc;
+
+    EXPECT_TRUE(StepInnerAnalyzer::GetInstance(config).Record(clientId, record1));
+}
+
+TEST(StepInnerAnalyzerRecordFuncTest, recordFreeSuccess) {
+    // 先初始化注册
+    Leaks::AnalysisConfig config;
+    config.enableCompare = false;
+    config.inputCorrectPaths = true;
+    config.outputCorrectPaths = false;
+    config.levelType = Leaks::LevelType::LEVEL_0;
+    config.stepList.stepCount = 0;
+    ClientId clientId = 1;
+
+    auto record1 = EventRecord{};
+    record1.type = RecordType::TORCH_NPU_RECORD;
+    auto npuRecordFree = TorchNpuRecord {};
+    npuRecordFree.recordIndex = 1;
+    auto memoryusage1 = MemoryUsage {};
+    memoryusage1.deviceIndex = 0;
+    memoryusage1.dataType = 1;
+    memoryusage1.ptr = 12345;
+    memoryusage1.allocSize = 512;
+    memoryusage1.totalAllocated = 512;
+    npuRecordFree.memoryUsage = memoryusage1;
+    record1.record.torchNpuRecord = npuRecordFree;
+
+    EXPECT_TRUE(StepInnerAnalyzer::GetInstance(config).Record(clientId, record1));
+}
+
+TEST(StepInnerAnalyzerReceiveMstxMsgFuncTest, ReceiveMstxMsgIfRangeStartA) {
+    // 先初始化注册
+    Leaks::AnalysisConfig config;
+    config.enableCompare = false;
+    config.inputCorrectPaths = true;
+    config.outputCorrectPaths = false;
+    config.levelType = Leaks::LevelType::LEVEL_0;
+    config.stepList.stepCount = 0;
+    ClientId clientId = 1;
+
+    auto mstxRecordStart1 = MstxRecord {};
+    mstxRecordStart1.markType = MarkType::RANGE_START_A;
+    strncpy_s(mstxRecordStart1.markMessage, sizeof(mstxRecordStart1.markMessage), "step start",
+    sizeof(mstxRecordStart1.markMessage));
+    mstxRecordStart1.devId = 0;
+    mstxRecordStart1.stepId = 1;
+    mstxRecordStart1.streamId = 123;
+
+    StepInnerAnalyzer::GetInstance(config).ReceiveMstxMsg(mstxRecordStart1);
+}
+
+TEST(StepInnerAnalyzerReceiveMstxMsgFuncTest, ReceiveMstxMsgIfRangeEnd) {
+    // 先初始化注册
+    Leaks::AnalysisConfig config;
+    config.enableCompare = false;
+    config.inputCorrectPaths = true;
+    config.outputCorrectPaths = false;
+    config.levelType = Leaks::LevelType::LEVEL_0;
+    config.stepList.stepCount = 0;
+    ClientId clientId = 1;
+
+    auto mstxRecordStart1 = MstxRecord {};
+    mstxRecordStart1.markType = Leaks::MarkType::RANGE_END;
+    strncpy_s(mstxRecordStart1.markMessage, sizeof(mstxRecordStart1.markMessage), "step end",
+    sizeof(mstxRecordStart1.markMessage));
+    mstxRecordStart1.devId = 0;
+    mstxRecordStart1.stepId = 1;
+    mstxRecordStart1.streamId = 123;
+
+    StepInnerAnalyzer::GetInstance(config).ReceiveMstxMsg(mstxRecordStart1);
+}
+
+TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedUpdateMaxTest)
+{
+    AnalysisConfig config;
+    config.stepList.stepCount = 0;
+    StepInnerAnalyzer stepInner{config};
+    NpuMemUsage npumemusage;
+    npumemusage.mstxStep = 2;
+
+    npumemusage.stepMaxAllocated = 20;
+    npumemusage.stepMinAllocated = 20;
+    stepInner.npuMemUsages_.insert({0, npumemusage});
+    stepInner.UpdateAllocated(0, 100);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].stepMaxAllocated, 100);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].stepMinAllocated, 20);
+}
+
+TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedInitTest)
+{
+    AnalysisConfig config;
+    config.stepList.stepCount = 0;
+    StepInnerAnalyzer stepInner{config};
+    NpuMemUsage npumemusage;
+    npumemusage.mstxStep = 2;
+
+    npumemusage.stepMaxAllocated = 0;
+    npumemusage.stepMinAllocated = 0;
+    stepInner.npuMemUsages_.insert({0, npumemusage});
+    stepInner.UpdateAllocated(0, 100);
+    stepInner.UpdateAllocated(0, 200);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].stepMaxAllocated, 200);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].stepMinAllocated, 100);
+}
+
+TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedreturnTest)
+{
+    AnalysisConfig config;
+    config.stepList.stepCount = 0;
+    StepInnerAnalyzer stepInner{config};
+    NpuMemUsage npumemusage;
+    npumemusage.mstxStep = 0;
+
+    npumemusage.stepMaxAllocated = 0;
+    npumemusage.stepMinAllocated = 0;
+    stepInner.npuMemUsages_.insert({0, npumemusage});
+    stepInner.UpdateAllocated(0, 100);
+    stepInner.UpdateAllocated(0, 200);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].stepMaxAllocated, 0);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].stepMinAllocated, 0);
+}
+
+TEST(StepInnerAnalyzerAddDurationTest, AddDurationTest)
+{
+    AnalysisConfig config;
+    config.stepList.stepCount = 0;
+    StepInnerAnalyzer stepInner{config};
+    NpuMemUsage npumemusage;
+    npumemusage.mstxStep = 0;
+
+    Leaks::NpuMemInfo memInfo;
+    memInfo.duration = 1;
+    npumemusage.mempooltable.insert({0, memInfo});
+    stepInner.npuMemUsages_.insert({0, npumemusage});
+    stepInner.AddDuration(0);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].mempooltable[0].duration, 2);
+}
+
+TEST(StepInnerAnalyzerAddDurationTest, AddDurationReturnTest)
+{
+    AnalysisConfig config;
+    config.stepList.stepCount = 0;
+    StepInnerAnalyzer stepInner{config};
+    NpuMemUsage npumemusage;
+    npumemusage.mstxStep = 0;
+
+    Leaks::NpuMemInfo memInfo;
+    memInfo.duration = 1;
+    npumemusage.mempooltable.insert({0, memInfo});
+    stepInner.npuMemUsages_.insert({1, npumemusage});
+    stepInner.AddDuration(0); // 不存在的deviceID，提前返回
+    ASSERT_EQ(stepInner.npuMemUsages_[1].mempooltable[0].duration, 1);
+}
+
+TEST(StepInnerAnalyzerSetStepIdFuncTest, SetStepIdTest)
+{
+    AnalysisConfig config;
+    config.stepList.stepCount = 0;
+    StepInnerAnalyzer stepInner{config};
+    NpuMemUsage npumemusage;
+    npumemusage.mstxStep = 1;
+
+    stepInner.npuMemUsages_.insert({1, npumemusage});
+    stepInner.SetStepId(1, 2);
+    ASSERT_EQ(stepInner.npuMemUsages_[1].mstxStep, 2);
+}
+
+TEST(StepInnerAnalyzerGetNowAllocatedFuncTest, GetNowAllocatedTest)
+{
+    AnalysisConfig config;
+    config.stepList.stepCount = 0;
+    StepInnerAnalyzer stepInner{config};
+    NpuMemUsage npumemusage;
+    npumemusage.mstxStep = 1;
+    npumemusage.totalAllocated = 500;
+
+    stepInner.npuMemUsages_.insert({1, npumemusage});
+    
+    ASSERT_EQ(stepInner.GetNowAllocated(1), 500);
+}
