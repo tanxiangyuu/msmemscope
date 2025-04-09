@@ -283,7 +283,7 @@ TEST(EventReportTest, ReportTestWithNoReceiveServerInfo) {
     EXPECT_TRUE(instance.ReportMark(mstxRecord));
 }
 
-TEST(KernelNameFunc, PipeCallGivenLsCommandReturnFalse)
+TEST(KernelNameFuncTest, PipeCallGivenLsCommandReturnFalse)
 {
     std::vector<std::string> argv = {"/bin/ls", "/tmp"};
     std::string output;
@@ -291,14 +291,14 @@ TEST(KernelNameFunc, PipeCallGivenLsCommandReturnFalse)
     ASSERT_FALSE(output.empty());
 }
 
-TEST(KernelNameFunc, PipeCallGivenTestCommandReturnFalse)
+TEST(KernelNameFuncTest, PipeCallGivenTestCommandReturnFalse)
 {
     std::vector<std::string> argv = {"test-command"};
     std::string output;
     ASSERT_FALSE(PipeCall(argv, output));
 }
 
-TEST(KernelNameFunc, WriteBinaryGivenValidDataReturnSuccess)
+TEST(KernelNameFuncTest, WriteBinaryGivenValidDataReturnSuccess)
 {
     std::string fileName = "./test.bin";
     char wbuf[] = "123456789";
@@ -315,7 +315,7 @@ TEST(KernelNameFunc, WriteBinaryGivenValidDataReturnSuccess)
     std::remove(fileName.c_str());
 }
 
-TEST(KernelNameFunc, ParseLineGivenValidKernelNameLineReturnTrueName)
+TEST(KernelNameFuncTest, ParseLineGivenValidKernelNameLineReturnTrueName)
 {
     std::string line = "0000 g F .text ReduceSum_7a09f_high_performance_123_mix_aiv";
     std::string kernelName;
@@ -323,7 +323,7 @@ TEST(KernelNameFunc, ParseLineGivenValidKernelNameLineReturnTrueName)
     ASSERT_EQ(kernelName, "ReduceSum_7a09f");
 }
 
-TEST(KernelNameFunc, ParseLineGivenInvalidKernelNameLineReturnEmptyName)
+TEST(KernelNameFuncTest, ParseLineGivenInvalidKernelNameLineReturnEmptyName)
 {
     std::string line = "000 g O .data g_opSystemRunCfg";
     std::string kernelName;
@@ -331,7 +331,7 @@ TEST(KernelNameFunc, ParseLineGivenInvalidKernelNameLineReturnEmptyName)
     ASSERT_EQ(kernelName, "");
 }
 
-TEST(KernelNameFunc, ParseNameFromOutputGivenValidSymbolTableReturnTrueName)
+TEST(KernelNameFuncTest, ParseNameFromOutputGivenValidSymbolTableReturnTrueName)
 {
     std::string output = ("SYMBOL TABLE:\n"
     "000 g F .text test_000_mix_aic"
@@ -341,7 +341,7 @@ TEST(KernelNameFunc, ParseNameFromOutputGivenValidSymbolTableReturnTrueName)
     ASSERT_EQ(kernelName, "test_000");
 }
 
-TEST(KernelNameFunc, ParseNameFromOutputGivenInValidSymbolTableReturnEmptyName)
+TEST(KernelNameFuncTest, ParseNameFromOutputGivenInValidSymbolTableReturnEmptyName)
 {
     std::string output = ("TEST TABLE:\n"
     "000 g F .text test_000_mix_aic"
@@ -351,7 +351,7 @@ TEST(KernelNameFunc, ParseNameFromOutputGivenInValidSymbolTableReturnEmptyName)
     ASSERT_EQ(kernelName, "");
 }
 
-TEST(KernelNameFunc, GetNameFromBinaryGivenHdlReturnEmptyName)
+TEST(KernelNameFuncTest, GetNameFromBinaryGivenHdlReturnEmptyName)
 {
     std::vector<uint8_t> handleData{1, 2, 3};
     void *hdl = handleData.data();
@@ -362,4 +362,183 @@ TEST(KernelNameFunc, GetNameFromBinaryGivenHdlReturnEmptyName)
     kernelName = GetNameFromBinary(hdl);
     Leaks::HandleMapping::GetInstance().handleBinKernelMap_.erase(hdl);
     ASSERT_EQ(kernelName, "");
+}
+
+constexpr uint64_t MEM_VIRT_BIT = 10;
+constexpr uint64_t MEM_SVM_VAL = 0x0;
+constexpr uint64_t MEM_DEV_VAL = 0x1;
+constexpr uint64_t MEM_HOST_VAL = 0x2;
+constexpr uint64_t MEM_DVPP_VAL = 0x3;
+constexpr uint64_t MEM_INVALID_VAL = 0x4;
+
+TEST(GetMemOpSpaceFuncTest, GetMemOpSpaceIfINvalid)
+{
+    unsigned long long flag = MEM_INVALID_VAL << MEM_VIRT_BIT;
+    Leaks::MemOpSpace result = Leaks::GetMemOpSpace(flag);
+    EXPECT_EQ(result, Leaks::MemOpSpace::INVALID);
+}
+
+TEST(GetMemOpSpaceFuncTest, GetMemOpSpaceIfSVM)
+{
+    unsigned long long flag = MEM_SVM_VAL << MEM_VIRT_BIT;
+    Leaks::MemOpSpace result = Leaks::GetMemOpSpace(flag);
+    EXPECT_EQ(result, Leaks::MemOpSpace::SVM);
+}
+
+TEST(GetMemOpSpaceFuncTest, GetMemOpSpaceIfDevice)
+{
+    unsigned long long flag = MEM_DEV_VAL << MEM_VIRT_BIT;
+    Leaks::MemOpSpace result = Leaks::GetMemOpSpace(flag);
+    EXPECT_EQ(result, Leaks::MemOpSpace::DEVICE);
+}
+
+TEST(GetMemOpSpaceFuncTest, GetMemOpSpaceIfHost)
+{
+    unsigned long long flag = MEM_HOST_VAL << MEM_VIRT_BIT;
+    Leaks::MemOpSpace result = Leaks::GetMemOpSpace(flag);
+    EXPECT_EQ(result, Leaks::MemOpSpace::HOST);
+}
+
+TEST(GetMemOpSpaceFuncTest, GetMemOpSpaceIfDvpp)
+{
+    unsigned long long flag = MEM_DVPP_VAL << MEM_VIRT_BIT;
+    Leaks::MemOpSpace result = Leaks::GetMemOpSpace(flag);
+    EXPECT_EQ(result, Leaks::MemOpSpace::DVPP);
+}
+
+TEST(GetMemOpSpaceFuncTest, GetMemOpSpaceIfOverType)
+{
+    unsigned long long flag = 0x5 << MEM_VIRT_BIT;
+    Leaks::MemOpSpace result = Leaks::GetMemOpSpace(flag);
+    EXPECT_EQ(result, Leaks::MemOpSpace::INVALID);
+}
+
+TEST(GetMemOpSpaceFuncTest, GetMemOpSpaceIfOverType1)
+{
+    unsigned long long flag = 0xF << MEM_VIRT_BIT;
+    Leaks::MemOpSpace result = Leaks::GetMemOpSpace(flag);
+    EXPECT_EQ(result, Leaks::MemOpSpace::INVALID);
+}
+
+MemOpRecord CreateMemRecord(MemOpType type, unsigned long long flag, MemOpSpace space, uint64_t addr, uint64_t size)
+{
+    MemOpRecord record;
+    record.timeStamp = Utility::GetTimeMicroseconds();
+    record.flag = flag;
+    record.memType = type;
+    record.space = space;
+    record.addr = addr;
+    record.memSize = size;
+    record.pid = Utility::GetPid();
+    record.tid = Utility::GetTid();
+    return record;
+}
+
+AclItfRecord CreateAclItfRecord(AclOpType type)
+{
+    auto record = AclItfRecord {};
+    record.timeStamp = Utility::GetTimeMicroseconds();
+    record.type = type;
+    record.pid = Utility::GetPid();
+    record.tid = Utility::GetTid();
+    return record;
+}
+
+KernelLaunchRecord CreateKernelLaunchRecord(KernelLaunchRecord kernelLaunchRecord)
+{
+    auto record = KernelLaunchRecord {};
+    record = kernelLaunchRecord;
+    record.timeStamp = Utility::GetTimeMicroseconds();
+    record.pid = Utility::GetPid();
+    record.tid = Utility::GetTid();
+    return record;
+}
+
+TEST(CreateMemRecordFuncTest, CreateMemRecordtestMalloc)
+{
+    Leaks::MemOpType type = Leaks::MemOpType::MALLOC;
+    unsigned long long flag = 2377900603261207558;
+    Leaks::MemOpSpace space = Leaks::MemOpSpace::SVM;
+    uint64_t addr = 0x12345678;
+    uint64_t size = 1024;
+    Leaks::MemOpRecord record = CreateMemRecord(type, flag, space, addr, size);
+    EXPECT_EQ(type, record.memType);
+    EXPECT_EQ(flag, record.flag);
+    EXPECT_EQ(space, record.space);
+    EXPECT_EQ(addr, record.addr);
+    EXPECT_EQ(size, record.memSize);
+}
+
+TEST(CreateMemRecordFuncTest, CreateMemRecordtestFree)
+{
+    Leaks::MemOpType type = Leaks::MemOpType::FREE;
+    unsigned long long flag = 2377900603261207558;
+    Leaks::MemOpSpace space = Leaks::MemOpSpace::SVM;
+    uint64_t addr = 0x12345678;
+    uint64_t size = 1024;
+    Leaks::MemOpRecord record = CreateMemRecord(type, flag, space, addr, size);
+    EXPECT_EQ(type, record.memType);
+    EXPECT_EQ(flag, record.flag);
+    EXPECT_EQ(space, record.space);
+    EXPECT_EQ(addr, record.addr);
+    EXPECT_EQ(size, record.memSize);
+}
+
+TEST(CreateMemRecordFuncTest, CreateMemRecordtestDevice)
+{
+    Leaks::MemOpType type = Leaks::MemOpType::FREE;
+    unsigned long long flag = 2377900603261207558;
+    Leaks::MemOpSpace space = Leaks::MemOpSpace::DEVICE;
+    uint64_t addr = 0x12345678;
+    uint64_t size = 1024;
+    Leaks::MemOpRecord record = CreateMemRecord(type, flag, space, addr, size);
+    EXPECT_EQ(type, record.memType);
+    EXPECT_EQ(flag, record.flag);
+    EXPECT_EQ(space, record.space);
+    EXPECT_EQ(addr, record.addr);
+    EXPECT_EQ(size, record.memSize);
+}
+
+TEST(CreateMemRecordFuncTest, CreateMemRecordtestHost)
+{
+    Leaks::MemOpType type = Leaks::MemOpType::FREE;
+    unsigned long long flag = 2377900603261207558;
+    Leaks::MemOpSpace space = Leaks::MemOpSpace::HOST;
+    uint64_t addr = 0x12345678;
+    uint64_t size = 1024;
+    Leaks::MemOpRecord record = CreateMemRecord(type, flag, space, addr, size);
+    EXPECT_EQ(type, record.memType);
+    EXPECT_EQ(flag, record.flag);
+    EXPECT_EQ(space, record.space);
+    EXPECT_EQ(addr, record.addr);
+    EXPECT_EQ(size, record.memSize);
+}
+
+TEST(CreateMemRecordFuncTest, CreateMemRecordtestDVPP)
+{
+    Leaks::MemOpType type = Leaks::MemOpType::FREE;
+    unsigned long long flag = 2377900603261207558;
+    Leaks::MemOpSpace space = Leaks::MemOpSpace::DVPP;
+    uint64_t addr = 0x12345678;
+    uint64_t size = 1024;
+    Leaks::MemOpRecord record = CreateMemRecord(type, flag, space, addr, size);
+    EXPECT_EQ(type, record.memType);
+    EXPECT_EQ(flag, record.flag);
+    EXPECT_EQ(space, record.space);
+    EXPECT_EQ(addr, record.addr);
+    EXPECT_EQ(size, record.memSize);
+}
+
+TEST(CreateAclItfRecordFuncTest, CreateAclItfRecordtestFinalize)
+{
+    Leaks::AclOpType aclOpType = Leaks::AclOpType::FINALIZE;
+    Leaks::AclItfRecord record = CreateAclItfRecord(aclOpType);
+    EXPECT_EQ(aclOpType, record.type);
+}
+
+TEST(CreateAclItfRecordFuncTest, CreateAclItfRecordtestINIT)
+{
+    Leaks::AclOpType aclOpType = Leaks::AclOpType::INIT;
+    Leaks::AclItfRecord record = CreateAclItfRecord(aclOpType);
+    EXPECT_EQ(aclOpType, record.type);
 }
