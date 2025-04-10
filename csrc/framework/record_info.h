@@ -11,6 +11,7 @@
 namespace Leaks {
 
 constexpr int32_t GD_INVALID_NUM = 9999;
+const size_t KERNELNAME_MAX_SIZE = 128;
 
 enum class MemoryDataType {
     MEMORY_MALLOC = 0,
@@ -119,7 +120,7 @@ struct KernelLaunchRecord {
     uint64_t timeStamp;
     int32_t streamId;           // streamId
     uint32_t blockDim;          // 算子核函数运行所需核数
-    char kernelName[64U];       // kernel名称
+    char kernelName[KERNELNAME_MAX_SIZE];       // kernel名称
 };
 
 enum class MarkType : int32_t {

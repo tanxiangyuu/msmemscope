@@ -410,7 +410,7 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
         }
         if (!kernelName.empty()) {
             auto ret = strncpy_s(eventRecord.record.kernelLaunchRecord.kernelName,
-                sizeof(eventRecord.record.kernelLaunchRecord.kernelName), kernelName.c_str(), kernelName.size());
+                KERNELNAME_MAX_SIZE, kernelName.c_str(), KERNELNAME_MAX_SIZE - 1);
             if (ret != EOK) {
                 CLIENT_WARN_LOG("strncpy_s FAILED");
             }
@@ -429,7 +429,7 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
             ++runningThreads_;
             std::string tempName = GetNameFromBinary(hdl);
             auto ret = strncpy_s(eventRecord.record.kernelLaunchRecord.kernelName,
-                sizeof(eventRecord.record.kernelLaunchRecord.kernelName), tempName.c_str(), tempName.size());
+                KERNELNAME_MAX_SIZE, tempName.c_str(), KERNELNAME_MAX_SIZE - 1);
             if (ret != EOK) {
                 CLIENT_WARN_LOG("strncpy_s FAILED");
             }
