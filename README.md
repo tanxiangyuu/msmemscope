@@ -2,7 +2,7 @@
 
 基于AI全栈的事件监控能力，实现CANN的专用内存分析工具
 
-该工具使用：```leaks [options] app_name [app_options]```
+该工具使用：```msleaks <option(s)> prog-and-args```
  
 针对该软件仓，整体目录设计思路如下：
 ```
