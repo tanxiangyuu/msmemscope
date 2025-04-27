@@ -7,6 +7,10 @@ get_filename_component(EVENT_TRACE_INC_DIR ./event_trace ABSOLUTE)
 get_filename_component(UTILITY_INC_DIR ./utility ABSOLUTE)
 
 add_library(ascend_leaks SHARED dummy.cpp)
+find_package(Python3 REQUIRED COMPONENTS Development)
+if (NOT Python3_FOUND)
+    message(FATAL_ERROR "Python3 is no found.")
+endif()
 
 target_include_directories(
     ascend_leaks PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
@@ -14,6 +18,7 @@ target_include_directories(
                         ${FRAMEWORK_INC_DIR}
                         ${FUNC_HOSTINJECTION_DIR}
                         ${SECUREC_INC_DIR}
+                        ${Python3_INCLUDE_DIRS}
 )
 
 target_link_libraries(ascend_leaks pthread stdc++fs dl c_sec)
@@ -22,6 +27,7 @@ add_subdirectory(framework)
 add_subdirectory(utility)
 add_subdirectory(event_trace)
 add_subdirectory(analysis)
+add_subdirectory(python_itf)
 
 add_executable(msleaks ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
 
@@ -31,6 +37,6 @@ set_target_properties(msleaks PROPERTIES
     OUTPUT_NAME "msleaks.bin"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_INSTALL_PREFIX}/bin"
 )
-set_target_properties(leaks_ascend_hal_hook host_memory_hook ascend_mstx_hook ascend_kernel_hook ascend_leaks PROPERTIES 
+set_target_properties(leaks_ascend_hal_hook host_memory_hook ascend_mstx_hook ascend_kernel_hook ascend_leaks _msleaks PROPERTIES 
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_INSTALL_PREFIX}/lib64"
 )
