@@ -30,7 +30,7 @@ private:
     bool DumpMemData(const ClientId &clientId, const MemOpRecord &memrecord);
     bool DumpKernelData(const ClientId &clientId, const KernelLaunchRecord &kernelLaunchRecord);
     bool DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord);
-    bool DumpTorchData(const ClientId &clientId, const TorchNpuRecord &torchNpuRecord);
+    bool DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord);
     bool DumpMstxData(const ClientId &clientId, const MstxRecord &msxtRecord);
     FILE *leaksDataFile_ = nullptr;
     std::unordered_map<ClientId, std::unordered_map<uint64_t, uint64_t>> hostMemSizeMap_;
