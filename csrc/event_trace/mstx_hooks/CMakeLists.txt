@@ -2,6 +2,8 @@ add_library(ascend_mstx_hook SHARED mstx_manager.cpp mstx_inject.cpp)
 
 target_sources(ascend_mstx_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/event_report.cpp
+  ${EVENT_TRACE_INC_DIR}/memory_pool_trace/memory_pool_trace_manager.cpp
+  ${EVENT_TRACE_INC_DIR}/memory_pool_trace/atb_memory_pool_trace.cpp
   ${FRAMEWORK_INC_DIR}/client_process.cpp
   ${UTILITY_INC_DIR}/log.cpp
 )
