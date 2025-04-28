@@ -37,7 +37,7 @@ private:
 
     mstxDomainHandle_t atbDomain_ { nullptr };
     std::unordered_map<uint32_t, MemoryUsage> memUsageMp_; // 单进程可能涉及多张卡
-    std::unordered_map<const void*, mstxMemVirtualRangeDesc_t> regionHandleMp_;
+    std::unordered_map<mstxMemRegionHandle_t, mstxMemVirtualRangeDesc_t> regionHandleMp_;
     std::unordered_map<const void*, mstxMemVirtualRangeDesc_t> heapHandleMp_;
 
     std::mutex mutex_;
