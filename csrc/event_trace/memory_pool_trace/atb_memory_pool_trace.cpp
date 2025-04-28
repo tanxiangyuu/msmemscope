@@ -31,7 +31,9 @@ mstxMemHeapHandle_t ATBMemoryPoolTrace::Allocate(mstxDomainHandle_t domain, mstx
         memUsageMp_[rangeDesc->deviceId].totalReserved =
             Utility::GetAddResult(memUsageMp_[rangeDesc->deviceId].totalReserved, memPoolSize);
     } else {
-        memUsageMp_.insert({rangeDesc->deviceId, MemoryUsage { }});
+        auto memoryUsage = MemoryUsage { };
+        memoryUsage.totalReserved = memPoolSize;
+        memUsageMp_.insert({rangeDesc->deviceId, memoryUsage});
     }
 
     heapHandleMp_[rangeDesc->ptr] = *rangeDesc;
@@ -79,7 +81,7 @@ void ATBMemoryPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegionsReg
         memUsageMp_[devId].allocSize = rangeDescArray[i].size;
         memUsageMp_[devId].totalAllocated =
             Utility::GetAddResult(memUsageMp_[devId].totalAllocated, memUsageMp_[devId].allocSize);
-        regionHandleMp_[rangeDescArray[i].ptr] = rangeDescArray[i];
+        regionHandleMp_[desc->regionHandleArrayOut[i]] = rangeDescArray[i];
 
         AtbMemPoolRecord record;
         record.memoryUsage = memUsageMp_[devId];
@@ -98,11 +100,11 @@ void ATBMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregi
     }
     std::lock_guard<std::mutex> guard(mutex_);
     for (size_t i = 0; i < desc->refCount; i++) {
-        if (!regionHandleMp_.count(desc->refArray[i].pointer)) {
+        if (!regionHandleMp_.count(desc->refArray[i].handle)) {
             continue;
         }
         AtbMemPoolRecord record;
-        mstxMemVirtualRangeDesc_t rangeDesc = regionHandleMp_[desc->refArray[i].pointer];
+        mstxMemVirtualRangeDesc_t rangeDesc = regionHandleMp_[desc->refArray[i].handle];
         memUsageMp_[rangeDesc.deviceId].dataType = 1;
         memUsageMp_[rangeDesc.deviceId].deviceIndex = rangeDesc.deviceId;
         memUsageMp_[rangeDesc.deviceId].ptr = reinterpret_cast<int64_t>(rangeDesc.ptr);
