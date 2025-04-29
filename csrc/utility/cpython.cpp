@@ -26,6 +26,16 @@ PyObject *PyObject_CallObject(PyObject *callable, PyObject *args) __attribute__(
 
 namespace Utility {
 
+PyInterpGuard::PyInterpGuard()
+{
+    gstate = PyGILState_Ensure();
+}
+
+PyInterpGuard::~PyInterpGuard()
+{
+    PyGILState_Release(gstate);
+}
+
 bool IsPyInterpRepeInited()
 {
     if (Py_IsInitialized != nullptr && Py_IsInitialized()) {
@@ -40,7 +50,7 @@ void PythonCallstack(uint32_t pyDepth, std::string& pyStack)
         pyStack = "\"NA\"";
         return;
     }
-    PyInterpGuard stat;
+    PyInterpGuard stat{};
     PyFrameObject *frame = PyEval_GetFrame();
     if (frame == nullptr) {
         return;

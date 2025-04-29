@@ -183,7 +183,7 @@ TEST(DumpRecord, dump_invalid_memory_record)
     record.eventRecord.record.memoryRecord.devId = GD_INVALID_NUM;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
 }
-TEST(DumpRecord, dump_msxt_mark_expect_success)
+TEST(DumpRecord, dump_mstx_mark_expect_success)
 {
     auto record = Record{};
     record.eventRecord.type = RecordType::MSTX_MARK_RECORD;
@@ -206,7 +206,74 @@ TEST(DumpRecord, dump_msxt_mark_expect_success)
     config.enablePyStack = true;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
 }
-TEST(DumpRecord, dump_msxt_range_start_expect_success)
+TEST(DumpRecord, dump_operator_launch_start_expect_success)
+{
+    auto record = Record{};
+    record.eventRecord.type = RecordType::MSTX_MARK_RECORD;
+    auto mstxRecord = MstxRecord{};
+    
+    mstxRecord.markType = MarkType::MARK_A;
+    mstxRecord.timeStamp = 1234;
+    mstxRecord.pid = 10;
+    mstxRecord.tid = 10;
+    mstxRecord.devId = 1;
+    mstxRecord.stepId = 10;
+    mstxRecord.streamId = 1;
+    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage), "func start {func.__module__}.{func.__name__}",
+        sizeof(mstxRecord.markMessage) - 1);
+    mstxRecord.recordIndex = 1;
+    record.eventRecord.record.mstxRecord = mstxRecord;
+
+    Config config;
+    ClientId clientId = 0;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+}
+TEST(DumpRecord, dump_operator_launch_end_expect_success)
+{
+    auto record = Record{};
+    record.eventRecord.type = RecordType::MSTX_MARK_RECORD;
+    auto mstxRecord = MstxRecord{};
+    
+    mstxRecord.markType = MarkType::MARK_A;
+    mstxRecord.timeStamp = 1234;
+    mstxRecord.pid = 10;
+    mstxRecord.tid = 10;
+    mstxRecord.devId = 1;
+    mstxRecord.stepId = 10;
+    mstxRecord.streamId = 1;
+    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage), "func end {func.__module__}.{func.__name__}",
+        sizeof(mstxRecord.markMessage) - 1);
+    mstxRecord.recordIndex = 1;
+    record.eventRecord.record.mstxRecord = mstxRecord;
+
+    Config config;
+    ClientId clientId = 0;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+}
+TEST(DumpRecord, dump_tensor_launch_expect_success)
+{
+    auto record = Record{};
+    record.eventRecord.type = RecordType::MSTX_MARK_RECORD;
+    auto mstxRecord = MstxRecord{};
+    
+    mstxRecord.markType = MarkType::MARK_A;
+    mstxRecord.timeStamp = 1234;
+    mstxRecord.pid = 10;
+    mstxRecord.tid = 10;
+    mstxRecord.devId = 1;
+    mstxRecord.stepId = 10;
+    mstxRecord.streamId = 1;
+    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage),
+        "tensor:ptr={data_ptr};shape={value.shape};dtype={value.dtype};device={value.device}",
+        sizeof(mstxRecord.markMessage) - 1);
+    mstxRecord.recordIndex = 1;
+    record.eventRecord.record.mstxRecord = mstxRecord;
+
+    Config config;
+    ClientId clientId = 0;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+}
+TEST(DumpRecord, dump_mstx_range_start_expect_success)
 {
     auto record = Record{};
     record.eventRecord.type = RecordType::MSTX_MARK_RECORD;
@@ -227,7 +294,7 @@ TEST(DumpRecord, dump_msxt_range_start_expect_success)
     ClientId clientId = 0;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
 }
-TEST(DumpRecord, dump_msxt_range_end_expect_success)
+TEST(DumpRecord, dump_mstx_range_end_expect_success)
 {
     auto record = Record{};
     record.eventRecord.type = RecordType::MSTX_MARK_RECORD;

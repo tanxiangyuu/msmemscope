@@ -38,15 +38,8 @@ private:
 
 class PyInterpGuard {
 public:
-    PyInterpGuard()
-    {
-        gstate = PyGILState_Ensure();
-    }
-    ~PyInterpGuard()
-    {
-        PyGILState_Release(gstate);
-    }
-
+    PyInterpGuard();
+    ~PyInterpGuard();
 private:
     PyGILState_STATE gstate;
 };

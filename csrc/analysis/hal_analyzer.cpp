@@ -2,13 +2,31 @@
 
 #include "hal_analyzer.h"
 #include "utility/log.h"
+#include "bit_field.h"
 
 namespace Leaks {
 
-HalAnalyzer& HalAnalyzer::GetInstance()
+HalAnalyzer& HalAnalyzer::GetInstance(Config config)
 {
-    static HalAnalyzer analyzer;
+    static HalAnalyzer analyzer(config);
     return analyzer;
+}
+
+HalAnalyzer::HalAnalyzer(Config config)
+{
+    config_ = config;
+    return;
+}
+
+bool HalAnalyzer::IsHalAnalysisEnable()
+{
+    // 当malloc和free采集并非都开启时，关闭分析功能
+    BitField<decltype(config_.eventType)> eventType(config_.eventType);
+    if (!(eventType.checkBit(static_cast<size_t>(EventType::ALLOC_EVENT))) ||
+        !(eventType.checkBit(static_cast<size_t>(EventType::FREE_EVENT)))) {
+        return false;
+    }
+    return true;
 }
 
 bool HalAnalyzer::CreateMemTables(const ClientId &clientId)
@@ -74,6 +92,10 @@ void HalAnalyzer::RecordFree(const ClientId &clientId, const MemOpRecord memreco
 
 bool HalAnalyzer::Record(const ClientId &clientId, const EventRecord &record)
 {
+    // 判断是否满足功能开启条件
+    if (!IsHalAnalysisEnable()) {
+        return true;
+    }
     // 目前不处理CPU侧数据
     if (record.record.memoryRecord.devType == DeviceType::CPU) {
         return true;
@@ -111,6 +133,10 @@ void HalAnalyzer::CheckLeak(const size_t clientId)
 
 void HalAnalyzer::LeakAnalyze()
 {
+    if (!IsHalAnalysisEnable()) {
+        return;
+    }
+
     if (memtables_.empty()) {
         LOG_ERROR("No memory records available.");
     } else {
