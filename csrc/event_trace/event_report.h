@@ -49,6 +49,8 @@ public:
     int ReportRecordEvent(EventRecord &record, PacketHead &head, CallStackString& stack);
     Config GetConfig();
     bool ReportATBMemPoolRecord(AtbMemPoolRecord &record, CallStackString& stack);
+    bool ReportAtbOpExecute(AtbOpExecuteRecord& record);
+    bool ReportAtbKernel(AtbKernelRecord& record);
 private:
     void Init();
     explicit EventReport(CommType type);
