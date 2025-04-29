@@ -29,7 +29,7 @@ public:
 
     void Release(mstxDomainHandle_t domain, mstxMemRegionsUnregisterBatch_t const *desc) override;
 
-    mstxDomainHandle_t CreateDomain(std::string domainName) override;
+    mstxDomainHandle_t CreateDomain(const std::string &domainName) override;
 
 private:
     ATBMemoryPoolTrace();

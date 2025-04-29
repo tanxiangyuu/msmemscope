@@ -26,7 +26,7 @@ public:
     virtual void Release(mstxDomainHandle_t domain, mstxMemRegionsUnregisterBatch_t const *desc) = 0;
 
     // 维护domain
-    virtual mstxDomainHandle_t CreateDomain(std::string domainName) = 0;
+    virtual mstxDomainHandle_t CreateDomain(const std::string &domainName) = 0;
     
 protected:
     MemoryPoolTraceBase() = default;
