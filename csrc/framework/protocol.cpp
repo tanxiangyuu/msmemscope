@@ -1,6 +1,7 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 #include "protocol.h"
 #include <limits>
+#include <iostream>
 #include "serializer.h"
 
 namespace Leaks {
@@ -112,11 +113,20 @@ bool Protocol::GetStringData(std::string &data)
 
 Packet Protocol::GetRecord(void)
 {
-    EventRecord record{};
-    if (!extractor_->Read(record)) {
+    thread_local static EventRecord record{RecordType::INVALID_RECORD};
+    if (record.type == RecordType::INVALID_RECORD) {
+        if (!extractor_->Read(record)) {
+            return Packet{};
+        }
+    }
+    std::string buffer;
+    if (!extractor_->Read(record.cStackLen + record.pyStackLen, buffer)) {
         return Packet{};
     }
-    auto packet = Packet(record);
+    std::string cStack = buffer.substr(0, record.cStackLen);
+    std::string pyStack = buffer.substr(record.cStackLen);
+    auto packet = Packet(record, pyStack, cStack);
+    record.type = RecordType::INVALID_RECORD;
     return packet;
 }
 

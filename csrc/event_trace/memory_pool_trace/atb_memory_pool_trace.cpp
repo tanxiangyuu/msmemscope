@@ -1,7 +1,9 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
-#include "atb_memory_pool_trace.h"
+#include <string>
 #include "utils.h"
 #include "event_report.h"
+#include "call_stack.h"
+#include "atb_memory_pool_trace.h"
 
 namespace Leaks {
 ATBMemoryPoolTrace::ATBMemoryPoolTrace()
@@ -20,7 +22,6 @@ mstxMemHeapHandle_t ATBMemoryPoolTrace::Allocate(mstxDomainHandle_t domain, mstx
     if (domain == nullptr || desc == nullptr || domain != atbDomain_) {
         return nullptr;
     }
-    
     std::lock_guard<std::mutex> guard(mutex_);
 
     const mstxMemVirtualRangeDesc_t *rangeDesc =
@@ -65,7 +66,16 @@ void ATBMemoryPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegionsReg
         return;
     }
     std::lock_guard<std::mutex> guard(mutex_);
-
+    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
+    std::string cStack;
+    std::string pyStack;
+    if (config.enableCStack) {
+        Utility::GetCCallstack(config.cStackDepth, cStack, SKIP_DEPTH);
+    }
+    if (config.enablePyStack) {
+        Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
+    }
+    CallStackString stack{pyStack, cStack};
     const mstxMemVirtualRangeDesc_t *rangeDescArray =
         reinterpret_cast<const mstxMemVirtualRangeDesc_t *>(desc->regionDescArray);
 
@@ -87,7 +97,7 @@ void ATBMemoryPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegionsReg
         record.memoryUsage = memUsageMp_[devId];
         record.pid = Utility::GetPid();
         record.tid = Utility::GetTid();
-        if (!EventReport::Instance(CommType::SOCKET).ReportATBMemPoolRecord(record)) {
+        if (!EventReport::Instance(CommType::SOCKET).ReportATBMemPoolRecord(record, stack)) {
             CLIENT_ERROR_LOG("Report ATB Data Failed");
         }
     }
@@ -99,6 +109,16 @@ void ATBMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregi
         return;
     }
     std::lock_guard<std::mutex> guard(mutex_);
+    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
+    std::string cStack;
+    std::string pyStack;
+    if (config.enableCStack) {
+        Utility::GetCCallstack(config.cStackDepth, cStack, SKIP_DEPTH);
+    }
+    if (config.enablePyStack) {
+        Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
+    }
+    CallStackString stack{pyStack, cStack};
     for (size_t i = 0; i < desc->refCount; i++) {
         if (!regionHandleMp_.count(desc->refArray[i].handle)) {
             continue;
@@ -114,7 +134,7 @@ void ATBMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregi
         record.memoryUsage = memUsageMp_[rangeDesc.deviceId];
         record.pid = Utility::GetPid();
         record.tid = Utility::GetTid();
-        if (!EventReport::Instance(CommType::SOCKET).ReportATBMemPoolRecord(record)) {
+        if (!EventReport::Instance(CommType::SOCKET).ReportATBMemPoolRecord(record, stack)) {
             CLIENT_ERROR_LOG("Report ATB Data Failed");
         }
     }

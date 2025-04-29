@@ -29,7 +29,7 @@ MstxRecord CreatMstxRecord(MarkType type, const char* message, uint64_t stepId, 
 
 TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_sucess) {
     // 先初始化注册
-    AnalysisConfig analysisConfig;
+    Config analysisConfig;
     analysisConfig.stepList.stepCount = 0;
     StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
     static StepInnerAnalyzer analyzer(analysisConfig);
@@ -106,7 +106,7 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks_warning)
     record1.record.torchNpuRecord = npuRecordMalloc;
 
     // 先初始化注册
-    AnalysisConfig analysisConfig;
+    Config analysisConfig;
     analysisConfig.stepList.stepCount = 0;
     StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
     static StepInnerAnalyzer analyzer(analysisConfig);
@@ -118,7 +118,7 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks_warning)
 
 TEST(StepInnerAnalyzerTest, do_npu_malloc_record_expect_sucess) {
     // 先初始化注册
-    AnalysisConfig analysisConfig;
+    Config analysisConfig;
     analysisConfig.stepList.stepCount = 0;
     StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
     static StepInnerAnalyzer analyzer(analysisConfig);
@@ -147,7 +147,7 @@ TEST(StepInnerAnalyzerTest, do_npu_malloc_record_expect_sucess) {
 
 TEST(StepInnerAnalyzerTest, do_npu_malloc_record_expect_double_malloc) {
     // 先初始化注册
-    AnalysisConfig analysisConfig;
+    Config analysisConfig;
     analysisConfig.stepList.stepCount = 0;
     StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
     static StepInnerAnalyzer analyzer(analysisConfig);
@@ -185,7 +185,7 @@ TEST(StepInnerAnalyzerTest, do_npu_malloc_record_expect_double_malloc) {
 
 TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_free_error) {
     // 先初始化注册
-    AnalysisConfig analysisConfig;
+    Config analysisConfig;
     analysisConfig.stepList.stepCount = 0;
     StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
     static StepInnerAnalyzer analyzer(analysisConfig);
@@ -216,7 +216,7 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks) {
     ClientId clientId = 0;
     Leaks::DeviceId deviceId = 0;
     // 先初始化注册
-    AnalysisConfig analysisConfig;
+    Config analysisConfig;
     analysisConfig.stepList.stepCount = 0;
     StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
     static StepInnerAnalyzer analyzer(analysisConfig);
@@ -262,7 +262,7 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks) {
 
 TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateTables_return_true)
 {
-    AnalysisConfig config;
+    Config config;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage{};
     stepInner.npuMemUsages_.insert({1, npumemusage});
@@ -272,7 +272,7 @@ TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateTables_return_true)
 
 TEST(StepInnerAnalyzerTest, do_input_not_exist_deviceid_CreateTables_return_true)
 {
-    AnalysisConfig config;
+    Config config;
     StepInnerAnalyzer stepInner{config};
     auto ret = stepInner.CreateTables(1);
     ASSERT_TRUE(ret);
@@ -280,7 +280,7 @@ TEST(StepInnerAnalyzerTest, do_input_not_exist_deviceid_CreateTables_return_true
 
 TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateMstxTables_return_true)
 {
-    AnalysisConfig config;
+    Config config;
     StepInnerAnalyzer stepInner{config};
     MstxRecordTable mstxrecordtable{};
     stepInner.mstxTables_.insert({1, mstxrecordtable});
@@ -290,7 +290,7 @@ TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateMstxTables_return_true
 
 TEST(StepInnerAnalyzerTest, do_input_not_exist_deviceid_CreateMstxTables_return_true)
 {
-    AnalysisConfig config;
+    Config config;
     StepInnerAnalyzer stepInner{config};
     auto ret = stepInner.CreateMstxTables(1);
     ASSERT_TRUE(ret);
@@ -298,7 +298,7 @@ TEST(StepInnerAnalyzerTest, do_input_not_exist_deviceid_CreateMstxTables_return_
 
 TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateLeakSumTables_return_true)
 {
-    AnalysisConfig config;
+    Config config;
     StepInnerAnalyzer stepInner{config};
     LeakSumsTable leaksumstable{};
     stepInner.leakMemSums_.insert({1, leaksumstable});
@@ -308,7 +308,7 @@ TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateLeakSumTables_return_t
 
 TEST(StepInnerAnalyzerTest, do_input_not_exist_deviceid_CreateLeakSumTables_return_true)
 {
-    AnalysisConfig config;
+    Config config;
     StepInnerAnalyzer stepInner{config};
     auto ret = stepInner.CreateLeakSumTables(1);
     ASSERT_TRUE(ret);
@@ -316,7 +316,7 @@ TEST(StepInnerAnalyzerTest, do_input_not_exist_deviceid_CreateLeakSumTables_retu
 
 TEST(StepInnerAnalyzerTest, do_input_steps_command_disable_analysis)
 {
-    AnalysisConfig config;
+    Config config;
     config.stepList.stepCount = 2;
     StepInnerAnalyzer stepInner{config};
     auto ret = stepInner.IsStepInnerAnalysisEnable();
@@ -325,7 +325,7 @@ TEST(StepInnerAnalyzerTest, do_input_steps_command_disable_analysis)
 
 TEST(StepInnerAnalyzerTest, do_not_input_steps_command_enable_analysis)
 {
-    AnalysisConfig config;
+    Config config;
     config.stepList.stepCount = 0;
     StepInnerAnalyzer stepInner{config};
     auto ret = stepInner.IsStepInnerAnalysisEnable();
@@ -334,7 +334,7 @@ TEST(StepInnerAnalyzerTest, do_not_input_steps_command_enable_analysis)
 
 TEST(StepInnerAnalyzerTest, do_stepId_below_1_SkipCheck_return_true)
 {
-    AnalysisConfig config;
+    Config config;
     StepInnerAnalyzer stepInner{config};
     NpuMemInfo npuMemInfo{};
     npuMemInfo.stepId = 0;
@@ -344,7 +344,7 @@ TEST(StepInnerAnalyzerTest, do_stepId_below_1_SkipCheck_return_true)
 
 TEST(StepInnerAnalyzerTest, do_stepId_up_1_SkipCheck_return_true)
 {
-    AnalysisConfig config;
+    Config config;
     StepInnerAnalyzer stepInner{config};
     NpuMemInfo npuMemInfo{};
     npuMemInfo.stepId = 3;
@@ -354,7 +354,7 @@ TEST(StepInnerAnalyzerTest, do_stepId_up_1_SkipCheck_return_true)
 
 TEST(StepInnerAnalyzerTest, do_updateallocated_step_0_update_0)
 {
-    AnalysisConfig config;
+    Config config;
     config.stepList.stepCount = 2;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
@@ -369,7 +369,7 @@ TEST(StepInnerAnalyzerTest, do_updateallocated_step_0_update_0)
 
 TEST(StepInnerAnalyzerTest, do_updateallocated_step_2_update_allocated)
 {
-    AnalysisConfig config;
+    Config config;
     config.stepList.stepCount = 2;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
@@ -385,7 +385,7 @@ TEST(StepInnerAnalyzerTest, do_updateallocated_step_2_update_allocated)
 
 TEST(StepInnerAnalyzerTest, do_checkgap_minmaxallocratio_equal_0_expect_reset_allocated)
 {
-    AnalysisConfig config;
+    Config config;
     config.stepList.stepCount = 2;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
@@ -400,7 +400,7 @@ TEST(StepInnerAnalyzerTest, do_checkgap_minmaxallocratio_equal_0_expect_reset_al
 
 TEST(StepInnerAnalyzerTest, do_checkgap_minmaxallocratio_expect_true_allocated)
 {
-    AnalysisConfig config;
+    Config config;
     config.stepList.stepCount = 2;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
@@ -418,7 +418,7 @@ TEST(StepInnerAnalyzerTest, do_checkgap_minmaxallocratio_expect_true_allocated)
 
 TEST(StepInnerAnalyzerRecordFuncTest, Recordtest)
 {
-    Leaks::AnalysisConfig config;
+    Leaks::Config config;
     config.enableCompare = false;
     config.inputCorrectPaths = true;
     config.outputCorrectPaths = false;
@@ -431,7 +431,7 @@ TEST(StepInnerAnalyzerRecordFuncTest, Recordtest)
 
 TEST(StepInnerAnalyzerRecordFuncTest, recordMallocSuccess) {
     // 先初始化注册
-    Leaks::AnalysisConfig config;
+    Leaks::Config config;
     config.enableCompare = false;
     config.inputCorrectPaths = true;
     config.outputCorrectPaths = false;
@@ -457,7 +457,7 @@ TEST(StepInnerAnalyzerRecordFuncTest, recordMallocSuccess) {
 
 TEST(StepInnerAnalyzerRecordFuncTest, recordFreeSuccess) {
     // 先初始化注册
-    Leaks::AnalysisConfig config;
+    Leaks::Config config;
     config.enableCompare = false;
     config.inputCorrectPaths = true;
     config.outputCorrectPaths = false;
@@ -483,7 +483,7 @@ TEST(StepInnerAnalyzerRecordFuncTest, recordFreeSuccess) {
 
 TEST(StepInnerAnalyzerReceiveMstxMsgFuncTest, ReceiveMstxMsgIfRangeStartA) {
     // 先初始化注册
-    Leaks::AnalysisConfig config;
+    Leaks::Config config;
     config.enableCompare = false;
     config.inputCorrectPaths = true;
     config.outputCorrectPaths = false;
@@ -504,7 +504,7 @@ TEST(StepInnerAnalyzerReceiveMstxMsgFuncTest, ReceiveMstxMsgIfRangeStartA) {
 
 TEST(StepInnerAnalyzerReceiveMstxMsgFuncTest, ReceiveMstxMsgIfRangeEnd) {
     // 先初始化注册
-    Leaks::AnalysisConfig config;
+    Leaks::Config config;
     config.enableCompare = false;
     config.inputCorrectPaths = true;
     config.outputCorrectPaths = false;
@@ -525,7 +525,7 @@ TEST(StepInnerAnalyzerReceiveMstxMsgFuncTest, ReceiveMstxMsgIfRangeEnd) {
 
 TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedUpdateMaxTest)
 {
-    AnalysisConfig config;
+    Config config;
     config.stepList.stepCount = 0;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
@@ -541,7 +541,7 @@ TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedUpdateMaxTest)
 
 TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedInitTest)
 {
-    AnalysisConfig config;
+    Config config;
     config.stepList.stepCount = 0;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
@@ -558,7 +558,7 @@ TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedInitTest)
 
 TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedreturnTest)
 {
-    AnalysisConfig config;
+    Config config;
     config.stepList.stepCount = 0;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
@@ -575,7 +575,7 @@ TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedreturnTest)
 
 TEST(StepInnerAnalyzerAddDurationTest, AddDurationTest)
 {
-    AnalysisConfig config;
+    Config config;
     config.stepList.stepCount = 0;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
@@ -591,7 +591,7 @@ TEST(StepInnerAnalyzerAddDurationTest, AddDurationTest)
 
 TEST(StepInnerAnalyzerAddDurationTest, AddDurationReturnTest)
 {
-    AnalysisConfig config;
+    Config config;
     config.stepList.stepCount = 0;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
@@ -607,7 +607,7 @@ TEST(StepInnerAnalyzerAddDurationTest, AddDurationReturnTest)
 
 TEST(StepInnerAnalyzerSetStepIdFuncTest, SetStepIdTest)
 {
-    AnalysisConfig config;
+    Config config;
     config.stepList.stepCount = 0;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
@@ -620,7 +620,7 @@ TEST(StepInnerAnalyzerSetStepIdFuncTest, SetStepIdTest)
 
 TEST(StepInnerAnalyzerGetNowAllocatedFuncTest, GetNowAllocatedTest)
 {
-    AnalysisConfig config;
+    Config config;
     config.stepList.stepCount = 0;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;

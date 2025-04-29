@@ -5,9 +5,10 @@
 #include <string>
 #include <Python.h>
 
-namespace Leaks {
+namespace Utility {
 
 bool IsPyInterpRepeInited();
+void PythonCallstack(uint32_t pyDepth, std::string& pyStack);
 
 class PythonObject {
 public:
@@ -36,6 +37,7 @@ private:
 };
 
 class PyInterpGuard {
+public:
     PyInterpGuard()
     {
         gstate = PyGILState_Ensure();

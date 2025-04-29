@@ -18,6 +18,7 @@ namespace Leaks {
 
 enum class OptVal : int32_t {
     SELECT_STEPS = 0,
+    CALL_STACK,
     COMPARE,
     INPUT,
     OUTPUT,
@@ -35,23 +36,31 @@ void ShowDescription()
 void ShowHelpInfo()
 {
     ShowDescription();
-    std::cout <<
-        std::endl <<
-        "Usage: msleaks <option(s)> prog-and-args" << std::endl <<
-        std::endl <<
-        "  basic user options, with default in [ ]:" << std::endl <<
-        "    -h --help                      Show this message." << std::endl <<
-        "    -v --version                   Show version." << std::endl <<
-        "    --level=<level>                Set the data parsing level" << std::endl <<
-        "                                   Level [1] for more detail info(default:0)" << std::endl <<
-        "    --steps=1,2,3,...              Select the steps to collect memory information." << std::endl <<
-        "                                   The input step numbers need to be separated by, or ，." << std::endl <<
-        "                                   The maximum number of steps is 5" << std::endl <<
-        "    --compare                      Enable memory data comparison." << std::endl <<
-        "    --input=path1,path2            Paths to compare files, valid with compare command on" << std::endl <<
-        "                                   The input paths need to be separated by, or ，." << std::endl <<
-        "    --output=path                  The path to store the generated files." << std::endl <<
-        "    --log-level                    Set log level to <level> [warn]." << std::endl;
+    std::cout << std::endl
+        << "Usage: msleaks <option(s)> prog-and-args" << std::endl << std::endl
+        << "  basic user options, with default in [ ]:" << std::endl
+        << "    -h --help                                Show this message." << std::endl
+        << "    -v --version                             Show version." << std::endl
+        << "    --level=<level>                          Set the data parsing level." << std::endl
+        << "                                             Level [1] for more detail info(default:0)." << std::endl
+        << "    --steps=1,2,3,...                        Select the steps to collect memory information." << std::endl
+        << "                                             The input step numbers need to be separated by, or ，."
+        << std::endl
+        << "                                             The maximum number of steps is 5." << std::endl
+        << "    --call-stack=<c/python>[:<Depth>],...    Enable C,Python call stack collection for memory event."
+        << std::endl
+        << "                                             Select the maximum depth of the collected call stack."
+        << std::endl
+        << "                                             If no depth is specified, use default depth(50)." << std::endl
+        << "                                             e.g. --call-stack=c:20,python:10" << std::endl
+        << "                                                  --call-stack=python" << std::endl
+        << "                                             The input params need to be separated by, or ，." << std::endl
+        << "    --compare                                Enable memory data comparison." << std::endl
+        << "    --input=path1,path2                      Paths to compare files, valid with compare command on."
+        << std::endl
+        << "                                             The input paths need to be separated by, or ，." << std::endl
+        << "    --output=path                            The path to store the generated files." << std::endl
+        << "    --log-level                              Set log level to <level> [warn]." << std::endl;
 }
 
 void ShowVersion()
@@ -110,6 +119,7 @@ std::vector<option> GetLongOptArray()
         {"help", no_argument, nullptr, 'h'},
         {"version", no_argument, nullptr, 'v'},
         {"steps", required_argument, nullptr, static_cast<int32_t>(OptVal::SELECT_STEPS)},
+        {"call-stack", required_argument, nullptr, static_cast<int32_t>(OptVal::CALL_STACK)},
         {"compare", no_argument, nullptr, static_cast<int32_t>(OptVal::COMPARE)},
         {"input", required_argument, nullptr, static_cast<int32_t>(OptVal::INPUT)},
         {"output", required_argument, nullptr, static_cast<int32_t>(OptVal::OUTPUT)},
@@ -169,6 +179,52 @@ static void ParseSelectSteps(const std::string &param, UserCommand &userCommand)
         it++;
     }
 
+    return;
+}
+
+static bool CheckIsValidDepthInfo(const std::string &param, UserCommand &userCommand)
+{
+    size_t pos = param.find(':');
+    std::string callType = param.substr(0, pos);
+    std::regex numberPattern(R"(^(0|[1-9]\d*)$)");
+    uint32_t depth = DEFAULT_CALL_STACK_DEPTH;
+
+    if (pos != std::string::npos) {
+        std::string depthStr = param.substr(pos + 1);
+        if (depthStr.empty() || !std::regex_match(depthStr, numberPattern) || !Utility::StrToUint32(depth, depthStr)) {
+            return false;
+        }
+    }
+    if (callType == "python" && !userCommand.config.enablePyStack) {
+        userCommand.config.enablePyStack = true;
+        userCommand.config.pyStackDepth = depth;
+    } else if (callType == "c" && !userCommand.config.enableCStack) {
+        userCommand.config.enableCStack = true;
+        userCommand.config.cStackDepth = depth;
+    } else {
+        return false;
+    }
+    return true;
+}
+
+static void ParseCallstack(const std::string &param, UserCommand &userCommand)
+{
+    std::regex dividePattern(R"([，,])");
+    std::sregex_token_iterator  it(param.begin(), param.end(), dividePattern, -1);
+    std::sregex_token_iterator  end;
+
+    auto parseFailed = [&userCommand](void) {
+        std::cout << "[msleaks] ERROR: invalid call-stack depth input." << std::endl;
+        userCommand.printHelpInfo = true;
+    };
+
+    while (it != end) {
+        std::string depthStr = it->str();
+        if (!CheckIsValidDepthInfo(depthStr, userCommand)) {
+            return parseFailed();
+        }
+        it++;
+    }
     return;
 }
 
@@ -276,6 +332,9 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
         case static_cast<int32_t>(OptVal::SELECT_STEPS):
             ParseSelectSteps(param, userCommand);
             break;
+        case static_cast<int32_t>(OptVal::CALL_STACK):
+            ParseCallstack(param, userCommand);
+            break;
         case static_cast<int32_t>(OptVal::COMPARE):
             userCommand.config.enableCompare = true;
             break;
@@ -300,8 +359,12 @@ void ClientParser::InitialUserCommand(UserCommand &userCommand)
 {
     userCommand.config.stepList.stepCount = 0;
     userCommand.config.enableCompare = false;
+    userCommand.config.enableCStack = false;
+    userCommand.config.enablePyStack = false;
     userCommand.config.inputCorrectPaths = false;
     userCommand.config.outputCorrectPaths = true;
+    userCommand.config.cStackDepth = 0;
+    userCommand.config.pyStackDepth = 0;
     userCommand.config.levelType = LevelType::LEVEL_0;
 }
 

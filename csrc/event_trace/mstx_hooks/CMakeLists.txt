@@ -6,6 +6,8 @@ target_sources(ascend_mstx_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/memory_pool_trace/atb_memory_pool_trace.cpp
   ${FRAMEWORK_INC_DIR}/client_process.cpp
   ${UTILITY_INC_DIR}/log.cpp
+  ${UTILITY_INC_DIR}/call_stack.cpp
+  ${UTILITY_INC_DIR}/cpython.cpp
 )
 
 target_include_directories(ascend_mstx_hook PUBLIC
@@ -15,6 +17,8 @@ target_include_directories(ascend_mstx_hook PUBLIC
   ${FUNC_HOSTINJECTION_DIR}
   ${UTILITY_INC_DIR}
   ${SECUREC_INC_DIR}
+  ${Python3_INCLUDE_DIRS}
 )
 
+target_link_options(ascend_mstx_hook PRIVATE "-Wl,--disable-new-dtags")
 target_link_libraries(ascend_mstx_hook c_sec)

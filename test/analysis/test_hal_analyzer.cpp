@@ -9,7 +9,7 @@
 using namespace Leaks;
 
 TEST(HalAnalyzerTest, do_hal_record_except_leaks) {
-    AnalysisConfig analysisConfig;
+    Config analysisConfig;
  
     ClientId clientId = 0;
     auto record1 = EventRecord{};
