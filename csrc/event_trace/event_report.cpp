@@ -529,6 +529,38 @@ bool EventReport::ReportAclItf(AclOpType aclOpType)
     return (sendNums >= 0);
 }
 
+bool EventReport::ReportAtbOpExecute(AtbOpExecuteRecord& record)
+{
+    g_isInReportFunction = true;
+
+    if (!IsConnectToServer()) {
+        return true;
+    }
+
+    if (IsNeedSkip()) {
+        return true;
+    }
+
+    g_isInReportFunction = false;
+    return true;
+}
+
+bool EventReport::ReportAtbKernel(AtbKernelRecord& record)
+{
+    g_isInReportFunction = true;
+
+    if (!IsConnectToServer()) {
+        return true;
+    }
+
+    if (IsNeedSkip()) {
+        return true;
+    }
+
+    g_isInReportFunction = false;
+    return true;
+}
+
 std::vector<char *> ToRawCArgv(std::vector<std::string> const &argv)
 {
     std::vector<char *> rawArgv;
