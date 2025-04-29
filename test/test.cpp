@@ -21,7 +21,7 @@ TEST(Sample, sample)
 
     Config config;
     EventRecord record;
-    HalAnalyzer::GetInstance().Record(0, record);
+    HalAnalyzer::GetInstance(config).Record(0, record);
 
     std::string testString = "test";
     Protocol protocol {};

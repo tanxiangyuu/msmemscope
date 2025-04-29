@@ -1,0 +1,182 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
+
+import functools
+import logging
+import re
+import sys
+import logging
+from collections.abc import Iterator
+from typing import Any, Optional, TypeVar
+import numpy as np
+import mstx
+import torch
+from torch.utils import _pytree as pytree
+from torch.utils._python_dispatch import TorchDispatchMode
+from packaging import version
+
+# 配置日志
+logging.basicConfig(level=logging.INFO)
+
+TK = TypeVar("TK")
+TVa = TypeVar("TVa")
+TVb = TypeVar("TVb")
+
+# Note that this is only factories that take Tensor as input as they are
+# the ones we care about.
+FACTORY_FUNCTION_REGEX = re.compile("(new_.*|.*_like)")
+
+
+def calculate_tensor_size(tensor: torch.Tensor):
+    numel = np.prod(tensor.shape)
+    element_size = tensor.itemsize
+    size = numel * element_size
+
+    return size
+
+
+def zip_by_key(a: dict[TK, TVa], b: dict[TK, TVb]) -> Iterator[tuple[TK, TVa, TVb]]:
+    for arg, value in a.items():
+        if arg in b:
+            yield arg, value, b[arg]
+
+
+def zip_arguments(
+    schema: torch.FunctionSchema, args: tuple[Any, ...], kwargs: dict[str, Any]
+) -> Iterator[tuple[torch.Argument, Any]]:
+    schema_args = schema.arguments[: len(args)]
+    schema_kwargs = {arg.name: arg for arg in schema.arguments[len(args) :]}
+
+    yield from zip(schema_args, args)
+
+    for _, argument, value in zip_by_key(schema_kwargs, kwargs):
+        yield (argument, value)
+
+
+class ArgumentHandler:
+    @classmethod
+    def _handle_argument(
+        cls,
+        func,
+        value: Any,
+        is_write: bool,
+        metadata_only: bool,
+        is_output: bool = False,
+    ) -> None:
+        if isinstance(value, torch.Tensor) and value.is_npu:
+            is_read = False
+            data_ptr = value.data_ptr()
+
+            if not is_write and not metadata_only:
+                is_read = True
+
+            # 计算tensor大小
+            tensor_size = calculate_tensor_size(value)
+
+            mstx.mark(f"tensor:ptr={data_ptr};is_write={is_write};is_read={is_read};is_output={is_output};"\
+                    f"name={func.__module__}.{func.__name__};shape={value.shape};dtype={value.dtype};"\
+                    f"tensor_size={tensor_size};device={value.device}", None)
+
+    def parse_inputs(
+        self,
+        func,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+        *,
+        is_factory: bool,
+    ) -> None:
+        schema = func._schema
+        for argument, value in zip_arguments(schema, args, kwargs):
+            is_write = argument.alias_info is not None and argument.alias_info.is_write
+            # A change is metadata only if it is a view or a factory function that
+            # reads only metadata
+            metadata_only = is_factory or (
+                argument.alias_info is not None and not argument.alias_info.is_write
+            )
+            pytree.tree_map_(
+                functools.partial(
+                    self._handle_argument,
+                    is_write=is_write,
+                    is_output=False,
+                    metadata_only=metadata_only,
+                ),
+                func,
+                value,
+            )
+
+    def parse_outputs(
+        self, func, outputs: Any, *, is_factory: bool
+    ) -> None:
+        schema = func._schema
+        for res, value in zip(schema.returns, (outputs,)):
+            metadata_only = is_factory or (
+                res.alias_info is not None and not res.alias_info.is_write
+            )
+            pytree.tree_map_(
+                functools.partial(
+                    self._handle_argument,
+                    is_write=not metadata_only,
+                    is_output=True,
+                    metadata_only=metadata_only,
+                ),
+                func,
+                value,
+            )
+
+
+class MemoryDispatchMode(TorchDispatchMode):
+
+    def __torch_dispatch__(self, func, types, args=(), kwargs=None):
+        if kwargs is None:
+            kwargs = {}
+
+        is_factory = bool(FACTORY_FUNCTION_REGEX.match(func._schema.name))
+        # 获取aten算子执行开始事件
+        mstx.mark(f"func start {func.__module__}.{func.__name__}", None)
+
+        argument_handler = ArgumentHandler()
+        argument_handler.parse_inputs(func, args, kwargs, is_factory=is_factory)
+        # 算子执行
+        outputs = func(*args, **kwargs)
+        
+        argument_handler.parse_outputs(func, outputs, is_factory=is_factory)
+        # 获取aten算子执行结束事件
+        mstx.mark(f"func end {func.__module__}.{func.__name__}", None)
+
+        return outputs
+
+
+class AtenCollector:
+    def __init__(self) -> None:
+        self.dispatch = MemoryDispatchMode()
+        self.enabled = False
+
+    def __del__(self):
+        if (sys is not None) and (not sys.is_finalizing()) and self.enabled:
+            self.disable()
+
+    def enable(self):
+        self.dispatch.__enter__()
+        self.enabled = True
+
+    def disable(self):
+        self.dispatch.__exit__(None, None, None)
+        self.enabled = False
+
+
+def enable_aten_collector():
+    aten_collector.enable()
+
+
+def disable_aten_collector():
+    aten_collector.disable()
+
+
+current_pytorch_version = torch.__version__
+TARGET_VERSION = "2.3"
+
+if version.parse(current_pytorch_version) < version.parse(TARGET_VERSION):
+    logging.warning(f"[msleaks]: Current Pytorch's version {current_pytorch_version} < 2.3, which doesn't support " \
+     "aten collection.")
+else:
+    logging.info(f"[msleaks]: Current Pytorch's version is {current_pytorch_version}, enable aten collection.")
+    aten_collector = AtenCollector()

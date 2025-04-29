@@ -1,10 +1,16 @@
 add_library(ascend_kernel_hook SHARED runtime_hooks.cpp acl_hooks.cpp)
 
+find_package(Python3 REQUIRED COMPONENTS Development)
+if (NOT Python3_FOUND)
+    message(FATAL_ERROR "Python3 is no found.")
+endif()
+
 target_sources(ascend_kernel_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/event_report.cpp
   ${FRAMEWORK_INC_DIR}/client_process.cpp
   ${FUNC_INJECTION_CORE_DIR}/Communication.cpp
   ${FUNC_INJECTION_CORE_DIR}/DomainSocket.cpp
+  ${UTILITY_INC_DIR}/cpython.cpp
   ${UTILITY_INC_DIR}/log.cpp
   ${UTILITY_INC_DIR}/file.cpp
   ${UTILITY_INC_DIR}/call_stack.cpp
@@ -15,6 +21,7 @@ target_sources(ascend_kernel_hook PRIVATE
 )
 
 target_include_directories(ascend_kernel_hook PUBLIC
+  ${Python3_INCLUDE_DIRS}
   ${FRAMEWORK_INC_DIR}
   ${EVENT_TRACE_INC_DIR}
   ${FUNC_INJECTION_DIR}

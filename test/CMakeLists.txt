@@ -10,6 +10,11 @@ else()
     message(STATUS "Found Python3: ${Python3_INCLUDE_DIRS}")
 endif()
 
+find_package(Python3 REQUIRED COMPONENTS Development)
+if (NOT Python3_FOUND)
+    message(FATAL_ERROR "Python3 is no found.")
+endif()
+
 set(leaks_header ../csrc
                  ../csrc/analysis
                  ../csrc/framework

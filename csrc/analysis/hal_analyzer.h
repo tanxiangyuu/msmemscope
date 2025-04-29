@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include "module_info.h"
 #include "record_info.h"
+#include "config_info.h"
 #include "host_injection/core/Communication.h"
 
 namespace Leaks {
@@ -29,10 +30,10 @@ using MemoryRecordTable = std::unordered_map<uint64_t, HalMemInfo>;
 
 class HalAnalyzer {
 public:
-    static HalAnalyzer& GetInstance();
+    static HalAnalyzer& GetInstance(Config config);
     bool Record(const ClientId &clientId, const EventRecord &record);
 private:
-    HalAnalyzer() = default;
+    explicit HalAnalyzer(Config config);
     ~HalAnalyzer();
     HalAnalyzer(const HalAnalyzer&) = delete;
     HalAnalyzer& operator=(const HalAnalyzer&) = delete;
@@ -40,11 +41,13 @@ private:
     HalAnalyzer& operator=(HalAnalyzer&& other) = delete;
 
     std::unordered_map<ClientId, MemoryRecordTable> memtables_{};
+    bool IsHalAnalysisEnable();
     bool CreateMemTables(const ClientId &clientId);
     void RecordMalloc(const ClientId &clientId, const MemOpRecord memrecord);
     void RecordFree(const ClientId &clientId, const MemOpRecord memrecord);
     void LeakAnalyze();
     void CheckLeak(const size_t clientId);
+    Config config_;
 };
 
 }
