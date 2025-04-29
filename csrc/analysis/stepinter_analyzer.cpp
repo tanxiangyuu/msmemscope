@@ -58,7 +58,7 @@ void StepInterAnalyzer::ReadCsvFile(std::string &path, std::unordered_map<DEVICE
 
     getline(csvFile, line);
     sin.str(line);
-    if ((line + "\n") != std::string(LEAKS_HEADERS)) {
+    if (line != std::string(LEAKS_HEADERS)) {
         LOG_ERROR("The headers of %s file is illegal!", path.c_str());
         return ;
     }

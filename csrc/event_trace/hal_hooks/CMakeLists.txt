@@ -6,6 +6,8 @@ target_sources(leaks_ascend_hal_hook PRIVATE
   ${FUNC_INJECTION_CORE_DIR}/Communication.cpp
   ${FUNC_INJECTION_CORE_DIR}/DomainSocket.cpp
   ${UTILITY_INC_DIR}/log.cpp
+  ${UTILITY_INC_DIR}/call_stack.cpp
+  ${UTILITY_INC_DIR}/cpython.cpp
   ${FUNC_HOSTINJECTION_DIR}/utils/FileSystem.cpp
   ${FUNC_HOSTINJECTION_DIR}/utils/Ustring.cpp
 )
@@ -17,5 +19,7 @@ target_include_directories(leaks_ascend_hal_hook PUBLIC
   ${FUNC_HOSTINJECTION_DIR}
   ${UTILITY_INC_DIR}
   ${SECUREC_INC_DIR}
+  ${Python3_INCLUDE_DIRS}
 )
+target_link_options(leaks_ascend_hal_hook PRIVATE "-Wl,--disable-new-dtags")
 target_link_libraries(leaks_ascend_hal_hook ascend_hal stdc++fs c_sec)

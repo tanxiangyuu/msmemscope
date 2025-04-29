@@ -52,13 +52,13 @@ char *const *ExecCmd::ExecArgv(void) const
     return argv_.data();
 }
 
-Process::Process(const AnalysisConfig &config)
+Process::Process(const Config &config)
 {
     config_ = config;
     server_ = std::unique_ptr<ServerProcess>(new ServerProcess(CommType::SOCKET));
 
     server_->SetClientConnectHook([this, config](ClientId clientId) {
-            this->server_->Notify(clientId, Serialize<AnalysisConfig>(config));
+            this->server_->Notify(clientId, Serialize<Config>(config));
         });
     auto func = std::bind(&Process::MsgHandle, this, std::placeholders::_1, std::placeholders::_2);
 
@@ -67,20 +67,20 @@ Process::Process(const AnalysisConfig &config)
     server_->Start();
 }
 
-void Process::RecordHandler(const ClientId &clientId, const EventRecord &record)
+void Process::RecordHandler(const ClientId &clientId, const Record &record)
 {
-    DumpRecord::GetInstance().DumpData(clientId, record);
-    TraceRecord::GetInstance().TraceHandler(record);
+    DumpRecord::GetInstance(config_).DumpData(clientId, record);
+    TraceRecord::GetInstance().TraceHandler(record.eventRecord);
 
-    switch (record.type) {
+    switch (record.eventRecord.type) {
         case RecordType::MSTX_MARK_RECORD:
-            MstxAnalyzer::Instance().RecordMstx(clientId, record.record.mstxRecord);
+            MstxAnalyzer::Instance().RecordMstx(clientId, record.eventRecord.record.mstxRecord);
             break;
         case RecordType::MEMORY_RECORD:
-            HalAnalyzer::GetInstance().Record(clientId, record);
+            HalAnalyzer::GetInstance().Record(clientId, record.eventRecord);
             break;
         case RecordType::TORCH_NPU_RECORD:
-            StepInnerAnalyzer::GetInstance(config_).Record(clientId, record);
+            StepInnerAnalyzer::GetInstance(config_).Record(clientId, record.eventRecord);
             break;
         default:
             break;
@@ -106,7 +106,7 @@ void Process::MsgHandle(size_t &clientId, std::string &msg)
         auto packet = protocol.GetPacket();
         switch (packet.GetPacketHead().type) {
             case PacketType::RECORD:
-                RecordHandler(clientId, packet.GetPacketBody().eventRecord);
+                RecordHandler(clientId, packet.GetPacketBody().record);
                 break;
             case PacketType::LOG: {
                 auto log = packet.GetPacketBody().log;

@@ -12,13 +12,13 @@
 
 namespace Leaks {
 
-StepInnerAnalyzer &StepInnerAnalyzer::GetInstance(AnalysisConfig config)
+StepInnerAnalyzer &StepInnerAnalyzer::GetInstance(Config config)
 {
     static StepInnerAnalyzer analyzer(config);
     return analyzer;
 }
 
-StepInnerAnalyzer::StepInnerAnalyzer(AnalysisConfig config)
+StepInnerAnalyzer::StepInnerAnalyzer(Config config)
 {
     config_ = config;
 

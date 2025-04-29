@@ -107,6 +107,14 @@ KernelLaunchRecord CreateKernelLaunchRecord(KernelLaunchRecord kernelLaunchRecor
     return record;
 }
 
+int EventReport::ReportRecordEvent(EventRecord &record, PacketHead &head, CallStackString& stack)
+{
+    record.cStackLen = stack.cStack.size();
+    record.pyStackLen = stack.pyStack.size();
+    std::string buffer = Serialize<PacketHead, EventRecord>(head, record) + stack.cStack + stack.pyStack;
+    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(buffer);
+    return sendNums;
+}
 EventReport& EventReport::Instance(CommType type)
 {
     static EventReport instance(type);
@@ -122,6 +130,10 @@ void EventReport::Init()
     isReceiveServerInfo_.store(false);
 }
 
+Config EventReport::GetConfig()
+{
+    return config_;
+}
 EventReport::EventReport(CommType type)
 {
     Init();
@@ -165,7 +177,7 @@ EventReport::~EventReport()
     }
 }
 
-bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord)
+bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord, CallStackString& stack)
 {
     g_isInReportFunction = true;
 
@@ -184,13 +196,13 @@ bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord)
     eventRecord.record.torchNpuRecord.kernelIndex = kernelLaunchRecordIndex_;
     eventRecord.record.torchNpuRecord.devId = static_cast<int32_t>(torchNpuRecord.memoryUsage.deviceIndex);
     eventRecord.record.torchNpuRecord.recordIndex = ++recordIndex_;
-    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportATBMemPoolRecord(AtbMemPoolRecord &record)
+bool EventReport::ReportATBMemPoolRecord(AtbMemPoolRecord &record, CallStackString& stack)
 {
     g_isInReportFunction = true;
 
@@ -209,13 +221,13 @@ bool EventReport::ReportATBMemPoolRecord(AtbMemPoolRecord &record)
     eventRecord.record.atbMemPoolRecord.kernelIndex = kernelLaunchRecordIndex_;
     eventRecord.record.atbMemPoolRecord.devId = static_cast<int32_t>(record.memoryUsage.deviceIndex);
     eventRecord.record.atbMemPoolRecord.recordIndex = ++recordIndex_;
-    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
-
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
     g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag)
+bool EventReport::ReportMalloc(
+    uint64_t addr, uint64_t size, unsigned long long flag, CallStackString& stack)
 {
     g_isInReportFunction = true;
 
@@ -239,13 +251,14 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
     eventRecord.record.memoryRecord.modid = moduleId;
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
-    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportFree(uint64_t addr)
+bool EventReport::ReportFree(uint64_t addr, CallStackString& stack)
 {
     g_isInReportFunction = true;
 
@@ -265,13 +278,13 @@ bool EventReport::ReportFree(uint64_t addr)
     eventRecord.record.memoryRecord.modid = INVALID_MODID;
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
-    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size)
+bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size, CallStackString& stack)
 {
     g_isInReportFunction = true;
 
@@ -289,13 +302,14 @@ bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size)
     eventRecord.record.memoryRecord.modid = INVALID_MODID;
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
-    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
 }
  
-bool EventReport::ReportHostFree(uint64_t addr)
+bool EventReport::ReportHostFree(uint64_t addr, CallStackString& stack)
 {
     g_isInReportFunction = true;
 
@@ -312,7 +326,8 @@ bool EventReport::ReportHostFree(uint64_t addr)
     eventRecord.record.memoryRecord.modid = INVALID_MODID;
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
-    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
@@ -348,7 +363,7 @@ void EventReport::SetStepInfo(const MstxRecord &mstxRecord)
     return;
 }
 
-bool EventReport::ReportMark(MstxRecord& mstxRecord)
+bool EventReport::ReportMark(MstxRecord& mstxRecord, CallStackString& stack)
 {
     g_isInReportFunction = true;
 
@@ -374,7 +389,7 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord)
 
     SetStepInfo(mstxRecord);
     eventRecord.record.mstxRecord.stepId = stepInfo_.currentStepId;
-    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
 
     // 通过有无固化语句判断是否要采集host侧内存数据
     {
@@ -423,7 +438,7 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
     eventRecord.record.kernelLaunchRecord.devId = devId;
     eventRecord.record.kernelLaunchRecord.kernelLaunchIndex = ++kernelLaunchRecordIndex_;
     eventRecord.record.kernelLaunchRecord.recordIndex = ++recordIndex_;
-
+    CallStackString stack;
     if (config_.levelType == LevelType::LEVEL_1) {
         std::string kernelName;
         {
@@ -440,7 +455,7 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
                 CLIENT_WARN_LOG("strncpy_s FAILED");
             }
             PacketHead head = {PacketType::RECORD};
-            auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+            auto sendNums = ReportRecordEvent(eventRecord, head, stack);
             if (sendNums < 0) {
                 CLIENT_ERROR_LOG("rtKernelLaunch report FAILED");
                 return false;
@@ -463,7 +478,8 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
                 hdlKernelNameMap_.insert({hdl, tempName});
             }
             PacketHead head = {PacketType::RECORD};
-            auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+            CallStackString stack;
+            auto sendNums = ReportRecordEvent(eventRecord, head, stack);
             if (sendNums < 0) {
                 CLIENT_ERROR_LOG("rtKernelLaunch report FAILED");
                 return;
@@ -473,7 +489,7 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
         parseThreads_.emplace_back(std::move(th));
     } else {
         PacketHead head = {PacketType::RECORD};
-        auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+        auto sendNums = ReportRecordEvent(eventRecord, head, stack);
         if (sendNums < 0) {
             return false;
         }
@@ -504,7 +520,8 @@ bool EventReport::ReportAclItf(AclOpType aclOpType)
     eventRecord.record.aclItfRecord.recordIndex = ++recordIndex_;
     eventRecord.record.aclItfRecord.aclItfRecordIndex = ++aclItfRecordIndex_;
     eventRecord.record.aclItfRecord.kernelIndex = kernelLaunchRecordIndex_;
-    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+    CallStackString stack;
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
