@@ -45,6 +45,7 @@ public:
     bool ReportAclItf(AclOpType aclOpType);
     bool ReportMark(MstxRecord &mstxRecord);
     bool ReportTorchNpu(TorchNpuRecord &torchNpuRecord);
+    bool ReportATBMemPoolRecord(AtbMemPoolRecord &record);
 private:
     void Init();
     explicit EventReport(CommType type);

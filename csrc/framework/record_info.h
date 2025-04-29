@@ -49,6 +49,8 @@ struct TorchNpuRecord {
     MemoryUsage memoryUsage;
 };
 
+using AtbMemPoolRecord = TorchNpuRecord;
+
 enum class MemOpType : uint8_t {
     MALLOC = 0U,
     FREE,
@@ -149,6 +151,7 @@ enum class RecordType {
     KERNEL_LAUNCH_RECORD,
     MSTX_MARK_RECORD,
     TORCH_NPU_RECORD,
+    ATB_MEMORY_POOL_RECORD,
 };
 
 // 事件记录载体
@@ -160,6 +163,7 @@ struct EventRecord {
         AclItfRecord aclItfRecord;
         KernelLaunchRecord kernelLaunchRecord;
         MstxRecord mstxRecord;
+        AtbMemPoolRecord atbMemPoolRecord;
     } record;
 };
 

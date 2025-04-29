@@ -39,5 +39,5 @@ if __name__ == "__main__":
     if ret.returncode != 0:
         exit(ret.returncode)
 
-    ret = subprocess.run(["make"], capture_output=False)
+    ret = subprocess.run(["make", "-j8"], capture_output=False)
     exit(ret.returncode)

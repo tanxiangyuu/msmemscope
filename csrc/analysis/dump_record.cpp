@@ -52,9 +52,9 @@ bool DumpRecord::DumpData(const ClientId &clientId, const EventRecord &record)
             }
             break;
         }
+        case RecordType::ATB_MEMORY_POOL_RECORD:
         case RecordType::TORCH_NPU_RECORD: {
-            TorchNpuRecord torchNpuRecord = record.record.torchNpuRecord;
-            if (!DumpTorchData(clientId, torchNpuRecord)) {
+            if (!DumpMemPoolData(clientId, record)) {
                 return false;
             }
             break;
@@ -201,18 +201,30 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
     }
     return true;
 }
-bool DumpRecord::DumpTorchData(const ClientId &clientId, const TorchNpuRecord &torchNpuRecord)
+
+bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
     if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, LEAKS_HEADERS)) {
         return false;
     }
-    MemoryUsage memoryUsage = torchNpuRecord.memoryUsage;
+
+    MemoryUsage memoryUsage { };
+    std::string memPoolType { };
+    if (eventRecord.type == RecordType::TORCH_NPU_RECORD) {
+        memoryUsage = eventRecord.record.torchNpuRecord.memoryUsage;
+        memPoolType = "pytorch";
+    } else {
+        memoryUsage = eventRecord.record.atbMemPoolRecord.memoryUsage;
+        memPoolType = "atb";
+    }
+    auto record = eventRecord.type == RecordType::TORCH_NPU_RECORD ?
+        eventRecord.record.torchNpuRecord : eventRecord.record.atbMemPoolRecord;
     std::string eventType = memoryUsage.allocSize >= 0 ? "malloc" : "free";
-    int fpRes = fprintf(leaksDataFile_, "%lu,%lu,pytorch,%s,%lu,%lu,%d,%lu,N/A,%ld,%ld,%ld,%ld\n",
-                        torchNpuRecord.recordIndex, torchNpuRecord.timeStamp, eventType.c_str(), torchNpuRecord.pid,
-                        torchNpuRecord.tid, torchNpuRecord.devId, torchNpuRecord.kernelIndex, memoryUsage.ptr,
-                        memoryUsage.allocSize, memoryUsage.totalAllocated, memoryUsage.totalReserved);
+    int fpRes = fprintf(leaksDataFile_, "%lu,%lu,%s,%s,%lu,%lu,%d,%lu,N/A,%ld,%ld,%ld,%ld\n",
+                        record.recordIndex, record.timeStamp, memPoolType.c_str(), eventType.c_str(),
+                        record.pid, record.tid, record.devId, record.kernelIndex,
+                        memoryUsage.ptr, memoryUsage.allocSize, memoryUsage.totalAllocated, memoryUsage.totalReserved);
     if (fpRes < 0) {
         std::cout << "[msleaks] Error: Fail to write data to csv file, errno:" << fpRes << std::endl;
         return false;

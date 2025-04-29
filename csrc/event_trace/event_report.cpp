@@ -190,6 +190,31 @@ bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord)
     return (sendNums >= 0);
 }
 
+bool EventReport::ReportATBMemPoolRecord(AtbMemPoolRecord &record)
+{
+    g_isInReportFunction = true;
+
+    if (!IsConnectToServer()) {
+        return true;
+    }
+
+    if (IsNeedSkip()) {
+        return true;
+    }
+    PacketHead head = {PacketType::RECORD};
+    EventRecord eventRecord;
+    eventRecord.type = RecordType::ATB_MEMORY_POOL_RECORD;
+    eventRecord.record.atbMemPoolRecord = record;
+    eventRecord.record.atbMemPoolRecord.timeStamp = Utility::GetTimeMicroseconds();
+    eventRecord.record.atbMemPoolRecord.kernelIndex = kernelLaunchRecordIndex_;
+    eventRecord.record.atbMemPoolRecord.devId = static_cast<int32_t>(record.memoryUsage.deviceIndex);
+    eventRecord.record.atbMemPoolRecord.recordIndex = ++recordIndex_;
+    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(Serialize(head, eventRecord));
+
+    g_isInReportFunction = false;
+    return (sendNums >= 0);
+}
+
 bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag)
 {
     g_isInReportFunction = true;
