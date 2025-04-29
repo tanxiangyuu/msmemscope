@@ -19,6 +19,7 @@ target_include_directories(
                         ${FUNC_HOSTINJECTION_DIR}
                         ${SECUREC_INC_DIR}
                         ${Python3_INCLUDE_DIRS}
+                        ${EVENT_TRACE_INC_DIR}
 )
 
 target_link_libraries(ascend_leaks pthread stdc++fs dl c_sec)

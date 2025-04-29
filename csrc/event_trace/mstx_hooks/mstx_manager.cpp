@@ -6,6 +6,8 @@
 #include "event_report.h"
 #include "record_info.h"
 #include "log.h"
+#include "memory_pool_trace/memory_pool_trace_manager.h"
+#include "memory_pool_trace/atb_memory_pool_trace.h"
 
 namespace Leaks {
 // 组装普通打点信息
@@ -66,6 +68,13 @@ uint64_t MstxManager::GetRangeId()
 
 mstxDomainHandle_t MstxManager::ReportDomainCreateA(char const *domainName)
 {
+    // 后续收编所有通过MSTX打点的内存池trace
+    if (domainName == "atb") {
+        if (MemoryPoolTraceManager::GetInstance().RegisterMemoryPoolTracer("atb", &ATBMemoryPoolTrace::GetInstance())) {
+            return MemoryPoolTraceManager::GetInstance().CreateDomain(domainName);
+        }
+    }
+
     if (domainName == nullptr || std::string(domainName) != "msleaks") {
         return nullptr;
     }
@@ -74,6 +83,10 @@ mstxDomainHandle_t MstxManager::ReportDomainCreateA(char const *domainName)
 
 mstxMemHeapHandle_t MstxManager::ReportHeapRegister(mstxDomainHandle_t domain, mstxMemHeapDesc_t const *desc)
 {
+    auto tracer = MemoryPoolTraceManager::GetInstance().GetMemoryPoolTracer(domain);
+    if (tracer) {
+        return tracer->Allocate(domain, desc);
+    }
     if (domain == nullptr || desc == nullptr || domain != msleaksDomain_) {
         return nullptr;
     }
@@ -90,6 +103,10 @@ mstxMemHeapHandle_t MstxManager::ReportHeapRegister(mstxDomainHandle_t domain, m
 
 void MstxManager::ReportHeapUnregister(mstxDomainHandle_t domain, mstxMemHeapHandle_t heap)
 {
+    auto tracer = MemoryPoolTraceManager::GetInstance().GetMemoryPoolTracer(domain);
+    if (tracer) {
+        return tracer->Deallocate(domain, heap);
+    }
     if (domain == nullptr || heap == nullptr || domain != msleaksDomain_) {
         return;
     }
@@ -103,6 +120,10 @@ void MstxManager::ReportHeapUnregister(mstxDomainHandle_t domain, mstxMemHeapHan
 
 void MstxManager::ReportRegionsRegister(mstxDomainHandle_t domain, mstxMemRegionsRegisterBatch_t const *desc)
 {
+    auto tracer = MemoryPoolTraceManager::GetInstance().GetMemoryPoolTracer(domain);
+    if (tracer) {
+        return tracer->Reallocate(domain, desc);
+    }
     if (domain == nullptr || desc == nullptr || domain != msleaksDomain_) {
         return;
     }
@@ -132,6 +153,10 @@ void MstxManager::ReportRegionsRegister(mstxDomainHandle_t domain, mstxMemRegion
 
 void MstxManager::ReportRegionsUnregister(mstxDomainHandle_t domain, mstxMemRegionsUnregisterBatch_t const *desc)
 {
+    auto tracer = MemoryPoolTraceManager::GetInstance().GetMemoryPoolTracer(domain);
+    if (tracer) {
+        return tracer->Release(domain, desc);
+    }
     if (domain == nullptr || desc == nullptr || domain != msleaksDomain_) {
         return;
     }
