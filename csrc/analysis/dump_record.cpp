@@ -231,7 +231,7 @@ bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &ev
     auto record = eventRecord.type == RecordType::TORCH_NPU_RECORD ?
         eventRecord.record.torchNpuRecord : eventRecord.record.atbMemPoolRecord;
     std::string eventType = memoryUsage.allocSize >= 0 ? "malloc" : "free";
-    if (!Utility::Fprintf(leaksDataFile_, "%lu,%lu,%s,%s,%lu,%lu,%d,%lu,N/A,%ld,%ld,%ld,%ld\n",
+    if (!Utility::Fprintf(leaksDataFile_, "%lu,%lu,%s,%s,%lu,%lu,%d,%lu,N/A,%ld,%ld,%ld,%ld",
         record.recordIndex, record.timeStamp, memPoolType.c_str(), eventType.c_str(),
         record.pid, record.tid, record.devId, record.kernelIndex,
         memoryUsage.ptr, memoryUsage.allocSize, memoryUsage.totalAllocated, memoryUsage.totalReserved)) {
