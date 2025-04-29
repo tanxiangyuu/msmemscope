@@ -120,8 +120,11 @@ void ATBMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregi
     }
 }
 
-mstxDomainHandle_t ATBMemoryPoolTrace::CreateDomain(std::string domainName)
+mstxDomainHandle_t ATBMemoryPoolTrace::CreateDomain(const std::string &domainName)
 {
-    return atbDomain_;
+    if (domainName == "atb") {
+        return atbDomain_;
+    }
+    return nullptr;
 }
 }
