@@ -13,6 +13,7 @@
 #include "kernel_hooks/runtime_hooks.h"
 #include "record_info.h"
 #include "config_info.h"
+#include "protocol.h"
 
 namespace Leaks {
 extern thread_local bool g_isReportHostMem;
@@ -37,15 +38,17 @@ struct MstxStepInfo {
 class EventReport {
 public:
     static EventReport& Instance(CommType type);
-    bool ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag);
-    bool ReportFree(uint64_t addr);
-    bool ReportHostMalloc(uint64_t addr, uint64_t size);
-    bool ReportHostFree(uint64_t addr);
+    bool ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag, CallStackString& stack);
+    bool ReportFree(uint64_t addr, CallStackString& stack);
+    bool ReportHostMalloc(uint64_t addr, uint64_t size, CallStackString& stack);
+    bool ReportHostFree(uint64_t addr, CallStackString& stack);
     bool ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, const void *hdl);
     bool ReportAclItf(AclOpType aclOpType);
-    bool ReportMark(MstxRecord &mstxRecord);
-    bool ReportTorchNpu(TorchNpuRecord &torchNpuRecord);
-    bool ReportATBMemPoolRecord(AtbMemPoolRecord &record);
+    bool ReportMark(MstxRecord &mstxRecord, CallStackString& stack);
+    bool ReportTorchNpu(TorchNpuRecord &torchNpuRecord, CallStackString& stack);
+    int ReportRecordEvent(EventRecord &record, PacketHead &head, CallStackString& stack);
+    Config GetConfig();
+    bool ReportATBMemPoolRecord(AtbMemPoolRecord &record, CallStackString& stack);
 private:
     void Init();
     explicit EventReport(CommType type);
@@ -67,7 +70,7 @@ private:
     std::mutex threadMutex_;
     std::mutex rangeIdTableMutex_;
 
-    AnalysisConfig config_;
+    Config config_;
     std::vector<std::thread> parseThreads_;
     std::atomic<uint32_t> runningThreads_;  // 同时运行线程数
     std::unordered_map<uint64_t, std::unordered_map<uint64_t, uint64_t>> mstxRangeIdTables_{};

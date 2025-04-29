@@ -16,10 +16,10 @@ namespace Leaks {
 // DumpRecord类主要用于将analyzer分析的数据dump至csv文件
 class DumpRecord {
 public:
-    static DumpRecord& GetInstance();
-    bool DumpData(const ClientId &clientId, const EventRecord &record);
+    static DumpRecord& GetInstance(Config config);
+    bool DumpData(const ClientId &clientId, const Record &record);
 private:
-    DumpRecord();
+    explicit DumpRecord(Config config);
     ~DumpRecord();
     void SetDirPath();
     DumpRecord(const DumpRecord&) = delete;
@@ -27,11 +27,11 @@ private:
     DumpRecord(DumpRecord&& other) = delete;
     DumpRecord& operator=(DumpRecord&& other) = delete;
 
-    bool DumpMemData(const ClientId &clientId, const MemOpRecord &memrecord);
+    bool DumpMemData(const ClientId &clientId, const MemOpRecord &memrecord, const CallStackString &stack);
     bool DumpKernelData(const ClientId &clientId, const KernelLaunchRecord &kernelLaunchRecord);
     bool DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord);
-    bool DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord);
-    bool DumpMstxData(const ClientId &clientId, const MstxRecord &msxtRecord);
+    bool DumpMstxData(const ClientId &clientId, const MstxRecord &msxtRecord, const CallStackString &stack);
+    bool DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord, const CallStackString &stack);
     FILE *leaksDataFile_ = nullptr;
     std::unordered_map<ClientId, std::unordered_map<uint64_t, uint64_t>> hostMemSizeMap_;
     std::unordered_map<ClientId, std::unordered_map<uint64_t, uint64_t>> memSizeMap_;
@@ -41,6 +41,8 @@ private:
     std::string dirPath_;
     std::mutex fileMutex_;
     std::string fileNamePrefix_ = "leaks_dump_";
+    std::string csvHeader_;
+    Config config_;
 };
 }
 #endif

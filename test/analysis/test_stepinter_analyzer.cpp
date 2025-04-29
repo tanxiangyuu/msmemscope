@@ -48,7 +48,8 @@ TEST(StepInterAnalyzerTest, do_read_csv_file_expect_read_correct_data)
 {
     Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
     FILE *fp = fopen("test_leaks.csv", "w");
-    fprintf(fp, LEAKS_HEADERS);
+    std::string testHeader = std::string(LEAKS_HEADERS) + "\n";
+    fprintf(fp, testHeader.c_str());
 
     for (int index = 0; index < 10; ++index) {
         fprintf(fp, "1,%d,pytorch,malloc,123,234,0,0,N/A,N/A,0,%d,%d\n", index, index+100, index+1000);
@@ -96,7 +97,8 @@ TEST(StepInterAnalyzerTest, do_read_invalid_csv_file_expect_empty_data)
     ASSERT_EQ(data.size(), 0);
 
     fp = fopen("test_leaks.csv", "w");
-    fprintf(fp, LEAKS_HEADERS);
+    std::string testHeader = std::string(LEAKS_HEADERS) + "\n";
+    fprintf(fp, testHeader.c_str());
     fprintf(fp, "1,0,pytorch,malloc,123,234,0,0,N/A,N/A,0\n");
     fclose(fp);
     stepinteranalyzer.ReadCsvFile(str, data);
@@ -313,7 +315,8 @@ TEST(StepInterAnalyzerTest, do_stepinter_compare)
 {
     Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
     FILE *fp = fopen("test_leaks.csv", "w");
-    fprintf(fp, LEAKS_HEADERS);
+    std::string testHeader = std::string(LEAKS_HEADERS) + "\n";
+    fprintf(fp, testHeader.c_str());
 
     for (int index = 0; index < 10; ++index) {
         fprintf(fp, "1,%d,pytorch,malloc,123,234,0,0,N/A,N/A,0,%d,%d\n", index, index+100, index+1000);

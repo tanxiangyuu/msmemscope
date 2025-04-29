@@ -8,6 +8,7 @@
 
 namespace Leaks {
 constexpr uint32_t PATHSIZE = 2;
+constexpr uint32_t DEPTHCOUNT = 2;
 
 // 用于解析用户命令行
 class ClientParser {

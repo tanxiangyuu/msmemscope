@@ -22,7 +22,8 @@ TEST(EventReportTest, ReportMallocTestDEVICE) {
     unsigned long long testFlag = 2377900603261207558;
     MemOpSpace space = MemOpSpace::DEVICE;
     instance.isReceiveServerInfo_ = true;
-    EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, 1));
+    CallStackString callStack;
+    EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
 }
 
 TEST(EventReportTest, ReportMallocTestHost) {
@@ -32,14 +33,16 @@ TEST(EventReportTest, ReportMallocTestHost) {
     unsigned long long testFlag = 504403158274934784;
     MemOpSpace space = MemOpSpace::HOST;
     instance.isReceiveServerInfo_ = true;
-    EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, 1));
+    CallStackString callStack;
+    EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
 }
 
 TEST(EventReportTest, ReportFreeTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     uint64_t testAddr = 0x12345678;
     instance.isReceiveServerInfo_ = true;
-    EXPECT_TRUE(instance.ReportFree(testAddr));
+    CallStackString callStack;
+    EXPECT_TRUE(instance.ReportFree(testAddr, callStack));
 }
 
 TEST(EventReportTest, ReportHostMallocWithoutMstxTest) {
@@ -47,53 +50,57 @@ TEST(EventReportTest, ReportHostMallocWithoutMstxTest) {
     uint64_t testAddr = 0x12345678;
     uint64_t testSize = 1024;
     instance.isReceiveServerInfo_ = true;
-    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize));
+    CallStackString callStack;
+    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize, callStack));
 }
  
 TEST(EventReportTest, ReportHostFreeWithoutMstxTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     uint64_t testAddr = 0x12345678;
     instance.isReceiveServerInfo_ = true;
-    EXPECT_TRUE(instance.ReportHostFree(testAddr));
+    CallStackString callStack;
+    EXPECT_TRUE(instance.ReportHostFree(testAddr, callStack));
 }
 
 TEST(EventReportTest, ReportHostMallocTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    auto mstxRecordStart = MstxRecord {};
+    auto mstxRecordStart = MstxRecord{};
+    CallStackString stack;
     mstxRecordStart.markType = MarkType::RANGE_START_A;
     mstxRecordStart.rangeId = 1;
     strncpy_s(mstxRecordStart.markMessage, sizeof(mstxRecordStart.markMessage),
         "report host memory info start", sizeof(mstxRecordStart.markMessage));
-    instance.ReportMark(mstxRecordStart);
+    instance.ReportMark(mstxRecordStart, stack);
 
     uint64_t testAddr = 0x12345678;
     uint64_t testSize = 1024;
-    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize));
+    CallStackString callStack;
+    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize, callStack));
 
     auto mstxRecordEnd = MstxRecord {};
     mstxRecordEnd.markType = MarkType::RANGE_END;
     mstxRecordEnd.rangeId = 1;
-    instance.ReportMark(mstxRecordEnd);
+    instance.ReportMark(mstxRecordEnd, stack);
 }
  
 TEST(EventReportTest, ReportHostFreeTest) {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport &instance = EventReport::Instance(CommType::MEMORY);
+    CallStackString callStack;
     instance.isReceiveServerInfo_ = true;
     auto mstxRecordStart = MstxRecord {};
     mstxRecordStart.markType = MarkType::RANGE_START_A;
     mstxRecordStart.rangeId = 1;
     strncpy_s(mstxRecordStart.markMessage, sizeof(mstxRecordStart.markMessage),
         "report host memory info start", sizeof(mstxRecordStart.markMessage));
-    instance.ReportMark(mstxRecordStart);
-
+    instance.ReportMark(mstxRecordStart, callStack);
     uint64_t testAddr = 0x12345678;
-    EXPECT_TRUE(instance.ReportHostFree(testAddr));
+    EXPECT_TRUE(instance.ReportHostFree(testAddr, callStack));
 
     auto mstxRecordEnd = MstxRecord {};
     mstxRecordEnd.markType = MarkType::RANGE_END;
     mstxRecordEnd.rangeId = 1;
-    instance.ReportMark(mstxRecordEnd);
+    instance.ReportMark(mstxRecordEnd, callStack);
 }
 
 TEST(EventReportTest, ReportMarkTest) {
@@ -101,7 +108,8 @@ TEST(EventReportTest, ReportMarkTest) {
     instance.isReceiveServerInfo_ = true;
     MstxRecord record;
     record.rangeId = 123;
-    EXPECT_TRUE(instance.ReportMark(record));
+    CallStackString callStack;
+    EXPECT_TRUE(instance.ReportMark(record, callStack));
 }
 
 TEST(EventReportTest, ReportKernelLaunchTest) {
@@ -263,12 +271,12 @@ TEST(EventReportTest, ReportTestWithNoReceiveServerInfo) {
     uint64_t testAddr = 0x12345678;
     uint64_t testSize = 1024;
     unsigned long long flag = 0x1234;
-    
-    EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, flag));
-    EXPECT_TRUE(instance.ReportFree(testAddr));
+    CallStackString callStack;
+    EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, flag, callStack));
+    EXPECT_TRUE(instance.ReportFree(testAddr, callStack));
 
-    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize));
-    EXPECT_TRUE(instance.ReportHostFree(testAddr));
+    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize, callStack));
+    EXPECT_TRUE(instance.ReportHostFree(testAddr, callStack));
 
     KernelLaunchRecord kernelLaunchRecord = {};
     EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchRecord, nullptr));
@@ -277,10 +285,10 @@ TEST(EventReportTest, ReportTestWithNoReceiveServerInfo) {
     EXPECT_TRUE(instance.ReportAclItf(aclOpType));
 
     TorchNpuRecord torchNpuRecord = {};
-    EXPECT_TRUE(instance.ReportTorchNpu(torchNpuRecord));
+    EXPECT_TRUE(instance.ReportTorchNpu(torchNpuRecord, callStack));
 
     MstxRecord mstxRecord = {};
-    EXPECT_TRUE(instance.ReportMark(mstxRecord));
+    EXPECT_TRUE(instance.ReportMark(mstxRecord, callStack));
 }
 
 TEST(KernelNameFuncTest, PipeCallGivenLsCommandReturnFalse)
@@ -541,4 +549,20 @@ TEST(CreateAclItfRecordFuncTest, CreateAclItfRecordtestINIT)
     Leaks::AclOpType aclOpType = Leaks::AclOpType::INIT;
     Leaks::AclItfRecord record = CreateAclItfRecord(aclOpType);
     EXPECT_EQ(aclOpType, record.type);
+}
+
+TEST(GetSpaceFunc, GetMemOpSpaceExpectSuccess)
+{
+    unsigned long long flag = 0b00100000000000;
+    ASSERT_EQ(GetMemOpSpace(flag), MemOpSpace::HOST);
+    flag = 0b00110000000000;
+    ASSERT_EQ(GetMemOpSpace(flag), MemOpSpace::DVPP);
+    flag = 0b11110000000000;
+    ASSERT_EQ(GetMemOpSpace(flag), MemOpSpace::INVALID);
+}
+
+TEST(EventReportTest, ToRawCArgvExpectSuccess)
+{
+    std::vector<std::string> argv = {"test"};
+    ToRawCArgv(argv);
 }

@@ -9,6 +9,8 @@
 #include "analysis/mstx_analyzer.h"
 #include "analysis/dump_record.h"
 #include "analysis/trace_record.h"
+#include "client_process.h"
+#include "client_parser.h"
 using namespace Leaks;
 
 TEST(Process, process_launch_ls_expect_success)
@@ -18,7 +20,7 @@ TEST(Process, process_launch_ls_expect_success)
     std::streambuf *sbuf = std::cout.rdbuf();
     std::cout.rdbuf(buffer.rdbuf());
     std::string outputInfo = "user program exited";
-    AnalysisConfig config;
+    Config config;
     Process process(config);
     process.Launch(execParams);
     std::string captureInfo = buffer.str();
@@ -34,18 +36,18 @@ TEST(Process, process_launch_empty_expect_success)
     std::cout.rdbuf(buffer.rdbuf());
     std::string outputInfo = "exited abnormally";
 
-    AnalysisConfig config;
+    Config config;
     Process process(config);
     process.Launch(execParams);
     std::string captureInfo = buffer.str();
     EXPECT_NE(captureInfo.find(outputInfo), std::string::npos);
     std::cout.rdbuf(sbuf);
 }
- 
+
 TEST(Process, process_setpreloadenv_expect_success)
 {
     setenv("LD_PRELOAD_PATH", "/lib64/", 1);
-    AnalysisConfig config;
+    Config config;
     Process process(config);
     process.SetPreloadEnv();
     char *env = getenv("LD_PRELOAD");
@@ -63,7 +65,7 @@ TEST(Process, process_postprocess_exit_signal_expect_success)
     std::vector<std::string> execParams = {"ls"};
     ExecCmd cmd(execParams);
     ::pid_t pid = ::fork();
-    AnalysisConfig config;
+    Config config;
     Process process(config);
     if (pid == 0) {
         sleep(200);
@@ -87,7 +89,7 @@ TEST(Process, process_postprocess_exit_abnormal_expect_success)
     std::vector<std::string> execParams = {""};
     ExecCmd cmd(execParams);
     ::pid_t pid = ::fork();
-    AnalysisConfig config;
+    Config config;
     Process process(config);
     if (pid == 0) {
         _exit(EXIT_FAILURE);
@@ -106,16 +108,17 @@ TEST(Process, process_postprocess_exit_abnormal_expect_success)
 TEST(Process, do_dump_record_except_success)
 {
     ClientId clientId = 0;
-    EventRecord record{};
+    Record record{};
 
-    DumpRecord::GetInstance().DumpData(clientId, record);
+    Config config;
+    DumpRecord::GetInstance(config).DumpData(clientId, record);
 }
 
 TEST(Process, do_record_handler_except_success)
 {
     ClientId clientId = 0;
-    auto record1 = EventRecord{};
-    record1.type = RecordType::TORCH_NPU_RECORD;
+    auto record1 = Record{};
+    record1.eventRecord.type = RecordType::TORCH_NPU_RECORD;
     auto npuRecordMalloc = TorchNpuRecord {};
     npuRecordMalloc.recordIndex = 1;
     auto memoryusage1 = MemoryUsage {};
@@ -124,28 +127,28 @@ TEST(Process, do_record_handler_except_success)
     memoryusage1.allocSize = 512;
     memoryusage1.totalAllocated = 512;
     npuRecordMalloc.memoryUsage = memoryusage1;
-    record1.record.torchNpuRecord = npuRecordMalloc;
+    record1.eventRecord.record.torchNpuRecord = npuRecordMalloc;
 
-    auto record2 = EventRecord{};
-    record2.type = RecordType::MSTX_MARK_RECORD;
+    auto record2 = Record{};
+    record2.eventRecord.type = RecordType::MSTX_MARK_RECORD;
     auto mstxRecordStart = MstxRecord {};
     mstxRecordStart.markType = MarkType::RANGE_START_A;
     mstxRecordStart.rangeId = 0;
     mstxRecordStart.stepId = 1;
     mstxRecordStart.streamId = 123;
-    record2.record.mstxRecord = mstxRecordStart;
+    record2.eventRecord.record.mstxRecord = mstxRecordStart;
 
-    auto record3 = EventRecord{};
-    record3.type = RecordType::KERNEL_LAUNCH_RECORD;
+    auto record3 = Record{};
+    record3.eventRecord.type = RecordType::KERNEL_LAUNCH_RECORD;
     auto kernelLaunchRecord = KernelLaunchRecord {};
-    record3.record.kernelLaunchRecord = kernelLaunchRecord;
+    record3.eventRecord.record.kernelLaunchRecord = kernelLaunchRecord;
 
-    auto record4 = EventRecord{};
-    record4.type = RecordType::ACL_ITF_RECORD;
+    auto record4 = Record{};
+    record4.eventRecord.type = RecordType::ACL_ITF_RECORD;
     auto aclItfRecord = AclItfRecord {};
-    record4.record.aclItfRecord = aclItfRecord;
+    record4.eventRecord.record.aclItfRecord = aclItfRecord;
 
-    AnalysisConfig config;
+    Config config;
     Process process(config);
     process.RecordHandler(clientId, record1);
     process.RecordHandler(clientId, record2);
@@ -155,12 +158,12 @@ TEST(Process, do_record_handler_except_success)
 
 TEST(Process, do_msg_handler_record_packet_type_except_success)
 {
-    AnalysisConfig config;
+    Config config;
     Process process(config);
 
     size_t clientId = 0;
 
-    PacketHead head {PacketType::RECORD};
+    PacketHead recordHead {PacketType::RECORD};
     auto record = EventRecord {};
     auto memRecord = MemOpRecord {};
     memRecord.recordIndex = 123;
@@ -177,7 +180,30 @@ TEST(Process, do_msg_handler_record_packet_type_except_success)
     memRecord.timeStamp = 1234567;
     record.type = RecordType::MEMORY_RECORD;
     record.record.memoryRecord = memRecord;
-    std::string msg = Serialize(head, record);
+    std::string testMsg = "test";
+    record.pyStackLen = testMsg.size();
+    record.cStackLen = testMsg.size();
+    std::string str = Serialize(recordHead, record);
+    str += testMsg + testMsg;
+    process.MsgHandle(clientId, str);
 
-    process.MsgHandle(clientId, msg);
+    std::string logMsg = "test";
+    PacketHead logHead {PacketType::LOG};
+    std::string buffer = Serialize<PacketHead, uint64_t>(logHead, logMsg.size());
+    buffer += logMsg;
+    process.MsgHandle(clientId, buffer);
+}
+
+TEST(Process, server_process_notify_test)
+{
+    std::string msg;
+    ServerProcess server(CommType::SOCKET);
+    server.Notify(0, msg);
+}
+
+TEST(Process, server_process_wait_test)
+{
+    std::string msg;
+    ServerProcess server(CommType::SOCKET);
+    server.Wait(0, msg);
 }

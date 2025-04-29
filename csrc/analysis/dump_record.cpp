@@ -11,14 +11,18 @@
 
 namespace Leaks {
 
-DumpRecord& DumpRecord::GetInstance()
+DumpRecord& DumpRecord::GetInstance(Config config)
 {
-    static DumpRecord instance;
+    static DumpRecord instance(config);
     return instance;
 }
 
-DumpRecord::DumpRecord()
+DumpRecord::DumpRecord(Config config)
 {
+    config_ = config;
+    std::string cStack = config.enableCStack ? ",Call Stack(C)" : "";
+    std::string pyStack = config.enablePyStack ? ",Call Stack(Python)" : "";
+    csvHeader_ = LEAKS_HEADERS + pyStack + cStack + "\n";
     SetDirPath();
 }
 
@@ -28,25 +32,28 @@ void DumpRecord::SetDirPath()
     dirPath_ = Utility::g_dirPath + "/" + std::string(DUMP_FILE);
 }
 
-bool DumpRecord::DumpData(const ClientId &clientId, const EventRecord &record)
+bool DumpRecord::DumpData(const ClientId &clientId, const Record &record)
 {
-    switch (record.type) {
+    std::string pyStack(record.callStackInfo.pyStack, record.callStackInfo.pyStack + record.callStackInfo.pyLen);
+    std::string cStack(record.callStackInfo.cStack, record.callStackInfo.cStack + record.callStackInfo.cLen);
+    CallStackString stack{cStack, pyStack};
+    switch (record.eventRecord.type) {
         case RecordType::MEMORY_RECORD: {
-            auto memRecord = record.record.memoryRecord;
-            if (!DumpMemData(clientId, memRecord)) {
+            auto memRecord = record.eventRecord.record.memoryRecord;
+            if (!DumpMemData(clientId, memRecord, stack)) {
                 return false;
             }
             break;
         }
         case RecordType::KERNEL_LAUNCH_RECORD: {
-            auto kernelLaunchRecord = record.record.kernelLaunchRecord;
+            auto kernelLaunchRecord = record.eventRecord.record.kernelLaunchRecord;
             if (!DumpKernelData(clientId, kernelLaunchRecord)) {
                 return false;
             }
             break;
         }
         case RecordType::ACL_ITF_RECORD: {
-            auto aclItfRecord = record.record.aclItfRecord;
+            auto aclItfRecord = record.eventRecord.record.aclItfRecord;
             if (!DumpAclItfData(clientId, aclItfRecord)) {
                 return false;
             }
@@ -54,14 +61,14 @@ bool DumpRecord::DumpData(const ClientId &clientId, const EventRecord &record)
         }
         case RecordType::ATB_MEMORY_POOL_RECORD:
         case RecordType::TORCH_NPU_RECORD: {
-            if (!DumpMemPoolData(clientId, record)) {
+            if (!DumpMemPoolData(clientId, record.eventRecord, stack)) {
                 return false;
             }
             break;
         }
         case RecordType::MSTX_MARK_RECORD: {
-            auto mstxRecord = record.record.mstxRecord;
-            if (!DumpMstxData(clientId, mstxRecord)) {
+            auto mstxRecord = record.eventRecord.record.mstxRecord;
+            if (!DumpMstxData(clientId, mstxRecord, stack)) {
                 return false;
             }
             break;
@@ -71,10 +78,10 @@ bool DumpRecord::DumpData(const ClientId &clientId, const EventRecord &record)
     }
     return true;
 }
-bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRecord)
+bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRecord, const CallStackString &stack)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, LEAKS_HEADERS)) {
+    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
         return false;
     }
     uint64_t currentSize;
@@ -82,8 +89,7 @@ bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRec
         if (memRecord.memType == MemOpType::MALLOC) {
             hostMemSizeMap_[clientId][memRecord.addr] = memRecord.memSize;
             currentSize = memRecord.memSize;
-        } else if (hostMemSizeMap_.find(clientId) != hostMemSizeMap_.end()
-            && hostMemSizeMap_[clientId].find(memRecord.addr) != hostMemSizeMap_[clientId].end()) {
+        } else if (hostMemSizeMap_[clientId].find(memRecord.addr) != hostMemSizeMap_[clientId].end()) {
             currentSize = hostMemSizeMap_[clientId][memRecord.addr];
             hostMemSizeMap_[clientId].erase(memRecord.addr);
         } else {
@@ -103,23 +109,30 @@ bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRec
     if (memRecord.devId == GD_INVALID_NUM) {
         deviceType = "N/A";
     } else {
-        deviceType = memRecord.space == MemOpSpace::HOST
-                     || memRecord.devType == DeviceType::CPU ?
-                     "host" : std::to_string(memRecord.devId);
+        deviceType = memRecord.space == MemOpSpace::HOST || memRecord.devType == DeviceType::CPU ?
+                "host" : std::to_string(memRecord.devId);
     }
-    int fpRes = fprintf(leaksDataFile_, "%lu,%lu,%s,N/A,%lu,%lu,%s,%lu,%llu,%lu,%lu,N/A,N/A\n",
-                        memRecord.recordIndex, memRecord.timeStamp, memOp.c_str(), memRecord.pid, memRecord.tid,
-                        deviceType.c_str(), memRecord.kernelIndex, memRecord.flag, memRecord.addr, currentSize);
-    if (fpRes < 0) {
-        std::cout << "[msleaks] Error: Fail to write data to csv file, errno:" << fpRes << std::endl;
+    if (!Utility::Fprintf(leaksDataFile_, "%lu,%lu,%s,N/A,%lu,%lu,%s,%lu,%llu,%lu,%lu,N/A,N/A",
+        memRecord.recordIndex, memRecord.timeStamp, memOp.c_str(), memRecord.pid, memRecord.tid, deviceType.c_str(),
+        memRecord.kernelIndex, memRecord.flag, memRecord.addr, currentSize)) {
+        return false;
+    }
+    if (config_.enablePyStack && !Utility::Fprintf(leaksDataFile_, ",%s", stack.pyStack.c_str())) {
+        return false;
+    }
+    if (config_.enableCStack && !Utility::Fprintf(leaksDataFile_, ",%s", stack.cStack.c_str())) {
+        return false;
+    }
+    if (!Utility::Fprintf(leaksDataFile_, "\n")) {
         return false;
     }
     return true;
 }
+
 bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchRecord &kernelLaunchRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, LEAKS_HEADERS)) {
+    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
         return false;
     }
     std::string name;
@@ -128,21 +141,18 @@ bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchReco
     } else {
         name = kernelLaunchRecord.kernelName;
     }
-    int fpRes = fprintf(leaksDataFile_, "%lu,%lu,kernelLaunch,%s,%lu,%lu,%d,%lu,N/A,N/A,N/A,N/A,N/A\n",
-                        kernelLaunchRecord.recordIndex, kernelLaunchRecord.timeStamp,
-                        name.c_str(), kernelLaunchRecord.pid,
-                        kernelLaunchRecord.tid, kernelLaunchRecord.devId, kernelLaunchRecord.kernelLaunchIndex);
-    if (fpRes < 0) {
-        std::cout << "[msleaks] Error: Fail to write data to csv file, errno:" << fpRes << std::endl;
+    if (!Utility::Fprintf(leaksDataFile_, "%lu,%lu,kernelLaunch,%s,%lu,%lu,%d,%lu,N/A,N/A,N/A,N/A,N/A\n",
+        kernelLaunchRecord.recordIndex, kernelLaunchRecord.timeStamp, name.c_str(), kernelLaunchRecord.pid,
+        kernelLaunchRecord.tid, kernelLaunchRecord.devId, kernelLaunchRecord.kernelLaunchIndex)) {
         return false;
     }
     return true;
 }
 
-bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRecord)
+bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRecord, const CallStackString &stack)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, LEAKS_HEADERS)) {
+    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
         return false;
     }
     std::string name;
@@ -164,11 +174,14 @@ bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRe
             break;
         }
     }
-    int fpRes = fprintf(leaksDataFile_, "%lu,%lu,mstx,%s,%lu,%lu,%d,N/A,N/A,N/A,N/A,N/A,N/A\n",
-                        mstxRecord.recordIndex, mstxRecord.timeStamp, name.c_str(), mstxRecord.pid,
-                        mstxRecord.tid, mstxRecord.devId);
-    if (fpRes < 0) {
-        std::cout << "[msleaks] Error: Fail to write data to csv file, errno:" << fpRes << std::endl;
+    if (!Utility::Fprintf(leaksDataFile_, "%lu,%lu,mstx,%s,%lu,%lu,%d,N/A,N/A,N/A,N/A,N/A,N/A",
+        mstxRecord.recordIndex, mstxRecord.timeStamp, name.c_str(), mstxRecord.pid, mstxRecord.tid, mstxRecord.devId)) {
+        return false;
+    }
+    if (config_.enablePyStack && name == "Mark" && !Utility::Fprintf(leaksDataFile_, ",%s", stack.pyStack.c_str())) {
+        return false;
+    }
+    if (!Utility::Fprintf(leaksDataFile_, "\n")) {
         return false;
     }
     return true;
@@ -177,7 +190,7 @@ bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRe
 bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, LEAKS_HEADERS)) {
+    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
         return false;
     }
     std::string name;
@@ -192,20 +205,17 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
             name = "N/A";
             break;
     }
-    int fpRes = fprintf(leaksDataFile_, "%lu,%lu,aclItfRecord,%s,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,N/A\n",
-                        aclItfRecord.recordIndex, aclItfRecord.timeStamp, name.c_str(), aclItfRecord.pid,
-                        aclItfRecord.tid);
-    if (fpRes < 0) {
-        std::cout << "[msleaks] Error: Fail to write data to csv file, errno:" << fpRes << std::endl;
+    if (!Utility::Fprintf(leaksDataFile_, "%lu,%lu,aclItfRecord,%s,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,N/A\n",
+        aclItfRecord.recordIndex, aclItfRecord.timeStamp, name.c_str(), aclItfRecord.pid, aclItfRecord.tid)) {
         return false;
     }
     return true;
 }
 
-bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord)
+bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord, const CallStackString &stack)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, LEAKS_HEADERS)) {
+    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
         return false;
     }
 
@@ -221,14 +231,22 @@ bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &ev
     auto record = eventRecord.type == RecordType::TORCH_NPU_RECORD ?
         eventRecord.record.torchNpuRecord : eventRecord.record.atbMemPoolRecord;
     std::string eventType = memoryUsage.allocSize >= 0 ? "malloc" : "free";
-    int fpRes = fprintf(leaksDataFile_, "%lu,%lu,%s,%s,%lu,%lu,%d,%lu,N/A,%ld,%ld,%ld,%ld\n",
-                        record.recordIndex, record.timeStamp, memPoolType.c_str(), eventType.c_str(),
-                        record.pid, record.tid, record.devId, record.kernelIndex,
-                        memoryUsage.ptr, memoryUsage.allocSize, memoryUsage.totalAllocated, memoryUsage.totalReserved);
-    if (fpRes < 0) {
-        std::cout << "[msleaks] Error: Fail to write data to csv file, errno:" << fpRes << std::endl;
+    if (!Utility::Fprintf(leaksDataFile_, "%lu,%lu,%s,%s,%lu,%lu,%d,%lu,N/A,%ld,%ld,%ld,%ld\n",
+        record.recordIndex, record.timeStamp, memPoolType.c_str(), eventType.c_str(),
+        record.pid, record.tid, record.devId, record.kernelIndex,
+        memoryUsage.ptr, memoryUsage.allocSize, memoryUsage.totalAllocated, memoryUsage.totalReserved)) {
         return false;
     }
+    if (config_.enablePyStack && !Utility::Fprintf(leaksDataFile_, ",%s", stack.pyStack.c_str())) {
+        return false;
+    }
+    if (config_.enableCStack && !Utility::Fprintf(leaksDataFile_, ",%s", stack.cStack.c_str())) {
+        return false;
+    }
+    if (!Utility::Fprintf(leaksDataFile_, "\n")) {
+        return false;
+    }
+
     return true;
 }
 

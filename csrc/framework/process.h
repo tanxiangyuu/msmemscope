@@ -30,7 +30,7 @@ private:
 */
 class Process {
 public:
-    explicit Process(const AnalysisConfig &config);
+    explicit Process(const Config &config);
     ~Process() = default;
     void Launch(const std::vector<std::string> &execParams);
 private:
@@ -39,11 +39,11 @@ private:
     void PostProcess(const ExecCmd &cmd);
 
     void MsgHandle(size_t &clientId, std::string &msg);
-    void RecordHandler(const ClientId &clientId, const EventRecord &record);
+    void RecordHandler(const ClientId &clientId, const Record &record);
 private:
     std::unique_ptr<ServerProcess> server_;
     std::map<ClientId, Protocol> protocolList_;
-    AnalysisConfig config_;
+    Config config_;
 };
 
 }

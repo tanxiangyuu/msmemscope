@@ -82,6 +82,12 @@ TEST(MstxTest, ReportHeapUnregisterTest) {
     mstxDomainHandle_t msleaks = MstxDomainCreateAFunc("msleaks");
     mstxMemHeapHandle_t heap;
     MstxMemHeapUnregisterFunc(msleaks, heap);
+    mstxMemHeapDesc_t heapDesc;
+    void const* ptr = reinterpret_cast<void const*>(123);
+    mstxMemVirtualRangeDesc_t memRangeDesc{1, ptr, 1};
+    heapDesc.typeSpecificDesc = reinterpret_cast<void const*>(&memRangeDesc);
+    MstxMemHeapRegisterFunc(msleaks, &heapDesc);
+    MstxMemHeapUnregisterFunc(msleaks, reinterpret_cast<mstxMemHeapHandle_t>(const_cast<void*>(ptr)));
 }
 
 TEST(MstxTest, ReportRegionsHandleTest) {

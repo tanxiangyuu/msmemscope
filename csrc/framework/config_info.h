@@ -9,9 +9,11 @@
 
 namespace Leaks {
 
-constexpr uint8_t SELECTED_STEP_MAX_NUM = 5; // 先设定最多指定5个step的信息采集
+constexpr uint8_t SELECTED_STEP_MAX_NUM = 5;  // 先设定最多指定5个step的信息采集
+constexpr uint8_t DEFAULT_CALL_STACK_DEPTH = 50;
+constexpr uint8_t SKIP_DEPTH = 2;
 constexpr const char *LEAKS_HEADERS = "Record Index,Timestamp(us),Event,Event Type,Process Id,Thread Id,Device Id,"
-        "Kernel Index,Flag,Addr,Size(byte),Total Allocated(byte),Total Reserved(byte)\n";
+        "Kernel Index,Flag,Addr,Size(byte),Total Allocated(byte),Total Reserved(byte)";
 constexpr const char *STEP_INTER_HEADERS = ",,Base,Compare\nName,Device Id,Allocated Memory(byte),"
         "Allocated Memory(byte),Diff Memory(byte)\n";
 
@@ -31,9 +33,13 @@ struct SelectedStepList {
 };
 
 // 内存分析算法配置
-struct AnalysisConfig {
+struct Config {
     SelectedStepList stepList;
     bool enableCompare;
+    bool enableCStack;
+    bool enablePyStack;
+    uint32_t cStackDepth;
+    uint32_t pyStackDepth;
     bool inputCorrectPaths;
     bool outputCorrectPaths;
     LevelType levelType;
@@ -43,7 +49,7 @@ struct AnalysisConfig {
 struct UserCommand {
     bool printHelpInfo { false };
     bool printVersionInfo { false };
-    AnalysisConfig config;
+    Config config;
     std::vector<std::string> cmd;
     std::vector<std::string> inputPaths;
     std::string outputPath;

@@ -27,19 +27,28 @@ struct LogInfo {
 };
 
 union PacketBody {
-    EventRecord eventRecord;
+    Record record;
     LogInfo log;
 };
+
 class Packet {
 public:
     Packet(void) : head_{PacketType::INVALID}, body_{} {}
     ~Packet(void)
     {
     }
-    explicit Packet(EventRecord const &record)
+    explicit Packet(EventRecord const &record, std::string &pyStack, std::string &cStack)
     {
         head_.type = PacketType::RECORD;
-        body_.eventRecord = record;
+        uint64_t cLen = cStack.size();
+        uint64_t pyLen = pyStack.size();
+        body_.record.eventRecord = record;
+        body_.record.callStackInfo.cStack = new char[cLen];
+        body_.record.callStackInfo.cLen = cLen;
+        body_.record.callStackInfo.pyStack = new char[pyLen];
+        body_.record.callStackInfo.pyLen = pyLen;
+        pyStack.copy(body_.record.callStackInfo.pyStack, pyLen);
+        cStack.copy(body_.record.callStackInfo.cStack, cLen);
     }
     explicit Packet(std::string log)
     {
@@ -89,7 +98,7 @@ public:
     inline bool Read(uint64_t size, std::string &buffer);
 
 private:
-    static constexpr uint64_t MAX_STRING_LEN = 1024UL;
+    static constexpr uint64_t MAX_STRING_LEN = 1024UL * 1024UL;
     inline void DropUsedBytes(void);
 
 private:
