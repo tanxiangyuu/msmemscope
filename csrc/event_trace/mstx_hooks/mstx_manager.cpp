@@ -3,6 +3,7 @@
 #include <cstring>
 #include <iostream>
 #include "securec.h"
+#include "call_stack.h"
 #include "event_report.h"
 #include "record_info.h"
 #include "log.h"
@@ -10,6 +11,8 @@
 #include "memory_pool_trace/atb_memory_pool_trace.h"
 
 namespace Leaks {
+
+
 // 组装普通打点信息
 void MstxManager::ReportMarkA(const char* msg, int32_t streamId)
 {
@@ -22,7 +25,14 @@ void MstxManager::ReportMarkA(const char* msg, int32_t streamId)
         CLIENT_ERROR_LOG("strncpy_s FAILED");
     }
     record.markMessage[sizeof(record.markMessage) - 1] = '\0';
-    if (!EventReport::Instance(CommType::SOCKET).ReportMark(record)) {
+    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
+    std::string cStack;
+    std::string pyStack;
+    if (config.enablePyStack) {
+        Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
+    }
+    CallStackString stack{cStack, pyStack};
+    if (!EventReport::Instance(CommType::SOCKET).ReportMark(record, stack)) {
         CLIENT_ERROR_LOG("Report Mark FAILED");
     }
 }
@@ -38,7 +48,8 @@ uint64_t MstxManager::ReportRangeStart(const char* msg, int32_t streamId)
     }
     record.markMessage[sizeof(record.markMessage) - 1] = '\0';
     record.rangeId = GetRangeId();
-    if (!EventReport::Instance(CommType::SOCKET).ReportMark(record)) {
+    CallStackString stack;
+    if (!EventReport::Instance(CommType::SOCKET).ReportMark(record, stack)) {
         CLIENT_ERROR_LOG("Report Mark FAILED");
     }
     return record.rangeId;
@@ -56,7 +67,8 @@ void MstxManager::ReportRangeEnd(uint64_t id)
         CLIENT_ERROR_LOG("strncpy_s FAILED");
     }
     record.markMessage[sizeof(record.markMessage) - 1] = '\0';
-    if (!EventReport::Instance(CommType::SOCKET).ReportMark(record)) {
+    CallStackString stack;
+    if (!EventReport::Instance(CommType::SOCKET).ReportMark(record, stack)) {
         CLIENT_ERROR_LOG("Report Mark FAILED");
     }
 }
@@ -131,7 +143,16 @@ void MstxManager::ReportRegionsRegister(mstxDomainHandle_t domain, mstxMemRegion
 
     const mstxMemVirtualRangeDesc_t *rangeDescArray =
         reinterpret_cast<const mstxMemVirtualRangeDesc_t *>(desc->regionDescArray);
-
+    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
+    std::string cStack;
+    std::string pyStack;
+    if (config.enableCStack) {
+        Utility::GetCCallstack(config.cStackDepth, cStack, SKIP_DEPTH);
+    }
+    if (config.enablePyStack) {
+        Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
+    }
+    CallStackString stack{cStack, pyStack};
     for (size_t i = 0; i < desc->regionCount; i++) {
         TorchNpuRecord torchNpuRecord;
         int devId = rangeDescArray[i].deviceId;
@@ -145,7 +166,7 @@ void MstxManager::ReportRegionsRegister(mstxDomainHandle_t domain, mstxMemRegion
         torchNpuRecord.memoryUsage = memUsageMp_[devId];
         torchNpuRecord.pid = Utility::GetPid();
         torchNpuRecord.tid = Utility::GetTid();
-        if (!EventReport::Instance(CommType::SOCKET).ReportTorchNpu(torchNpuRecord)) {
+        if (!EventReport::Instance(CommType::SOCKET).ReportTorchNpu(torchNpuRecord, stack)) {
             CLIENT_ERROR_LOG("Report Npu Data Failed");
         }
     }
@@ -161,6 +182,17 @@ void MstxManager::ReportRegionsUnregister(mstxDomainHandle_t domain, mstxMemRegi
         return;
     }
     std::lock_guard<std::mutex> guard(mutex_);
+
+    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
+    std::string cStack;
+    std::string pyStack;
+    if (config.enableCStack) {
+        Utility::GetCCallstack(config.cStackDepth, cStack, SKIP_DEPTH);
+    }
+    if (config.enablePyStack) {
+        Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
+    }
+    CallStackString stack{cStack, pyStack};
     for (size_t i = 0; i < desc->refCount; i++) {
         if (!regionHandleMp_.count(desc->refArray[i].pointer)) {
             continue;
@@ -176,7 +208,7 @@ void MstxManager::ReportRegionsUnregister(mstxDomainHandle_t domain, mstxMemRegi
         torchNpuRecord.memoryUsage = memUsageMp_[rangeDesc.deviceId];
         torchNpuRecord.pid = Utility::GetPid();
         torchNpuRecord.tid = Utility::GetTid();
-        if (!EventReport::Instance(CommType::SOCKET).ReportTorchNpu(torchNpuRecord)) {
+        if (!EventReport::Instance(CommType::SOCKET).ReportTorchNpu(torchNpuRecord, stack)) {
             CLIENT_ERROR_LOG("Report Npu Data Failed");
         }
     }

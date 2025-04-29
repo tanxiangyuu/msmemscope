@@ -77,10 +77,10 @@ struct NpuMemUsage {
 
 class StepInnerAnalyzer {
 public:
-    static StepInnerAnalyzer &GetInstance(AnalysisConfig config);
+    static StepInnerAnalyzer &GetInstance(Config config);
     bool Record(const ClientId &clientId, const EventRecord &record);
 private:
-    explicit StepInnerAnalyzer(AnalysisConfig config);
+    explicit StepInnerAnalyzer(Config config);
     ~StepInnerAnalyzer();
     StepInnerAnalyzer(const StepInnerAnalyzer&) = delete;
     StepInnerAnalyzer& operator=(const StepInnerAnalyzer&) = delete;
@@ -109,7 +109,7 @@ private:
     std::unordered_map<DeviceId, LeakSumsTable> leakMemSums_{};
     uint64_t durationThreshold_ = 1;  // 设置警告阈值, 可由用户更改
     uint64_t skipSteps_ = 1;
-    AnalysisConfig config_;
+    Config config_;
 };
 
 }

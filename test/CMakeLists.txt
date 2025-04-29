@@ -3,6 +3,12 @@ add_subdirectory(framework)
 add_subdirectory(utility)
 add_subdirectory(analysis)
 add_subdirectory(event_trace)
+find_package(Python3 REQUIRED COMPONENTS Development)
+if (NOT Python3_FOUND)
+    message(FATAL_ERROR "Python3 not found.")
+else()
+    message(STATUS "Found Python3: ${Python3_INCLUDE_DIRS}")
+endif()
 
 set(leaks_header ../csrc
                  ../csrc/analysis
@@ -34,7 +40,9 @@ list(SORT TEST_SOURCE)
 target_sources(leaks_test PRIVATE ${TEST_SOURCE})
 target_sources(leaks_test PRIVATE ${TEST_ORIGINAL_SOURCE})
 
-include_directories(leaks_test ${leaks_header} ${gtest_header})
+include_directories(leaks_test ${leaks_header} ${gtest_header} ${Python3_INCLUDE_DIRS})
+
+target_link_options(ascend_leaks PRIVATE "-Wl,--copy-dt-needed-entries")
 target_link_libraries(leaks_test gtest_main dl pthread stdc++fs)
  
 add_test(NAME leaks_test COMMAND leaks_test)

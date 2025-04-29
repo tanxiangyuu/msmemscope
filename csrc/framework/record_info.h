@@ -12,7 +12,6 @@ namespace Leaks {
 
 constexpr int32_t GD_INVALID_NUM = 9999;
 const size_t KERNELNAME_MAX_SIZE = 128;
-
 enum class MemoryDataType {
     MEMORY_MALLOC = 0,
     MEMORY_FREE,
@@ -122,7 +121,7 @@ struct KernelLaunchRecord {
     uint64_t timeStamp;
     int32_t streamId;           // streamId
     uint32_t blockDim;          // 算子核函数运行所需核数
-    char kernelName[KERNELNAME_MAX_SIZE];       // kernel名称
+    char kernelName[KERNELNAME_MAX_SIZE];  // kernel名称
 };
 
 enum class MarkType : int32_t {
@@ -152,6 +151,7 @@ enum class RecordType {
     MSTX_MARK_RECORD,
     TORCH_NPU_RECORD,
     ATB_MEMORY_POOL_RECORD,
+    INVALID_RECORD,
 };
 
 // 事件记录载体
@@ -165,6 +165,36 @@ struct EventRecord {
         MstxRecord mstxRecord;
         AtbMemPoolRecord atbMemPoolRecord;
     } record;
+    uint64_t pyStackLen;
+    uint64_t cStackLen;
+    char buffer[0];
+    explicit EventRecord(RecordType type) : type(type)
+    {}
+    EventRecord() = default;
+};
+struct CallStackInfo {
+    uint64_t pyLen;
+    uint64_t cLen;
+    char *pyStack;
+    char *cStack;
+};
+struct CallStackString {
+    std::string pyStack;
+    std::string cStack;
+    CallStackString()
+    {
+        pyStack = "\"\"";
+        cStack = "\"\"";
+    }
+    CallStackString(std::string& c, std::string& python)
+    {
+        pyStack = python == "" ? "\"\"" : python;
+        cStack = c == "" ? "\"\"" : c;
+    }
+};
+struct Record {
+    EventRecord eventRecord;
+    CallStackInfo callStackInfo;
 };
 
 }

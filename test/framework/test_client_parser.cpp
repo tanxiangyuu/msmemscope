@@ -448,3 +448,38 @@ TEST(ClientParser, test_input_invalid_log_level_expect_invalid_loglv)
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_TRUE(cmd.printHelpInfo);
 }
+
+TEST(ClientParser, test_parse_call_stack_expect_true)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--call-stack=c:10,python:10"
+    };
+    /// Reset getopt states
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    argv = {
+        "msleaks",
+        "--call-stack=c:00"
+    };
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.printHelpInfo);
+    argv = {
+        "msleaks",
+        "--call-stack="
+    };
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.printHelpInfo);
+    argv = {
+        "msleaks",
+        "--call-stack=c:10,c:10"
+    };
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.printHelpInfo);
+    argv = {
+        "msleaks",
+        "--call-stack=python:10,python:10"
+    };
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.printHelpInfo);
+}

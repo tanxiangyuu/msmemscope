@@ -6,6 +6,8 @@ target_sources(host_memory_hook PRIVATE
   ${FUNC_INJECTION_CORE_DIR}/Communication.cpp
   ${FUNC_INJECTION_CORE_DIR}/DomainSocket.cpp
   ${UTILITY_INC_DIR}/log.cpp
+  ${UTILITY_INC_DIR}/call_stack.cpp
+  ${UTILITY_INC_DIR}/cpython.cpp
   ${FUNC_HOSTINJECTION_DIR}/utils/FileSystem.cpp
   ${FUNC_HOSTINJECTION_DIR}/utils/Ustring.cpp
 )
@@ -17,6 +19,7 @@ target_include_directories(host_memory_hook PUBLIC
   ${FUNC_HOSTINJECTION_DIR}
   ${UTILITY_INC_DIR}
   ${SECUREC_INC_DIR}
+  ${Python3_INCLUDE_DIRS}
 )
- 
+target_link_options(host_memory_hook PRIVATE "-Wl,--disable-new-dtags")
 target_link_libraries(host_memory_hook dl)

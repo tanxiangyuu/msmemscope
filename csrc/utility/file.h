@@ -82,6 +82,20 @@ namespace Utility {
     // 多线程情况下调用，需加锁保护
     bool CreateCsvFile(FILE **filefp, std::string dirPath, std::string fileName, std::string headers);
 
+    template <typename... Args>
+    inline bool Fprintf(FILE* fp, const std::string &format, const Args& ...args)
+    {
+        if (fp == nullptr) {
+            std::cout << "[msleaks] Error: Fail to write data to file, fp is NULL" << std::endl;
+            return false;
+        }
+        if (int fpRes = fprintf(fp, format.c_str(), args...) < 0) {
+            std::cout << "[msleaks] Error: Fail to write data to file, errno: " << fpRes << std::endl;
+            return false;
+        }
+        return true;
+    }
+
     // 输入+输出文件专属校验：文件大小
     inline bool IsFileSizeSafe(const std::string& path)
     {

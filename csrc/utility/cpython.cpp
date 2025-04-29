@@ -2,6 +2,7 @@
 
 #include <Python.h>
 #include <frameobject.h>
+#include "utils.h"
 #include "cpython.h"
 
 extern "C" {
@@ -23,7 +24,7 @@ int PyCallable_Check(PyObject *) __attribute__((weak));
 PyObject *PyObject_CallObject(PyObject *callable, PyObject *args) __attribute__((weak));
 }
 
-namespace Leaks {
+namespace Utility {
 
 bool IsPyInterpRepeInited()
 {
@@ -33,6 +34,41 @@ bool IsPyInterpRepeInited()
     return false;
 }
 
+void PythonCallstack(uint32_t pyDepth, std::string& pyStack)
+{
+    if (!IsPyInterpRepeInited()) {
+        pyStack = "\"NA\"";
+        return;
+    }
+    PyInterpGuard stat;
+    PyFrameObject *frame = PyEval_GetFrame();
+    if (frame == nullptr) {
+        return;
+    }
+    Py_IncRef((PyObject *)frame);
+    size_t depth = 0;
+    pyStack += "\"";
+    while (frame && depth < pyDepth) {
+        PyCodeObject *code = PyFrame_GetCode(frame);
+        if (code == nullptr) {
+            Py_DecRef((PyObject *)frame);
+            break;
+        }
+        pyStack += std::string(PyUnicode_AsUTF8(PyObject_Str(code->co_filename))) + "(" +
+                    std::to_string(PyFrame_GetLineNumber(frame)) + "): " +
+                    std::string(PyUnicode_AsUTF8(PyObject_Str(code->co_name))) + "\n";
+        PyFrameObject *prevFrame = PyFrame_GetBack(frame);
+        Py_DecRef((PyObject *)frame);
+        frame = prevFrame;
+        Py_DecRef((PyObject *)code);
+        depth++;
+    }
+    if (frame != nullptr) {
+        Py_DecRef((PyObject *)frame);
+    }
+    pyStack += "\"";
+    return;
+}
 PythonObject::PythonObject() {}
 PythonObject::~PythonObject()
 {

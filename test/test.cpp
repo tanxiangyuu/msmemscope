@@ -19,7 +19,7 @@ TEST(Sample, sample)
     ClientParser parser;
     parser.Interpretor(2, arr);
 
-    AnalysisConfig config;
+    Config config;
     EventRecord record;
     HalAnalyzer::GetInstance().Record(0, record);
 
