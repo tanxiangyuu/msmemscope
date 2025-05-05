@@ -422,7 +422,6 @@ TEST(StepInnerAnalyzerRecordFuncTest, Recordtest)
     config.enableCompare = false;
     config.inputCorrectPaths = true;
     config.outputCorrectPaths = false;
-    config.levelType = Leaks::LevelType::LEVEL_0;
     config.stepList.stepCount = 0;
     ClientId clientId = 1;
     Leaks::EventRecord record;
@@ -435,7 +434,6 @@ TEST(StepInnerAnalyzerRecordFuncTest, recordMallocSuccess) {
     config.enableCompare = false;
     config.inputCorrectPaths = true;
     config.outputCorrectPaths = false;
-    config.levelType = Leaks::LevelType::LEVEL_0;
     config.stepList.stepCount = 0;
     ClientId clientId = 1;
 
@@ -461,7 +459,6 @@ TEST(StepInnerAnalyzerRecordFuncTest, recordFreeSuccess) {
     config.enableCompare = false;
     config.inputCorrectPaths = true;
     config.outputCorrectPaths = false;
-    config.levelType = Leaks::LevelType::LEVEL_0;
     config.stepList.stepCount = 0;
     ClientId clientId = 1;
 
@@ -487,7 +484,6 @@ TEST(StepInnerAnalyzerReceiveMstxMsgFuncTest, ReceiveMstxMsgIfRangeStartA) {
     config.enableCompare = false;
     config.inputCorrectPaths = true;
     config.outputCorrectPaths = false;
-    config.levelType = Leaks::LevelType::LEVEL_0;
     config.stepList.stepCount = 0;
     ClientId clientId = 1;
 
@@ -508,7 +504,6 @@ TEST(StepInnerAnalyzerReceiveMstxMsgFuncTest, ReceiveMstxMsgIfRangeEnd) {
     config.enableCompare = false;
     config.inputCorrectPaths = true;
     config.outputCorrectPaths = false;
-    config.levelType = Leaks::LevelType::LEVEL_0;
     config.stepList.stepCount = 0;
     ClientId clientId = 1;
 
