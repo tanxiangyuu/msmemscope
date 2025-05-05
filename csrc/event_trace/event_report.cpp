@@ -14,6 +14,7 @@
 #include "handle_mapping.h"
 #include "umask_guard.h"
 #include "securec.h"
+#include "bit_field.h"
 
 namespace Leaks {
 thread_local bool g_isReportHostMem = false;
@@ -439,7 +440,8 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
     eventRecord.record.kernelLaunchRecord.kernelLaunchIndex = ++kernelLaunchRecordIndex_;
     eventRecord.record.kernelLaunchRecord.recordIndex = ++recordIndex_;
     CallStackString stack;
-    if (config_.levelType == LevelType::LEVEL_1) {
+    BitField<decltype(config_.levelType)> levelType(config_.levelType);
+    if (levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_KERNEL))) {
         std::string kernelName;
         {
             std::lock_guard<std::mutex> lock(threadMutex_);

@@ -57,6 +57,20 @@ TEST(ClientParser, pass_help_parameter_expect_show_help_info)
     ASSERT_NE(capture.find("Usage"), std::string::npos);
 }
 
+TEST(ClientParser, pass_valid_level_value_expect_level0)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--level=0"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.levelType, 1);
+}
+
 TEST(ClientParser, pass_valid_level_value_expect_level1)
 {
     std::vector<const char*> argv = {
@@ -68,7 +82,21 @@ TEST(ClientParser, pass_valid_level_value_expect_level1)
     optind = 1;
     ClientParser cliParser;
     UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
-    ASSERT_EQ(cmd.config.levelType, Leaks::LevelType::LEVEL_1);
+    ASSERT_EQ(cmd.config.levelType, 2);
+}
+
+TEST(ClientParser, pass_valid_level_value_expect_level_0_and_level_1)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--level=0,1"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.levelType, 3);
 }
 
 TEST(ClientParser, pass_invalid_level_expect_show_help_info)
@@ -84,7 +112,105 @@ TEST(ClientParser, pass_invalid_level_expect_show_help_info)
     UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_TRUE(cmd.printHelpInfo);
 }
+
+TEST(ClientParser, pass_valid_event_type_case_not_set)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--level=3"
+    };
  
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.eventType, 7);
+}
+
+TEST(ClientParser, pass_valid_event_type_case_alloc)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--events=alloc"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.eventType, 1);
+}
+
+TEST(ClientParser, pass_valid_event_type_case_free)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--events=free"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.eventType, 2);
+}
+
+TEST(ClientParser, pass_valid_event_type_case_launch)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--events=launch"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.eventType, 4);
+}
+
+TEST(ClientParser, pass_valid_event_type_case_access)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--events=access"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.eventType, 8);
+}
+
+TEST(ClientParser, pass_valid_event_type_case_all)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--events=alloc,free,launch,access"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.eventType, 15);
+}
+
+TEST(ClientParser, pass_invalid_event_type_case)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--events=alloc,free,launhc"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.printHelpInfo);
+}
+
 TEST(ClientParser, pass_empty_prog_name_expect_get_empty_bin_cmd)
 {
     std::vector<const char*> argv = {
