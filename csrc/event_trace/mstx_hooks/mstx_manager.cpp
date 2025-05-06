@@ -1,7 +1,6 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 #include "mstx_manager.h"
 #include <cstring>
-#include <iostream>
 #include "securec.h"
 #include "call_stack.h"
 #include "event_report.h"
@@ -81,7 +80,7 @@ uint64_t MstxManager::GetRangeId()
 mstxDomainHandle_t MstxManager::ReportDomainCreateA(char const *domainName)
 {
     // 后续收编所有通过MSTX打点的内存池trace
-    if (domainName == "atb") {
+    if (std::string(domainName) == "atb") {
         if (MemoryPoolTraceManager::GetInstance().RegisterMemoryPoolTracer("atb", &ATBMemoryPoolTrace::GetInstance())) {
             return MemoryPoolTraceManager::GetInstance().CreateDomain(domainName);
         }

@@ -91,7 +91,9 @@ void ATBMemoryPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegionsReg
         memUsageMp_[devId].allocSize = rangeDescArray[i].size;
         memUsageMp_[devId].totalAllocated =
             Utility::GetAddResult(memUsageMp_[devId].totalAllocated, memUsageMp_[devId].allocSize);
-        regionHandleMp_[desc->regionHandleArrayOut[i]] = rangeDescArray[i];
+        auto handle = new mstxMemRegion_t {};
+        desc->regionHandleArrayOut[i] = handle;
+        regionHandleMp_[handle] = rangeDescArray[i];
 
         AtbMemPoolRecord record;
         record.memoryUsage = memUsageMp_[devId];
@@ -120,11 +122,13 @@ void ATBMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregi
     }
     CallStackString stack{pyStack, cStack};
     for (size_t i = 0; i < desc->refCount; i++) {
-        if (!regionHandleMp_.count(desc->refArray[i].handle)) {
+        auto handle = desc->refArray[i].handle;
+        auto iter = regionHandleMp_.find(handle);
+        if (iter == regionHandleMp_.end()) {
             continue;
         }
         AtbMemPoolRecord record;
-        mstxMemVirtualRangeDesc_t rangeDesc = regionHandleMp_[desc->refArray[i].handle];
+        mstxMemVirtualRangeDesc_t rangeDesc = iter->second;
         memUsageMp_[rangeDesc.deviceId].dataType = 1;
         memUsageMp_[rangeDesc.deviceId].deviceIndex = rangeDesc.deviceId;
         memUsageMp_[rangeDesc.deviceId].ptr = reinterpret_cast<int64_t>(rangeDesc.ptr);
@@ -134,6 +138,10 @@ void ATBMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregi
         record.memoryUsage = memUsageMp_[rangeDesc.deviceId];
         record.pid = Utility::GetPid();
         record.tid = Utility::GetTid();
+
+        regionHandleMp_.erase(handle);
+        delete handle;
+        handle = nullptr;
         if (!EventReport::Instance(CommType::SOCKET).ReportATBMemPoolRecord(record, stack)) {
             CLIENT_ERROR_LOG("Report ATB Data Failed");
         }
