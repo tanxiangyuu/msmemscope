@@ -47,11 +47,11 @@ struct mstxDomainRegistration_st {};
 typedef struct mstxDomainRegistration_st mstxDomainRegistration_t;
 typedef mstxDomainRegistration_t* mstxDomainHandle_t;
 
-struct mstxMemHeap_st;
+struct mstxMemHeap_st {};
 typedef struct mstxMemHeap_st mstxMemHeap_t;
 typedef mstxMemHeap_t* mstxMemHeapHandle_t;
 
-struct mstxMemRegion_st;
+struct mstxMemRegion_st {};
 typedef struct mstxMemRegion_st mstxMemRegion_t;
 typedef mstxMemRegion_t* mstxMemRegionHandle_t;
 

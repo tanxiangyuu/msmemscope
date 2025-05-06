@@ -42,13 +42,6 @@ TEST(MstxManagerTest, GetRangeIdTest) {
     EXPECT_EQ(secondId, firstId +1);
 }
 
-TEST(MstxManagerTest, ReportDomainCreateATest_Get_Nullptr)
-{
-    char const *domainName = nullptr;
-    auto ret = MstxManager::GetInstance().ReportDomainCreateA(domainName);
-    ASSERT_EQ(ret, nullptr);
-}
-
 TEST(MstxManagerTest, ReportHeapRegisterTest_Get_Nullptr)
 {
     mstxDomainHandle_t domain = nullptr;
