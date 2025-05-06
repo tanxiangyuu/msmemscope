@@ -106,3 +106,19 @@ TEST(UString, split_string_with_several_delims_expect_correct_list)
     ASSERT_EQ(items[3], "ccc");
     ASSERT_EQ(items[4], "");
 }
+
+TEST(UString, extract_attr_value_by_key_expect_correct_value)
+{
+    std::string attrKey = "size";
+    std::string str = "{addr:1000,size:123,owner:,MID:3}";
+    std::string attrValue = ExtractAttrValueByKey(str, attrKey);
+    ASSERT_EQ(attrValue, "123");
+}
+
+TEST(UString, extract_attr_value_by_key_expect_empty_value)
+{
+    std::string attrKey = "size";
+    std::string str = "test";
+    std::string attrValue = ExtractAttrValueByKey(str, attrKey);
+    ASSERT_EQ(attrValue, "");
+}
