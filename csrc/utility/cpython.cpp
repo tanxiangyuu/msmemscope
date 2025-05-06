@@ -34,6 +34,16 @@ bool IsPyInterpRepeInited()
     return false;
 }
 
+PyInterpGuard::PyInterpGuard()
+{
+    gstate = PyGILState_Ensure();
+}
+
+PyInterpGuard::~PyInterpGuard()
+{
+    PyGILState_Release(gstate);
+}
+
 void PythonCallstack(uint32_t pyDepth, std::string& pyStack)
 {
     if (!IsPyInterpRepeInited()) {
