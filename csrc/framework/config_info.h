@@ -12,8 +12,8 @@ namespace Leaks {
 constexpr uint8_t SELECTED_STEP_MAX_NUM = 5;  // 先设定最多指定5个step的信息采集
 constexpr uint8_t DEFAULT_CALL_STACK_DEPTH = 50;
 constexpr uint8_t SKIP_DEPTH = 2;
-constexpr const char *LEAKS_HEADERS = "Record Index,Timestamp(us),Event,Event Type,Process Id,Thread Id,Device Id,"
-        "Kernel Index,Flag,Addr,Size(byte),Total Allocated(byte),Total Reserved(byte)";
+constexpr const char *LEAKS_HEADERS = "ID,Event,Event Type,Name,Timestamp(us),Process Id,Thread Id,Device Id,"
+        "Ptr,Attr";
 constexpr const char *STEP_INTER_HEADERS = ",,Base,Compare\nName,Device Id,Allocated Memory(byte),"
         "Allocated Memory(byte),Diff Memory(byte)\n";
 
@@ -30,6 +30,21 @@ enum class LevelType : uint8_t {
 struct SelectedStepList {
     uint32_t stepIdList[SELECTED_STEP_MAX_NUM];
     uint8_t stepCount;
+};
+
+// dump数据结构
+struct DumpContainer {
+    uint64_t id;
+    std::string event;
+    std::string eventType;
+    std::string name;
+    uint64_t timeStamp;
+    uint64_t pid;
+    uint64_t tid;
+    std::string deviceId;
+    std::string addr;
+    std::string callStack = "";
+    std::string attr = "";
 };
 
 // 内存分析算法配置

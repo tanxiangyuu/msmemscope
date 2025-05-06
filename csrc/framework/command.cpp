@@ -12,7 +12,7 @@ void Command::Exec() const
     LOG_INFO("Msleaks starts executing commands");
 
     if (userCommand_.config.enableCompare) {
-        StepInterAnalyzer::GetInstance().StepInterCompare(userCommand_.inputPaths);
+        StepInterAnalyzer::GetInstance(userCommand_.config).StepInterCompare(userCommand_.inputPaths);
         return;
     }
     

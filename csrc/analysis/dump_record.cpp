@@ -78,6 +78,28 @@ bool DumpRecord::DumpData(const ClientId &clientId, const Record &record)
     }
     return true;
 }
+
+bool DumpRecord::WriteToFile(const DumpContainer &container, const CallStackString &stack)
+{
+    if (!Utility::Fprintf(leaksDataFile_, "%lu,%s,%s,%s,%lu,%lu,%lu,%s,%s,%s",
+        container.id, container.event.c_str(), container.eventType.c_str(), container.name.c_str(),
+        container.timeStamp, container.pid, container.tid, container.deviceId.c_str(),
+        container.addr.c_str(), container.attr.c_str())) {
+        return false;
+    }
+    if (config_.enablePyStack && !Utility::Fprintf(leaksDataFile_, ",%s", stack.pyStack.c_str())) {
+        return false;
+    }
+    if (config_.enableCStack && !Utility::Fprintf(leaksDataFile_, ",%s", stack.cStack.c_str())) {
+        return false;
+    }
+    if (!Utility::Fprintf(leaksDataFile_, "\n")) {
+        return false;
+    }
+
+    return true;
+}
+
 bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRecord, const CallStackString &stack)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
@@ -104,7 +126,7 @@ bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRec
             memSizeMap_[clientId][memRecord.addr] = 0;
         }
     }
-    std::string memOp = memRecord.memType == MemOpType::MALLOC ? "malloc" : "free";
+    std::string memOp = memRecord.memType == MemOpType::MALLOC ? "MALLOC" : "FREE";
     std::string deviceType;
     if (memRecord.devId == GD_INVALID_NUM) {
         deviceType = "N/A";
@@ -112,21 +134,26 @@ bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRec
         deviceType = memRecord.space == MemOpSpace::HOST || memRecord.devType == DeviceType::CPU ?
                 "host" : std::to_string(memRecord.devId);
     }
-    if (!Utility::Fprintf(leaksDataFile_, "%lu,%lu,%s,N/A,%lu,%lu,%s,%lu,%llu,%lu,%lu,N/A,N/A",
-        memRecord.recordIndex, memRecord.timeStamp, memOp.c_str(), memRecord.pid, memRecord.tid, deviceType.c_str(),
-        memRecord.kernelIndex, memRecord.flag, memRecord.addr, currentSize)) {
-        return false;
-    }
-    if (config_.enablePyStack && !Utility::Fprintf(leaksDataFile_, ",%s", stack.pyStack.c_str())) {
-        return false;
-    }
-    if (config_.enableCStack && !Utility::Fprintf(leaksDataFile_, ",%s", stack.cStack.c_str())) {
-        return false;
-    }
-    if (!Utility::Fprintf(leaksDataFile_, "\n")) {
-        return false;
-    }
-    return true;
+
+    // 组装attr属性
+    std::ostringstream oss;
+    oss << "{addr:" << memRecord.addr << ",size:" << currentSize << ",owner:" << ",MID:" << memRecord.modid << "}";
+    std::string attr = "\"" + oss.str() + "\"";
+
+    DumpContainer container;
+    container.id = memRecord.recordIndex;
+    container.event = memOp;
+    container.eventType = "HAL";
+    container.name = "N/A";
+    container.timeStamp = memRecord.timeStamp;
+    container.pid = memRecord.pid;
+    container.tid = memRecord.tid;
+    container.deviceId = deviceType;
+    container.addr = std::to_string(memRecord.addr);
+    container.attr = attr;
+
+    bool isWriteSuccess = WriteToFile(container, stack);
+    return isWriteSuccess;
 }
 
 bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchRecord &kernelLaunchRecord)
@@ -141,12 +168,21 @@ bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchReco
     } else {
         name = kernelLaunchRecord.kernelName;
     }
-    if (!Utility::Fprintf(leaksDataFile_, "%lu,%lu,kernelLaunch,%s,%lu,%lu,%d,%lu,N/A,N/A,N/A,N/A,N/A\n",
-        kernelLaunchRecord.recordIndex, kernelLaunchRecord.timeStamp, name.c_str(), kernelLaunchRecord.pid,
-        kernelLaunchRecord.tid, kernelLaunchRecord.devId, kernelLaunchRecord.kernelLaunchIndex)) {
-        return false;
-    }
-    return true;
+
+    DumpContainer container;
+    container.id = kernelLaunchRecord.recordIndex;
+    container.event = "KERNEL_LAUNCH";
+    container.eventType = "KERNEL_LAUNCH";
+    container.name = name;
+    container.timeStamp = kernelLaunchRecord.timeStamp;
+    container.pid = kernelLaunchRecord.pid;
+    container.tid = kernelLaunchRecord.tid;
+    container.deviceId = std::to_string(kernelLaunchRecord.devId);
+    container.addr = "N/A";
+
+    CallStackString emptyStack {};
+    bool isWriteSuccess = WriteToFile(container, emptyStack);
+    return isWriteSuccess;
 }
 
 bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRecord, const CallStackString &stack)
@@ -155,36 +191,41 @@ bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRe
     if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
         return false;
     }
-    std::string name;
+    std::string markType;
     switch (mstxRecord.markType) {
         case Leaks::MarkType::MARK_A: {
-            name = "Mark";
+            markType = "Mark";
             break;
         }
         case Leaks::MarkType::RANGE_START_A: {
-            name = "Range_start";
+            markType = "Range_start";
             break;
         }
         case Leaks::MarkType::RANGE_END: {
-            name = "Range_end";
+            markType = "Range_end";
             break;
         }
         default: {
-            name = "N/A";
+            markType = "N/A";
             break;
         }
     }
-    if (!Utility::Fprintf(leaksDataFile_, "%lu,%lu,mstx,%s,%lu,%lu,%d,N/A,N/A,N/A,N/A,N/A,N/A",
-        mstxRecord.recordIndex, mstxRecord.timeStamp, name.c_str(), mstxRecord.pid, mstxRecord.tid, mstxRecord.devId)) {
-        return false;
-    }
-    if (config_.enablePyStack && name == "Mark" && !Utility::Fprintf(leaksDataFile_, ",%s", stack.pyStack.c_str())) {
-        return false;
-    }
-    if (!Utility::Fprintf(leaksDataFile_, "\n")) {
-        return false;
-    }
-    return true;
+
+    std::string mstxMsgString = mstxRecord.markMessage;
+
+    DumpContainer container;
+    container.id = mstxRecord.recordIndex;
+    container.event = "MSTX";
+    container.eventType = markType;
+    container.name = "\"" + mstxMsgString + "\""; // 用引号包住防止逗号影响判断
+    container.timeStamp = mstxRecord.timeStamp;
+    container.pid = mstxRecord.pid;
+    container.tid = mstxRecord.tid;
+    container.deviceId = std::to_string(mstxRecord.devId);
+    container.addr = "N/A";
+
+    bool isWriteSuccess = WriteToFile(container, stack);
+    return isWriteSuccess;
 }
 
 bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord)
@@ -193,23 +234,33 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
     if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
         return false;
     }
-    std::string name;
+    std::string aclType;
     switch (aclItfRecord.type) {
         case AclOpType::INIT:
-            name = "Init";
+            aclType = "acl init";
             break;
         case AclOpType::FINALIZE:
-            name = "Finalize";
+            aclType = "acl finalize";
             break;
         default:
-            name = "N/A";
+            aclType = "N/A";
             break;
     }
-    if (!Utility::Fprintf(leaksDataFile_, "%lu,%lu,aclItfRecord,%s,%lu,%lu,N/A,N/A,N/A,N/A,N/A,N/A,N/A\n",
-        aclItfRecord.recordIndex, aclItfRecord.timeStamp, name.c_str(), aclItfRecord.pid, aclItfRecord.tid)) {
-        return false;
-    }
-    return true;
+
+    DumpContainer container;
+    container.id = aclItfRecord.recordIndex;
+    container.event = "SYSTEM";
+    container.eventType = aclType;
+    container.name = "N/A";
+    container.timeStamp = aclItfRecord.timeStamp;
+    container.pid = aclItfRecord.pid;
+    container.tid = aclItfRecord.tid;
+    container.deviceId = "N/A";
+    container.addr = "N/A";
+
+    CallStackString emptyStack {};
+    bool isWriteSuccess = WriteToFile(container, emptyStack);
+    return isWriteSuccess;
 }
 
 bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord, const CallStackString &stack)
@@ -223,31 +274,35 @@ bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &ev
     std::string memPoolType { };
     if (eventRecord.type == RecordType::TORCH_NPU_RECORD) {
         memoryUsage = eventRecord.record.torchNpuRecord.memoryUsage;
-        memPoolType = "pytorch";
+        memPoolType = "PTA";
     } else {
         memoryUsage = eventRecord.record.atbMemPoolRecord.memoryUsage;
-        memPoolType = "atb";
+        memPoolType = "ATB";
     }
     auto record = eventRecord.type == RecordType::TORCH_NPU_RECORD ?
         eventRecord.record.torchNpuRecord : eventRecord.record.atbMemPoolRecord;
-    std::string eventType = memoryUsage.allocSize >= 0 ? "malloc" : "free";
-    if (!Utility::Fprintf(leaksDataFile_, "%lu,%lu,%s,%s,%lu,%lu,%d,%lu,N/A,%ld,%ld,%ld,%ld",
-        record.recordIndex, record.timeStamp, memPoolType.c_str(), eventType.c_str(),
-        record.pid, record.tid, record.devId, record.kernelIndex,
-        memoryUsage.ptr, memoryUsage.allocSize, memoryUsage.totalAllocated, memoryUsage.totalReserved)) {
-        return false;
-    }
-    if (config_.enablePyStack && !Utility::Fprintf(leaksDataFile_, ",%s", stack.pyStack.c_str())) {
-        return false;
-    }
-    if (config_.enableCStack && !Utility::Fprintf(leaksDataFile_, ",%s", stack.cStack.c_str())) {
-        return false;
-    }
-    if (!Utility::Fprintf(leaksDataFile_, "\n")) {
-        return false;
-    }
+    std::string eventType = memoryUsage.allocSize >= 0 ? "MALLOC" : "FREE";
 
-    return true;
+    // 组装attr属性
+    std::ostringstream oss;
+    oss << "{addr:" << memoryUsage.ptr << ",size:" << memoryUsage.allocSize << ",owner:" << ",total:" <<
+        memoryUsage.totalReserved << ",used:" << memoryUsage.totalAllocated << "}";
+    std::string attr = "\"" + oss.str() + "\"";
+
+    DumpContainer container;
+    container.id = record.recordIndex;
+    container.event = eventType;
+    container.eventType = memPoolType;
+    container.name = "N/A";
+    container.timeStamp = record.timeStamp;
+    container.pid = record.pid;
+    container.tid = record.tid;
+    container.deviceId = std::to_string(record.devId);
+    container.addr = std::to_string(memoryUsage.ptr);
+    container.attr = attr;
+
+    bool isWriteSuccess = WriteToFile(container, stack);
+    return isWriteSuccess;
 }
 
 DumpRecord::~DumpRecord()
