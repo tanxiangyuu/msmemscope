@@ -27,6 +27,7 @@ private:
     DumpRecord(DumpRecord&& other) = delete;
     DumpRecord& operator=(DumpRecord&& other) = delete;
 
+    bool WriteToFile(const DumpContainer &container, const CallStackString &stack);
     bool DumpMemData(const ClientId &clientId, const MemOpRecord &memrecord, const CallStackString &stack);
     bool DumpKernelData(const ClientId &clientId, const KernelLaunchRecord &kernelLaunchRecord);
     bool DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord);
