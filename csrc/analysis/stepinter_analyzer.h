@@ -80,12 +80,13 @@ public:
 
 class StepInterAnalyzer {
 public:
-    static StepInterAnalyzer& GetInstance();
+    static StepInterAnalyzer& GetInstance(Config config);
     void StepInterCompare(const std::vector<std::string> &paths);
 private:
-    StepInterAnalyzer();
+    explicit StepInterAnalyzer(Config config);
     void SetDirPath();
     std::vector<std::string> SplitLineData(std::string line);
+    std::string ReadQuotedField(std::stringstream& ss);
     void ReadCsvFile(std::string &path, std::unordered_map<DEVICEID, CSV_FIELD_DATA> &data);
     bool ReadKernelLaunchData(const CSV_FIELD_DATA &data, KERNELNAME_INDEX &result);
     void GetKernelMemoryDiff(size_t index, const CSV_FIELD_DATA &data, int64_t &memDiff);
@@ -104,7 +105,9 @@ private:
     std::unordered_map<DEVICEID, std::vector<std::string>> compareOut_;
     std::string fileNamePrefix_ = "stepintercompare_";
     std::string dirPath_;
+    std::string csvHeader_;
     std::mutex fileMutex_;
+    Config config_;
 };
 
 }

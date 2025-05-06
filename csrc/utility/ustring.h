@@ -74,7 +74,7 @@ inline bool EndWith(std::string const &str, std::string const &target)
     return str.length() >= target.length() && str.substr(str.length() - target.length()) == target;
 }
 
-inline bool CheckStrIsStartsWithInvalidChar(const char *str)
+inline bool CheckStrIsStartsWithInvalidChar(const char *const &str)
 {
     const std::set<char> invalidCharList = {'=', '+', '-', '@'};
     if (invalidCharList.count(*str)) {
@@ -82,6 +82,8 @@ inline bool CheckStrIsStartsWithInvalidChar(const char *str)
     }
     return true;
 }
+
+std::string ExtractAttrValueByKey(const std::string& str, const std::string& key);
 
 }  // namespace Utility
 

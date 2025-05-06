@@ -11,14 +11,18 @@
 
 namespace Leaks {
 
-StepInterAnalyzer& StepInterAnalyzer::GetInstance()
+StepInterAnalyzer& StepInterAnalyzer::GetInstance(Config config)
 {
-    static StepInterAnalyzer instance;
+    static StepInterAnalyzer instance(config);
     return instance;
 }
 
-StepInterAnalyzer::StepInterAnalyzer()
+StepInterAnalyzer::StepInterAnalyzer(Config config)
 {
+    config_ = config;
+    std::string cStack = config.enableCStack ? ",Call Stack(C)" : "";
+    std::string pyStack = config.enablePyStack ? ",Call Stack(Python)" : "";
+    csvHeader_ = LEAKS_HEADERS + pyStack + cStack + "\n";
     SetDirPath();
 }
 
@@ -27,6 +31,30 @@ std::vector<std::string> StepInterAnalyzer::SplitLineData(std::string line)
     std::vector<std::string> lineData;
     Utility::Split(line, std::back_inserter(lineData), ",");
     return lineData;
+}
+
+// 用此方式依次读取CSV的每一行，不会被单格数据的逗号干扰
+std::string StepInterAnalyzer::ReadQuotedField(std::stringstream& ss)
+{
+    std::string field;
+    if (ss.peek() == '"') {  // 检查是否以引号开头，如果是就跳过（因为其中可能存在逗号）
+        ss.get();
+        std::getline(ss, field, '"');
+
+        // 处理转义引号
+        size_t pos = 0;
+        while ((pos = field.find("\"\"", pos)) != std::string::npos) {
+            field.replace(pos, 2, "\"");
+            pos += 1;
+        }
+        // 跳过可能的分隔符（逗号）
+        if (ss.peek() == ',') {
+            ss.get();
+        }
+    } else {
+        std::getline(ss, field, ',');  // 普通字段
+    }
+    return field;
 }
 
 bool Compare(const std::unordered_map<std::string, std::string> &a,
@@ -51,14 +79,13 @@ void StepInterAnalyzer::ReadCsvFile(std::string &path, std::unordered_map<DEVICE
     std::ifstream csvFile(path, std::ios::in);
     if (!csvFile.is_open()) {
         LOG_ERROR("The path: %s open failed!", path.c_str());
+        return ;
     }
 
     std::string line;
-    std::istringstream sin;
-
     getline(csvFile, line);
-    sin.str(line);
-    if (line != std::string(LEAKS_HEADERS)) {
+
+    if (line + "\n" != std::string(csvHeader_)) {
         LOG_ERROR("The headers of %s file is illegal!", path.c_str());
         return ;
     }
@@ -66,10 +93,16 @@ void StepInterAnalyzer::ReadCsvFile(std::string &path, std::unordered_map<DEVICE
     headerData = SplitLineData(line);
     uint64_t countLine = 1;
     while (getline(csvFile, line)) {
-        sin.str(line);
         ++countLine;
         std::vector<std::string> lineData;
-        lineData = SplitLineData(line);
+        std::stringstream ss(line);
+
+        // 获取每一行的数据
+        while (ss.good()) {
+            std::string singleValue = ReadQuotedField(ss);
+            lineData.emplace_back(singleValue);
+        }
+
         if (lineData.size() != headerData.size()) {
             LOG_ERROR("The file %s on line %d is invalid!", path.c_str(), countLine);
             data.clear();
@@ -103,13 +136,13 @@ bool StepInterAnalyzer::ReadKernelLaunchData(const CSV_FIELD_DATA &data, KERNELN
 {
     for (size_t index = 0; index < data.size(); ++index) {
         auto lineData = data[index];
-        if (lineData["Event"] == "kernelLaunch") {
-            if (!Utility::CheckStrIsStartsWithInvalidChar(lineData["Event Type"].c_str())) {
-                LOG_ERROR("KenelName %s is invalid!", lineData["Event Type"].c_str());
+        if (lineData["Event"] == "KERNEL_LAUNCH") {
+            if (!Utility::CheckStrIsStartsWithInvalidChar(lineData["Name"].c_str())) {
+                LOG_ERROR("KenelName %s is invalid!", lineData["Name"].c_str());
                 result.clear();
                 return false;
             }
-            result.emplace_back(std::make_pair(lineData["Event Type"], index));
+            result.emplace_back(std::make_pair(lineData["Name"], index));
         }
     }
     return true;
@@ -120,7 +153,7 @@ void StepInterAnalyzer::GetKernelMemoryDiff(size_t index, const CSV_FIELD_DATA &
     std::unordered_map<std::string, std::string> frameworkMemory;
     for (size_t i = index; i < data.size(); ++i) {
         auto lineData = data[i];
-        if (lineData["Event"] == "pytorch") {
+        if (lineData["Event Type"] == "PTA") {
             frameworkMemory = lineData;
             break;
         }
@@ -131,7 +164,13 @@ void StepInterAnalyzer::GetKernelMemoryDiff(size_t index, const CSV_FIELD_DATA &
         return ;
     }
 
-    if (!Utility::StrToInt64(memDiff, frameworkMemory["Size(byte)"])) {
+    std::string attrKey = "size";
+    std::string attrValue = Utility::ExtractAttrValueByKey(frameworkMemory["Attr"], attrKey);
+    if (attrValue.empty()) {
+        LOG_WARN("Attr has no \"size\" value");
+        return ;
+    }
+    if (!Utility::StrToInt64(memDiff, attrValue)) {
         LOG_WARN("Alloc Size to int64_t failed!");
     }
 }
