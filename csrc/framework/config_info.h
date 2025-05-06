@@ -22,9 +22,18 @@ constexpr const char *TRACE_FILE = "trace";
 constexpr const char *DUMP_FILE = "dump";
 constexpr const char *COMPARE_FILE = "compare";
 
+// level type可以多选，每一种type占一个bit位
 enum class LevelType : uint8_t {
-    LEVEL_0 = 0,
-    LEVEL_1,
+    LEVEL_OP = 0,
+    LEVEL_KERNEL = 1,
+};
+
+// event type可以多选，每一种type占一个bit位
+enum class EventType : uint8_t {
+    ALLOC_EVENT = 0,
+    FREE_EVENT = 1,
+    LAUNCH_EVENT = 2,
+    ACCESS_EVENT = 3,
 };
 
 struct SelectedStepList {
@@ -57,7 +66,8 @@ struct Config {
     uint32_t pyStackDepth;
     bool inputCorrectPaths;
     bool outputCorrectPaths;
-    LevelType levelType;
+    uint8_t levelType;
+    uint8_t eventType;
 };
 
 // 用于承载用户命令行参数的解析结果

@@ -8,11 +8,13 @@
 #include <getopt.h>
 #include <regex>
 #include <algorithm>
+#include <unordered_map>
 #include "command.h"
 #include "file.h"
 #include "path.h"
 #include "log.h"
 #include "ustring.h"
+#include "bit_field.h"
 
 namespace Leaks {
 
@@ -22,8 +24,9 @@ enum class OptVal : int32_t {
     COMPARE,
     INPUT,
     OUTPUT,
-    DATA_PARSING_LEVEL,
+    DATA_TRACE_LEVEL,
     LOG_LEVEL,
+    EVENT_TRACE_TYPE,
 };
 constexpr uint16_t INPUT_STR_MAX_LEN = 4096;
 
@@ -41,8 +44,14 @@ void ShowHelpInfo()
         << "  basic user options, with default in [ ]:" << std::endl
         << "    -h --help                                Show this message." << std::endl
         << "    -v --version                             Show version." << std::endl
-        << "    --level=<level>                          Set the data parsing level." << std::endl
-        << "                                             Level [1] for more detail info(default:0)." << std::endl
+        << "    --level=<level>                          Set the data trace level." << std::endl
+        << "                                             Level [1] for kernel, Level [0] for op(default:0)."
+        << std::endl
+        << "                                             You can choose both separated by, or ，." << std::endl
+        << "    --events=event1,event2                   Set the trace event type." << std::endl
+        << "                                             You can combine any of the following options:" << std::endl
+        << "                                             alloc,free,launch,access (default:alloc,free,launch)."
+        << std::endl
         << "    --steps=1,2,3,...                        Select the steps to collect memory information." << std::endl
         << "                                             The input step numbers need to be separated by, or ，."
         << std::endl
@@ -123,7 +132,8 @@ std::vector<option> GetLongOptArray()
         {"compare", no_argument, nullptr, static_cast<int32_t>(OptVal::COMPARE)},
         {"input", required_argument, nullptr, static_cast<int32_t>(OptVal::INPUT)},
         {"output", required_argument, nullptr, static_cast<int32_t>(OptVal::OUTPUT)},
-        {"level", required_argument, nullptr, static_cast<int32_t>(OptVal::DATA_PARSING_LEVEL)},
+        {"level", required_argument, nullptr, static_cast<int32_t>(OptVal::DATA_TRACE_LEVEL)},
+        {"events", required_argument, nullptr, static_cast<int32_t>(OptVal::EVENT_TRACE_TYPE)},
         {"log-level", required_argument, nullptr, static_cast<int32_t>(OptVal::LOG_LEVEL)},
         {nullptr, 0, nullptr, 0},
     };
@@ -284,18 +294,71 @@ static void ParseOutputPath(const std::string param, UserCommand &userCommand)
 
 static void ParseDataLevel(const std::string param, UserCommand &userCommand)
 {
-    std::vector<std::string> validLevelValues = {"0", "1"};
+    std::regex dividePattern(R"([，,])");
+    std::sregex_token_iterator it(param.begin(), param.end(), dividePattern, -1);
+    std::sregex_token_iterator end;
 
-    uint8_t mode;
-    if (std::find(validLevelValues.begin(), validLevelValues.end(), param) == validLevelValues.end()) {
-        std::cout << "[msleaks] ERROR: --level param is invalid. "
-                  << "optional value: 0,1, default:0" << std::endl;
+    std::regex numberPattern(R"(^[01]$)");
+
+    auto parseFailed = [&userCommand](void) {
+        std::cout << "[msleaks] ERROR: invalid data trace level input." << std::endl;
         userCommand.printHelpInfo = true;
-        return ;
-    } else {
-        mode = std::stoi(param);
-        userCommand.config.levelType = static_cast<LevelType>(mode);
+    };
+
+    BitField<decltype(userCommand.config.levelType)> levelBit;
+
+    while (it != end) {
+        std::string level = it->str();
+        if (!level.empty()) {
+            if (!std::regex_match(level, numberPattern)) {
+                return parseFailed();
+            }
+            if (level == "0") {
+                levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_OP));
+            } else if (level == "1") {
+                levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
+            }
+        }
+        it++;
     }
+
+    userCommand.config.levelType = levelBit.getValue();
+    return;
+}
+
+static void ParseEventTraceType(const std::string param, UserCommand &userCommand)
+{
+    std::regex dividePattern(R"([，,])");
+    std::sregex_token_iterator it(param.begin(), param.end(), dividePattern, -1);
+    std::sregex_token_iterator end;
+
+    auto parseFailed = [&userCommand](void) {
+        std::cout << "[msleaks] ERROR: invalid event trace type input." << std::endl;
+        userCommand.printHelpInfo = true;
+    };
+
+    BitField<decltype(userCommand.config.eventType)> eventsTypeBit;
+
+    std::unordered_map<std::string, EventType> eventsMp = {
+        {"alloc", EventType::ALLOC_EVENT},
+        {"free", EventType::FREE_EVENT},
+        {"launch", EventType::LAUNCH_EVENT},
+        {"access", EventType::ACCESS_EVENT}
+    };
+    while (it != end) {
+        std::string event = it->str();
+        if (!event.empty()) {
+            if (eventsMp.count(event)) {
+                eventsTypeBit.setBit(static_cast<size_t>(eventsMp[event]));
+            } else {
+                return parseFailed();
+            }
+        }
+        it++;
+    }
+
+    userCommand.config.eventType = eventsTypeBit.getValue();
+    return;
 }
 
 static void ParseLogLv(const std::string &param, UserCommand &userCommand)
@@ -344,8 +407,11 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
         case static_cast<int32_t>(OptVal::OUTPUT):
             ParseOutputPath(param, userCommand);
             break;
-        case static_cast<int32_t>(OptVal::DATA_PARSING_LEVEL):
+        case static_cast<int32_t>(OptVal::DATA_TRACE_LEVEL):
             ParseDataLevel(param, userCommand);
+            break;
+        case static_cast<int32_t>(OptVal::EVENT_TRACE_TYPE):
+            ParseEventTraceType(param, userCommand);
             break;
         case static_cast<int32_t>(OptVal::LOG_LEVEL):
             ParseLogLv(param, userCommand);
@@ -365,7 +431,13 @@ void ClientParser::InitialUserCommand(UserCommand &userCommand)
     userCommand.config.outputCorrectPaths = true;
     userCommand.config.cStackDepth = 0;
     userCommand.config.pyStackDepth = 0;
-    userCommand.config.levelType = LevelType::LEVEL_0;
+    userCommand.config.levelType = 0;
+
+    BitField<decltype(userCommand.config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
+    userCommand.config.eventType = eventBit.getValue();
 }
 
 UserCommand ClientParser::Parse(int32_t argc, char **argv)
