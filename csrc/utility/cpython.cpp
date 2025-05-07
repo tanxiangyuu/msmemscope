@@ -61,7 +61,6 @@ void PythonCallstack(uint32_t pyDepth, std::string& pyStack)
     while (frame && depth < pyDepth) {
         PyCodeObject *code = PyFrame_GetCode(frame);
         if (code == nullptr) {
-            Py_DecRef((PyObject *)frame);
             break;
         }
         pyStack += std::string(PyUnicode_AsUTF8(PyObject_Str(code->co_filename))) + "(" +
