@@ -219,7 +219,7 @@ TEST(DumpRecord, dump_operator_launch_start_expect_success)
     mstxRecord.devId = 1;
     mstxRecord.stepId = 10;
     mstxRecord.streamId = 1;
-    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage), "func start {func.__module__}.{func.__name__}",
+    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage), "leaks-aten-b: {func.__module__}.{func.__name__}",
         sizeof(mstxRecord.markMessage) - 1);
     mstxRecord.recordIndex = 1;
     record.eventRecord.record.mstxRecord = mstxRecord;
@@ -241,7 +241,7 @@ TEST(DumpRecord, dump_operator_launch_end_expect_success)
     mstxRecord.devId = 1;
     mstxRecord.stepId = 10;
     mstxRecord.streamId = 1;
-    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage), "func end {func.__module__}.{func.__name__}",
+    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage), "leaks-aten-e: {func.__module__}.{func.__name__}",
         sizeof(mstxRecord.markMessage) - 1);
     mstxRecord.recordIndex = 1;
     record.eventRecord.record.mstxRecord = mstxRecord;
@@ -264,7 +264,7 @@ TEST(DumpRecord, dump_tensor_launch_expect_success)
     mstxRecord.stepId = 10;
     mstxRecord.streamId = 1;
     strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage),
-        "tensor:ptr={data_ptr};shape={value.shape};dtype={value.dtype};device={value.device}",
+        "leaks-ac:ptr={data_ptr};shape={value.shape};dtype={value.dtype};device={value.device}",
         sizeof(mstxRecord.markMessage) - 1);
     mstxRecord.recordIndex = 1;
     record.eventRecord.record.mstxRecord = mstxRecord;

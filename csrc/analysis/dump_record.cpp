@@ -212,17 +212,15 @@ bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRe
     }
 
     // 根据标识判断是否为算子下发或者tensor信息
-    if (strstr(mstxRecord.markMessage, "func start") != NULL) {
-        bool isFuncStart = true;
-        DumpOpLaunchData(clientId, mstxRecord, isFuncStart, stack);
+    if (strncmp(mstxRecord.markMessage, ATEN_BEGIN_MSG, strlen(ATEN_BEGIN_MSG)) == 0) {
+        DumpOpLaunchData(clientId, mstxRecord, true, stack);
         return true;
     }
-    if (strstr(mstxRecord.markMessage, "func end") != NULL) {
-        bool isFuncStart = false;
-        DumpOpLaunchData(clientId, mstxRecord, isFuncStart, stack);
+    if (strncmp(mstxRecord.markMessage, ATEN_END_MSG, strlen(ATEN_END_MSG)) == 0) {
+        DumpOpLaunchData(clientId, mstxRecord, false, stack);
         return true;
     }
-    if (strstr(mstxRecord.markMessage, "tensor:") != NULL) {
+    if (strncmp(mstxRecord.markMessage, ACCESS_MSG, strlen(ACCESS_MSG)) == 0) {
         DumpTensorData(clientId, mstxRecord, stack);
         return true;
     }

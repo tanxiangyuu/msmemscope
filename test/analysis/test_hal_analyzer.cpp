@@ -5,12 +5,16 @@
 #include "hal_analyzer.h"
 #include "record_info.h"
 #include "config_info.h"
+#include "bit_field.h"
 
 using namespace Leaks;
 
 TEST(HalAnalyzerTest, do_hal_record_except_leaks) {
     Config analysisConfig;
- 
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
     ClientId clientId = 0;
     auto record1 = EventRecord{};
     record1.type = RecordType::MEMORY_RECORD;
@@ -55,6 +59,10 @@ TEST(HalAnalyzerTest, do_hal_record_except_leaks) {
 
 TEST(HalAnalyzerTest, do_record_except_no_leaks) {
     Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
     ClientId clientId = 0;
     auto record1 = EventRecord{};
     record1.type = RecordType::MEMORY_RECORD;
@@ -84,6 +92,10 @@ TEST(HalAnalyzerTest, do_record_except_no_leaks) {
 
 TEST(HalAnalyzerTest, do_record_excpet_double_free) {
     Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
     ClientId clientId = 0;
     auto record1 = EventRecord{};
     record1.type = RecordType::MEMORY_RECORD;
@@ -124,6 +136,10 @@ TEST(HalAnalyzerTest, do_record_excpet_double_free) {
 
 TEST(HalAnalyzerTest, do_record_except_double_malloc) {
     Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
     ClientId clientId = 0;
     auto record1 = EventRecord{};
     record1.type = RecordType::MEMORY_RECORD;
@@ -155,6 +171,10 @@ TEST(HalAnalyzerTest, do_record_except_double_malloc) {
 
 TEST(HalAnalyzerTest, do_record_except_free_null) {
     Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
     ClientId clientId = 0;
     auto record1 = EventRecord{};
     record1.type = RecordType::MEMORY_RECORD;
@@ -171,6 +191,10 @@ TEST(HalAnalyzerTest, do_record_except_free_null) {
 
 TEST(HalAnalyzerTest, do_record_fail) {
     Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
     ClientId clientId = 0;
     auto record1 = EventRecord{};
     record1.type = RecordType::MEMORY_RECORD;
@@ -187,6 +211,10 @@ TEST(HalAnalyzerTest, do_record_fail) {
 
 TEST(HalAnalyzerTest, do_memory_record_nulltable) {
     Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
     auto record = EventRecord{};
     record.type = RecordType::MEMORY_RECORD;
     auto memRecordFree = MemOpRecord {};

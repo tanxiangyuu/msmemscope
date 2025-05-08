@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <gtest/gtest.h>
+#include "bit_field.h"
 #include "framework/command.h"
 #include "framework/client_parser.h"
 #include "framework/protocol.h"
@@ -20,6 +21,10 @@ TEST(Sample, sample)
     parser.Interpretor(2, arr);
 
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     EventRecord record;
     HalAnalyzer::GetInstance(config).Record(0, record);
 
