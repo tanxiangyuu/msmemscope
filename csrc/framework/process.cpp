@@ -156,6 +156,24 @@ void Process::SetPreloadEnv()
         "libascend_kernel_hook.so"
     };
 
+    const char* atbHomePath = std::getenv("ATB_HOME_PATH");
+    if (atbHomePath == nullptr || string(atbHomePath).empty()) {
+        LOG_WARN("The environment variable ATB_HOME_PATH is not set.");
+    } else {
+        std::string pathStr(atbHomePath);
+        std::string abi0Str = "atb/cxx_abi_0";
+        std::string abi1Str = "atb/cxx_abi_1";
+        if (pathStr.length() >= abi0Str.length() &&
+            pathStr.substr(pathStr.length() - abi0Str.length()) == abi0Str) {
+            hookLibNames.push_back("libatb_abi_0_hook.so");
+        } else if (pathStr.length() >= abi1Str.length() &&
+                   pathStr.substr(pathStr.length() - abi1Str.length()) == abi1Str) {
+            hookLibNames.push_back("libatb_abi_1_hook.so");
+        } else {
+            LOG_ERROR("Please set the valid environment variable ATB_HOME_PATH.");
+        }
+    }
+
     for (string &hookLib : hookLibNames) {
         Path hookLibPath = (Path(hookLibDir) / Path(hookLib)).Resolved();
         if (hookLibPath.ErrorOccured()) { return; }

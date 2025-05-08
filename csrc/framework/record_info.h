@@ -12,6 +12,9 @@ namespace Leaks {
 
 constexpr int32_t GD_INVALID_NUM = 9999;
 const size_t KERNELNAME_MAX_SIZE = 128;
+const size_t ATB_NAME_MAX_SIZE = 64;
+const size_t ATB_PARAMS_MAX_SIZE = 128;
+
 enum class MemoryDataType {
     MEMORY_MALLOC = 0,
     MEMORY_FREE,
@@ -142,6 +145,40 @@ struct MstxRecord {
     char markMessage[64U];
     uint64_t recordIndex;       // 记录索引
     uint64_t kernelIndex;       // 当前所属kernellaunch索引
+};
+
+enum class OpEventType : uint8_t {
+    ATEN_START = 0,
+    ATEN_END,
+    ATB_START,
+    ATB_END,
+};
+
+enum class KernelEventType : uint8_t {
+    KERNEL_START = 0,
+    KERNEL_END,
+};
+
+struct AtbOpExecuteRecord {
+    OpEventType eventType;
+    int32_t devId;
+    uint64_t timestamp;
+    uint64_t pid;
+    uint64_t tid;
+    uint64_t recordIndex;
+    char name[ATB_NAME_MAX_SIZE];
+    char params[ATB_PARAMS_MAX_SIZE];
+};
+
+struct AtbKernelRecord {
+    KernelEventType eventType;
+    int32_t devId;
+    uint64_t timestamp;
+    uint64_t pid;
+    uint64_t tid;
+    uint64_t recordIndex;
+    char name[ATB_NAME_MAX_SIZE];
+    char params[ATB_PARAMS_MAX_SIZE];
 };
 
 enum class RecordType {
