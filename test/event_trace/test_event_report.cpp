@@ -6,6 +6,7 @@
 #include "event_trace/vallina_symbol.h"
 #include "handle_mapping.h"
 #include "securec.h"
+#include "bit_field.h"
 
 using namespace Leaks;
 
@@ -17,6 +18,18 @@ TEST(EventReportTest, EventReportInstanceTest) {
 
 TEST(EventReportTest, ReportMallocTestDEVICE) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    BitField<decltype(instance.config_.eventType)> eventBit;
+    BitField<decltype(instance.config_.levelType)> levelBit;
+    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_OP));
+    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::ACCESS_EVENT));
+    instance.config_.eventType = eventBit.getValue();
+    instance.config_.levelType = levelBit.getValue();
+    instance.config_.enableCStack = true;
+    instance.config_.enablePyStack = true;
     uint64_t testAddr = 0x12345678;
     uint64_t testSize = 1024;
     unsigned long long testFlag = 2377900603261207558;
@@ -28,6 +41,13 @@ TEST(EventReportTest, ReportMallocTestDEVICE) {
 
 TEST(EventReportTest, ReportMallocTestHost) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    BitField<decltype(instance.config_.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
+    instance.config_.eventType = eventBit.getValue();
+    instance.config_.enableCStack = true;
+    instance.config_.enablePyStack = true;
     uint64_t testAddr = 0x12345678;
     uint64_t testSize = 1024;
     unsigned long long testFlag = 504403158274934784;
@@ -39,6 +59,13 @@ TEST(EventReportTest, ReportMallocTestHost) {
 
 TEST(EventReportTest, ReportFreeTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    BitField<decltype(instance.config_.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
+    instance.config_.eventType = eventBit.getValue();
+    instance.config_.enableCStack = true;
+    instance.config_.enablePyStack = true;
     uint64_t testAddr = 0x12345678;
     instance.isReceiveServerInfo_ = true;
     CallStackString callStack;
@@ -47,6 +74,13 @@ TEST(EventReportTest, ReportFreeTest) {
 
 TEST(EventReportTest, ReportHostMallocWithoutMstxTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    BitField<decltype(instance.config_.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
+    instance.config_.eventType = eventBit.getValue();
+    instance.config_.enableCStack = true;
+    instance.config_.enablePyStack = true;
     uint64_t testAddr = 0x12345678;
     uint64_t testSize = 1024;
     instance.isReceiveServerInfo_ = true;
@@ -56,6 +90,11 @@ TEST(EventReportTest, ReportHostMallocWithoutMstxTest) {
  
 TEST(EventReportTest, ReportHostFreeWithoutMstxTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    BitField<decltype(instance.config_.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
+    instance.config_.eventType = eventBit.getValue();
     uint64_t testAddr = 0x12345678;
     instance.isReceiveServerInfo_ = true;
     CallStackString callStack;
@@ -64,6 +103,11 @@ TEST(EventReportTest, ReportHostFreeWithoutMstxTest) {
 
 TEST(EventReportTest, ReportHostMallocTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    BitField<decltype(instance.config_.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
+    instance.config_.eventType = eventBit.getValue();
     instance.isReceiveServerInfo_ = true;
     auto mstxRecordStart = MstxRecord{};
     CallStackString stack;
@@ -86,6 +130,11 @@ TEST(EventReportTest, ReportHostMallocTest) {
  
 TEST(EventReportTest, ReportHostFreeTest) {
     EventReport &instance = EventReport::Instance(CommType::MEMORY);
+    BitField<decltype(instance.config_.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
+    instance.config_.eventType = eventBit.getValue();
     CallStackString callStack;
     instance.isReceiveServerInfo_ = true;
     auto mstxRecordStart = MstxRecord {};
@@ -114,6 +163,14 @@ TEST(EventReportTest, ReportMarkTest) {
 
 TEST(EventReportTest, ReportKernelLaunchTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    BitField<decltype(instance.config_.eventType)> eventBit;
+    BitField<decltype(instance.config_.levelType)> levelBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
+    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
+    instance.config_.eventType = eventBit.getValue();
+    instance.config_.levelType = levelBit.getValue();
     instance.isReceiveServerInfo_ = true;
     KernelLaunchRecord record;
     void *hdl = nullptr;

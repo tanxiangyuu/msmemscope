@@ -77,7 +77,7 @@ void Process::RecordHandler(const ClientId &clientId, const Record &record)
             MstxAnalyzer::Instance().RecordMstx(clientId, record.eventRecord.record.mstxRecord);
             break;
         case RecordType::MEMORY_RECORD:
-            HalAnalyzer::GetInstance().Record(clientId, record.eventRecord);
+            HalAnalyzer::GetInstance(config_).Record(clientId, record.eventRecord);
             break;
         case RecordType::TORCH_NPU_RECORD:
             StepInnerAnalyzer::GetInstance(config_).Record(clientId, record.eventRecord);

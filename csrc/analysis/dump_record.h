@@ -27,11 +27,15 @@ private:
     DumpRecord(DumpRecord&& other) = delete;
     DumpRecord& operator=(DumpRecord&& other) = delete;
 
+    bool ExtractTensorInfo(const char* msg, const char* key, std::string &value);
     bool WriteToFile(const DumpContainer &container, const CallStackString &stack);
     bool DumpMemData(const ClientId &clientId, const MemOpRecord &memrecord, const CallStackString &stack);
     bool DumpKernelData(const ClientId &clientId, const KernelLaunchRecord &kernelLaunchRecord);
     bool DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord);
     bool DumpMstxData(const ClientId &clientId, const MstxRecord &msxtRecord, const CallStackString &stack);
+    bool DumpOpLaunchData(const ClientId &clientId, const MstxRecord &mstxRecord, const bool &isFuncStart,
+    const CallStackString &stack);
+    bool DumpTensorData(const ClientId &clientId, const MstxRecord &mstxRecord, const CallStackString &stack);
     bool DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord, const CallStackString &stack);
     bool DumpAtbOpData(const ClientId &clientId, const AtbOpExecuteRecord &atbOpExecuteRecord);
     bool DumpAtbKernelData(const ClientId &clientId, const AtbKernelRecord &atbKernelRecord);

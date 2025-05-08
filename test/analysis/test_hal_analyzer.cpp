@@ -5,12 +5,16 @@
 #include "hal_analyzer.h"
 #include "record_info.h"
 #include "config_info.h"
+#include "bit_field.h"
 
 using namespace Leaks;
 
 TEST(HalAnalyzerTest, do_hal_record_except_leaks) {
     Config analysisConfig;
- 
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
     ClientId clientId = 0;
     auto record1 = EventRecord{};
     record1.type = RecordType::MEMORY_RECORD;
@@ -48,12 +52,17 @@ TEST(HalAnalyzerTest, do_hal_record_except_leaks) {
     memRecordMalloc4.timeStamp = 1234557;
     record4.record.memoryRecord = memRecordMalloc4;
  
-    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record1));
-    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record2));
-    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record4));
+    EXPECT_TRUE(HalAnalyzer::GetInstance(analysisConfig).Record(clientId, record1));
+    EXPECT_TRUE(HalAnalyzer::GetInstance(analysisConfig).Record(clientId, record2));
+    EXPECT_TRUE(HalAnalyzer::GetInstance(analysisConfig).Record(clientId, record4));
 }
 
 TEST(HalAnalyzerTest, do_record_except_no_leaks) {
+    Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
     ClientId clientId = 0;
     auto record1 = EventRecord{};
     record1.type = RecordType::MEMORY_RECORD;
@@ -77,11 +86,16 @@ TEST(HalAnalyzerTest, do_record_except_no_leaks) {
     memRecordFree.memSize = 0;
     record3.record.memoryRecord = memRecordFree;
 
-    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record1));
-    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record3));
+    EXPECT_TRUE(HalAnalyzer::GetInstance(analysisConfig).Record(clientId, record1));
+    EXPECT_TRUE(HalAnalyzer::GetInstance(analysisConfig).Record(clientId, record3));
 }
 
 TEST(HalAnalyzerTest, do_record_excpet_double_free) {
+    Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
     ClientId clientId = 0;
     auto record1 = EventRecord{};
     record1.type = RecordType::MEMORY_RECORD;
@@ -115,12 +129,17 @@ TEST(HalAnalyzerTest, do_record_excpet_double_free) {
     memRecordFree2.memSize = 0;
     record3.record.memoryRecord = memRecordFree2;
 
-    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record1));
-    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record2));
-    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record3));
+    EXPECT_TRUE(HalAnalyzer::GetInstance(analysisConfig).Record(clientId, record1));
+    EXPECT_TRUE(HalAnalyzer::GetInstance(analysisConfig).Record(clientId, record2));
+    EXPECT_TRUE(HalAnalyzer::GetInstance(analysisConfig).Record(clientId, record3));
 }
 
 TEST(HalAnalyzerTest, do_record_except_double_malloc) {
+    Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
     ClientId clientId = 0;
     auto record1 = EventRecord{};
     record1.type = RecordType::MEMORY_RECORD;
@@ -146,11 +165,16 @@ TEST(HalAnalyzerTest, do_record_except_double_malloc) {
     memRecordMalloc2.timeStamp = 1234567;
     record2.record.memoryRecord = memRecordMalloc2;
 
-    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record1));
-    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record2));
+    EXPECT_TRUE(HalAnalyzer::GetInstance(analysisConfig).Record(clientId, record1));
+    EXPECT_TRUE(HalAnalyzer::GetInstance(analysisConfig).Record(clientId, record2));
 }
 
 TEST(HalAnalyzerTest, do_record_except_free_null) {
+    Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
     ClientId clientId = 0;
     auto record1 = EventRecord{};
     record1.type = RecordType::MEMORY_RECORD;
@@ -162,10 +186,15 @@ TEST(HalAnalyzerTest, do_record_except_free_null) {
     memRecordFree1.memSize = 0;
     record1.record.memoryRecord = memRecordFree1;
 
-    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record1));
+    EXPECT_TRUE(HalAnalyzer::GetInstance(analysisConfig).Record(clientId, record1));
 }
 
 TEST(HalAnalyzerTest, do_record_fail) {
+    Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
     ClientId clientId = 0;
     auto record1 = EventRecord{};
     record1.type = RecordType::MEMORY_RECORD;
@@ -177,10 +206,15 @@ TEST(HalAnalyzerTest, do_record_fail) {
     memRecordFree1.memSize = 0;
     record1.record.memoryRecord = memRecordFree1;
 
-    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record1));
+    EXPECT_TRUE(HalAnalyzer::GetInstance(analysisConfig).Record(clientId, record1));
 }
 
 TEST(HalAnalyzerTest, do_memory_record_nulltable) {
+    Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
     auto record = EventRecord{};
     record.type = RecordType::MEMORY_RECORD;
     auto memRecordFree = MemOpRecord {};
@@ -189,5 +223,5 @@ TEST(HalAnalyzerTest, do_memory_record_nulltable) {
     ClientId clientId = 0;
     memRecordFree.memType = MemOpType::FREE;
     record.record.memoryRecord = memRecordFree;
-    EXPECT_TRUE(HalAnalyzer::GetInstance().Record(clientId, record));
+    EXPECT_TRUE(HalAnalyzer::GetInstance(analysisConfig).Record(clientId, record));
 }

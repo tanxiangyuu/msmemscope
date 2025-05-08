@@ -50,7 +50,7 @@ void PythonCallstack(uint32_t pyDepth, std::string& pyStack)
         pyStack = "\"NA\"";
         return;
     }
-    PyInterpGuard stat;
+    PyInterpGuard stat{};
     PyFrameObject *frame = PyEval_GetFrame();
     if (frame == nullptr) {
         return;

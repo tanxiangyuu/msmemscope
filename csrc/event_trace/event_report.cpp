@@ -189,6 +189,19 @@ bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord, CallStackString
     if (IsNeedSkip()) {
         return true;
     }
+
+    BitField<decltype(config_.eventType)> eventType(config_.eventType);
+    // 根据命令行参数判断malloc和free是否上报, 0为malloc，剩下的为free
+    if (torchNpuRecord.memoryUsage.dataType == 0) {
+        if (!eventType.checkBit(static_cast<size_t>(EventType::ALLOC_EVENT))) {
+            return true;
+        }
+    } else {
+        if (!eventType.checkBit(static_cast<size_t>(EventType::FREE_EVENT))) {
+            return true;
+        }
+    }
+
     PacketHead head = {PacketType::RECORD};
     EventRecord eventRecord;
     eventRecord.type = RecordType::TORCH_NPU_RECORD;
@@ -214,6 +227,19 @@ bool EventReport::ReportATBMemPoolRecord(AtbMemPoolRecord &record, CallStackStri
     if (IsNeedSkip()) {
         return true;
     }
+
+    BitField<decltype(config_.eventType)> eventType(config_.eventType);
+    // 根据命令行参数判断malloc和free是否上报, 0为malloc，剩下的为free
+    if (record.memoryUsage.dataType == 0) {
+        if (!eventType.checkBit(static_cast<size_t>(EventType::ALLOC_EVENT))) {
+            return true;
+        }
+    } else {
+        if (!eventType.checkBit(static_cast<size_t>(EventType::FREE_EVENT))) {
+            return true;
+        }
+    }
+
     PacketHead head = {PacketType::RECORD};
     EventRecord eventRecord;
     eventRecord.type = RecordType::ATB_MEMORY_POOL_RECORD;
@@ -239,6 +265,12 @@ bool EventReport::ReportMalloc(
     if (IsNeedSkip()) {
         return true;
     }
+
+    BitField<decltype(config_.eventType)> eventType(config_.eventType);
+    if (!eventType.checkBit(static_cast<size_t>(EventType::ALLOC_EVENT))) {
+        return true;
+    }
+
     // bit0~9 devId
     int32_t devId = (flag & 0x3FF);
     int32_t moduleId = GetMallocModuleId(flag);
@@ -270,6 +302,12 @@ bool EventReport::ReportFree(uint64_t addr, CallStackString& stack)
     if (IsNeedSkip()) {
         return true;
     }
+
+    BitField<decltype(config_.eventType)> eventType(config_.eventType);
+    if (!eventType.checkBit(static_cast<size_t>(EventType::FREE_EVENT))) {
+        return true;
+    }
+
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord {};
     eventRecord.type = RecordType::MEMORY_RECORD;
@@ -290,6 +328,11 @@ bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size, CallStackString
     g_isInReportFunction = true;
 
     if (!IsConnectToServer()) {
+        return true;
+    }
+
+    BitField<decltype(config_.eventType)> eventType(config_.eventType);
+    if (!eventType.checkBit(static_cast<size_t>(EventType::ALLOC_EVENT))) {
         return true;
     }
 
@@ -315,6 +358,11 @@ bool EventReport::ReportHostFree(uint64_t addr, CallStackString& stack)
     g_isInReportFunction = true;
 
     if (!IsConnectToServer()) {
+        return true;
+    }
+
+    BitField<decltype(config_.eventType)> eventType(config_.eventType);
+    if (!eventType.checkBit(static_cast<size_t>(EventType::FREE_EVENT))) {
         return true;
     }
 
@@ -372,6 +420,22 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord, CallStackString& stack)
         return true;
     }
 
+    // 命令行判断是否包含Launch事件
+    Config userConfig =  EventReport::Instance(CommType::SOCKET).GetConfig();
+    BitField<decltype(userConfig.eventType)> eventType(userConfig.eventType);
+    // 根据标识判断是否为算子下发或者tensor信息
+    if (strncmp(mstxRecord.markMessage, ATEN_BEGIN_MSG, strlen(ATEN_BEGIN_MSG)) == 0 ||
+        strncmp(mstxRecord.markMessage, ATEN_END_MSG, strlen(ATEN_END_MSG)) == 0) {
+        if (!eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
+            return true;
+        }
+    }
+    if (strncmp(mstxRecord.markMessage, ACCESS_MSG, strlen(ACCESS_MSG)) == 0) {
+        if (!eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT))) {
+            return true;
+        }
+    }
+
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
@@ -425,6 +489,11 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
     }
 
     if (IsNeedSkip()) {
+        return true;
+    }
+
+    BitField<decltype(config_.eventType)> eventType(config_.eventType);
+    if (!eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
         return true;
     }
 

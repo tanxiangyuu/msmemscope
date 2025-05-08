@@ -11,6 +11,7 @@
 #include "analysis/trace_record.h"
 #include "client_process.h"
 #include "client_parser.h"
+#include "bit_field.h"
 using namespace Leaks;
 
 TEST(Process, process_launch_ls_expect_success)
@@ -197,6 +198,18 @@ TEST(Process, do_record_handler_except_success)
 TEST(Process, do_msg_handler_record_packet_type_except_success)
 {
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    BitField<decltype(config.levelType)> levelBit;
+    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_OP));
+    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::ACCESS_EVENT));
+    config.eventType = eventBit.getValue();
+    config.levelType = levelBit.getValue();
+    config.enableCStack = true;
+    config.enablePyStack = true;
     Process process(config);
 
     size_t clientId = 0;

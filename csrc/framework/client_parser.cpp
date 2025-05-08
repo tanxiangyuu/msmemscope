@@ -431,7 +431,7 @@ void ClientParser::InitialUserCommand(UserCommand &userCommand)
     userCommand.config.outputCorrectPaths = true;
     userCommand.config.cStackDepth = 0;
     userCommand.config.pyStackDepth = 0;
-    userCommand.config.levelType = 0;
+    userCommand.config.levelType = 1;
 
     BitField<decltype(userCommand.config.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
