@@ -7,8 +7,11 @@
 
 namespace atb {
 using LeaksOriginalRunnerExecuteFunc = atb::Status (*)(atb::Runner*, atb::RunnerVariantPack&);
-std::string LeaksGetOpParams(atb::Runner* thisPtr, atb::RunnerVariantPack& runnerVariantPack);
-std::string LeaksGetKernelParams(const std::string &dirPath);
+std::string LeaksGetTensorInfo(const atb::Tensor& tensor);
+std::string LeaksGetTensorInfo(const Mki::Tensor& tensor);
+void LeaksReportTensors(atb::RunnerVariantPack& runnerVariantPack);
+void LeaksReportTensors(const Mki::LaunchParam &launchParam);
+void LeaksReportOp(const std::string& name, const std::string& params, bool isStart);
 atb::Status LeaksRunnerExecute(atb::Runner* thisPtr, atb::RunnerVariantPack& runnerVariantPack);
 void LeaksSaveLaunchParam(const Mki::LaunchParam &launchParam, const std::string &dirPath);
 }

@@ -247,6 +247,118 @@ TEST(DumpRecord, dump_msxt_range_end_expect_success)
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
 }
 
+TEST(DumpRecord, dump_atb_op_start_expect_success)
+{
+    auto record = Record{};
+    record.eventRecord.type = RecordType::ATB_OP_EXECUTE_RECORD;
+    auto atbOpExecuteRecord = AtbOpExecuteRecord{};
+    
+    atbOpExecuteRecord.eventType = OpEventType::ATB_START;
+    strncpy_s(atbOpExecuteRecord.name, sizeof(atbOpExecuteRecord.name),
+              "ElewiseOperation", sizeof(atbOpExecuteRecord.name) - 1);
+    strncpy_s(atbOpExecuteRecord.params, sizeof(atbOpExecuteRecord.params),
+              "{path:0_784115/0/0_ElewiseOperation,workspace ptr:0,workspace size:0}",
+              sizeof(atbOpExecuteRecord.params) - 1);
+    atbOpExecuteRecord.timestamp = 7890;
+    atbOpExecuteRecord.pid = 10;
+    atbOpExecuteRecord.tid = 11;
+    atbOpExecuteRecord.devId = 3;
+    atbOpExecuteRecord.recordIndex = 1;
+    record.eventRecord.record.atbOpExecuteRecord = atbOpExecuteRecord;
+    Config config;
+    ClientId clientId = 0;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+}
+
+TEST(DumpRecord, dump_atb_op_end_expect_success)
+{
+    auto record = Record{};
+    record.eventRecord.type = RecordType::ATB_OP_EXECUTE_RECORD;
+    auto atbOpExecuteRecord = AtbOpExecuteRecord{};
+    
+    atbOpExecuteRecord.eventType = OpEventType::ATB_END;
+    strncpy_s(atbOpExecuteRecord.name, sizeof(atbOpExecuteRecord.name),
+              "ElewiseOperation", sizeof(atbOpExecuteRecord.name) - 1);
+    strncpy_s(atbOpExecuteRecord.params, sizeof(atbOpExecuteRecord.params),
+              "{path:0_784115/0/0_ElewiseOperation,workspace ptr:0,workspace size:0}",
+              sizeof(atbOpExecuteRecord.params) - 1);
+    atbOpExecuteRecord.timestamp = 7890;
+    atbOpExecuteRecord.pid = 10;
+    atbOpExecuteRecord.tid = 11;
+    atbOpExecuteRecord.devId = 3;
+    atbOpExecuteRecord.recordIndex = 1;
+    record.eventRecord.record.atbOpExecuteRecord = atbOpExecuteRecord;
+    Config config;
+    ClientId clientId = 0;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+}
+
+TEST(DumpRecord, dump_atb_kernel_start_expect_success)
+{
+    auto record = Record{};
+    record.eventRecord.type = RecordType::ATB_KERNEL_RECORD;
+    auto atbKernelRecord = AtbKernelRecord{};
+    
+    atbKernelRecord.eventType = KernelEventType::KERNEL_START;
+    strncpy_s(atbKernelRecord.name, sizeof(atbKernelRecord.name),
+              "0_AddI32Kernel", sizeof(atbKernelRecord.name) - 1);
+    strncpy_s(atbKernelRecord.params, sizeof(atbKernelRecord.params),
+              "{path:0_784115/0/0_ElewiseOperation/0_AddI32Kernel}",
+              sizeof(atbKernelRecord.params) - 1);
+    atbKernelRecord.timestamp = 7890;
+    atbKernelRecord.pid = 10;
+    atbKernelRecord.tid = 11;
+    atbKernelRecord.devId = 3;
+    atbKernelRecord.recordIndex = 1;
+    record.eventRecord.record.atbKernelRecord = atbKernelRecord;
+    Config config;
+    ClientId clientId = 0;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+}
+
+TEST(DumpRecord, dump_atb_kernel_end_expect_success)
+{
+    auto record = Record{};
+    record.eventRecord.type = RecordType::ATB_KERNEL_RECORD;
+    auto atbKernelRecord = AtbKernelRecord{};
+    
+    atbKernelRecord.eventType = KernelEventType::KERNEL_END;
+    strncpy_s(atbKernelRecord.name, sizeof(atbKernelRecord.name),
+              "0_AddI32Kernel", sizeof(atbKernelRecord.name) - 1);
+    strncpy_s(atbKernelRecord.params, sizeof(atbKernelRecord.params),
+              "{path:0_784115/0/0_ElewiseOperation/0_AddI32Kernel}",
+              sizeof(atbKernelRecord.params) - 1);
+    atbKernelRecord.timestamp = 7890;
+    atbKernelRecord.pid = 10;
+    atbKernelRecord.tid = 11;
+    atbKernelRecord.devId = 3;
+    atbKernelRecord.recordIndex = 1;
+    record.eventRecord.record.atbKernelRecord = atbKernelRecord;
+    Config config;
+    ClientId clientId = 0;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+}
+
+TEST(DumpRecord, dump_mem_access_expect_success)
+{
+    auto record = Record{};
+    record.eventRecord.type = RecordType::MEM_ACCESS_RECORD;
+    auto memAccessRecord = MemAccessRecord{};
+    
+    memAccessRecord.eventType = AccessType::UNKNOWN;
+    strncpy_s(memAccessRecord.attr, sizeof(memAccessRecord.attr),
+              "{dtype:FLOAT,format:ACL_ND,shape:1 2 }", sizeof(memAccessRecord.attr) - 1);
+    memAccessRecord.timestamp = 7890;
+    memAccessRecord.pid = 10;
+    memAccessRecord.tid = 11;
+    memAccessRecord.devId = 3;
+    memAccessRecord.recordIndex = 1;
+    record.eventRecord.record.memAccessRecord = memAccessRecord;
+    Config config;
+    ClientId clientId = 0;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+}
+
 TEST(DumpRecord, set_dir_path)
 {
     Config config;
