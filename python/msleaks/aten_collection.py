@@ -72,7 +72,7 @@ class ArgumentHandler:
             # 计算tensor大小
             tensor_size = calculate_tensor_size(value)
 
-            mstx.mark(f"tensor:ptr={data_ptr};is_write={is_write};is_read={is_read};is_output={is_output};"\
+            mstx.mark(f"leaks-ac:ptr={data_ptr};is_write={is_write};is_read={is_read};is_output={is_output};"\
                     f"name={func.__module__}.{func.__name__};shape={value.shape};dtype={value.dtype};"\
                     f"tensor_size={tensor_size};device={value.device}", None)
 
@@ -131,7 +131,7 @@ class MemoryDispatchMode(TorchDispatchMode):
 
         is_factory = bool(FACTORY_FUNCTION_REGEX.match(func._schema.name))
         # 获取aten算子执行开始事件
-        mstx.mark(f"func start {func.__module__}.{func.__name__}", None)
+        mstx.mark(f"leaks-aten-b: {func.__module__}.{func.__name__}", None)
 
         argument_handler = ArgumentHandler()
         argument_handler.parse_inputs(func, args, kwargs, is_factory=is_factory)
@@ -140,7 +140,7 @@ class MemoryDispatchMode(TorchDispatchMode):
         
         argument_handler.parse_outputs(func, outputs, is_factory=is_factory)
         # 获取aten算子执行结束事件
-        mstx.mark(f"func end {func.__module__}.{func.__name__}", None)
+        mstx.mark(f"leaks-aten-e: {func.__module__}.{func.__name__}", None)
 
         return outputs
 

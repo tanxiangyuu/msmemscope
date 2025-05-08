@@ -6,6 +6,7 @@
 #define private public
 #include "stepinner_analyzer.h"
 #undef private
+#include "bit_field.h"
 #include "mstx_analyzer.h"
 #include "record_info.h"
 #include "config_info.h"
@@ -30,6 +31,10 @@ MstxRecord CreatMstxRecord(MarkType type, const char* message, uint64_t stepId, 
 TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_sucess) {
     // 先初始化注册
     Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
     analysisConfig.stepList.stepCount = 0;
     StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
     static StepInnerAnalyzer analyzer(analysisConfig);
@@ -107,6 +112,10 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks_warning)
 
     // 先初始化注册
     Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
     analysisConfig.stepList.stepCount = 0;
     StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
     static StepInnerAnalyzer analyzer(analysisConfig);
@@ -119,6 +128,10 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks_warning)
 TEST(StepInnerAnalyzerTest, do_npu_malloc_record_expect_sucess) {
     // 先初始化注册
     Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
     analysisConfig.stepList.stepCount = 0;
     StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
     static StepInnerAnalyzer analyzer(analysisConfig);
@@ -148,6 +161,10 @@ TEST(StepInnerAnalyzerTest, do_npu_malloc_record_expect_sucess) {
 TEST(StepInnerAnalyzerTest, do_npu_malloc_record_expect_double_malloc) {
     // 先初始化注册
     Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
     analysisConfig.stepList.stepCount = 0;
     StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
     static StepInnerAnalyzer analyzer(analysisConfig);
@@ -186,6 +203,10 @@ TEST(StepInnerAnalyzerTest, do_npu_malloc_record_expect_double_malloc) {
 TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_free_error) {
     // 先初始化注册
     Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
     analysisConfig.stepList.stepCount = 0;
     StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
     static StepInnerAnalyzer analyzer(analysisConfig);
@@ -217,6 +238,10 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks) {
     Leaks::DeviceId deviceId = 0;
     // 先初始化注册
     Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
     analysisConfig.stepList.stepCount = 0;
     StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
     static StepInnerAnalyzer analyzer(analysisConfig);
@@ -263,6 +288,10 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks) {
 TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateTables_return_true)
 {
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage{};
     stepInner.npuMemUsages_.insert({1, npumemusage});
@@ -273,6 +302,10 @@ TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateTables_return_true)
 TEST(StepInnerAnalyzerTest, do_input_not_exist_deviceid_CreateTables_return_true)
 {
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     StepInnerAnalyzer stepInner{config};
     auto ret = stepInner.CreateTables(1);
     ASSERT_TRUE(ret);
@@ -281,6 +314,10 @@ TEST(StepInnerAnalyzerTest, do_input_not_exist_deviceid_CreateTables_return_true
 TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateMstxTables_return_true)
 {
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     StepInnerAnalyzer stepInner{config};
     MstxRecordTable mstxrecordtable{};
     stepInner.mstxTables_.insert({1, mstxrecordtable});
@@ -291,6 +328,10 @@ TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateMstxTables_return_true
 TEST(StepInnerAnalyzerTest, do_input_not_exist_deviceid_CreateMstxTables_return_true)
 {
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     StepInnerAnalyzer stepInner{config};
     auto ret = stepInner.CreateMstxTables(1);
     ASSERT_TRUE(ret);
@@ -299,6 +340,10 @@ TEST(StepInnerAnalyzerTest, do_input_not_exist_deviceid_CreateMstxTables_return_
 TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateLeakSumTables_return_true)
 {
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     StepInnerAnalyzer stepInner{config};
     LeakSumsTable leaksumstable{};
     stepInner.leakMemSums_.insert({1, leaksumstable});
@@ -309,6 +354,10 @@ TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateLeakSumTables_return_t
 TEST(StepInnerAnalyzerTest, do_input_not_exist_deviceid_CreateLeakSumTables_return_true)
 {
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     StepInnerAnalyzer stepInner{config};
     auto ret = stepInner.CreateLeakSumTables(1);
     ASSERT_TRUE(ret);
@@ -317,6 +366,10 @@ TEST(StepInnerAnalyzerTest, do_input_not_exist_deviceid_CreateLeakSumTables_retu
 TEST(StepInnerAnalyzerTest, do_input_steps_command_disable_analysis)
 {
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     config.stepList.stepCount = 2;
     StepInnerAnalyzer stepInner{config};
     auto ret = stepInner.IsStepInnerAnalysisEnable();
@@ -327,6 +380,10 @@ TEST(StepInnerAnalyzerTest, do_not_input_steps_command_enable_analysis)
 {
     Config config;
     config.stepList.stepCount = 0;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     StepInnerAnalyzer stepInner{config};
     auto ret = stepInner.IsStepInnerAnalysisEnable();
     ASSERT_TRUE(ret);
@@ -335,6 +392,10 @@ TEST(StepInnerAnalyzerTest, do_not_input_steps_command_enable_analysis)
 TEST(StepInnerAnalyzerTest, do_stepId_below_1_SkipCheck_return_true)
 {
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     StepInnerAnalyzer stepInner{config};
     NpuMemInfo npuMemInfo{};
     npuMemInfo.stepId = 0;
@@ -345,6 +406,10 @@ TEST(StepInnerAnalyzerTest, do_stepId_below_1_SkipCheck_return_true)
 TEST(StepInnerAnalyzerTest, do_stepId_up_1_SkipCheck_return_true)
 {
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     StepInnerAnalyzer stepInner{config};
     NpuMemInfo npuMemInfo{};
     npuMemInfo.stepId = 3;
@@ -355,6 +420,10 @@ TEST(StepInnerAnalyzerTest, do_stepId_up_1_SkipCheck_return_true)
 TEST(StepInnerAnalyzerTest, do_updateallocated_step_0_update_0)
 {
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     config.stepList.stepCount = 2;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
@@ -370,6 +439,10 @@ TEST(StepInnerAnalyzerTest, do_updateallocated_step_0_update_0)
 TEST(StepInnerAnalyzerTest, do_updateallocated_step_2_update_allocated)
 {
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     config.stepList.stepCount = 2;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
@@ -386,6 +459,10 @@ TEST(StepInnerAnalyzerTest, do_updateallocated_step_2_update_allocated)
 TEST(StepInnerAnalyzerTest, do_checkgap_minmaxallocratio_equal_0_expect_reset_allocated)
 {
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     config.stepList.stepCount = 2;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
@@ -401,6 +478,10 @@ TEST(StepInnerAnalyzerTest, do_checkgap_minmaxallocratio_equal_0_expect_reset_al
 TEST(StepInnerAnalyzerTest, do_checkgap_minmaxallocratio_expect_true_allocated)
 {
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     config.stepList.stepCount = 2;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
@@ -419,6 +500,10 @@ TEST(StepInnerAnalyzerTest, do_checkgap_minmaxallocratio_expect_true_allocated)
 TEST(StepInnerAnalyzerRecordFuncTest, Recordtest)
 {
     Leaks::Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     config.enableCompare = false;
     config.inputCorrectPaths = true;
     config.outputCorrectPaths = false;
@@ -431,6 +516,10 @@ TEST(StepInnerAnalyzerRecordFuncTest, Recordtest)
 TEST(StepInnerAnalyzerRecordFuncTest, recordMallocSuccess) {
     // 先初始化注册
     Leaks::Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     config.enableCompare = false;
     config.inputCorrectPaths = true;
     config.outputCorrectPaths = false;
@@ -456,6 +545,10 @@ TEST(StepInnerAnalyzerRecordFuncTest, recordMallocSuccess) {
 TEST(StepInnerAnalyzerRecordFuncTest, recordFreeSuccess) {
     // 先初始化注册
     Leaks::Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     config.enableCompare = false;
     config.inputCorrectPaths = true;
     config.outputCorrectPaths = false;
@@ -481,6 +574,10 @@ TEST(StepInnerAnalyzerRecordFuncTest, recordFreeSuccess) {
 TEST(StepInnerAnalyzerReceiveMstxMsgFuncTest, ReceiveMstxMsgIfRangeStartA) {
     // 先初始化注册
     Leaks::Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     config.enableCompare = false;
     config.inputCorrectPaths = true;
     config.outputCorrectPaths = false;
@@ -501,6 +598,10 @@ TEST(StepInnerAnalyzerReceiveMstxMsgFuncTest, ReceiveMstxMsgIfRangeStartA) {
 TEST(StepInnerAnalyzerReceiveMstxMsgFuncTest, ReceiveMstxMsgIfRangeEnd) {
     // 先初始化注册
     Leaks::Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     config.enableCompare = false;
     config.inputCorrectPaths = true;
     config.outputCorrectPaths = false;
@@ -522,6 +623,10 @@ TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedUpdateMaxTest)
 {
     Config config;
     config.stepList.stepCount = 0;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
     npumemusage.mstxStep = 2;
@@ -537,6 +642,10 @@ TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedUpdateMaxTest)
 TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedInitTest)
 {
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     config.stepList.stepCount = 0;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
@@ -554,6 +663,10 @@ TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedInitTest)
 TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedreturnTest)
 {
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     config.stepList.stepCount = 0;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
@@ -571,6 +684,10 @@ TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedreturnTest)
 TEST(StepInnerAnalyzerAddDurationTest, AddDurationTest)
 {
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     config.stepList.stepCount = 0;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
@@ -587,6 +704,10 @@ TEST(StepInnerAnalyzerAddDurationTest, AddDurationTest)
 TEST(StepInnerAnalyzerAddDurationTest, AddDurationReturnTest)
 {
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     config.stepList.stepCount = 0;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
@@ -603,6 +724,10 @@ TEST(StepInnerAnalyzerAddDurationTest, AddDurationReturnTest)
 TEST(StepInnerAnalyzerSetStepIdFuncTest, SetStepIdTest)
 {
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     config.stepList.stepCount = 0;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
@@ -616,6 +741,10 @@ TEST(StepInnerAnalyzerSetStepIdFuncTest, SetStepIdTest)
 TEST(StepInnerAnalyzerGetNowAllocatedFuncTest, GetNowAllocatedTest)
 {
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.eventType = eventBit.getValue();
     config.stepList.stepCount = 0;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;

@@ -424,12 +424,13 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord, CallStackString& stack)
     Config userConfig =  EventReport::Instance(CommType::SOCKET).GetConfig();
     BitField<decltype(userConfig.eventType)> eventType(userConfig.eventType);
     // 根据标识判断是否为算子下发或者tensor信息
-    if (strstr(mstxRecord.markMessage, "func start") != NULL || strstr(mstxRecord.markMessage, "func end") != NULL) {
+    if (strncmp(mstxRecord.markMessage, ATEN_BEGIN_MSG, strlen(ATEN_BEGIN_MSG)) == 0 ||
+        strncmp(mstxRecord.markMessage, ATEN_END_MSG, strlen(ATEN_END_MSG)) == 0) {
         if (!eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
             return true;
         }
     }
-    if (strstr(mstxRecord.markMessage, "tensor:") != NULL) {
+    if (strncmp(mstxRecord.markMessage, ACCESS_MSG, strlen(ACCESS_MSG)) == 0) {
         if (!eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT))) {
             return true;
         }
@@ -488,6 +489,11 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
     }
 
     if (IsNeedSkip()) {
+        return true;
+    }
+
+    BitField<decltype(config_.eventType)> eventType(config_.eventType);
+    if (!eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
         return true;
     }
 
