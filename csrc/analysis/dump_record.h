@@ -33,6 +33,9 @@ private:
     bool DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord);
     bool DumpMstxData(const ClientId &clientId, const MstxRecord &msxtRecord, const CallStackString &stack);
     bool DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord, const CallStackString &stack);
+    bool DumpAtbOpData(const ClientId &clientId, const AtbOpExecuteRecord &atbOpExecuteRecord);
+    bool DumpAtbKernelData(const ClientId &clientId, const AtbKernelRecord &atbKernelRecord);
+    bool DumpMemAccessData(const ClientId &clientId, const MemAccessRecord &memAccessRecord);
     FILE *leaksDataFile_ = nullptr;
     std::unordered_map<ClientId, std::unordered_map<uint64_t, uint64_t>> hostMemSizeMap_;
     std::unordered_map<ClientId, std::unordered_map<uint64_t, uint64_t>> memSizeMap_;

@@ -14,6 +14,7 @@ constexpr int32_t GD_INVALID_NUM = 9999;
 const size_t KERNELNAME_MAX_SIZE = 128;
 const size_t ATB_NAME_MAX_SIZE = 64;
 const size_t ATB_PARAMS_MAX_SIZE = 128;
+const size_t MEM_ATTR_MAX_SIZE = 128;
 
 enum class MemoryDataType {
     MEMORY_MALLOC = 0,
@@ -181,6 +182,25 @@ struct AtbKernelRecord {
     char params[ATB_PARAMS_MAX_SIZE];
 };
 
+enum class AccessType : uint8_t {
+    READ = 0,
+    WRITE,
+    UNKNOWN,
+};
+
+struct MemAccessRecord {
+    AccessType eventType;
+    int32_t devId;
+    uint64_t timestamp;
+    uint64_t pid;
+    uint64_t tid;
+    uint64_t recordIndex;
+    DeviceType devType;         // 所属device类型，0为npu，1为cpu
+    uint64_t addr;              // 地址
+    uint64_t memSize;           // 操作大小
+    char attr[MEM_ATTR_MAX_SIZE];
+};
+
 enum class RecordType {
     MEMORY_RECORD = 0,
     ACL_ITF_RECORD,
@@ -188,6 +208,9 @@ enum class RecordType {
     MSTX_MARK_RECORD,
     TORCH_NPU_RECORD,
     ATB_MEMORY_POOL_RECORD,
+    ATB_OP_EXECUTE_RECORD,
+    ATB_KERNEL_RECORD,
+    MEM_ACCESS_RECORD,
     INVALID_RECORD,
 };
 
@@ -201,6 +224,9 @@ struct EventRecord {
         KernelLaunchRecord kernelLaunchRecord;
         MstxRecord mstxRecord;
         AtbMemPoolRecord atbMemPoolRecord;
+        AtbOpExecuteRecord atbOpExecuteRecord;
+        AtbKernelRecord atbKernelRecord;
+        MemAccessRecord memAccessRecord;
     } record;
     uint64_t pyStackLen;
     uint64_t cStackLen;

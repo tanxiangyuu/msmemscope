@@ -529,7 +529,7 @@ bool EventReport::ReportAclItf(AclOpType aclOpType)
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportAtbOpExecute(AtbOpExecuteRecord& record)
+bool EventReport::ReportAtbOpExecute(AtbOpExecuteRecord& atbOpExecuteRecord)
 {
     g_isInReportFunction = true;
 
@@ -540,12 +540,30 @@ bool EventReport::ReportAtbOpExecute(AtbOpExecuteRecord& record)
     if (IsNeedSkip()) {
         return true;
     }
+
+    int32_t devId = GD_INVALID_NUM;
+    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+        CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+    }
+
+    PacketHead head = {PacketType::RECORD};
+    auto eventRecord = EventRecord{};
+    eventRecord.type = RecordType::ATB_OP_EXECUTE_RECORD;
+    atbOpExecuteRecord.devId = devId;
+    atbOpExecuteRecord.pid = Utility::GetPid();
+    atbOpExecuteRecord.tid = Utility::GetTid();
+    atbOpExecuteRecord.timestamp = Utility::GetTimeMicroseconds();
+    atbOpExecuteRecord.recordIndex = ++recordIndex_;
+    eventRecord.record.atbOpExecuteRecord = atbOpExecuteRecord;
+
+    CallStackString stack;
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
 
     g_isInReportFunction = false;
-    return true;
+    return (sendNums >= 0);
 }
 
-bool EventReport::ReportAtbKernel(AtbKernelRecord& record)
+bool EventReport::ReportAtbKernel(AtbKernelRecord& atbKernelRecord)
 {
     g_isInReportFunction = true;
 
@@ -555,6 +573,67 @@ bool EventReport::ReportAtbKernel(AtbKernelRecord& record)
 
     if (IsNeedSkip()) {
         return true;
+    }
+
+    int32_t devId = GD_INVALID_NUM;
+    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+        CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+    }
+
+    PacketHead head = {PacketType::RECORD};
+    auto eventRecord = EventRecord{};
+    eventRecord.type = RecordType::ATB_KERNEL_RECORD;
+    atbKernelRecord.devId = devId;
+    atbKernelRecord.pid = Utility::GetPid();
+    atbKernelRecord.tid = Utility::GetTid();
+    atbKernelRecord.timestamp = Utility::GetTimeMicroseconds();
+    atbKernelRecord.recordIndex = ++recordIndex_;
+    eventRecord.record.atbKernelRecord = atbKernelRecord;
+
+    CallStackString stack;
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+
+    g_isInReportFunction = false;
+    return (sendNums >= 0);
+}
+
+bool EventReport::ReportAtbAccessMemory(std::vector<MemAccessRecord>& memAccessRecords)
+{
+    g_isInReportFunction = true;
+
+    if (!IsConnectToServer()) {
+        return true;
+    }
+
+    if (IsNeedSkip()) {
+        return true;
+    }
+
+    int32_t devId = GD_INVALID_NUM;
+    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+        CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+    }
+
+    uint64_t pid = Utility::GetPid();
+    uint64_t tid = Utility::GetTid();
+    uint64_t timestamp = Utility::GetTimeMicroseconds();
+
+    for (auto& record : memAccessRecords) {
+        PacketHead head = {PacketType::RECORD};
+        auto eventRecord = EventRecord{};
+        eventRecord.type = RecordType::MEM_ACCESS_RECORD;
+        record.pid = pid;
+        record.tid = tid;
+        record.timestamp = timestamp;
+        record.devId = devId;
+        record.devType = DeviceType::NPU;
+        record.recordIndex = ++recordIndex_;
+        eventRecord.record.memAccessRecord = record;
+        CallStackString stack;
+        auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+        if (sendNums < 0) {
+            return false;
+        }
     }
 
     g_isInReportFunction = false;
