@@ -40,38 +40,35 @@ bool DumpRecord::DumpData(const ClientId &clientId, const Record &record)
     switch (record.eventRecord.type) {
         case RecordType::MEMORY_RECORD: {
             auto memRecord = record.eventRecord.record.memoryRecord;
-            if (!DumpMemData(clientId, memRecord, stack)) {
-                return false;
-            }
-            break;
+            return DumpMemData(clientId, memRecord, stack);
         }
         case RecordType::KERNEL_LAUNCH_RECORD: {
             auto kernelLaunchRecord = record.eventRecord.record.kernelLaunchRecord;
-            if (!DumpKernelData(clientId, kernelLaunchRecord)) {
-                return false;
-            }
-            break;
+            return DumpKernelData(clientId, kernelLaunchRecord);
         }
         case RecordType::ACL_ITF_RECORD: {
             auto aclItfRecord = record.eventRecord.record.aclItfRecord;
-            if (!DumpAclItfData(clientId, aclItfRecord)) {
-                return false;
-            }
-            break;
+            return DumpAclItfData(clientId, aclItfRecord);
         }
         case RecordType::ATB_MEMORY_POOL_RECORD:
         case RecordType::TORCH_NPU_RECORD: {
-            if (!DumpMemPoolData(clientId, record.eventRecord, stack)) {
-                return false;
-            }
-            break;
+            return DumpMemPoolData(clientId, record.eventRecord, stack);
         }
         case RecordType::MSTX_MARK_RECORD: {
             auto mstxRecord = record.eventRecord.record.mstxRecord;
-            if (!DumpMstxData(clientId, mstxRecord, stack)) {
-                return false;
-            }
-            break;
+            return DumpMstxData(clientId, mstxRecord, stack);
+        }
+        case RecordType::ATB_OP_EXECUTE_RECORD: {
+            auto atbOpExecuteRecord = record.eventRecord.record.atbOpExecuteRecord;
+            return DumpAtbOpData(clientId, atbOpExecuteRecord);
+        }
+        case RecordType::ATB_KERNEL_RECORD: {
+            auto atbKernelRecord = record.eventRecord.record.atbKernelRecord;
+            return DumpAtbKernelData(clientId, atbKernelRecord);
+        }
+        case RecordType::MEM_ACCESS_RECORD: {
+            auto memAccessRecord = record.eventRecord.record.memAccessRecord;
+            return DumpMemAccessData(clientId, memAccessRecord);
         }
         default:
             break;
@@ -303,6 +300,133 @@ bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &ev
 
     bool isWriteSuccess = WriteToFile(container, stack);
     return isWriteSuccess;
+}
+
+bool DumpRecord::DumpAtbOpData(const ClientId &clientId, const AtbOpExecuteRecord &atbOpExecuteRecord)
+{
+    std::lock_guard<std::mutex> lock(fileMutex_);
+    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+        return false;
+    }
+    std::string eventType;
+    switch (atbOpExecuteRecord.eventType) {
+        case Leaks::OpEventType::ATB_START: {
+            eventType = "ATB_OP_START";
+            break;
+        }
+        case Leaks::OpEventType::ATB_END: {
+            eventType = "ATB_OP_END";
+            break;
+        }
+        default: {
+            eventType = "N/A";
+            break;
+        }
+    }
+
+    std::ostringstream oss;
+    oss << "\"{" << atbOpExecuteRecord.params << "}\"";
+    std::string attr = oss.str();
+
+    DumpContainer container;
+    container.id = atbOpExecuteRecord.recordIndex;
+    container.event = "OP_LAUNCH";
+    container.eventType = eventType;
+    container.name = atbOpExecuteRecord.name;
+    container.timeStamp = atbOpExecuteRecord.timestamp;
+    container.pid = atbOpExecuteRecord.pid;
+    container.tid = atbOpExecuteRecord.tid;
+    container.deviceId = std::to_string(atbOpExecuteRecord.devId);
+    container.addr = "N/A";
+    container.attr = attr;
+
+    CallStackString emptyStack {};
+    return WriteToFile(container, emptyStack);
+}
+
+bool DumpRecord::DumpAtbKernelData(const ClientId &clientId, const AtbKernelRecord &atbKernelRecord)
+{
+    std::lock_guard<std::mutex> lock(fileMutex_);
+    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+        return false;
+    }
+    std::string eventType;
+    switch (atbKernelRecord.eventType) {
+        case Leaks::KernelEventType::KERNEL_START: {
+            eventType = "ATB_KERNEL_START";
+            break;
+        }
+        case Leaks::KernelEventType::KERNEL_END: {
+            eventType = "ATB_KERNEL_END";
+            break;
+        }
+        default: {
+            eventType = "N/A";
+            break;
+        }
+    }
+
+    std::ostringstream oss;
+    oss << "\"{" << atbKernelRecord.params << "}\"";
+    std::string attr = oss.str();
+
+    DumpContainer container;
+    container.id = atbKernelRecord.recordIndex;
+    container.event = "KERNEL_LAUNCH";
+    container.eventType = eventType;
+    container.name = atbKernelRecord.name;
+    container.timeStamp = atbKernelRecord.timestamp;
+    container.pid = atbKernelRecord.pid;
+    container.tid = atbKernelRecord.tid;
+    container.deviceId = std::to_string(atbKernelRecord.devId);
+    container.addr = "N/A";
+    container.attr = attr;
+
+    CallStackString emptyStack {};
+    return WriteToFile(container, emptyStack);
+}
+
+bool DumpRecord::DumpMemAccessData(const ClientId &clientId, const MemAccessRecord &memAccessRecord)
+{
+    std::lock_guard<std::mutex> lock(fileMutex_);
+    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+        return false;
+    }
+    std::string eventType;
+    switch (memAccessRecord.eventType) {
+        case Leaks::AccessType::READ: {
+            eventType = "READ";
+            break;
+        }
+        case Leaks::AccessType::WRITE: {
+            eventType = "WRITE";
+            break;
+        }
+        default: {
+            eventType = "UNKNOWN";
+            break;
+        }
+    }
+
+    std::ostringstream oss;
+    oss << "\"{addr:" << memAccessRecord.addr << ",size:"
+        << memAccessRecord.memSize << "," << memAccessRecord.attr << "}\"";
+    std::string attr = oss.str();
+
+    DumpContainer container;
+    container.id = memAccessRecord.recordIndex;
+    container.event = "ACCESS";
+    container.eventType = eventType;
+    container.name = "N/A";
+    container.timeStamp = memAccessRecord.timestamp;
+    container.pid = memAccessRecord.pid;
+    container.tid = memAccessRecord.tid;
+    container.deviceId = std::to_string(memAccessRecord.devId);
+    container.addr = std::to_string(memAccessRecord.addr);
+    container.attr = attr;
+
+    CallStackString emptyStack {};
+    return WriteToFile(container, emptyStack);
 }
 
 DumpRecord::~DumpRecord()

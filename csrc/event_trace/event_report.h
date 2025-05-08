@@ -49,8 +49,9 @@ public:
     int ReportRecordEvent(EventRecord &record, PacketHead &head, CallStackString& stack);
     Config GetConfig();
     bool ReportATBMemPoolRecord(AtbMemPoolRecord &record, CallStackString& stack);
-    bool ReportAtbOpExecute(AtbOpExecuteRecord& record);
-    bool ReportAtbKernel(AtbKernelRecord& record);
+    bool ReportAtbOpExecute(AtbOpExecuteRecord& atbOpExecuteRecord);
+    bool ReportAtbKernel(AtbKernelRecord& atbKernelRecord);
+    bool ReportAtbAccessMemory(std::vector<MemAccessRecord>& memAccessRecords);
 private:
     void Init();
     explicit EventReport(CommType type);

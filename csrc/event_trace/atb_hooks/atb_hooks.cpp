@@ -6,6 +6,7 @@
 #include <dlfcn.h>
 #include <sstream>
 #include <mutex>
+#include <vector>
 
 #include "event_report.h"
 #include "record_info.h"
@@ -16,31 +17,124 @@
 using namespace Leaks;
 
 namespace atb {
-    std::string LeaksGetOpParams(atb::Runner* thisPtr, atb::RunnerVariantPack& runnerVariantPack)
+    std::string LeaksGetTensorInfo(const atb::Tensor& tensor)
     {
-        if (&atb::Runner::GetSaveTensorDir == nullptr) {
-            return std::string();
-        }
-
         std::ostringstream oss;
-        oss << "{path:" << thisPtr->GetSaveTensorDir() << ","
-            << "workspace ptr:" << static_cast<void*>(runnerVariantPack.workspaceBuffer) << ","
-            << "workspace size:" << runnerVariantPack.workspaceBufferSize + runnerVariantPack.intermediateBufferSize
-            << "}";
-
+        oss << "dtype:" << LeaksEnumToString(tensor.desc.dtype)
+            << ",format:" << LeaksEnumToString(tensor.desc.format)
+            << ",shape:";
+        for (size_t i = 0; i < tensor.desc.shape.dimNum; i++) {
+            oss << tensor.desc.shape.dims[i] << " ";
+        }
+        oss << ",type:atb tensor";
         return oss.str();
     }
 
-    std::string LeaksGetKernelParams(const std::string &dirPath)
+    std::string LeaksGetTensorInfo(const Mki::Tensor& tensor)
     {
         std::ostringstream oss;
-        oss << "{path:" << dirPath << "}";
+        oss << "dtype:" << LeaksEnumToString(tensor.desc.dtype)
+            << ",format:" << LeaksEnumToString(tensor.desc.format)
+            << ",shape:";
+        for (auto& dim : tensor.desc.dims) {
+            oss << dim << " ";
+        }
+        oss << ",type:kernel tensor";
         return oss.str();
+    }
+
+    void LeaksReportTensors(atb::RunnerVariantPack& runnerVariantPack)
+    {
+        std::vector<MemAccessRecord> records;
+        for (auto& tensor : runnerVariantPack.inTensors) {
+            MemAccessRecord record;
+            record.addr = static_cast<uint64_t>((std::uintptr_t)tensor.deviceData);
+            record.memSize = tensor.dataSize;
+            record.eventType = AccessType::UNKNOWN;
+            if (strncpy_s(record.attr, sizeof(record.attr),
+                LeaksGetTensorInfo(tensor).c_str(), sizeof(record.attr) - 1) != EOK) {
+                CLIENT_ERROR_LOG("strncpy_s FAILED");
+                record.attr[0] = '\0';
+            }
+            records.push_back(record);
+        }
+        for (auto& tensor : runnerVariantPack.outTensors) {
+            MemAccessRecord record;
+            record.addr = static_cast<uint64_t>((std::uintptr_t)tensor.deviceData);
+            record.memSize = tensor.dataSize;
+            record.eventType = AccessType::WRITE;
+            if (strncpy_s(record.attr, sizeof(record.attr),
+                LeaksGetTensorInfo(tensor).c_str(), sizeof(record.attr) - 1) != EOK) {
+                CLIENT_ERROR_LOG("strncpy_s FAILED");
+                record.attr[0] = '\0';
+            }
+            records.push_back(record);
+        }
+
+        if (!EventReport::Instance(CommType::SOCKET).ReportAtbAccessMemory(records)) {
+            CLIENT_ERROR_LOG("Report atb op end event failed.\n");
+        }
+        return;
+    }
+
+    void LeaksReportTensors(const Mki::LaunchParam &launchParam)
+    {
+        if (&Mki::LaunchParam::GetInTensors == nullptr || &Mki::LaunchParam::GetOutTensors == nullptr) {
+            return;
+        }
+
+        std::vector<MemAccessRecord> records;
+        for (auto& tensor : launchParam.GetInTensors()) {
+            MemAccessRecord record;
+            record.addr = static_cast<uint64_t>((std::uintptr_t)tensor.data);
+            record.memSize = tensor.dataSize;
+            record.eventType = AccessType::UNKNOWN;
+            if (strncpy_s(record.attr, sizeof(record.attr),
+                LeaksGetTensorInfo(tensor).c_str(), sizeof(record.attr) - 1) != EOK) {
+                CLIENT_ERROR_LOG("strncpy_s FAILED");
+                record.attr[0] = '\0';
+            }
+            records.push_back(record);
+        }
+        for (auto& tensor : launchParam.GetOutTensors()) {
+            MemAccessRecord record;
+            record.addr = static_cast<uint64_t>((std::uintptr_t)tensor.data);
+            record.memSize = tensor.dataSize;
+            record.eventType = AccessType::WRITE;
+            if (strncpy_s(record.attr, sizeof(record.attr),
+                LeaksGetTensorInfo(tensor).c_str(), sizeof(record.attr) - 1) != EOK) {
+                CLIENT_ERROR_LOG("strncpy_s FAILED");
+                record.attr[0] = '\0';
+            }
+            records.push_back(record);
+        }
+
+        if (!EventReport::Instance(CommType::SOCKET).ReportAtbAccessMemory(records)) {
+            CLIENT_ERROR_LOG("Report atb op end event failed.\n");
+        }
+        return;
+    }
+
+    void LeaksReportOp(const std::string& name, const std::string& params, bool isStart)
+    {
+        AtbOpExecuteRecord record;
+        record.eventType = isStart ? OpEventType::ATB_START : OpEventType::ATB_END;
+        if (strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1) != EOK) {
+            CLIENT_ERROR_LOG("strncpy_s FAILED");
+            record.name[0] = '\0';
+        }
+        if (strncpy_s(record.params, sizeof(record.params), params.c_str(), sizeof(record.params) - 1) != EOK) {
+            CLIENT_ERROR_LOG("strncpy_s FAILED");
+            record.params[0] = '\0';
+        }
+        if (!EventReport::Instance(CommType::SOCKET).ReportAtbOpExecute(record)) {
+            CLIENT_ERROR_LOG("Report atb op start event failed.\n");
+        }
     }
 
     atb::Status LeaksRunnerExecute(atb::Runner* thisPtr, atb::RunnerVariantPack& runnerVariantPack)
     {
-        if (&atb::Runner::GetOperationName == nullptr) {
+        if (&atb::Runner::GetOperationName == nullptr || &atb::Runner::GetSaveTensorDir == nullptr) {
             return 0;
         }
         static LeaksOriginalRunnerExecuteFunc originalRunnerExecute = nullptr;
@@ -57,79 +151,86 @@ namespace atb {
             CLIENT_ERROR_LOG("Cannot find origin function of atb.\n");
             return 0;
         }
+
         Config config = EventReport::Instance(CommType::SOCKET).GetConfig();
         BitField<decltype(config.levelType)> levelType(config.levelType);
         if (!levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_OP))) {
             return originalRunnerExecute(thisPtr, runnerVariantPack);
         }
-
+        BitField<decltype(config.levelType)> eventType(config.eventType);
         AtbOpExecuteRecord record;
-        record.eventType = OpEventType::ATB_START;
-        if (strncpy_s(record.name, sizeof(record.name),
-            thisPtr->GetOperationName().c_str(), sizeof(record.name) - 1) != EOK) {
-            strncpy_s(record.name, sizeof(record.name), "unknown op", sizeof(record.name) - 1);
-            CLIENT_ERROR_LOG("strncpy_s FAILED");
+        std::string name;
+        std::string params;
+        if (eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
+            name = thisPtr->GetOperationName();
+            std::ostringstream oss;
+            oss << "path:" << thisPtr->GetSaveTensorDir() << ",workspace ptr:"
+                << static_cast<void*>(runnerVariantPack.workspaceBuffer) << ",workspace size:"
+                << runnerVariantPack.workspaceBufferSize + runnerVariantPack.intermediateBufferSize;
+            params = oss.str();
+            atb::LeaksReportOp(name, params, true);
         }
-        std::string params = atb::LeaksGetOpParams(thisPtr, runnerVariantPack);
-        if (strncpy_s(record.params, sizeof(record.params), params.c_str(), sizeof(record.params) - 1) != EOK) {
-            CLIENT_ERROR_LOG("strncpy_s FAILED");
+        if (eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT))) {
+            atb::LeaksReportTensors(runnerVariantPack);
         }
-        if (!EventReport::Instance(CommType::SOCKET).ReportAtbOpExecute(record)) {
-            CLIENT_ERROR_LOG("Report atb op start event failed.\n");
-        }
-
         atb::Status st = originalRunnerExecute(thisPtr, runnerVariantPack);
-        record.eventType = OpEventType::ATB_END;
-        if (!EventReport::Instance(CommType::SOCKET).ReportAtbOpExecute(record)) {
-            CLIENT_ERROR_LOG("Report atb op end event failed.\n");
+        if (eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
+            atb::LeaksReportOp(name, params, false);
+        }
+        if (eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT))) {
+            atb::LeaksReportTensors(runnerVariantPack);
         }
         return st;
     }
 
     void LeaksSaveLaunchParam(const Mki::LaunchParam &launchParam, const std::string &dirPath)
     {
-        if (&Mki::LaunchParam::GetInTensors == nullptr || &Mki::LaunchParam::GetOutTensors == nullptr) {
-            return;
-        }
-
         Config config = EventReport::Instance(CommType::SOCKET).GetConfig();
         BitField<decltype(config.levelType)> levelType(config.levelType);
         if (!levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_KERNEL))) {
             return;
         }
+        BitField<decltype(config.levelType)> eventType(config.eventType);
+        if (eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
+            auto beforePos = dirPath.find("/before");
+            auto afterPos = dirPath.find("/after");
+            bool isBeforeLaunch = true;
+            std::string path;
+            if (beforePos != std::string::npos) {
+                path = dirPath.substr(0, beforePos);
+            } else if (afterPos != std::string::npos) {
+                isBeforeLaunch = false;
+                path = dirPath.substr(0, afterPos);
+            } else {
+                CLIENT_ERROR_LOG("Cannot get kernel path.\n");
+                return;
+            }
 
-        auto beforePos = dirPath.find("/before");
-        auto afterPos = dirPath.find("/after");
-        bool isBeforeLaunch = true;
-        std::string path;
-        if (beforePos != std::string::npos) {
-            path = dirPath.substr(0, beforePos);
-        } else if (afterPos != std::string::npos) {
-            isBeforeLaunch = false;
-            path = dirPath.substr(0, afterPos);
-        } else {
-            CLIENT_ERROR_LOG("Cannot get kernel path.\n");
-            return;
+            AtbKernelRecord record;
+            std::string name = path;
+            size_t lastSlashPos = name.find_last_of('/');
+            if (lastSlashPos != std::string::npos) {
+                name = name.substr(lastSlashPos + 1);
+            }
+            std::ostringstream oss;
+            oss << "path:" << dirPath;
+            std::string params = oss.str();
+            record.eventType = isBeforeLaunch ? KernelEventType::KERNEL_START : KernelEventType::KERNEL_END;
+            if (strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1) != EOK) {
+                CLIENT_ERROR_LOG("strncpy_s FAILED");
+                record.name[0] = '\0';
+            }
+            if (strncpy_s(record.params, sizeof(record.params), params.c_str(), sizeof(record.params) - 1) != EOK) {
+                CLIENT_ERROR_LOG("strncpy_s FAILED");
+                record.params[0] = '\0';
+            }
+            if (!EventReport::Instance(CommType::SOCKET).ReportAtbKernel(record)) {
+                CLIENT_ERROR_LOG("Report atb run kernel event failed.\n");
+            }
         }
 
-        std::string name = path;
-        size_t lastSlashPos = name.find_last_of('/');
-        if (lastSlashPos != std::string::npos) {
-            name = name.substr(lastSlashPos + 1);
-        }
-
-        AtbKernelRecord record;
-        record.eventType = isBeforeLaunch ? KernelEventType::KERNEL_START : KernelEventType::KERNEL_END;
-        if (strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1) != EOK) {
-            strncpy_s(record.name, sizeof(record.name), "unknown kernel", sizeof(record.name) - 1);
-            CLIENT_ERROR_LOG("strncpy_s FAILED");
-        }
-        std::string params = atb::LeaksGetKernelParams(path);
-        if (strncpy_s(record.params, sizeof(record.params), params.c_str(), sizeof(record.params) - 1) != EOK) {
-            CLIENT_ERROR_LOG("strncpy_s FAILED");
-        }
-        if (!EventReport::Instance(CommType::SOCKET).ReportAtbKernel(record)) {
-            CLIENT_ERROR_LOG("Report atb run kernel event failed.\n");
+        if (eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT))) {
+            atb::LeaksReportTensors(launchParam);
         }
     }
 }
