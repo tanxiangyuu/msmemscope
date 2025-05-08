@@ -33,6 +33,7 @@ file(GLOB_RECURSE TEST_ORIGINAL_SOURCE ../csrc/framework/*.cpp
                                        ../platform/func_injection/host_injection/utils/FuncSelector.cpp
                                        ../platform/securec/src/*.c)
 list(FILTER TEST_ORIGINAL_SOURCE EXCLUDE REGEX "host_memory_hooks\\.cpp$")
+list(FILTER TEST_ORIGINAL_SOURCE EXCLUDE REGEX ".*\/atb_hooks\/.*")
 
 list(SORT TEST_ORIGINAL_SOURCE)
 file(GLOB_RECURSE TEST_SOURCE ./test.cpp)

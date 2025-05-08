@@ -44,8 +44,9 @@ TEST(Process, process_launch_empty_expect_success)
     std::cout.rdbuf(sbuf);
 }
 
-TEST(Process, process_setpreloadenv_expect_success)
+TEST(Process, process_setpreloadenv_without_atb_expect_success)
 {
+    unsetenv("ATB_HOME_PATH");
     setenv("LD_PRELOAD_PATH", "/lib64/", 1);
     Config config;
     Process process(config);
@@ -58,6 +59,43 @@ TEST(Process, process_setpreloadenv_expect_success)
     process.SetPreloadEnv();
     env = getenv("LD_PRELOAD");
     EXPECT_EQ(std::string(env), hooksSo + ":test.so");
+    unsetenv("LD_PRELOAD");
+}
+
+TEST(Process, process_setpreloadenv_with_atb_abi_0_expect_success)
+{
+    setenv("ATB_HOME_PATH", "/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_0", 1);
+    setenv("LD_PRELOAD_PATH", "/lib64/", 1);
+    Config config;
+    Process process(config);
+    process.SetPreloadEnv();
+    char *env = getenv("LD_PRELOAD");
+    std::string hooksSo = "libleaks_ascend_hal_hook.so:libhost_memory_hook.so:"
+                          "libascend_mstx_hook.so:libascend_kernel_hook.so:libatb_abi_0_hook.so";
+    EXPECT_EQ(std::string(env), hooksSo);
+    setenv("LD_PRELOAD", "test.so", 1);
+    process.SetPreloadEnv();
+    env = getenv("LD_PRELOAD");
+    EXPECT_EQ(std::string(env), hooksSo + ":test.so");
+    unsetenv("LD_PRELOAD");
+}
+
+TEST(Process, process_setpreloadenv_with_atb_abi_1_expect_success)
+{
+    setenv("ATB_HOME_PATH", "/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1", 1);
+    setenv("LD_PRELOAD_PATH", "/lib64/", 1);
+    Config config;
+    Process process(config);
+    process.SetPreloadEnv();
+    char *env = getenv("LD_PRELOAD");
+    std::string hooksSo = "libleaks_ascend_hal_hook.so:libhost_memory_hook.so:"
+                          "libascend_mstx_hook.so:libascend_kernel_hook.so:libatb_abi_1_hook.so";
+    EXPECT_EQ(std::string(env), hooksSo);
+    setenv("LD_PRELOAD", "test.so", 1);
+    process.SetPreloadEnv();
+    env = getenv("LD_PRELOAD");
+    EXPECT_EQ(std::string(env), hooksSo + ":test.so");
+    unsetenv("LD_PRELOAD");
 }
  
 TEST(Process, process_postprocess_exit_signal_expect_success)
