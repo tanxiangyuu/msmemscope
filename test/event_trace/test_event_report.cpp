@@ -126,6 +126,29 @@ TEST(EventReportTest, ReportAclItfTest) {
     EXPECT_TRUE(instance.ReportAclItf(AclOpType::INIT));
 }
 
+TEST(EventReportTest, ReportAtbOpExecuteTest) {
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.isReceiveServerInfo_ = true;
+    AtbOpExecuteRecord atbOpExecuteRecord;
+    EXPECT_TRUE(instance.ReportAtbOpExecute(atbOpExecuteRecord));
+}
+
+TEST(EventReportTest, ReportAtbKernelTest) {
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.isReceiveServerInfo_ = true;
+    AtbKernelRecord atbKernelRecord;
+    EXPECT_TRUE(instance.ReportAtbKernel(atbKernelRecord));
+}
+
+TEST(EventReportTest, ReportAtbMemAccessTest) {
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.isReceiveServerInfo_ = true;
+    MemAccessRecord memAccessRecord;
+    std::vector<MemAccessRecord> records;
+    records.push_back(memAccessRecord);
+    EXPECT_TRUE(instance.ReportAtbAccessMemory(records));
+}
+
 struct TestLoader {
     static void *Load(void)
     {
