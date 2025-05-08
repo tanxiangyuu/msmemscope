@@ -20,6 +20,9 @@ extern thread_local bool g_isReportHostMem;
 extern thread_local bool g_isInReportFunction;
 
 constexpr mode_t REGULAR_MODE_MASK = 0177;
+constexpr char ATEN_BEGIN_MSG[] = "leaks-aten-b:";
+constexpr char ATEN_END_MSG[] = "leaks-aten-e:";
+constexpr char ACCESS_MSG[] = "leaks-ac:";
 
 struct MstxStepInfo {
     uint64_t currentStepId = 0;

@@ -8,6 +8,8 @@
 #include "file.h"
 #include "utils.h"
 #include "config_info.h"
+#include "event_report.h"
+#include "bit_field.h"
 
 namespace Leaks {
 
@@ -30,6 +32,23 @@ void DumpRecord::SetDirPath()
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
     dirPath_ = Utility::g_dirPath + "/" + std::string(DUMP_FILE);
+}
+
+bool DumpRecord::ExtractTensorInfo(const char* msg, const char* key, std::string &value)
+{
+    const char* keyPos = strstr(msg, key);
+    if (keyPos == nullptr) {
+        return false;
+    }
+    keyPos += strlen(key);
+    const char* commaPos = strchr(keyPos, ';');
+    if (commaPos != nullptr) {
+        value = Utility::Trim(keyPos);
+        value = value.substr(0, commaPos - keyPos);
+    } else {
+        value = Utility::Trim(keyPos);
+    }
+    return true;
 }
 
 bool DumpRecord::DumpData(const ClientId &clientId, const Record &record)
@@ -188,6 +207,21 @@ bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRe
     if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
         return false;
     }
+
+    // 根据标识判断是否为算子下发或者tensor信息
+    if (strncmp(mstxRecord.markMessage, ATEN_BEGIN_MSG, strlen(ATEN_BEGIN_MSG)) == 0) {
+        DumpOpLaunchData(clientId, mstxRecord, true, stack);
+        return true;
+    }
+    if (strncmp(mstxRecord.markMessage, ATEN_END_MSG, strlen(ATEN_END_MSG)) == 0) {
+        DumpOpLaunchData(clientId, mstxRecord, false, stack);
+        return true;
+    }
+    if (strncmp(mstxRecord.markMessage, ACCESS_MSG, strlen(ACCESS_MSG)) == 0) {
+        DumpTensorData(clientId, mstxRecord, stack);
+        return true;
+    }
+
     std::string markType;
     switch (mstxRecord.markType) {
         case Leaks::MarkType::MARK_A: {
@@ -225,6 +259,85 @@ bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRe
     return isWriteSuccess;
 }
 
+bool DumpRecord::DumpOpLaunchData(const ClientId &clientId, const MstxRecord &mstxRecord, const bool &isFuncStart,
+    const CallStackString &stack)
+{
+    std::string eventType;
+    if (isFuncStart) {
+        eventType = "ATEN_START";
+    } else {
+        eventType = "ATEN_END";
+    }
+    const char* eventName;
+    const char* lastSpace = strrchr(mstxRecord.markMessage, ' ');
+    if (lastSpace != nullptr) {
+        eventName = lastSpace + 1;
+    } else {
+        eventName = "N/A";
+    }
+
+    DumpContainer container;
+    container.id = mstxRecord.recordIndex;
+    container.event = "OP_LAUNCH";
+    container.eventType = eventType;
+    container.name = eventName;
+    container.timeStamp = mstxRecord.timeStamp;
+    container.pid = mstxRecord.pid;
+    container.tid = mstxRecord.tid;
+    container.deviceId = std::to_string(mstxRecord.devId);
+    container.addr = "N/A";
+
+    bool isWriteSuccess = WriteToFile(container, stack);
+    return isWriteSuccess;
+}
+ 
+bool DumpRecord::DumpTensorData(const ClientId &clientId, const MstxRecord &mstxRecord, const CallStackString &stack)
+{
+    std::string ptr;
+    std::string dtype;
+    std::string shape;
+    std::string size;
+    std::string name;
+    std::string isRead;
+    std::string isWrite;
+    ExtractTensorInfo(mstxRecord.markMessage, "ptr=", ptr);
+    ExtractTensorInfo(mstxRecord.markMessage, "dtype=", dtype);
+    ExtractTensorInfo(mstxRecord.markMessage, "shape=", shape);
+    ExtractTensorInfo(mstxRecord.markMessage, "tensor_size=", size);
+    ExtractTensorInfo(mstxRecord.markMessage, "name=", name);
+    ExtractTensorInfo(mstxRecord.markMessage, "is_write=", isWrite);
+    ExtractTensorInfo(mstxRecord.markMessage, "is_read=", isRead);
+
+    std::string eventType;
+    if (isWrite == "False" && isRead == "False") {
+        eventType = "UNKNOWN";
+    } else if (isWrite == "True") {
+        eventType = "WRITE";
+    } else {
+        eventType = "READ";
+    }
+
+    // 组装attr属性
+    std::ostringstream oss;
+    oss << "{dtype:" << dtype << ",shape:" << shape << ",size:" << size << "}";
+    std::string attr = "\"" + oss.str() + "\"";
+
+    DumpContainer container;
+    container.id = mstxRecord.recordIndex;
+    container.event = "ACCESS";
+    container.eventType = eventType;
+    container.name = name;
+    container.timeStamp = mstxRecord.timeStamp;
+    container.pid = mstxRecord.pid;
+    container.tid = mstxRecord.tid;
+    container.deviceId = std::to_string(mstxRecord.devId);
+    container.addr = ptr;
+    container.attr = attr;
+
+    bool isWriteSuccess = WriteToFile(container, stack);
+    return isWriteSuccess;
+}
+
 bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
@@ -234,10 +347,10 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
     std::string aclType;
     switch (aclItfRecord.type) {
         case AclOpType::INIT:
-            aclType = "acl init";
+            aclType = "ACL_INIT";
             break;
         case AclOpType::FINALIZE:
-            aclType = "acl finalize";
+            aclType = "ACL_FINI";
             break;
         default:
             aclType = "N/A";

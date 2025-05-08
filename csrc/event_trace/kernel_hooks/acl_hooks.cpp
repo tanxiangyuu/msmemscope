@@ -10,11 +10,13 @@
 #include <iterator>
 #include <unordered_map>
 
+#include "cpython.h"
 #include "event_report.h"
 #include "vallina_symbol.h"
 #include "serializer.h"
 #include "log.h"
 #include "record_info.h"
+#include "bit_field.h"
 
 using namespace Leaks;
 
@@ -31,6 +33,30 @@ ACL_FUNC_VISIBILITY aclError aclInit(const char *configPath)
     if (!EventReport::Instance(CommType::SOCKET).ReportAclItf(AclOpType::INIT)) {
         CLIENT_ERROR_LOG("aclInit report FAILED");
     }
+
+    // 命令行判断是否为OP级别
+    Config userConfig =  EventReport::Instance(CommType::SOCKET).GetConfig();
+    BitField<decltype(userConfig.levelType)> levelType(userConfig.levelType);
+    if (levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_OP))) {
+        if (!Utility::IsPyInterpRepeInited()) {
+            CLIENT_ERROR_LOG("Python Interpreter initialization FAILED");
+            return ret;
+        }
+        Utility::PyInterpGuard stat;
+        Utility::PythonObject atenCollection = Utility::PythonObject::Import("msleaks.aten_collection", false);
+        if (atenCollection.IsBad()) {
+            CLIENT_ERROR_LOG("import msleaks.aten_collection FAILED");
+            return ret;
+        }
+
+        Utility::PythonObject enableAtenCollector = atenCollection.Get("enable_aten_collector");
+        if (enableAtenCollector.IsBad()) {
+            CLIENT_ERROR_LOG("enable aten collector FAILED");
+            return ret;
+        }
+        enableAtenCollector.Call();
+    }
+
     return ret;
 }
 

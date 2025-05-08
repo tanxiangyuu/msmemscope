@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include "event_trace/hal_hooks/hal_hooks.h"
 #include "event_trace/event_report.h"
+#include "bit_field.h"
 
 TEST(HalHooksTest, GetMallocMemTypeTest) {
     unsigned long long flag = 2377900603261207558;
