@@ -138,11 +138,7 @@ struct RunnerVariantPack {
     ContextBase *context = nullptr;
 };
 
-class Runner {
-public:
-    std::string GetOperationName() const __attribute__((weak));
-    std::string GetSaveTensorDir() const __attribute__((weak));
-};
+class Runner {};
 }
 
 #endif
