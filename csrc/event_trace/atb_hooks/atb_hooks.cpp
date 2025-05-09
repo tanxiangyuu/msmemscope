@@ -134,37 +134,29 @@ namespace atb {
 
     atb::Status LeaksRunnerExecute(atb::Runner* thisPtr, atb::RunnerVariantPack& runnerVariantPack)
     {
-        if (&atb::Runner::GetOperationName == nullptr || &atb::Runner::GetSaveTensorDir == nullptr) {
-            return 0;
-        }
-        static LeaksOriginalRunnerExecuteFunc originalRunnerExecute = nullptr;
-        static std::once_flag initFlag;
-        std::call_once(initFlag, []() {
-            union {
-                void* raw;
-                LeaksOriginalRunnerExecuteFunc func;
-            } ptr;
-            ptr.raw = dlsym(RTLD_NEXT, "_ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE");
-            originalRunnerExecute = ptr.func;       // dlsym方法返回指针是void*类型，使用union进行转换
-        });
-        if (!originalRunnerExecute) {
+        static auto funcGetOperationName = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetOperationName>(
+            "_ZNK3atb6Runner16GetOperationNameEv");
+        static auto funcGetSaveTensorDir = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetSaveTensorDir>(
+            "_ZNK3atb6Runner16GetSaveTensorDirEv");
+        static auto funcExecute = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalRunnerExecuteFunc>(
+            "_ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE");
+        if (funcGetOperationName == nullptr || funcGetSaveTensorDir == nullptr || funcExecute == nullptr) {
             CLIENT_ERROR_LOG("Cannot find origin function of atb.\n");
             return 0;
         }
-
         Config config = EventReport::Instance(CommType::SOCKET).GetConfig();
         BitField<decltype(config.levelType)> levelType(config.levelType);
         if (!levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_OP))) {
-            return originalRunnerExecute(thisPtr, runnerVariantPack);
+            return funcExecute(thisPtr, runnerVariantPack);
         }
         BitField<decltype(config.levelType)> eventType(config.eventType);
         AtbOpExecuteRecord record;
         std::string name;
         std::string params;
         if (eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
-            name = thisPtr->GetOperationName();
+            name = funcGetOperationName(thisPtr);
             std::ostringstream oss;
-            oss << "path:" << thisPtr->GetSaveTensorDir() << ",workspace ptr:"
+            oss << "path:" << funcGetSaveTensorDir(thisPtr) << ",workspace ptr:"
                 << static_cast<void*>(runnerVariantPack.workspaceBuffer) << ",workspace size:"
                 << runnerVariantPack.workspaceBufferSize + runnerVariantPack.intermediateBufferSize;
             params = oss.str();
@@ -173,7 +165,7 @@ namespace atb {
         if (eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT))) {
             atb::LeaksReportTensors(runnerVariantPack);
         }
-        atb::Status st = originalRunnerExecute(thisPtr, runnerVariantPack);
+        atb::Status st = funcExecute(thisPtr, runnerVariantPack);
         if (eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
             atb::LeaksReportOp(name, params, false);
         }
