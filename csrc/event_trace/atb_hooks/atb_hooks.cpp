@@ -134,10 +134,17 @@ namespace atb {
 
     atb::Status LeaksRunnerExecute(atb::Runner* thisPtr, atb::RunnerVariantPack& runnerVariantPack)
     {
+#if defined(_GLIBCXX_USE_CXX11_ABI) && (_GLIBCXX_USE_CXX11_ABI == 0)
         static auto funcGetOperationName = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetOperationName>(
             "_ZNK3atb6Runner16GetOperationNameEv");
         static auto funcGetSaveTensorDir = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetSaveTensorDir>(
             "_ZNK3atb6Runner16GetSaveTensorDirEv");
+#else
+        static auto funcGetOperationName = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetOperationName>(
+            "_ZNK3atb6Runner16GetOperationNameB5cxx11Ev");
+        static auto funcGetSaveTensorDir = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetSaveTensorDir>(
+            "_ZNK3atb6Runner16GetSaveTensorDirB5cxx11Ev");
+#endif
         static auto funcExecute = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalRunnerExecuteFunc>(
             "_ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE");
         if (funcGetOperationName == nullptr || funcGetSaveTensorDir == nullptr || funcExecute == nullptr) {
