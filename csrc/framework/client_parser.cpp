@@ -15,6 +15,7 @@
 #include "log.h"
 #include "ustring.h"
 #include "bit_field.h"
+#include "securec.h"
 
 namespace Leaks {
 
@@ -22,6 +23,7 @@ enum class OptVal : int32_t {
     SELECT_STEPS = 0,
     CALL_STACK,
     COMPARE,
+    WATCH,
     INPUT,
     OUTPUT,
     DATA_TRACE_LEVEL,
@@ -65,6 +67,9 @@ void ShowHelpInfo()
         << "                                                  --call-stack=python" << std::endl
         << "                                             The input params need to be separated by, or ，." << std::endl
         << "    --compare                                Enable memory data comparison." << std::endl
+        << "    --watch                                  Enable watch ability." << std::endl
+        << "                                             e.g. [start[:outid]],end[,full-content]" << std::endl
+        << "                                             The content within [] is optional" << std::endl
         << "    --input=path1,path2                      Paths to compare files, valid with compare command on."
         << std::endl
         << "                                             The input paths need to be separated by, or ，." << std::endl
@@ -130,6 +135,7 @@ std::vector<option> GetLongOptArray()
         {"steps", required_argument, nullptr, static_cast<int32_t>(OptVal::SELECT_STEPS)},
         {"call-stack", required_argument, nullptr, static_cast<int32_t>(OptVal::CALL_STACK)},
         {"compare", no_argument, nullptr, static_cast<int32_t>(OptVal::COMPARE)},
+        {"watch", required_argument, nullptr, static_cast<int32_t>(OptVal::WATCH)},
         {"input", required_argument, nullptr, static_cast<int32_t>(OptVal::INPUT)},
         {"output", required_argument, nullptr, static_cast<int32_t>(OptVal::OUTPUT)},
         {"level", required_argument, nullptr, static_cast<int32_t>(OptVal::DATA_TRACE_LEVEL)},
@@ -361,6 +367,101 @@ static void ParseEventTraceType(const std::string param, UserCommand &userComman
     return;
 }
 
+static bool ParseWatchStartConfig(const std::string param, UserCommand &userCommand, size_t &pos)
+{
+    // 解析可选的 [start[:outid]] 部分
+    size_t comma = param.find(',', pos);
+    if (comma == std::string::npos) {
+        return false;
+    }
+    
+    std::string startPart = param.substr(pos, comma - pos);
+    
+    // 检查是否有 outid 部分（冒号后）
+    size_t colon = startPart.find(':');
+    if (colon != std::string::npos) {
+        std::string start = startPart.substr(0, colon);
+        std::string outidStr = startPart.substr(colon + 1);
+        if (start.empty() || outidStr.empty() || outidStr[0] == '0') { // 出现冒号必须有start和outid，且outidStr不能出现前导0
+            return false;
+        }
+        auto ret = strncpy_s(userCommand.config.watchConfig.start,
+            WATCH_OP_DIR_MAX_LENGTH, start.c_str(), WATCH_OP_DIR_MAX_LENGTH - 1);
+        if (ret != EOK) {
+            return false;
+        }
+        uint32_t outId = 0;
+        if (!Utility::StrToUint32(outId, outidStr)) {
+            return false;
+        }
+        userCommand.config.watchConfig.outputId = outId;
+    } else {
+        // 只有 start 没有 outid
+        auto ret = strncpy_s(userCommand.config.watchConfig.start,
+            WATCH_OP_DIR_MAX_LENGTH, startPart.c_str(), WATCH_OP_DIR_MAX_LENGTH - 1);
+        if (ret != EOK) {
+            return false;
+        }
+    }
+
+    pos = comma + 1;
+    return true;
+}
+
+static bool ParseWatchEndConfig(const std::string param, UserCommand &userCommand, size_t &pos)
+{
+    // 解析必需的 end 部分
+    size_t comma = param.find(',', pos);
+    std::string end;
+    if (comma == std::string::npos) {
+        end = param.substr(pos);
+        pos = param.length();
+    } else {
+        end = param.substr(pos, comma - pos);
+        pos = comma + 1;
+    }
+    if (end.empty()) {
+        return false;
+    }
+    auto ret = strncpy_s(userCommand.config.watchConfig.end,
+        WATCH_OP_DIR_MAX_LENGTH, end.c_str(), WATCH_OP_DIR_MAX_LENGTH - 1);
+    if (ret != EOK) {
+        return false;
+    }
+
+    return true;
+}
+
+static void ParseWatchConfig(const std::string param, UserCommand &userCommand)
+{
+    size_t pos = 0;
+    size_t len = param.length();
+
+    auto parseFailed = [&userCommand](void) {
+        std::cout << "[msleaks] ERROR: invalid watch config." << std::endl;
+        userCommand.printHelpInfo = true;
+    };
+
+    if (!ParseWatchStartConfig(param, userCommand, pos)) {
+        return parseFailed();
+    }
+
+    if (!ParseWatchEndConfig(param, userCommand, pos)) {
+        return parseFailed();
+    }
+    // 解析可选的 full-content
+    if (pos < len) {
+        if (param.substr(pos) == "full-content") {
+            userCommand.config.watchConfig.fullContent = true;
+        } else {
+            return parseFailed();
+        }
+    }
+
+    userCommand.config.watchConfig.isWatched = true;
+    return;
+}
+
 static void ParseLogLv(const std::string &param, UserCommand &userCommand)
 {
     const std::map<std::string, Utility::LogLv> logLevelMap = {
@@ -401,6 +502,9 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
         case static_cast<int32_t>(OptVal::COMPARE):
             userCommand.config.enableCompare = true;
             break;
+        case static_cast<int32_t>(OptVal::WATCH):
+            ParseWatchConfig(param, userCommand);
+            break;
         case static_cast<int32_t>(OptVal::INPUT):
             ParseInputPaths(param, userCommand);
             break;
@@ -438,6 +542,12 @@ void ClientParser::InitialUserCommand(UserCommand &userCommand)
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
     userCommand.config.eventType = eventBit.getValue();
+
+    userCommand.config.watchConfig.isWatched = false;
+    (void)memset_s(userCommand.config.watchConfig.start, WATCH_OP_DIR_MAX_LENGTH, 0, WATCH_OP_DIR_MAX_LENGTH);
+    (void)memset_s(userCommand.config.watchConfig.end, WATCH_OP_DIR_MAX_LENGTH, 0, WATCH_OP_DIR_MAX_LENGTH);
+    userCommand.config.watchConfig.outputId = UINT32_MAX;
+    userCommand.config.watchConfig.fullContent = false;
 }
 
 UserCommand ClientParser::Parse(int32_t argc, char **argv)
