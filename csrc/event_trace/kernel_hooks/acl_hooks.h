@@ -40,8 +40,17 @@ extern "C" {
 
 typedef int aclError;
 
+typedef enum aclrtMemcpyKind {
+    ACL_MEMCPY_HOST_TO_HOST,
+    ACL_MEMCPY_HOST_TO_DEVICE,
+    ACL_MEMCPY_DEVICE_TO_HOST,
+    ACL_MEMCPY_DEVICE_TO_DEVICE,
+} aclrtMemcpyKind;
+
 ACL_FUNC_VISIBILITY aclError aclInit(const char *configPath);
 ACL_FUNC_VISIBILITY aclError aclFinalize();
+
+aclError aclrtMemcpy(void *dst, size_t destMax, const void *src, size_t count, aclrtMemcpyKind kind);
 
 #ifdef __cplusplus
 }

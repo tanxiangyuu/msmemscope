@@ -13,7 +13,8 @@ using LeaksOriginalGetSaveTensorDir = std::string (*)(atb::Runner*);
 std::string LeaksGetTensorInfo(const atb::Tensor& tensor);
 std::string LeaksGetTensorInfo(const Mki::Tensor& tensor);
 void LeaksReportTensors(atb::RunnerVariantPack& runnerVariantPack);
-void LeaksReportTensors(const Mki::LaunchParam &launchParam);
+void LeaksReportTensors(Mki::LeaksOriginalGetInTensors &getInTensors, Mki::LeaksOriginalGetInTensors &getOutTensors,
+    const Mki::LaunchParam &launchParam);
 void LeaksReportOp(const std::string& name, const std::string& params, bool isStart);
 atb::Status LeaksRunnerExecute(atb::Runner* thisPtr, atb::RunnerVariantPack& runnerVariantPack);
 void LeaksSaveLaunchParam(const Mki::LaunchParam &launchParam, const std::string &dirPath);

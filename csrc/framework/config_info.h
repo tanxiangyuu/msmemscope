@@ -21,6 +21,7 @@ constexpr const char *OUTPUT_PATH = "leaksDumpResults";
 constexpr const char *TRACE_FILE = "trace";
 constexpr const char *DUMP_FILE = "dump";
 constexpr const char *COMPARE_FILE = "compare";
+constexpr uint16_t WATCH_OP_DIR_MAX_LENGTH = 255;
 
 // level type可以多选，每一种type占一个bit位
 enum class LevelType : uint8_t {
@@ -56,6 +57,14 @@ struct DumpContainer {
     std::string attr = "";
 };
 
+struct WatchConfig {
+    bool isWatched;
+    bool fullContent;
+    char start[WATCH_OP_DIR_MAX_LENGTH];
+    char end[WATCH_OP_DIR_MAX_LENGTH];
+    uint32_t outputId;
+};
+
 // 内存分析算法配置
 struct Config {
     SelectedStepList stepList;
@@ -66,6 +75,7 @@ struct Config {
     uint32_t pyStackDepth;
     bool inputCorrectPaths;
     bool outputCorrectPaths;
+    WatchConfig watchConfig;
     uint8_t levelType;
     uint8_t eventType;
 };
