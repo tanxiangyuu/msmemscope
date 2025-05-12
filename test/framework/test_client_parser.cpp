@@ -398,6 +398,156 @@ TEST(ClientParser, test_invalid_compare_dump_data)
     ASSERT_FALSE(cmd.config.inputCorrectPaths);
 }
 
+TEST(ClientParser, test_watch_config_set_all)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--watch=start:123,end,full-content"
+    };
+
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(std::string(cmd.config.watchConfig.start), "start");
+    ASSERT_EQ(std::string(cmd.config.watchConfig.end), "end");
+    ASSERT_EQ(cmd.config.watchConfig.outputId, 123);
+    ASSERT_EQ(cmd.config.watchConfig.fullContent, true);
+    ASSERT_EQ(cmd.config.watchConfig.isWatched, true);
+}
+
+TEST(ClientParser, test_watch_config_set_only_end)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--watch=,end,"
+    };
+
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(std::string(cmd.config.watchConfig.start), "");
+    ASSERT_EQ(std::string(cmd.config.watchConfig.end), "end");
+    ASSERT_EQ(cmd.config.watchConfig.outputId, UINT32_MAX);
+    ASSERT_EQ(cmd.config.watchConfig.fullContent, false);
+    ASSERT_EQ(cmd.config.watchConfig.isWatched, true);
+}
+
+TEST(ClientParser, test_watch_config_set_only_start_and_end)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--watch=start,end,"
+    };
+
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(std::string(cmd.config.watchConfig.start), "start");
+    ASSERT_EQ(std::string(cmd.config.watchConfig.end), "end");
+    ASSERT_EQ(cmd.config.watchConfig.outputId, UINT32_MAX);
+    ASSERT_EQ(cmd.config.watchConfig.fullContent, false);
+    ASSERT_EQ(cmd.config.watchConfig.isWatched, true);
+}
+
+TEST(ClientParser, test_watch_config_set_only_start_with_id_and_end)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--watch=start:123,end,"
+    };
+
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(std::string(cmd.config.watchConfig.start), "start");
+    ASSERT_EQ(std::string(cmd.config.watchConfig.end), "end");
+    ASSERT_EQ(cmd.config.watchConfig.outputId, 123);
+    ASSERT_EQ(cmd.config.watchConfig.fullContent, false);
+    ASSERT_EQ(cmd.config.watchConfig.isWatched, true);
+}
+
+TEST(ClientParser, test_watch_config_unset)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--level=0"
+    };
+
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(std::string(cmd.config.watchConfig.start), "");
+    ASSERT_EQ(std::string(cmd.config.watchConfig.end), "");
+    ASSERT_EQ(cmd.config.watchConfig.outputId, UINT32_MAX);
+    ASSERT_EQ(cmd.config.watchConfig.fullContent, false);
+    ASSERT_EQ(cmd.config.watchConfig.isWatched, false);
+}
+
+TEST(ClientParser, test_watch_config_null)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--watch="
+    };
+
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.printHelpInfo);
+}
+
+TEST(ClientParser, test_watch_config_empty_end)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--watch=,"
+    };
+
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.printHelpInfo);
+}
+
+TEST(ClientParser, test_watch_config_error_outputid)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--watch=start:error,end"
+    };
+
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.printHelpInfo);
+}
+
+TEST(ClientParser, test_watch_config_error_start_part)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--watch=:,end"
+    };
+
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.printHelpInfo);
+}
+
+TEST(ClientParser, test_watch_config_error_full_content)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--watch=start:123,end,full-contents"
+    };
+
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.printHelpInfo);
+}
+
 TEST(ClientParser, test_print_version)
 {
     std::vector<const char*> argv = {

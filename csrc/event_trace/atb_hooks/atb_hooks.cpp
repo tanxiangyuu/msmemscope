@@ -13,6 +13,7 @@
 #include "config_info.h"
 #include "bit_field.h"
 #include "securec.h"
+#include "atb_op_watch/atb_op_excute_watch.h"
 
 using namespace Leaks;
 
@@ -77,14 +78,11 @@ namespace atb {
         return;
     }
 
-    void LeaksReportTensors(const Mki::LaunchParam &launchParam)
+    void LeaksReportTensors(Mki::LeaksOriginalGetInTensors &getInTensors, Mki::LeaksOriginalGetInTensors &getOutTensors,
+        const Mki::LaunchParam &launchParam)
     {
-        if (&Mki::LaunchParam::GetInTensors == nullptr || &Mki::LaunchParam::GetOutTensors == nullptr) {
-            return;
-        }
-
         std::vector<MemAccessRecord> records;
-        for (auto& tensor : launchParam.GetInTensors()) {
+        for (auto& tensor : getInTensors(const_cast<Mki::LaunchParam*>(&launchParam))) {
             MemAccessRecord record;
             record.addr = static_cast<uint64_t>((std::uintptr_t)tensor.data);
             record.memSize = tensor.dataSize;
@@ -96,7 +94,7 @@ namespace atb {
             }
             records.push_back(record);
         }
-        for (auto& tensor : launchParam.GetOutTensors()) {
+        for (auto& tensor : getOutTensors(const_cast<Mki::LaunchParam*>(&launchParam))) {
             MemAccessRecord record;
             record.addr = static_cast<uint64_t>((std::uintptr_t)tensor.data);
             record.memSize = tensor.dataSize;
@@ -150,7 +148,6 @@ namespace atb {
             return funcExecute(thisPtr, runnerVariantPack);
         }
         BitField<decltype(config.levelType)> eventType(config.eventType);
-        AtbOpExecuteRecord record;
         std::string name;
         std::string params;
         if (eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
@@ -165,7 +162,18 @@ namespace atb {
         if (eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT))) {
             atb::LeaksReportTensors(runnerVariantPack);
         }
+
+        if (config.watchConfig.isWatched) {
+            Leaks::ATBOpExcuteWatch::GetInstance().AtbOpExcuteBegin(funcGetSaveTensorDir(thisPtr));
+        }
+
         atb::Status st = funcExecute(thisPtr, runnerVariantPack);
+
+        if (config.watchConfig.isWatched) {
+            Leaks::ATBOpExcuteWatch::GetInstance().AtbOpExcuteEnd(funcGetSaveTensorDir(thisPtr),
+                runnerVariantPack.outTensors);
+        }
+
         if (eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
             atb::LeaksReportOp(name, params, false);
         }
@@ -175,6 +183,46 @@ namespace atb {
         return st;
     }
 
+    static bool ReportAtbKernel(const std::string &dirPath)
+    {
+        auto beforePos = dirPath.find("/before");
+        auto afterPos = dirPath.find("/after");
+        bool isBeforeLaunch = true;
+        std::string path;
+        if (beforePos != std::string::npos) {
+            path = dirPath.substr(0, beforePos);
+        } else if (afterPos != std::string::npos) {
+            isBeforeLaunch = false;
+            path = dirPath.substr(0, afterPos);
+        } else {
+            CLIENT_ERROR_LOG("Cannot get kernel path.\n");
+            return false;
+        }
+
+        AtbKernelRecord record;
+        std::string name = path;
+        size_t lastSlashPos = name.find_last_of('/');
+        if (lastSlashPos != std::string::npos) {
+            name = name.substr(lastSlashPos + 1);
+        }
+        std::ostringstream oss;
+        oss << "path:" << dirPath;
+        std::string params = oss.str();
+        record.eventType = isBeforeLaunch ? KernelEventType::KERNEL_START : KernelEventType::KERNEL_END;
+        if (strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1) != EOK) {
+            CLIENT_ERROR_LOG("strncpy_s FAILED");
+            record.name[0] = '\0';
+        }
+        if (strncpy_s(record.params, sizeof(record.params), params.c_str(), sizeof(record.params) - 1) != EOK) {
+            CLIENT_ERROR_LOG("strncpy_s FAILED");
+            record.params[0] = '\0';
+        }
+        if (!EventReport::Instance(CommType::SOCKET).ReportAtbKernel(record)) {
+            CLIENT_ERROR_LOG("Report atb run kernel event failed.\n");
+        }
+        return true;
+    }
+    
     void LeaksSaveLaunchParam(const Mki::LaunchParam &launchParam, const std::string &dirPath)
     {
         Config config = EventReport::Instance(CommType::SOCKET).GetConfig();
@@ -182,47 +230,29 @@ namespace atb {
         if (!levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_KERNEL))) {
             return;
         }
+        
+        static auto getInTensors = VallinaSymbol<ATBLibLoader>::Instance().Get<Mki::LeaksOriginalGetInTensors>(
+            "_ZN3Mki11LaunchParam12GetInTensorsEv");
+        static auto getOutTensors = VallinaSymbol<ATBLibLoader>::Instance().Get<Mki::LeaksOriginalGetInTensors>(
+            "_ZN3Mki11LaunchParam13GetOutTensorsEv");
+        if (getInTensors == nullptr || getOutTensors == nullptr) {
+            CLIENT_ERROR_LOG("Cannot find origin function of atb.\n");
+            return;
+        }
+
+        if (config.watchConfig.isWatched) {
+            Leaks::ATBOpExcuteWatch::GetInstance().AtbKernelExcute(dirPath,
+                getOutTensors(const_cast<Mki::LaunchParam*>(&launchParam)));
+        }
         BitField<decltype(config.levelType)> eventType(config.eventType);
         if (eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
-            auto beforePos = dirPath.find("/before");
-            auto afterPos = dirPath.find("/after");
-            bool isBeforeLaunch = true;
-            std::string path;
-            if (beforePos != std::string::npos) {
-                path = dirPath.substr(0, beforePos);
-            } else if (afterPos != std::string::npos) {
-                isBeforeLaunch = false;
-                path = dirPath.substr(0, afterPos);
-            } else {
-                CLIENT_ERROR_LOG("Cannot get kernel path.\n");
+            if (!ReportAtbKernel(dirPath)) {
                 return;
-            }
-
-            AtbKernelRecord record;
-            std::string name = path;
-            size_t lastSlashPos = name.find_last_of('/');
-            if (lastSlashPos != std::string::npos) {
-                name = name.substr(lastSlashPos + 1);
-            }
-            std::ostringstream oss;
-            oss << "path:" << dirPath;
-            std::string params = oss.str();
-            record.eventType = isBeforeLaunch ? KernelEventType::KERNEL_START : KernelEventType::KERNEL_END;
-            if (strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1) != EOK) {
-                CLIENT_ERROR_LOG("strncpy_s FAILED");
-                record.name[0] = '\0';
-            }
-            if (strncpy_s(record.params, sizeof(record.params), params.c_str(), sizeof(record.params) - 1) != EOK) {
-                CLIENT_ERROR_LOG("strncpy_s FAILED");
-                record.params[0] = '\0';
-            }
-            if (!EventReport::Instance(CommType::SOCKET).ReportAtbKernel(record)) {
-                CLIENT_ERROR_LOG("Report atb run kernel event failed.\n");
             }
         }
 
         if (eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT))) {
-            atb::LeaksReportTensors(launchParam);
+            atb::LeaksReportTensors(getInTensors, getOutTensors, launchParam);
         }
     }
 }

@@ -3,6 +3,8 @@
 #define LEAKS_MKI_STUB_H
 
 #include <vector>
+#include <exception>
+#include <stdexcept>
 
 namespace Mki {
 constexpr size_t DEFAULT_SVECTOR_SIZE = 48;
@@ -29,6 +31,14 @@ public:
         return (&storage_[0]) + size_;
     }
 
+    const T &operator[](std::size_t i) const
+    {
+        if (size_ == 0 || i >= size_) {
+            throw std::out_of_range("out of range");
+        }
+        return storage_[i];
+    }
+    std::size_t size() const noexcept { return size_; }
 private:
     T storage_[MAX_SIZE + 1];
     std::size_t size_{0};
@@ -84,12 +94,9 @@ struct Tensor {
     size_t dataSize = 0;
     void *hostData = nullptr;
 };
-
-class LaunchParam {
-public:
-    const Mki::SVector<Tensor> &GetInTensors() const __attribute((weak));
-    const Mki::SVector<Tensor> &GetOutTensors() const __attribute((weak));
-};
+class LaunchParam {};
+using LeaksOriginalGetInTensors = const Mki::SVector<Mki::Tensor>& (*)(Mki::LaunchParam*);
+using LeaksOriginalGetOutTensors = const Mki::SVector<Mki::Tensor>& (*)(Mki::LaunchParam*);
 } // namespace Mki
 
 #endif

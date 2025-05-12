@@ -4,6 +4,8 @@
 
 #include <functional>
 #include <string>
+#include <exception>
+#include <stdexcept>
 
 #ifdef __cplusplus
 extern "C" {
@@ -59,6 +61,9 @@ typedef enum {
 namespace atb {
 constexpr size_t DEFAULT_SVECTOR_SIZE = 64;
 
+constexpr bool CHECK_BOUND = true;
+struct MaxSizeExceeded : public std::exception {};
+
 template <class T> class SVector {
 public:
     T *begin() noexcept
@@ -91,6 +96,40 @@ public:
             return (&heap_[0]) + size_;
         }
         return (&storage_[0]) + size_;
+    }
+
+    const T &operator[](std::size_t i) const
+    {
+        if (heap_) {
+            if (size_ == 0 || i >= size_) {
+                throw std::out_of_range("out of range");
+            }
+            return heap_[i];
+        }
+        if (size_ == 0 || i >= size_) {
+            throw std::out_of_range("out of range");
+        }
+        return storage_[i];
+    }
+
+    void push_back(const T &val) noexcept((!CHECK_BOUND) && std::is_nothrow_assignable<T, const T &>::value)
+    {
+        if (heap_) {
+            if (CHECK_BOUND && size_ == capacity_) {
+                throw MaxSizeExceeded();
+            }
+            heap_[size_++] = val;
+            return;
+        }
+        if (CHECK_BOUND && size_ == DEFAULT_SVECTOR_SIZE) {
+            throw MaxSizeExceeded();
+        }
+        storage_[size_++] = val;
+    }
+
+    std::size_t size() const noexcept
+    {
+        return size_;
     }
 
 private:
