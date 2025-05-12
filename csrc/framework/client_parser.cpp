@@ -382,7 +382,10 @@ static bool ParseWatchStartConfig(const std::string param, UserCommand &userComm
     if (colon != std::string::npos) {
         std::string start = startPart.substr(0, colon);
         std::string outidStr = startPart.substr(colon + 1);
-        if (start.empty() || outidStr.empty() || outidStr[0] == '0') { // 出现冒号必须有start和outid，且outidStr不能出现前导0
+        if (start.empty() || outidStr.empty()) { // 出现冒号必须有start和outid
+            return false;
+        }
+        if (outidStr[0] == '0' && outidStr.size() > 1) { // outidStr不能出现前导0
             return false;
         }
         auto ret = strncpy_s(userCommand.config.watchConfig.start,
