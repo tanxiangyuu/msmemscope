@@ -225,6 +225,9 @@ static bool CheckIsValidDepthInfo(const std::string &param, UserCommand &userCom
 
 static void ParseCallstack(const std::string &param, UserCommand &userCommand)
 {
+    if (param == "") {
+        return;
+    }
     std::regex dividePattern(R"([，,])");
     std::sregex_token_iterator  it(param.begin(), param.end(), dividePattern, -1);
     std::sregex_token_iterator  end;
