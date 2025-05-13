@@ -9,8 +9,6 @@
 #include <vector>
 
 #include "event_report.h"
-#include "record_info.h"
-#include "config_info.h"
 #include "bit_field.h"
 #include "securec.h"
 
@@ -56,6 +54,7 @@ namespace atb {
                 CLIENT_ERROR_LOG("strncpy_s FAILED");
                 record.attr[0] = '\0';
             }
+            record.name[0] = '\0';
             records.push_back(record);
         }
         for (auto& tensor : runnerVariantPack.outTensors) {
@@ -68,6 +67,7 @@ namespace atb {
                 CLIENT_ERROR_LOG("strncpy_s FAILED");
                 record.attr[0] = '\0';
             }
+            record.name[0] = '\0';
             records.push_back(record);
         }
 
@@ -94,6 +94,7 @@ namespace atb {
                 CLIENT_ERROR_LOG("strncpy_s FAILED");
                 record.attr[0] = '\0';
             }
+            record.name[0] = '\0';
             records.push_back(record);
         }
         for (auto& tensor : launchParam.GetOutTensors()) {
@@ -106,6 +107,7 @@ namespace atb {
                 CLIENT_ERROR_LOG("strncpy_s FAILED");
                 record.attr[0] = '\0';
             }
+            record.name[0] = '\0';
             records.push_back(record);
         }
 

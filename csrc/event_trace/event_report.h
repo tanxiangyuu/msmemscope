@@ -55,6 +55,8 @@ public:
     bool ReportAtbOpExecute(AtbOpExecuteRecord& atbOpExecuteRecord);
     bool ReportAtbKernel(AtbKernelRecord& atbKernelRecord);
     bool ReportAtbAccessMemory(std::vector<MemAccessRecord>& memAccessRecords);
+    bool ReportAtenLaunch(AtenOpLaunchRecord &atenOpLaunchRecord, CallStackString& stack);
+    bool ReportAtenAccess(MemAccessRecord &memAccessRecord, CallStackString& stack);
 private:
     void Init();
     explicit EventReport(CommType type);

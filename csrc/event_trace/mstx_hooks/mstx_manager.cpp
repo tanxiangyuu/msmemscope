@@ -6,15 +6,64 @@
 #include "event_report.h"
 #include "record_info.h"
 #include "log.h"
+#include "bit_field.h"
+#include "aten_manager.h"
 #include "memory_pool_trace/memory_pool_trace_manager.h"
 #include "memory_pool_trace/atb_memory_pool_trace.h"
 
 namespace Leaks {
 
 
+bool MstxManager::IsAtenLaunchEnable()
+{
+    // 命令行判断是否包含launch事件
+    Config userConfig =  EventReport::Instance(CommType::SOCKET).GetConfig();
+    BitField<decltype(userConfig.eventType)> eventType(userConfig.eventType);
+    if (eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
+        return true;
+    }
+    return false;
+}
+
+bool MstxManager::IsAtenAccessEnable()
+{
+    // 命令行判断是否包含Access事件
+    Config userConfig =  EventReport::Instance(CommType::SOCKET).GetConfig();
+    BitField<decltype(userConfig.eventType)> eventType(userConfig.eventType);
+    if (eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT))) {
+        return true;
+    }
+    return false;
+}
+
 // 组装普通打点信息
 void MstxManager::ReportMarkA(const char* msg, int32_t streamId)
 {
+    // 根据标识判断是否为aten算子下发或者tensor信息
+    bool isAtenBegin;
+    if (msg != nullptr) {
+        if (strncmp(msg, ATEN_BEGIN_MSG, strlen(ATEN_BEGIN_MSG)) == 0) {
+            if (IsAtenLaunchEnable()) {
+                isAtenBegin = true;
+                AtenManager::GetInstance().ReportAtenLaunch(msg, streamId, isAtenBegin);
+            }
+            return;
+        }
+        if (strncmp(msg, ATEN_END_MSG, strlen(ATEN_END_MSG)) == 0) {
+            if (IsAtenLaunchEnable()) {
+                isAtenBegin = false;
+                AtenManager::GetInstance().ReportAtenLaunch(msg, streamId, isAtenBegin);
+            }
+            return;
+        }
+        if (strncmp(msg, ACCESS_MSG, strlen(ACCESS_MSG)) == 0) {
+            if (IsAtenAccessEnable()) {
+                AtenManager::GetInstance().ReportAtenAccess(msg, streamId);
+            }
+            return;
+        }
+    }
+
     MstxRecord record;
     record.markType = MarkType::MARK_A;
     record.rangeId = onlyMarkId_;
