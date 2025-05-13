@@ -17,10 +17,6 @@ from packaging import version
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 
-TK = TypeVar("TK")
-TVa = TypeVar("TVa")
-TVb = TypeVar("TVb")
-
 # Note that this is only factories that take Tensor as input as they are
 # the ones we care about.
 FACTORY_FUNCTION_REGEX = re.compile("(new_.*|.*_like)")
@@ -34,15 +30,15 @@ def calculate_tensor_size(tensor: torch.Tensor):
     return size
 
 
-def zip_by_key(a: dict[TK, TVa], b: dict[TK, TVb]) -> Iterator[tuple[TK, TVa, TVb]]:
+def zip_by_key(a: dict, b: dict) -> Iterator:
     for arg, value in a.items():
         if arg in b:
             yield arg, value, b[arg]
 
 
 def zip_arguments(
-    schema: torch.FunctionSchema, args: tuple[Any, ...], kwargs: dict[str, Any]
-) -> Iterator[tuple[torch.Argument, Any]]:
+    schema: torch.FunctionSchema, args: tuple, kwargs: dict
+) -> Iterator:
     schema_args = schema.arguments[: len(args)]
     schema_kwargs = {arg.name: arg for arg in schema.arguments[len(args) :]}
 
@@ -79,8 +75,8 @@ class ArgumentHandler:
     def parse_inputs(
         self,
         func,
-        args: tuple[Any, ...],
-        kwargs: dict[str, Any],
+        args: tuple,
+        kwargs: dict,
         *,
         is_factory: bool,
     ) -> None:
