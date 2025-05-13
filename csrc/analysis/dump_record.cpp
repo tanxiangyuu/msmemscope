@@ -34,23 +34,6 @@ void DumpRecord::SetDirPath()
     dirPath_ = Utility::g_dirPath + "/" + std::string(DUMP_FILE);
 }
 
-bool DumpRecord::ExtractTensorInfo(const char* msg, const char* key, std::string &value)
-{
-    const char* keyPos = strstr(msg, key);
-    if (keyPos == nullptr) {
-        return false;
-    }
-    keyPos += strlen(key);
-    const char* commaPos = strchr(keyPos, ';');
-    if (commaPos != nullptr) {
-        value = Utility::Trim(keyPos);
-        value = value.substr(0, commaPos - keyPos);
-    } else {
-        value = Utility::Trim(keyPos);
-    }
-    return true;
-}
-
 bool DumpRecord::DumpData(const ClientId &clientId, const Record &record)
 {
     std::string pyStack(record.callStackInfo.pyStack, record.callStackInfo.pyStack + record.callStackInfo.pyLen);
@@ -85,9 +68,13 @@ bool DumpRecord::DumpData(const ClientId &clientId, const Record &record)
             auto atbKernelRecord = record.eventRecord.record.atbKernelRecord;
             return DumpAtbKernelData(clientId, atbKernelRecord);
         }
+        case RecordType::ATEN_OP_LAUNCH_RECORD:{
+            auto atenOpLaunchRecord = record.eventRecord.record.atenOpLaunchRecord;
+            return DumpAtenOpLaunchData(clientId, atenOpLaunchRecord, stack);
+        }
         case RecordType::MEM_ACCESS_RECORD: {
             auto memAccessRecord = record.eventRecord.record.memAccessRecord;
-            return DumpMemAccessData(clientId, memAccessRecord);
+            return DumpMemAccessData(clientId, memAccessRecord, stack);
         }
         default:
             break;
@@ -208,20 +195,6 @@ bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRe
         return false;
     }
 
-    // 根据标识判断是否为算子下发或者tensor信息
-    if (strncmp(mstxRecord.markMessage, ATEN_BEGIN_MSG, strlen(ATEN_BEGIN_MSG)) == 0) {
-        DumpOpLaunchData(clientId, mstxRecord, true, stack);
-        return true;
-    }
-    if (strncmp(mstxRecord.markMessage, ATEN_END_MSG, strlen(ATEN_END_MSG)) == 0) {
-        DumpOpLaunchData(clientId, mstxRecord, false, stack);
-        return true;
-    }
-    if (strncmp(mstxRecord.markMessage, ACCESS_MSG, strlen(ACCESS_MSG)) == 0) {
-        DumpTensorData(clientId, mstxRecord, stack);
-        return true;
-    }
-
     std::string markType;
     switch (mstxRecord.markType) {
         case Leaks::MarkType::MARK_A: {
@@ -259,83 +232,41 @@ bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRe
     return isWriteSuccess;
 }
 
-bool DumpRecord::DumpOpLaunchData(const ClientId &clientId, const MstxRecord &mstxRecord, const bool &isFuncStart,
+bool DumpRecord::DumpAtenOpLaunchData(const ClientId &clientId, const AtenOpLaunchRecord &atenOpLaunchRecord,
     const CallStackString &stack)
 {
-    std::string eventType;
-    if (isFuncStart) {
-        eventType = "ATEN_START";
-    } else {
-        eventType = "ATEN_END";
+    std::lock_guard<std::mutex> lock(fileMutex_);
+    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+        return false;
     }
-    const char* eventName;
-    const char* lastSpace = strrchr(mstxRecord.markMessage, ' ');
-    if (lastSpace != nullptr) {
-        eventName = lastSpace + 1;
-    } else {
-        eventName = "N/A";
+    std::string eventType;
+    switch (atenOpLaunchRecord.eventType) {
+        case Leaks::OpEventType::ATEN_START: {
+            eventType = "ATEN_START";
+            break;
+        }
+        case Leaks::OpEventType::ATEN_END: {
+            eventType = "ATEN_END";
+            break;
+        }
+        default: {
+            eventType = "N/A";
+            break;
+        }
     }
 
     DumpContainer container;
-    container.id = mstxRecord.recordIndex;
+    container.id = atenOpLaunchRecord.recordIndex;
     container.event = "OP_LAUNCH";
     container.eventType = eventType;
-    container.name = eventName;
-    container.timeStamp = mstxRecord.timeStamp;
-    container.pid = mstxRecord.pid;
-    container.tid = mstxRecord.tid;
-    container.deviceId = std::to_string(mstxRecord.devId);
+    container.name = atenOpLaunchRecord.name;
+    container.timeStamp = atenOpLaunchRecord.timestamp;
+    container.pid = atenOpLaunchRecord.pid;
+    container.tid = atenOpLaunchRecord.tid;
+    container.deviceId = std::to_string(atenOpLaunchRecord.devId);
     container.addr = "N/A";
 
-    bool isWriteSuccess = WriteToFile(container, stack);
-    return isWriteSuccess;
-}
- 
-bool DumpRecord::DumpTensorData(const ClientId &clientId, const MstxRecord &mstxRecord, const CallStackString &stack)
-{
-    std::string ptr;
-    std::string dtype;
-    std::string shape;
-    std::string size;
-    std::string name;
-    std::string isRead;
-    std::string isWrite;
-    ExtractTensorInfo(mstxRecord.markMessage, "ptr=", ptr);
-    ExtractTensorInfo(mstxRecord.markMessage, "dtype=", dtype);
-    ExtractTensorInfo(mstxRecord.markMessage, "shape=", shape);
-    ExtractTensorInfo(mstxRecord.markMessage, "tensor_size=", size);
-    ExtractTensorInfo(mstxRecord.markMessage, "name=", name);
-    ExtractTensorInfo(mstxRecord.markMessage, "is_write=", isWrite);
-    ExtractTensorInfo(mstxRecord.markMessage, "is_read=", isRead);
-
-    std::string eventType;
-    if (isWrite == "False" && isRead == "False") {
-        eventType = "UNKNOWN";
-    } else if (isWrite == "True") {
-        eventType = "WRITE";
-    } else {
-        eventType = "READ";
-    }
-
-    // 组装attr属性
-    std::ostringstream oss;
-    oss << "{dtype:" << dtype << ",shape:" << shape << ",size:" << size << "}";
-    std::string attr = "\"" + oss.str() + "\"";
-
-    DumpContainer container;
-    container.id = mstxRecord.recordIndex;
-    container.event = "ACCESS";
-    container.eventType = eventType;
-    container.name = name;
-    container.timeStamp = mstxRecord.timeStamp;
-    container.pid = mstxRecord.pid;
-    container.tid = mstxRecord.tid;
-    container.deviceId = std::to_string(mstxRecord.devId);
-    container.addr = ptr;
-    container.attr = attr;
-
-    bool isWriteSuccess = WriteToFile(container, stack);
-    return isWriteSuccess;
+    return WriteToFile(container, stack);
 }
 
 bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord)
@@ -499,7 +430,8 @@ bool DumpRecord::DumpAtbKernelData(const ClientId &clientId, const AtbKernelReco
     return WriteToFile(container, emptyStack);
 }
 
-bool DumpRecord::DumpMemAccessData(const ClientId &clientId, const MemAccessRecord &memAccessRecord)
+bool DumpRecord::DumpMemAccessData(const ClientId &clientId, const MemAccessRecord &memAccessRecord,
+    const CallStackString &stack)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
     if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
@@ -530,7 +462,7 @@ bool DumpRecord::DumpMemAccessData(const ClientId &clientId, const MemAccessReco
     container.id = memAccessRecord.recordIndex;
     container.event = "ACCESS";
     container.eventType = eventType;
-    container.name = "N/A";
+    container.name = memAccessRecord.name;
     container.timeStamp = memAccessRecord.timestamp;
     container.pid = memAccessRecord.pid;
     container.tid = memAccessRecord.tid;
@@ -538,8 +470,7 @@ bool DumpRecord::DumpMemAccessData(const ClientId &clientId, const MemAccessReco
     container.addr = std::to_string(memAccessRecord.addr);
     container.attr = attr;
 
-    CallStackString emptyStack {};
-    return WriteToFile(container, emptyStack);
+    return WriteToFile(container, stack);
 }
 
 DumpRecord::~DumpRecord()
