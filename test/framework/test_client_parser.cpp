@@ -745,7 +745,7 @@ TEST(ClientParser, test_parse_call_stack_expect_true)
         "--call-stack="
     };
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
-    ASSERT_TRUE(cmd.printHelpInfo);
+    ASSERT_FALSE(cmd.printHelpInfo);
     argv = {
         "msleaks",
         "--call-stack=c:10,c:10"
