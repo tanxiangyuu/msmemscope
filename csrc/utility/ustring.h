@@ -5,6 +5,10 @@
 
 #include <string>
 #include <set>
+#include <vector>
+#include <algorithm>
+#include <regex>
+#include "utils.h"
 
 namespace Utility {
 
@@ -95,6 +99,70 @@ inline std::string Trim(const char* str)
     }
     return std::string(start, end);
 }
+
+class Version {
+public:
+    Version() = delete;
+    // ver的版本号以'.'分隔，形式为x.y.z....
+    explicit Version(const std::string &ver)
+    {
+        std::regex numberPattern(R"(^(0|[1-9]\d*)$)");
+        std::vector<std::string> version;
+        Split(ver, std::back_inserter(version), ".");
+        for (auto s : version) {
+            uint32_t ver;
+            if (s != "" && std::regex_match(s, numberPattern) && StrToUint32(ver, s)) {
+                version_.push_back(ver);
+            }
+        }
+    }
+
+    bool operator<(const Version &other)
+    {
+        size_t size = std::min(version_.size(), other.version_.size());
+        for (size_t i = 0; i < size; ++i) {
+            if (version_[i] != other.version_[i]) {
+                return version_[i] < other.version_[i];
+            }
+        }
+        return version_.size() < other.version_.size();
+    }
+
+    bool operator>(const Version &other)
+    {
+        size_t size = std::min(version_.size(), other.version_.size());
+        for (size_t i = 0; i < size; ++i) {
+            if (version_[i] != other.version_[i]) {
+                return version_[i] > other.version_[i];
+            }
+        }
+        return version_.size() > other.version_.size();
+    }
+
+    bool operator==(const Version &other)
+    {
+        size_t size = std::min(version_.size(), other.version_.size());
+        for (size_t i = 0; i < size; ++i) {
+            if (version_[i] != other.version_[i]) {
+                return false;
+            }
+        }
+        return version_.size() == other.version_.size();
+    }
+
+    bool operator>=(const Version &other)
+    {
+        return *this > other || *this == other;
+    }
+
+    bool operator<=(const Version &other)
+    {
+        return *this < other || *this == other;
+    }
+
+private:
+    std::vector<uint32_t> version_;
+};
 
 }  // namespace Utility
 

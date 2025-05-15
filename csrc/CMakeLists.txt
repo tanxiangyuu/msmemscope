@@ -15,10 +15,6 @@ get_filename_component(EVENT_TRACE_INC_DIR ./event_trace ABSOLUTE)
 get_filename_component(UTILITY_INC_DIR ./utility ABSOLUTE)
 
 add_library(ascend_leaks SHARED dummy.cpp)
-find_package(Python3 REQUIRED COMPONENTS Development)
-if (NOT Python3_FOUND)
-    message(FATAL_ERROR "Python3 is no found.")
-endif()
 
 target_include_directories(
     ascend_leaks PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}

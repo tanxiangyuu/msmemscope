@@ -34,9 +34,23 @@ unsigned long PyLong_AsUnsignedLong(PyObject *obj) __attribute__((weak));
 PyObject *PyDict_GetItemString(PyObject *v, const char *key) __attribute__((weak));
 PyObject *PyList_AsTuple(PyObject *v) __attribute__((weak));
 int PyType_IsSubtype(PyTypeObject *a, PyTypeObject *b) __attribute__((weak));
+const char *Py_GetVersion() __attribute__((weak));
 }
 
 namespace Utility {
+
+const Version VER39("3.9.0");
+constexpr uint8_t PRE_ALLOC_SIZE = 2048;
+Version GetPyVersion()
+{
+    const char *ver = Py_GetVersion();
+    if (ver == nullptr) {
+        return Version("-1");
+    }
+    std::string version(ver);
+    size_t pos = version.find(' ');
+    return Version(version.substr(0, pos));
+}
 
 bool IsPyInterpRepeInited()
 {
@@ -63,21 +77,31 @@ void PythonCallstack(uint32_t pyDepth, std::string& pyStack)
         return;
     }
     PyInterpGuard stat{};
+    static Version version = GetPyVersion();
+    if (version < VER39) {
+        pyStack = "\"NA\"";
+        return;
+    }
     PyFrameObject *frame = PyEval_GetFrame();
     if (frame == nullptr) {
         return;
     }
     Py_IncRef((PyObject *)frame);
     size_t depth = 0;
+    pyStack.reserve(PRE_ALLOC_SIZE);
     pyStack += "\"";
     while (frame && depth < pyDepth) {
         PyCodeObject *code = PyFrame_GetCode(frame);
         if (code == nullptr) {
             break;
         }
-        pyStack += std::string(PyUnicode_AsUTF8(PyObject_Str(code->co_filename))) + "(" +
-                    std::to_string(PyFrame_GetLineNumber(frame)) + "): " +
-                    std::string(PyUnicode_AsUTF8(PyObject_Str(code->co_name))) + "\n";
+        PythonObject codeObj(reinterpret_cast<PyObject*>(code));
+        auto funcName = codeObj.Get("co_name");
+        auto fileName = codeObj.Get("co_filename");
+        pyStack += std::string(PyUnicode_AsUTF8(PyObject_Str(fileName))) + "(" +
+                   std::to_string(PyFrame_GetLineNumber(frame)) +
+                   "): " + std::string(PyUnicode_AsUTF8(PyObject_Str(funcName))) + "\n";
+
         PyFrameObject *prevFrame = PyFrame_GetBack(frame);
         Py_DecRef((PyObject *)frame);
         frame = prevFrame;
@@ -90,7 +114,9 @@ void PythonCallstack(uint32_t pyDepth, std::string& pyStack)
     pyStack += "\"";
     return;
 }
+
 PythonObject::PythonObject() {}
+
 PythonObject::~PythonObject()
 {
     if (ptr != nullptr && Py_DecRef != nullptr) {
