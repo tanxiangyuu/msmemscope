@@ -42,7 +42,7 @@ namespace atb {
         return oss.str();
     }
 
-    void LeaksReportTensors(atb::RunnerVariantPack& runnerVariantPack)
+    void LeaksReportTensors(atb::RunnerVariantPack& runnerVariantPack, const std::string& name)
     {
         std::vector<MemAccessRecord> records;
         for (auto& tensor : runnerVariantPack.inTensors) {
@@ -50,12 +50,15 @@ namespace atb {
             record.addr = static_cast<uint64_t>((std::uintptr_t)tensor.deviceData);
             record.memSize = tensor.dataSize;
             record.eventType = AccessType::UNKNOWN;
+            if (strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1) != EOK) {
+                CLIENT_ERROR_LOG("strncpy_s FAILED");
+                record.name[0] = '\0';
+            }
             if (strncpy_s(record.attr, sizeof(record.attr),
                 LeaksGetTensorInfo(tensor).c_str(), sizeof(record.attr) - 1) != EOK) {
                 CLIENT_ERROR_LOG("strncpy_s FAILED");
                 record.attr[0] = '\0';
             }
-            record.name[0] = '\0';
             records.push_back(record);
         }
         for (auto& tensor : runnerVariantPack.outTensors) {
@@ -63,12 +66,15 @@ namespace atb {
             record.addr = static_cast<uint64_t>((std::uintptr_t)tensor.deviceData);
             record.memSize = tensor.dataSize;
             record.eventType = AccessType::WRITE;
+            if (strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1) != EOK) {
+                CLIENT_ERROR_LOG("strncpy_s FAILED");
+                record.name[0] = '\0';
+            }
             if (strncpy_s(record.attr, sizeof(record.attr),
                 LeaksGetTensorInfo(tensor).c_str(), sizeof(record.attr) - 1) != EOK) {
                 CLIENT_ERROR_LOG("strncpy_s FAILED");
                 record.attr[0] = '\0';
             }
-            record.name[0] = '\0';
             records.push_back(record);
         }
 
@@ -79,7 +85,7 @@ namespace atb {
     }
 
     void LeaksReportTensors(Mki::LeaksOriginalGetInTensors &getInTensors, Mki::LeaksOriginalGetInTensors &getOutTensors,
-        const Mki::LaunchParam &launchParam)
+        const Mki::LaunchParam &launchParam, const std::string& name)
     {
         std::vector<MemAccessRecord> records;
         for (auto& tensor : getInTensors(const_cast<Mki::LaunchParam*>(&launchParam))) {
@@ -87,12 +93,15 @@ namespace atb {
             record.addr = static_cast<uint64_t>((std::uintptr_t)tensor.data);
             record.memSize = tensor.dataSize;
             record.eventType = AccessType::UNKNOWN;
+            if (strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1) != EOK) {
+                CLIENT_ERROR_LOG("strncpy_s FAILED");
+                record.name[0] = '\0';
+            }
             if (strncpy_s(record.attr, sizeof(record.attr),
                 LeaksGetTensorInfo(tensor).c_str(), sizeof(record.attr) - 1) != EOK) {
                 CLIENT_ERROR_LOG("strncpy_s FAILED");
                 record.attr[0] = '\0';
             }
-            record.name[0] = '\0';
             records.push_back(record);
         }
         for (auto& tensor : getOutTensors(const_cast<Mki::LaunchParam*>(&launchParam))) {
@@ -100,12 +109,15 @@ namespace atb {
             record.addr = static_cast<uint64_t>((std::uintptr_t)tensor.data);
             record.memSize = tensor.dataSize;
             record.eventType = AccessType::WRITE;
+            if (strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1) != EOK) {
+                CLIENT_ERROR_LOG("strncpy_s FAILED");
+                record.name[0] = '\0';
+            }
             if (strncpy_s(record.attr, sizeof(record.attr),
                 LeaksGetTensorInfo(tensor).c_str(), sizeof(record.attr) - 1) != EOK) {
                 CLIENT_ERROR_LOG("strncpy_s FAILED");
                 record.attr[0] = '\0';
             }
-            record.name[0] = '\0';
             records.push_back(record);
         }
 
@@ -169,7 +181,7 @@ namespace atb {
             atb::LeaksReportOp(name, params, true);
         }
         if (eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT))) {
-            atb::LeaksReportTensors(runnerVariantPack);
+            atb::LeaksReportTensors(runnerVariantPack, name);
         }
 
         if (config.watchConfig.isWatched) {
@@ -187,12 +199,12 @@ namespace atb {
             atb::LeaksReportOp(name, params, false);
         }
         if (eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT))) {
-            atb::LeaksReportTensors(runnerVariantPack);
+            atb::LeaksReportTensors(runnerVariantPack, name);
         }
         return st;
     }
 
-    static bool ReportAtbKernel(const std::string &dirPath)
+    static bool ReportAtbKernel(std::string &name, const std::string &dirPath)
     {
         auto beforePos = dirPath.find("/before");
         auto afterPos = dirPath.find("/after");
@@ -209,7 +221,7 @@ namespace atb {
         }
 
         AtbKernelRecord record;
-        std::string name = path;
+        name = path;
         size_t lastSlashPos = name.find_last_of('/');
         if (lastSlashPos != std::string::npos) {
             name = name.substr(lastSlashPos + 1);
@@ -253,15 +265,16 @@ namespace atb {
             Leaks::ATBOpExcuteWatch::GetInstance().AtbKernelExcute(dirPath,
                 getOutTensors(const_cast<Mki::LaunchParam*>(&launchParam)));
         }
+        std::string name;
         BitField<decltype(config.levelType)> eventType(config.eventType);
         if (eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
-            if (!ReportAtbKernel(dirPath)) {
+            if (!ReportAtbKernel(name, dirPath)) {
                 return;
             }
         }
 
         if (eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT))) {
-            atb::LeaksReportTensors(getInTensors, getOutTensors, launchParam);
+            atb::LeaksReportTensors(getInTensors, getOutTensors, launchParam, name);
         }
     }
 }
