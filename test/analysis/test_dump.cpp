@@ -408,6 +408,8 @@ TEST(DumpRecord, dump_mem_access_expect_success)
     auto memAccessRecord = MemAccessRecord{};
     
     memAccessRecord.eventType = AccessType::UNKNOWN;
+    strncpy_s(memAccessRecord.name, sizeof(memAccessRecord.name),
+              "ElewiseOperation", sizeof(memAccessRecord.name) - 1);
     strncpy_s(memAccessRecord.attr, sizeof(memAccessRecord.attr),
               "{dtype:FLOAT,format:ACL_ND,shape:1 2 }", sizeof(memAccessRecord.attr) - 1);
     memAccessRecord.timestamp = 7890;
