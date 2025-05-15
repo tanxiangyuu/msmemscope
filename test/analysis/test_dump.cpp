@@ -206,68 +206,63 @@ TEST(DumpRecord, dump_mstx_mark_expect_success)
     config.enablePyStack = true;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
 }
-TEST(DumpRecord, dump_operator_launch_start_expect_success)
+TEST(DumpRecord, dump_aten_launch_start_expect_success)
 {
     auto record = Record{};
-    record.eventRecord.type = RecordType::MSTX_MARK_RECORD;
-    auto mstxRecord = MstxRecord{};
+    record.eventRecord.type = RecordType::ATEN_OP_LAUNCH_RECORD;
+    auto atenOpLaunchRecord = AtenOpLaunchRecord{};
     
-    mstxRecord.markType = MarkType::MARK_A;
-    mstxRecord.timeStamp = 1234;
-    mstxRecord.pid = 10;
-    mstxRecord.tid = 10;
-    mstxRecord.devId = 1;
-    mstxRecord.stepId = 10;
-    mstxRecord.streamId = 1;
-    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage), "leaks-aten-b: {func.__module__}.{func.__name__}",
-        sizeof(mstxRecord.markMessage) - 1);
-    mstxRecord.recordIndex = 1;
-    record.eventRecord.record.mstxRecord = mstxRecord;
+    atenOpLaunchRecord.eventType = Leaks::OpEventType::ATEN_START;
+    atenOpLaunchRecord.timestamp = 1234;
+    atenOpLaunchRecord.pid = 10;
+    atenOpLaunchRecord.tid = 10;
+    atenOpLaunchRecord.devId = 1;
+    strncpy_s(atenOpLaunchRecord.name, sizeof(atenOpLaunchRecord.name),
+        "leaks-aten-b: {func.__module__}.{func.__name__}", sizeof(atenOpLaunchRecord.name) - 1);
+    atenOpLaunchRecord.recordIndex = 1;
+    record.eventRecord.record.atenOpLaunchRecord = atenOpLaunchRecord;
 
     Config config;
     ClientId clientId = 0;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
 }
-TEST(DumpRecord, dump_operator_launch_end_expect_success)
+TEST(DumpRecord, dump_aten_launch_end_expect_success)
 {
     auto record = Record{};
-    record.eventRecord.type = RecordType::MSTX_MARK_RECORD;
-    auto mstxRecord = MstxRecord{};
+    record.eventRecord.type = RecordType::ATEN_OP_LAUNCH_RECORD;
+    auto atenOpLaunchRecord = AtenOpLaunchRecord{};
     
-    mstxRecord.markType = MarkType::MARK_A;
-    mstxRecord.timeStamp = 1234;
-    mstxRecord.pid = 10;
-    mstxRecord.tid = 10;
-    mstxRecord.devId = 1;
-    mstxRecord.stepId = 10;
-    mstxRecord.streamId = 1;
-    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage), "leaks-aten-e: {func.__module__}.{func.__name__}",
-        sizeof(mstxRecord.markMessage) - 1);
-    mstxRecord.recordIndex = 1;
-    record.eventRecord.record.mstxRecord = mstxRecord;
+    atenOpLaunchRecord.eventType = Leaks::OpEventType::ATEN_END;
+    atenOpLaunchRecord.timestamp = 1234;
+    atenOpLaunchRecord.pid = 10;
+    atenOpLaunchRecord.tid = 10;
+    atenOpLaunchRecord.devId = 1;
+    strncpy_s(atenOpLaunchRecord.name, sizeof(atenOpLaunchRecord.name),
+        "{func.__module__}.{func.__name__}", sizeof(atenOpLaunchRecord.name) - 1);
+    atenOpLaunchRecord.recordIndex = 1;
+    record.eventRecord.record.atenOpLaunchRecord = atenOpLaunchRecord;
 
     Config config;
     ClientId clientId = 0;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
 }
-TEST(DumpRecord, dump_tensor_launch_expect_success)
+TEST(DumpRecord, dump_aten_launch_expect_success)
 {
     auto record = Record{};
-    record.eventRecord.type = RecordType::MSTX_MARK_RECORD;
-    auto mstxRecord = MstxRecord{};
+    record.eventRecord.type = RecordType::MEM_ACCESS_RECORD;
+    auto memAccessRecord = MemAccessRecord{};
     
-    mstxRecord.markType = MarkType::MARK_A;
-    mstxRecord.timeStamp = 1234;
-    mstxRecord.pid = 10;
-    mstxRecord.tid = 10;
-    mstxRecord.devId = 1;
-    mstxRecord.stepId = 10;
-    mstxRecord.streamId = 1;
-    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage),
-        "leaks-ac:ptr={data_ptr};shape={value.shape};dtype={value.dtype};device={value.device}",
-        sizeof(mstxRecord.markMessage) - 1);
-    mstxRecord.recordIndex = 1;
-    record.eventRecord.record.mstxRecord = mstxRecord;
+    memAccessRecord.eventType = Leaks::AccessType::READ;
+    memAccessRecord.timestamp = 1234;
+    memAccessRecord.pid = 10;
+    memAccessRecord.tid = 10;
+    memAccessRecord.devId = 1;
+    strncpy_s(memAccessRecord.name, sizeof(memAccessRecord.name),
+        "{func.__module__}.{func.__name__}", sizeof(memAccessRecord.name) - 1);
+    strncpy_s(memAccessRecord.name, sizeof(memAccessRecord.name),
+        "{size:100,shape:([3.3])", sizeof(memAccessRecord.name) - 1);
+    memAccessRecord.recordIndex = 1;
+    record.eventRecord.record.memAccessRecord = memAccessRecord;
 
     Config config;
     ClientId clientId = 0;

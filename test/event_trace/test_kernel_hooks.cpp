@@ -2,6 +2,10 @@
 
 #include <gtest/gtest.h>
 #include <unordered_map>
+#define private public
+#include "event_trace/event_report.h"
+#undef private
+#include "bit_field.h"
 #include "kernel_hooks/runtime_hooks.h"
 #include "kernel_hooks/acl_hooks.h"
 #include "vallina_symbol.h"
@@ -105,6 +109,19 @@ void *dlsym(void *handle, const char *symbol)
 
 TEST(AclHooks, do_aclInit_expect_success)
 {
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    BitField<decltype(instance.config_.eventType)> eventBit;
+    BitField<decltype(instance.config_.levelType)> levelBit;
+    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_OP));
+    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::ACCESS_EVENT));
+    instance.config_.eventType = eventBit.getValue();
+    instance.config_.levelType = levelBit.getValue();
+    instance.config_.enableCStack = true;
+    instance.config_.enablePyStack = true;
     g_isDlsymNullptr = false;
     const char *configPath = "test";
     aclInit(configPath);

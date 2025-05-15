@@ -1,4 +1,4 @@
-add_library(ascend_mstx_hook SHARED mstx_manager.cpp mstx_inject.cpp)
+add_library(ascend_mstx_hook SHARED mstx_manager.cpp mstx_inject.cpp aten_manager.cpp)
 
 target_sources(ascend_mstx_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/event_report.cpp

@@ -188,6 +188,19 @@ TEST(Process, do_record_handler_except_success)
     record4.eventRecord.record.aclItfRecord = aclItfRecord;
 
     Config config;
+    BitField<decltype(config.eventType)> eventBit;
+    BitField<decltype(config.levelType)> levelBit;
+    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_OP));
+    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::ACCESS_EVENT));
+    config.eventType = eventBit.getValue();
+    config.levelType = levelBit.getValue();
+    config.enableCStack = true;
+    config.enablePyStack = true;
+    config.stepList.stepCount = 0;
     Process process(config);
     process.RecordHandler(clientId, record1);
     process.RecordHandler(clientId, record2);
@@ -210,6 +223,7 @@ TEST(Process, do_msg_handler_record_packet_type_except_success)
     config.levelType = levelBit.getValue();
     config.enableCStack = true;
     config.enablePyStack = true;
+    config.stepList.stepCount = 0;
     Process process(config);
 
     size_t clientId = 0;

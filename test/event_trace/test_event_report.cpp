@@ -12,6 +12,18 @@ using namespace Leaks;
 
 TEST(EventReportTest, EventReportInstanceTest) {
     EventReport& instance1 = EventReport::Instance(CommType::MEMORY);
+    BitField<decltype(instance1.config_.eventType)> eventBit;
+    BitField<decltype(instance1.config_.levelType)> levelBit;
+    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_OP));
+    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::ACCESS_EVENT));
+    instance1.config_.eventType = eventBit.getValue();
+    instance1.config_.levelType = levelBit.getValue();
+    instance1.config_.enableCStack = true;
+    instance1.config_.enablePyStack = true;
     EventReport& instance2 = EventReport::Instance(CommType::MEMORY);
     EXPECT_EQ(&instance1, &instance2);
 }
@@ -37,6 +49,40 @@ TEST(EventReportTest, ReportMallocTestDEVICE) {
     instance.isReceiveServerInfo_ = true;
     CallStackString callStack;
     EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
+}
+
+TEST(EventReportTest, ReportTorchNpuMallocTest) {
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+
+    auto npuRecordMalloc = TorchNpuRecord {};
+    npuRecordMalloc.recordIndex = 1;
+    auto memoryusage1 = MemoryUsage {};
+    memoryusage1.deviceIndex = 0;
+    memoryusage1.dataType = 0;
+    memoryusage1.ptr = 12345;
+    memoryusage1.allocSize = 512;
+    memoryusage1.totalAllocated = 512;
+    npuRecordMalloc.memoryUsage = memoryusage1;
+    instance.isReceiveServerInfo_ = true;
+    CallStackString callStack;
+    EXPECT_TRUE(instance.ReportTorchNpu(npuRecordMalloc, callStack));
+}
+
+TEST(EventReportTest, ReportTorchNpuFreeTest) {
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+
+    auto npuRecordFree = TorchNpuRecord {};
+    npuRecordFree.recordIndex = 3;
+    auto memoryusage1 = MemoryUsage {};
+    memoryusage1.deviceIndex = 3;
+    memoryusage1.dataType = 1;
+    memoryusage1.ptr = 12345;
+    memoryusage1.allocSize = 512;
+    memoryusage1.totalAllocated = 512;
+    npuRecordFree.memoryUsage = memoryusage1;
+    instance.isReceiveServerInfo_ = true;
+    CallStackString callStack;
+    EXPECT_TRUE(instance.ReportTorchNpu(npuRecordFree, callStack));
 }
 
 TEST(EventReportTest, ReportMallocTestHost) {
