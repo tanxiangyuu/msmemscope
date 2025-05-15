@@ -420,22 +420,6 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord, CallStackString& stack)
         return true;
     }
 
-    // 命令行判断是否包含Launch事件
-    Config userConfig =  EventReport::Instance(CommType::SOCKET).GetConfig();
-    BitField<decltype(userConfig.eventType)> eventType(userConfig.eventType);
-    // 根据标识判断是否为算子下发或者tensor信息
-    if (strncmp(mstxRecord.markMessage, ATEN_BEGIN_MSG, strlen(ATEN_BEGIN_MSG)) == 0 ||
-        strncmp(mstxRecord.markMessage, ATEN_END_MSG, strlen(ATEN_END_MSG)) == 0) {
-        if (!eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
-            return true;
-        }
-    }
-    if (strncmp(mstxRecord.markMessage, ACCESS_MSG, strlen(ACCESS_MSG)) == 0) {
-        if (!eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT))) {
-            return true;
-        }
-    }
-
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
@@ -475,6 +459,73 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord, CallStackString& stack)
             g_isReportHostMem = false;
         }
     }
+
+    g_isInReportFunction = false;
+    return (sendNums >= 0);
+}
+
+bool EventReport::ReportAtenLaunch(AtenOpLaunchRecord &atenOpLaunchRecord, CallStackString& stack)
+{
+    g_isInReportFunction = true;
+
+    if (!IsConnectToServer()) {
+        return true;
+    }
+
+    if (IsNeedSkip()) {
+        return true;
+    }
+
+    int32_t devId = GD_INVALID_NUM;
+    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+        CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+    }
+
+    PacketHead head = {PacketType::RECORD};
+    auto eventRecord = EventRecord{};
+    eventRecord.type = RecordType::ATEN_OP_LAUNCH_RECORD;
+    atenOpLaunchRecord.devId = devId;
+    atenOpLaunchRecord.pid = Utility::GetPid();
+    atenOpLaunchRecord.tid = Utility::GetTid();
+    atenOpLaunchRecord.timestamp = Utility::GetTimeMicroseconds();
+    atenOpLaunchRecord.recordIndex = ++recordIndex_;
+    eventRecord.record.atenOpLaunchRecord = atenOpLaunchRecord;
+
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+
+    g_isInReportFunction = false;
+    return (sendNums >= 0);
+}
+
+bool EventReport::ReportAtenAccess(MemAccessRecord &memAccessRecord, CallStackString& stack)
+{
+    g_isInReportFunction = true;
+
+    if (!IsConnectToServer()) {
+        return true;
+    }
+
+    if (IsNeedSkip()) {
+        return true;
+    }
+
+    int32_t devId = GD_INVALID_NUM;
+    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+        CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+    }
+
+    PacketHead head = {PacketType::RECORD};
+    auto eventRecord = EventRecord{};
+    eventRecord.type = RecordType::MEM_ACCESS_RECORD;
+    memAccessRecord.pid = Utility::GetPid();
+    memAccessRecord.tid = Utility::GetTid();
+    memAccessRecord.timestamp = Utility::GetTimeMicroseconds();
+    memAccessRecord.devId = devId;
+    memAccessRecord.devType = DeviceType::NPU;
+    memAccessRecord.recordIndex = ++recordIndex_;
+    eventRecord.record.memAccessRecord = memAccessRecord;
+
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);

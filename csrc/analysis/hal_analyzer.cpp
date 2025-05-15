@@ -20,6 +20,10 @@ HalAnalyzer::HalAnalyzer(Config config)
 
 bool HalAnalyzer::IsHalAnalysisEnable()
 {
+    // 当开启--steps时，关闭所有分析功能
+    if (config_.stepList.stepCount!=0) {
+        return false;
+    }
     // 当malloc和free采集并非都开启时，关闭分析功能
     BitField<decltype(config_.eventType)> eventType(config_.eventType);
     if (!(eventType.checkBit(static_cast<size_t>(EventType::ALLOC_EVENT))) ||

@@ -13,6 +13,8 @@ namespace Leaks {
 constexpr int32_t GD_INVALID_NUM = 9999;
 const size_t KERNELNAME_MAX_SIZE = 128;
 const size_t ATB_NAME_MAX_SIZE = 64;
+const size_t ATEN_NAME_MAX_SIZE = 128;
+const size_t OP_NAME_MAX_SIZE = 128;
 const size_t ATB_PARAMS_MAX_SIZE = 128;
 const size_t MEM_ATTR_MAX_SIZE = 128;
 
@@ -182,6 +184,16 @@ struct AtbKernelRecord {
     char params[ATB_PARAMS_MAX_SIZE];
 };
 
+struct AtenOpLaunchRecord {
+    OpEventType eventType;
+    int32_t devId;
+    uint64_t timestamp;
+    uint64_t pid;
+    uint64_t tid;
+    uint64_t recordIndex;
+    char name[ATEN_NAME_MAX_SIZE];
+};
+
 enum class AccessType : uint8_t {
     READ = 0,
     WRITE,
@@ -198,6 +210,7 @@ struct MemAccessRecord {
     DeviceType devType;         // 所属device类型，0为npu，1为cpu
     uint64_t addr;              // 地址
     uint64_t memSize;           // 操作大小
+    char name[OP_NAME_MAX_SIZE];
     char attr[MEM_ATTR_MAX_SIZE];
 };
 
@@ -210,6 +223,7 @@ enum class RecordType {
     ATB_MEMORY_POOL_RECORD,
     ATB_OP_EXECUTE_RECORD,
     ATB_KERNEL_RECORD,
+    ATEN_OP_LAUNCH_RECORD,
     MEM_ACCESS_RECORD,
     INVALID_RECORD,
 };
@@ -226,6 +240,7 @@ struct EventRecord {
         AtbMemPoolRecord atbMemPoolRecord;
         AtbOpExecuteRecord atbOpExecuteRecord;
         AtbKernelRecord atbKernelRecord;
+        AtenOpLaunchRecord atenOpLaunchRecord;
         MemAccessRecord memAccessRecord;
     } record;
     uint64_t pyStackLen;
