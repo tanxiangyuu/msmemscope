@@ -8,11 +8,13 @@
 #include <stdexcept>
 #include <type_traits>
 #include <Python.h>
+#include "ustring.h"
 
 namespace Utility {
 
 bool IsPyInterpRepeInited();
 void PythonCallstack(uint32_t pyDepth, std::string& pyStack);
+Version GetPyVersion();
 
 class PythonObject {
 public:

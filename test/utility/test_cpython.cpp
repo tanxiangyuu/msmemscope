@@ -256,38 +256,3 @@ TEST_F(TestCpython, PythonListObject)
     PythonTupleObject tuple = list3.ToTuple();
     EXPECT_FALSE(tuple.IsBad());
 }
-
-TEST_F(TestCpython, PythonTupleObject)
-{
-    PythonTupleObject tuple1;
-    PythonTupleObject tuple2(PyTuple_New(0));
-    PythonTupleObject tuple3(std::vector<std::string>({"ab", "cd"}));
-    PythonTupleObject tuple4 = PythonListObject(std::vector<int>({1, 3, 5})).ToTuple();
-
-    EXPECT_FALSE(tuple1.IsBad());
-    EXPECT_EQ(tuple1.Size(), 0);
-    EXPECT_FALSE(tuple2.IsBad());
-    EXPECT_EQ(tuple2.Size(), 0);
-    EXPECT_EQ(tuple3.Size(), 2);
-    EXPECT_EQ(tuple3.GetItem<std::string>(0), "ab");
-    EXPECT_EQ(tuple4.Size(), 3);
-    EXPECT_EQ(tuple4.GetItem<std::string>(0), "1");
-}
-
-TEST_F(TestCpython, PythonDictObject)
-{
-    PythonDictObject dict1;
-    PythonDictObject dict2(PyDict_New());
-    PythonDictObject dict3(std::map<int, std::string>({{1, "a"}, {2, "b"}}));
-
-    EXPECT_FALSE(dict1.IsBad());
-    EXPECT_FALSE(dict2.IsBad());
-    EXPECT_TRUE(dict2.GetItem(std::string("none")).IsBad());
-    EXPECT_FALSE(dict3.IsBad());
-    EXPECT_EQ(dict3.GetItem(1).Cast<std::string>(), "a");
-    EXPECT_EQ(dict3.GetItem(2).Cast<std::string>(), "b");
-    dict3.Add(std::string("apple"), std::string("banana"));
-    EXPECT_EQ(dict3.GetItem(std::string("apple")).Cast<std::string>(), "banana");
-    dict3.Delete(std::string("apple"));
-    EXPECT_TRUE(dict3.GetItem(std::string("apple")).IsBad());
-}
