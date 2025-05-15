@@ -122,3 +122,15 @@ TEST(UString, extract_attr_value_by_key_expect_empty_value)
     std::string attrValue = ExtractAttrValueByKey(str, attrKey);
     ASSERT_EQ(attrValue, "");
 }
+
+TEST(VersionClass, compare_version_test)
+{
+    Version ver1("3.11");
+    Version ver2("3");
+    Version ver3("4");
+    EXPECT_TRUE(ver1 > ver2);
+    EXPECT_TRUE(ver1 >= ver2);
+    EXPECT_FALSE(ver1 == ver2);
+    EXPECT_TRUE(ver2 <= ver3);
+    EXPECT_TRUE(ver2 < ver3);
+}
