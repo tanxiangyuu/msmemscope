@@ -41,7 +41,6 @@ public:
     PythonTrace(const PythonTrace&) = delete;
     PythonTrace& operator=(const PythonTrace&) = delete;
     void RecordPyCall(std::string funcHash, std::string funcInfo, uint64_t timeStamp);
-    void RecordCCall(std::string funcHash, std::string funcInfo);
     void RecordReturn(std::string funcHash, std::string funcInfo);
     void Start();
     void Stop();
@@ -69,8 +68,6 @@ private:
     std::string prefix_;
     std::string dirPath_;
     std::vector<std::string> ignorePyFunc_ = {"__torch_dispatch__"};
-    std::string ignoreCFunc_ = "__exit__";
-    std::string ignoreCFile_ = "contextlib.py";
 };
 
 }

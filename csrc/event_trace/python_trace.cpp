@@ -36,25 +36,6 @@ void PythonTrace::RecordPyCall(std::string funcHash, std::string funcInfo, uint6
     frameStack_[tid].push(event);
 }
 
-void PythonTrace::RecordCCall(std::string funcHash, std::string funcInfo)
-{
-    uint64_t tid = Utility::GetTid();
-
-    TraceEvent event{};
-    event.startTs = Utility::GetTimeMicroseconds();
-    event.hash = funcHash;
-    event.info = funcInfo;
-    event.pid = Utility::GetPid();
-    event.tid = tid;
-    std::string fileName = funcHash.substr(0, funcHash.find(":"));
-    std::string funcName = funcHash.substr(funcHash.find(":") + 1);
-    frameStack_[tid].push(event);
-    if (funcName == ignoreCFunc_ && fileName.size() >= ignoreCFile_.size() &&
-        fileName.substr(fileName.size() - ignoreCFile_.size(), ignoreCFile_.size()) == ignoreCFile_) {
-        frameStack_[tid].pop();
-    }
-}
-
 bool PythonTrace::DumpTraceEvent(TraceEvent &event)
 {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -96,17 +77,7 @@ void callback(std::string hash, std::string info, PyTraceType what, uint64_t tim
             PythonTrace::GetInstance().RecordPyCall(hash, info, timeStamp);
             break;
         }
-        case PyTraceType::CCALL: {
-            PythonTrace::GetInstance().RecordCCall(hash, info);
-            break;
-        }
-
         case PyTraceType::PYRETURN: {
-            PythonTrace::GetInstance().RecordReturn(hash, info);
-            break;
-        }
-
-        case PyTraceType::CRETURN: {
             PythonTrace::GetInstance().RecordReturn(hash, info);
             break;
         }
