@@ -1,0 +1,159 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+#include "python_trace.h"
+#include <string>
+#include <iostream>
+#include <vector>
+#include "kernel_hooks/runtime_hooks.h"
+#include "event_report.h"
+
+namespace Leaks {
+
+bool PythonTrace::IsIgnore(std::string funcName)
+{
+    for (auto s : ignorePyFunc_) {
+        if (s == funcName) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void PythonTrace::RecordPyCall(std::string funcHash, std::string funcInfo, uint64_t timeStamp)
+{
+    uint64_t tid = Utility::GetTid();
+
+    TraceEvent event{};
+    event.startTs = timeStamp ? timeStamp : Utility::GetTimeMicroseconds();
+    event.hash = funcHash;
+    event.info = funcInfo;
+    event.pid = Utility::GetPid();
+    event.tid = tid;
+    std::string funcName = funcHash.substr(funcHash.find(":") + 1);
+    if (IsIgnore(funcName) && !throw_[tid]) {
+        throw_[tid] = true;
+        event.ignore = true;
+    }
+    frameStack_[tid].push(event);
+}
+
+void PythonTrace::RecordCCall(std::string funcHash, std::string funcInfo)
+{
+    uint64_t tid = Utility::GetTid();
+
+    TraceEvent event{};
+    event.startTs = Utility::GetTimeMicroseconds();
+    event.hash = funcHash;
+    event.info = funcInfo;
+    event.pid = Utility::GetPid();
+    event.tid = tid;
+    std::string fileName = funcHash.substr(0, funcHash.find(":"));
+    std::string funcName = funcHash.substr(funcHash.find(":") + 1);
+    frameStack_[tid].push(event);
+    if (funcName == ignoreCFunc_ && fileName.size() >= ignoreCFile_.size() &&
+        fileName.substr(fileName.size() - ignoreCFile_.size(), ignoreCFile_.size()) == ignoreCFile_) {
+        frameStack_[tid].pop();
+    }
+}
+
+bool PythonTrace::DumpTraceEvent(TraceEvent &event)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!Utility::CreateCsvFile(&dataFile_, dirPath_, prefix_, TRACE_HEADERS)) {
+        return false;
+    }
+    std::string startTime = event.startTs ? std::to_string(event.startTs) : "N/A";
+    std::string endTime = event.endTs ? std::to_string(event.endTs) : "N/A";
+    fprintf(dataFile_, "%s,%s,%s,%lu,%lu\n",
+        event.info.c_str(), startTime.c_str(), endTime.c_str(), event.tid, event.pid);
+    return true;
+}
+
+void PythonTrace::RecordReturn(std::string funcHash, std::string funcInfo)
+{
+    uint64_t tid = Utility::GetTid();
+    if (!frameStack_[tid].empty()) {
+        auto event = frameStack_[tid].top();
+        if (funcHash == event.hash) {
+            if (event.ignore) {
+                throw_[tid] = false;
+            }
+            if (!throw_[tid]) {
+                event.endTs = Utility::GetTimeMicroseconds();
+                DumpTraceEvent(event);
+            }
+            frameStack_[tid].pop();
+        } else if (throw_[tid] == false) {
+            TraceEvent event{0, Utility::GetTimeMicroseconds(), tid, Utility::GetPid(), funcInfo, funcHash};
+            DumpTraceEvent(event);
+        }
+    }
+}
+
+void callback(std::string hash, std::string info, PyTraceType what, uint64_t timeStamp)
+{
+    switch (what) {
+        case PyTraceType::PYCALL: {
+            PythonTrace::GetInstance().RecordPyCall(hash, info, timeStamp);
+            break;
+        }
+        case PyTraceType::CCALL: {
+            PythonTrace::GetInstance().RecordCCall(hash, info);
+            break;
+        }
+
+        case PyTraceType::PYRETURN: {
+            PythonTrace::GetInstance().RecordReturn(hash, info);
+            break;
+        }
+
+        case PyTraceType::CRETURN: {
+            PythonTrace::GetInstance().RecordReturn(hash, info);
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+void PythonTrace::Start()
+{
+    if (Utility::GetPyVersion() < Utility::Version("3.9")) {
+        std::cout << "[msleaks] Warn: The current Python version is below 3.9, python trace cannot be enabled."
+                  << std::endl;
+        return;
+    }
+    bool expected{false};
+    bool active = active_.compare_exchange_strong(expected, true);
+    if (!active) {
+        std::cout << "[msleaks] Warn: There is already an active PythonTracer. Refusing to register profile functions."
+                  << std::endl;
+        return;
+    }
+    if (!Utility::IsPyInterpRepeInited()) {
+        return;
+    }
+    Utility::PyInterpGuard stat;
+    Utility::RegisterTraceCb(callback);
+}
+
+void PythonTrace::Stop()
+{
+    if (!active_) {
+        std::cout << "[msleaks] Warn: The tracer is not start." << std::endl;
+        return;
+    }
+    if (!Utility::IsPyInterpRepeInited()) {
+        return;
+    }
+    Utility::PyInterpGuard stat;
+    Utility::UnRegisterTraceCb();
+    for (auto &p : frameStack_) {
+        while (!p.second.empty()) {
+            DumpTraceEvent(p.second.top());
+            p.second.pop();
+        }
+    }
+    active_ = false;
+}
+
+}

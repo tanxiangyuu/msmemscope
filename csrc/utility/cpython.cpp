@@ -35,12 +35,21 @@ PyObject *PyDict_GetItemString(PyObject *v, const char *key) __attribute__((weak
 PyObject *PyList_AsTuple(PyObject *v) __attribute__((weak));
 int PyType_IsSubtype(PyTypeObject *a, PyTypeObject *b) __attribute__((weak));
 const char *Py_GetVersion() __attribute__((weak));
+PyThreadState *PyInterpreterState_ThreadHead(PyInterpreterState *interp) __attribute__((weak));
+PyThreadState *PyThreadState_Next(PyThreadState *tstate) __attribute__((weak));
+PyThreadState *PyThreadState_Swap(PyThreadState *newts) __attribute__((weak));
+void PyEval_SetProfile(Py_tracefunc func, PyObject *arg) __attribute__((weak));
+PyInterpreterState *PyInterpreterState_Get(void) __attribute__((weak));
+PyThreadState *PyThreadState_Get(void) __attribute__((weak));
 }
 
 namespace Utility {
 
 const Version VER39("3.9.0");
-constexpr uint8_t PRE_ALLOC_SIZE = 2048;
+constexpr uint32_t PRE_ALLOC_SIZE = 2048;
+TraceCbFunc callFunc = nullptr;
+PyInterpreterState *interpreter = nullptr;
+
 Version GetPyVersion()
 {
     const char *ver = Py_GetVersion();
@@ -281,6 +290,151 @@ std::string PythonObject::Type() const
     }
 
     return std::string(ptr->ob_type->tp_name);
+}
+
+void GetPyFuncInfo(PyFrameObject *frame, std::string &info, std::string &hash)
+{
+    if (frame == nullptr) {
+        return;
+    }
+    PyCodeObject *code = PyFrame_GetCode(frame);
+    if (code == nullptr) {
+        return;
+    }
+    PythonObject codeObj(reinterpret_cast<PyObject*>(code));
+    std::string funcName = PythonObject(codeObj.Get("co_name")).Cast<std::string>();
+    std::string fileName = PythonObject(codeObj.Get("co_filename")).Cast<std::string>();
+    std::string lineNum = std::to_string(PyFrame_GetLineNumber(frame));
+    hash = fileName + ":" + funcName;
+    info = fileName + "(" + lineNum + "): " + funcName;
+    PythonObject torch = PythonObject::Import("torch", true);
+    if (torch.IsBad()) {
+        Py_DecRef(reinterpret_cast<PyObject*>(code));
+        return;
+    }
+    static PythonObject moduleCode = torch.Get("nn").Get("Module").Get("__call__").Get("__code__");
+    if (reinterpret_cast<PyObject*>(code) == static_cast<PyObject*>(moduleCode)) {
+        PythonObject frameObj(reinterpret_cast<PyObject *>(frame));
+        PythonDictObject locals(frameObj.Get("f_locals"));
+        auto className = locals["self"].Get("__class__").Get("__name__").Cast<std::string>();
+        hash = "nn.Module: " + className;
+        info = hash;
+    }
+    Py_DecRef(reinterpret_cast<PyObject*>(code));
+}
+
+int pyProfileFn(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg)
+{
+    if (callFunc == nullptr) {
+        return 0;
+    }
+    std::string hash;
+    std::string info;
+    switch (what) {
+        case PyTrace_CALL: {
+            GetPyFuncInfo(frame, info, hash);
+            callFunc(hash, info, Leaks::PyTraceType::PYCALL, 0);
+            break;
+        }
+        case PyTrace_RETURN: {
+            GetPyFuncInfo(frame, info, hash);
+            callFunc(hash, info, Leaks::PyTraceType::PYRETURN, 0);
+            break;
+        }
+        case PyTrace_C_CALL: {
+            std::string pyHash;
+            std::string pyInfo;
+            info = PythonObject(arg).Cast<std::string>();
+            GetPyFuncInfo(frame, pyInfo, pyHash);
+            callFunc(pyHash, pyInfo, Leaks::PyTraceType::CCALL, 0);
+            callFunc(pyHash, info, Leaks::PyTraceType::CCALL, 0);
+            break;
+        }
+        case PyTrace_C_RETURN: {
+            std::string pyHash;
+            std::string pyInfo;
+            GetPyFuncInfo(frame, pyInfo, pyHash);
+            info = PythonObject(arg).Cast<std::string>();
+            callFunc(pyHash, info, Leaks::PyTraceType::CRETURN, 0);
+            callFunc(pyHash, pyInfo, Leaks::PyTraceType::CRETURN, 0);
+            break;
+        }
+        default:
+            break;
+    }
+    return 0;
+}
+
+std::vector<PyThreadState*> getInterpreterThreads(PyInterpreterState* interpreter)
+{
+    PyInterpGuard stat;
+    std::vector<PyThreadState*> threads;
+    if (interpreter != nullptr) {
+        auto* thread_state = PyInterpreterState_ThreadHead(interpreter);
+        while (thread_state != nullptr) {
+            threads.push_back(thread_state);
+            thread_state = PyThreadState_Next(thread_state);
+        }
+    }
+    return threads;
+}
+
+void GetTraceCallStack(std::string type)
+{
+    uint64_t time = GetTimeMicroseconds();
+    const size_t stackMaxDepth = 128;
+    auto frame = PyEval_GetFrame();
+    if (frame != nullptr) {
+        Py_IncRef(reinterpret_cast<PyObject *>(frame));
+    }
+    size_t depth = 0;
+    while (frame != nullptr && depth <= stackMaxDepth) {
+        std::string info;
+        std::string hash;
+        GetPyFuncInfo(frame, info, hash);
+        if (callFunc != nullptr) {
+            callFunc(hash, type + info, Leaks::PyTraceType::PYCALL, time);
+        }
+        PyFrameObject *prevFrame = PyFrame_GetBack(frame);
+        Py_DecRef(reinterpret_cast<PyObject *>(frame));
+        frame = prevFrame;
+        ++depth;
+    }
+    if (frame != nullptr) {
+        Py_DecRef(reinterpret_cast<PyObject *>(frame));
+    }
+}
+
+void RegisterTraceCb(TraceCbFunc call)
+{
+    callFunc = call;
+    PythonObject torch_npu = PythonObject::Import("torch_npu", true);
+    if (!torch_npu.IsBad()) {
+        torch_npu.Get("npu").Get("_lazy_init").Call();
+    }
+    PyThreadState* init = PyThreadState_Get();
+    interpreter = PyInterpreterState_Get();
+    if (!init) {
+        std::cout << "[msleaks] Error: Failed to get main thread state, PythonTracer will not start." << std::endl;
+        return;
+    }
+    std::vector<PyThreadState *> thread_states = getInterpreterThreads(interpreter);
+    for (const auto thread_state : thread_states) {
+        PyThreadState_Swap(thread_state);
+        GetTraceCallStack("start: ");
+        PyEval_SetProfile(pyProfileFn, nullptr);
+    }
+    PyThreadState_Swap(init);
+}
+
+void UnRegisterTraceCb()
+{
+    for (const auto thread_state : getInterpreterThreads(interpreter)) {
+        PyThreadState_Swap(thread_state);
+        GetTraceCallStack("stop: ");
+        PyEval_SetProfile(nullptr, nullptr);
+    }
+    callFunc = nullptr;
 }
 
 PythonObject PythonObject::Import(const std::string& name, bool fromcache, bool ignore)

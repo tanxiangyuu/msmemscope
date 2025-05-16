@@ -1,8 +1,9 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 
 #include <Python.h>
-
+#include <vector>
 #include "watcherobject.h"
+#include "tracerobject.h"
 
 namespace Leaks {
 
@@ -45,9 +46,21 @@ PyMODINIT_FUNC PyInit__msleaks(void)
         Py_DECREF(m);
         return nullptr;
     }
-    if (PyModule_AddObject(m, "watcher", watcher) < 0) {
+    if (PyModule_AddObject(m, "_watcher", watcher) < 0) {
         PyErr_SetString(PyExc_ImportError, "Failed to bind watcher.");
         Py_DECREF(watcher);
+        Py_DECREF(m);
+        return nullptr;
+    }
+
+    PyObject* tracer = Leaks::PyLeaks_GetTracer();
+    if (tracer == nullptr) {
+        Py_DECREF(m);
+        return nullptr;
+    }
+    if (PyModule_AddObject(m, "_tracer", tracer) < 0) {
+        PyErr_SetString(PyExc_ImportError, "Failed to bind tracer.");
+        Py_DECREF(tracer);
         Py_DECREF(m);
         return nullptr;
     }

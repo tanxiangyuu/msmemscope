@@ -98,7 +98,7 @@ bool UserCommandPrecheck(const UserCommand &userCommand)
     return true;
 }
 
-void DoUserCommand(const UserCommand &userCommand)
+void DoUserCommand(UserCommand userCommand)
 {
     if (userCommand.printHelpInfo) {
         ShowHelpInfo();
@@ -116,7 +116,11 @@ void DoUserCommand(const UserCommand &userCommand)
     }
 
     Utility::SetDirPath(userCommand.outputPath, std::string(OUTPUT_PATH));
-
+    if (strncpy_s(userCommand.config.outputDir, sizeof(userCommand.config.outputDir), Utility::g_dirPath.c_str(),
+            sizeof(userCommand.config.outputDir) - 1) != EOK) {
+        std::cout << "strncpy_s FAILED" << std::endl;
+    }
+    userCommand.config.outputDir[sizeof(userCommand.config.outputDir) - 1] = '\0';
     Command command {userCommand};
     command.Exec();
 }
