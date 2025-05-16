@@ -8,10 +8,15 @@
 #include <stdexcept>
 #include <type_traits>
 #include <Python.h>
+#include <functional>
 #include "ustring.h"
+#include "record_info.h"
 
 namespace Utility {
 
+using TraceCbFunc = std::function<void(std::string, std::string, Leaks::PyTraceType, uint64_t)>;
+void RegisterTraceCb(TraceCbFunc func);
+void UnRegisterTraceCb();
 bool IsPyInterpRepeInited();
 void PythonCallstack(uint32_t pyDepth, std::string& pyStack);
 Version GetPyVersion();

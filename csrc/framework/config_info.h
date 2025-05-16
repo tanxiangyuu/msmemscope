@@ -16,7 +16,7 @@ constexpr const char *LEAKS_HEADERS = "ID,Event,Event Type,Name,Timestamp(us),Pr
         "Ptr,Attr";
 constexpr const char *STEP_INTER_HEADERS = ",,Base,Compare\nName,Device Id,Allocated Memory(byte),"
         "Allocated Memory(byte),Diff Memory(byte)\n";
-
+constexpr const char *TRACE_HEADERS = "FuncInfo,StartTime,EndTime,Thread Id,Process Id\n";
 constexpr const char *OUTPUT_PATH = "leaksDumpResults";
 constexpr const char *TRACE_FILE = "trace";
 constexpr const char *DUMP_FILE = "dump";
@@ -78,6 +78,7 @@ struct Config {
     WatchConfig watchConfig;
     uint8_t levelType;
     uint8_t eventType;
+    char outputDir[128];
 };
 
 // 用于承载用户命令行参数的解析结果
