@@ -341,24 +341,6 @@ int pyProfileFn(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg)
             callFunc(hash, info, Leaks::PyTraceType::PYRETURN, 0);
             break;
         }
-        case PyTrace_C_CALL: {
-            std::string pyHash;
-            std::string pyInfo;
-            info = PythonObject(arg).Cast<std::string>();
-            GetPyFuncInfo(frame, pyInfo, pyHash);
-            callFunc(pyHash, pyInfo, Leaks::PyTraceType::CCALL, 0);
-            callFunc(pyHash, info, Leaks::PyTraceType::CCALL, 0);
-            break;
-        }
-        case PyTrace_C_RETURN: {
-            std::string pyHash;
-            std::string pyInfo;
-            GetPyFuncInfo(frame, pyInfo, pyHash);
-            info = PythonObject(arg).Cast<std::string>();
-            callFunc(pyHash, info, Leaks::PyTraceType::CRETURN, 0);
-            callFunc(pyHash, pyInfo, Leaks::PyTraceType::CRETURN, 0);
-            break;
-        }
         default:
             break;
     }
