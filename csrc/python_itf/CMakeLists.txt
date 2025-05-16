@@ -10,4 +10,7 @@ target_include_directories(_msleaks PUBLIC
 
 file(GLOB_RECURSE SOURCES "${CMAKE_CURRENT_LIST_DIR}/*.cpp")
 target_sources(_msleaks PRIVATE ${SOURCES})
+target_sources(_msleaks PRIVATE
+  ${EVENT_TRACE_INC_DIR}/python_trace.cpp
+)
 target_link_libraries(_msleaks PUBLIC ascend_leaks)
