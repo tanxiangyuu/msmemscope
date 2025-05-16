@@ -90,6 +90,17 @@ enum class DeviceType : uint8_t {
     CPU = 1,
 };
 
+enum class PyTraceType : uint8_t {
+    PYCALL = 0,
+    PYEXCEPTION,
+    PYLINE,
+    PYRETURN,
+    CCALL,
+    CEXCEPTION,
+    CRETURN,
+    PYOPCODE,
+};
+
 struct MemOpRecord {
     uint64_t recordIndex;       // 记录索引
     uint64_t kernelIndex;       // 当前所属kernellaunch索引

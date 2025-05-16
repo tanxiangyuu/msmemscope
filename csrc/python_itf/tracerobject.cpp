@@ -1,11 +1,12 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 
-#include "watcherobject.h"
+#include "tracerobject.h"
+#include "python_trace.h"
 
 namespace Leaks {
 
 /* 单例类，自定义new函数，避免重复构造 */
-static PyObject* PyLeaksNewWatcher(PyTypeObject *type, PyObject *args, PyObject *kwds)
+static PyObject* PyLeaksNewTracer(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     if (type == nullptr || type->tp_alloc == nullptr) {
         return nullptr;
@@ -21,30 +22,32 @@ static PyObject* PyLeaksNewWatcher(PyTypeObject *type, PyObject *args, PyObject 
     return self;
 }
 
-PyDoc_STRVAR(WatchDoc,
-"start($self, addr, size)\n--\n\nEnable debug.");
-static PyObject* PyLeaksWatcherWatch(PyObject *self,  PyObject *args)
+PyDoc_STRVAR(TraceStartDoc,
+"start()\n--\n\nstart trace.");
+static PyObject* PyLeaksTracerStart()
 {
+    PythonTrace::GetInstance().Start();
     Py_RETURN_NONE;
 }
 
-PyDoc_STRVAR(RemoveDoc,
-"start($self, addr)\n--\n\nEnable debug.");
-static PyObject* PyLeaksWatcherRemove(PyObject *self,  PyObject *addr)
+PyDoc_STRVAR(TraceStopDoc,
+"stop()\n--\n\nstop trace.");
+static PyObject* PyLeaksTracerStop()
 {
+    PythonTrace::GetInstance().Stop();
     Py_RETURN_NONE;
 }
 
-static PyMethodDef PyLeaksWatcherMethods[] = {
-    {"watch", reinterpret_cast<PyCFunction>(PyLeaksWatcherWatch), METH_VARARGS, WatchDoc},
-    {"remove", reinterpret_cast<PyCFunction>(PyLeaksWatcherRemove), METH_O, WatchDoc},
+static PyMethodDef PyLeaksTracerMethods[] = {
+    {"start", reinterpret_cast<PyCFunction>(PyLeaksTracerStart), METH_NOARGS, TraceStartDoc},
+    {"stop", reinterpret_cast<PyCFunction>(PyLeaksTracerStop), METH_NOARGS, TraceStopDoc},
     {nullptr, nullptr, 0, nullptr}
 };
 
 
-static PyTypeObject PyLeaksWatcherType = {
+static PyTypeObject PyLeaksTracerType = {
     PyVarObject_HEAD_INIT(&PyType_Type, 0)
-    "_msleaks._watcher",                        /* tp_name */
+    "_msleaks._tracer",                         /* tp_name */
     0,                                          /* tp_basicsize */
     0,                                          /* tp_itemsize */
     /* methods */
@@ -71,7 +74,7 @@ static PyTypeObject PyLeaksWatcherType = {
     0,                                          /* tp_weaklistoffset */
     0,                                          /* tp_iter */
     0,                                          /* tp_iternext */
-    PyLeaksWatcherMethods,                      /* tp_methods */
+    PyLeaksTracerMethods,                       /* tp_methods */
     0,                                          /* tp_members */
     0,                                          /* tp_getset */
     &PyBaseObject_Type,                         /* tp_base */
@@ -81,16 +84,16 @@ static PyTypeObject PyLeaksWatcherType = {
     0,                                          /* tp_dictoffset */
     0,                                          /* tp_init */
     0,                                          /* tp_alloc */
-    PyLeaksNewWatcher,                          /* tp_new */
+    PyLeaksNewTracer,                           /* tp_new */
     PyObject_Del,                               /* tp_free */
 };
 
-PyObject* PyLeaks_GetWatcher()
+PyObject* PyLeaks_GetTracer()
 {
-    if (PyType_Ready(&PyLeaksWatcherType) < 0) {
+    if (PyType_Ready(&PyLeaksTracerType) < 0) {
         return nullptr;
     }
 
-    return PyObject_New(PyObject, &PyLeaksWatcherType);
+    return PyObject_New(PyObject, &PyLeaksTracerType);
 }
 }
