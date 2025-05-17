@@ -355,11 +355,11 @@ bool DumpRecord::DumpAtbOpData(const ClientId &clientId, const AtbOpExecuteRecor
     std::string eventType;
     switch (atbOpExecuteRecord.eventType) {
         case Leaks::OpEventType::ATB_START: {
-            eventType = "ATB_OP_START";
+            eventType = "ATB_START";
             break;
         }
         case Leaks::OpEventType::ATB_END: {
-            eventType = "ATB_OP_END";
+            eventType = "ATB_END";
             break;
         }
         default: {
@@ -397,11 +397,11 @@ bool DumpRecord::DumpAtbKernelData(const ClientId &clientId, const AtbKernelReco
     std::string eventType;
     switch (atbKernelRecord.eventType) {
         case Leaks::KernelEventType::KERNEL_START: {
-            eventType = "ATB_KERNEL_START";
+            eventType = "KERNEL_START";
             break;
         }
         case Leaks::KernelEventType::KERNEL_END: {
-            eventType = "ATB_KERNEL_END";
+            eventType = "KERNEL_END";
             break;
         }
         default: {
