@@ -28,7 +28,6 @@ struct TraceEvent {
     uint64_t pid;
     std::string info;
     std::string hash;
-    bool ignore;
 };
 
 class PythonTrace {
@@ -41,6 +40,7 @@ public:
     PythonTrace(const PythonTrace&) = delete;
     PythonTrace& operator=(const PythonTrace&) = delete;
     void RecordPyCall(std::string funcHash, std::string funcInfo, uint64_t timeStamp);
+    void RecordCCall(std::string funcHash, std::string funcInfo);
     void RecordReturn(std::string funcHash, std::string funcInfo);
     void Start();
     void Stop();
