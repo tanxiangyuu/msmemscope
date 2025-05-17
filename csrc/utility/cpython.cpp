@@ -49,6 +49,8 @@ const Version VER39("3.9.0");
 constexpr uint32_t PRE_ALLOC_SIZE = 2048;
 TraceCbFunc callFunc = nullptr;
 PyInterpreterState *interpreter = nullptr;
+std::string g_ignoreCFunc = "__exit__";
+std::string g_ignoreCFile = "contextlib.py";
 
 Version GetPyVersion()
 {
@@ -323,6 +325,14 @@ void GetPyFuncInfo(PyFrameObject *frame, std::string &info, std::string &hash)
     Py_DecRef(reinterpret_cast<PyObject*>(code));
 }
 
+bool IsIgnoreCFunc(std::string hash)
+{
+    std::string fileName = hash.substr(0, hash.find(":"));
+    std::string funcName = hash.substr(hash.find(":") + 1);
+    return funcName == g_ignoreCFunc && fileName.size() >= g_ignoreCFile.size() &&
+           fileName.substr(fileName.size() - g_ignoreCFile.size(), g_ignoreCFile.size()) == g_ignoreCFile;
+}
+
 int pyProfileFn(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg)
 {
     if (callFunc == nullptr) {
@@ -339,6 +349,27 @@ int pyProfileFn(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg)
         case PyTrace_RETURN: {
             GetPyFuncInfo(frame, info, hash);
             callFunc(hash, info, Leaks::PyTraceType::PYRETURN, 0);
+            break;
+        }
+        case PyTrace_C_CALL: {
+            std::string pyHash;
+            std::string pyInfo;
+            info = PythonObject(arg).Cast<std::string>();
+            GetPyFuncInfo(frame, pyInfo, pyHash);
+            if (IsIgnoreCFunc(pyHash)) {
+                break;
+            }
+            callFunc(info, pyInfo, Leaks::PyTraceType::CCALL, 0);
+            callFunc(info, info, Leaks::PyTraceType::CCALL, 0);
+            break;
+        }
+        case PyTrace_C_RETURN: {
+            std::string pyHash;
+            std::string pyInfo;
+            GetPyFuncInfo(frame, pyInfo, pyHash);
+            info = PythonObject(arg).Cast<std::string>();
+            callFunc(info, info, Leaks::PyTraceType::CRETURN, 0);
+            callFunc(info, pyInfo, Leaks::PyTraceType::CRETURN, 0);
             break;
         }
         default:

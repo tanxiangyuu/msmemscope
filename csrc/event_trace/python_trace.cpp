@@ -21,7 +21,9 @@ bool PythonTrace::IsIgnore(std::string funcName)
 void PythonTrace::RecordPyCall(std::string funcHash, std::string funcInfo, uint64_t timeStamp)
 {
     uint64_t tid = Utility::GetTid();
-
+    if (throw_[tid]) {
+        return;
+    }
     TraceEvent event{};
     event.startTs = timeStamp ? timeStamp : Utility::GetTimeMicroseconds();
     event.hash = funcHash;
@@ -31,7 +33,6 @@ void PythonTrace::RecordPyCall(std::string funcHash, std::string funcInfo, uint6
     std::string funcName = funcHash.substr(funcHash.find(":") + 1);
     if (IsIgnore(funcName) && !throw_[tid]) {
         throw_[tid] = true;
-        event.ignore = true;
     }
     frameStack_[tid].push(event);
 }
@@ -49,19 +50,30 @@ bool PythonTrace::DumpTraceEvent(TraceEvent &event)
     return true;
 }
 
+void PythonTrace::RecordCCall(std::string funcHash, std::string funcInfo)
+{
+    uint64_t tid = Utility::GetTid();
+    if (throw_[tid]) {
+        return;
+    }
+    TraceEvent event{};
+    event.startTs = Utility::GetTimeMicroseconds();
+    event.hash = funcHash;
+    event.info = funcInfo;
+    event.pid = Utility::GetPid();
+    event.tid = tid;
+    frameStack_[tid].push(event);
+}
+
 void PythonTrace::RecordReturn(std::string funcHash, std::string funcInfo)
 {
     uint64_t tid = Utility::GetTid();
     if (!frameStack_[tid].empty()) {
         auto event = frameStack_[tid].top();
         if (funcHash == event.hash) {
-            if (event.ignore) {
-                throw_[tid] = false;
-            }
-            if (!throw_[tid]) {
-                event.endTs = Utility::GetTimeMicroseconds();
-                DumpTraceEvent(event);
-            }
+            throw_[tid] = false;
+            event.endTs = Utility::GetTimeMicroseconds();
+            DumpTraceEvent(event);
             frameStack_[tid].pop();
         } else if (throw_[tid] == false) {
             TraceEvent event{0, Utility::GetTimeMicroseconds(), tid, Utility::GetPid(), funcInfo, funcHash};
@@ -78,6 +90,14 @@ void callback(std::string hash, std::string info, PyTraceType what, uint64_t tim
             break;
         }
         case PyTraceType::PYRETURN: {
+            PythonTrace::GetInstance().RecordReturn(hash, info);
+            break;
+        }
+        case PyTraceType::CCALL: {
+            PythonTrace::GetInstance().RecordCCall(hash, info);
+            break;
+        }
+        case PyTraceType::CRETURN: {
             PythonTrace::GetInstance().RecordReturn(hash, info);
             break;
         }
