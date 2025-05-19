@@ -51,5 +51,17 @@ private:
     std::string csvHeader_;
     Config config_;
 };
+
+template <typename T>
+void CopyMemPoolRecordMember(const T &record, DumpContainer &container)
+{
+    container.id = record.recordIndex;
+    container.pid = record.pid;
+    container.tid = record.tid;
+    container.timeStamp = record.timeStamp;
+    container.deviceId = std::to_string(record.devId);
 }
+
+} // namespace Leaks
+
 #endif

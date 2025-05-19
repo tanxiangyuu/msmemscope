@@ -216,6 +216,31 @@ bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord, CallStackString
     return (sendNums >= 0);
 }
 
+bool EventReport::ReportMindsporeNpu(MindsporeNpuRecord &mindsporeNpuRecord, CallStackString& stack)
+{
+    g_isInReportFunction = true;
+
+    if (!IsConnectToServer()) {
+        return true;
+    }
+
+    if (IsNeedSkip()) {
+        return true;
+    }
+    PacketHead head = {PacketType::RECORD};
+    EventRecord eventRecord;
+    eventRecord.type = RecordType::MINDSPORE_NPU_RECORD;
+    eventRecord.record.mindsporeNpuRecord = mindsporeNpuRecord;
+    eventRecord.record.mindsporeNpuRecord.timeStamp = Utility::GetTimeMicroseconds();
+    eventRecord.record.mindsporeNpuRecord.kernelIndex = kernelLaunchRecordIndex_;
+    eventRecord.record.mindsporeNpuRecord.devId = static_cast<int32_t>(mindsporeNpuRecord.memoryUsage.deviceIndex);
+    eventRecord.record.mindsporeNpuRecord.recordIndex = ++recordIndex_;
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+
+    g_isInReportFunction = false;
+    return (sendNums >= 0);
+}
+
 bool EventReport::ReportATBMemPoolRecord(AtbMemPoolRecord &record, CallStackString& stack)
 {
     g_isInReportFunction = true;
@@ -253,8 +278,7 @@ bool EventReport::ReportATBMemPoolRecord(AtbMemPoolRecord &record, CallStackStri
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportMalloc(
-    uint64_t addr, uint64_t size, unsigned long long flag, CallStackString& stack)
+bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag, CallStackString& stack)
 {
     g_isInReportFunction = true;
 

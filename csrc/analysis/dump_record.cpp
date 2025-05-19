@@ -56,6 +56,9 @@ bool DumpRecord::DumpData(const ClientId &clientId, const Record &record)
         case RecordType::TORCH_NPU_RECORD: {
             return DumpMemPoolData(clientId, record.eventRecord, stack);
         }
+        case RecordType::MINDSPORE_NPU_RECORD: {
+            return DumpMemPoolData(clientId, record.eventRecord, stack);
+        }
         case RecordType::MSTX_MARK_RECORD: {
             auto mstxRecord = record.eventRecord.record.mstxRecord;
             return DumpMstxData(clientId, mstxRecord, stack);
@@ -313,33 +316,31 @@ bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &ev
 
     MemoryUsage memoryUsage { };
     std::string memPoolType { };
+    DumpContainer container;
     if (eventRecord.type == RecordType::TORCH_NPU_RECORD) {
         memoryUsage = eventRecord.record.torchNpuRecord.memoryUsage;
         memPoolType = "PTA";
+        CopyMemPoolRecordMember(eventRecord.record.torchNpuRecord, container);
+    } else if (eventRecord.type == RecordType::MINDSPORE_NPU_RECORD) {
+        memoryUsage = eventRecord.record.mindsporeNpuRecord.memoryUsage;
+        memPoolType = "Mindspore";
+        CopyMemPoolRecordMember(eventRecord.record.mindsporeNpuRecord, container);
     } else {
         memoryUsage = eventRecord.record.atbMemPoolRecord.memoryUsage;
         memPoolType = "ATB";
+        CopyMemPoolRecordMember(eventRecord.record.atbMemPoolRecord, container);
     }
-    auto record = eventRecord.type == RecordType::TORCH_NPU_RECORD ?
-        eventRecord.record.torchNpuRecord : eventRecord.record.atbMemPoolRecord;
-    std::string eventType = memoryUsage.allocSize >= 0 ? "MALLOC" : "FREE";
 
+    std::string eventType = memoryUsage.allocSize >= 0 ? "MALLOC" : "FREE";
+    container.event = eventType;
+    container.eventType = memPoolType;
+    container.name = "N/A";
+    container.addr = std::to_string(memoryUsage.ptr);
     // 组装attr属性
     std::ostringstream oss;
     oss << "{addr:" << memoryUsage.ptr << ",size:" << memoryUsage.allocSize << ",owner:" << ",total:" <<
         memoryUsage.totalReserved << ",used:" << memoryUsage.totalAllocated << "}";
     std::string attr = "\"" + oss.str() + "\"";
-
-    DumpContainer container;
-    container.id = record.recordIndex;
-    container.event = eventType;
-    container.eventType = memPoolType;
-    container.name = "N/A";
-    container.timeStamp = record.timeStamp;
-    container.pid = record.pid;
-    container.tid = record.tid;
-    container.deviceId = std::to_string(record.devId);
-    container.addr = std::to_string(memoryUsage.ptr);
     container.attr = attr;
 
     bool isWriteSuccess = WriteToFile(container, stack);

@@ -10,6 +10,7 @@
 #include "aten_manager.h"
 #include "memory_pool_trace/memory_pool_trace_manager.h"
 #include "memory_pool_trace/atb_memory_pool_trace.h"
+#include "memory_pool_trace/mindspore_memory_pool_trace.h"
 
 namespace Leaks {
 
@@ -134,7 +135,12 @@ mstxDomainHandle_t MstxManager::ReportDomainCreateA(char const *domainName)
             return MemoryPoolTraceManager::GetInstance().CreateDomain(domainName);
         }
     }
-
+    if (std::string(domainName) == "mindsporeMemPool") {
+        if (MemoryPoolTraceManager::GetInstance().RegisterMemoryPoolTracer("mindsporeMemPool",
+            &MindsporeMemoryPoolTrace::GetInstance())) {
+            return MemoryPoolTraceManager::GetInstance().CreateDomain(domainName);
+        }
+    }
     if (domainName == nullptr || std::string(domainName) != "msleaks") {
         return nullptr;
     }
