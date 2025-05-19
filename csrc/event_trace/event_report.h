@@ -49,6 +49,7 @@ public:
     bool ReportAclItf(AclOpType aclOpType);
     bool ReportMark(MstxRecord &mstxRecord, CallStackString& stack);
     bool ReportTorchNpu(TorchNpuRecord &torchNpuRecord, CallStackString& stack);
+    bool ReportMindsporeNpu(MindsporeNpuRecord &mindsporeNpuRecord, CallStackString& stack);
     int ReportRecordEvent(EventRecord &record, PacketHead &head, CallStackString& stack);
     Config GetConfig();
     bool ReportATBMemPoolRecord(AtbMemPoolRecord &record, CallStackString& stack);

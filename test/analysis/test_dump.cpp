@@ -156,6 +156,45 @@ TEST(DumpRecord, dump_empty_torchnpu_record)
     ClientId clientId = 0;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
 }
+TEST(DumpRecord, dump_mindsporenpu_record_expect_success)
+{
+    auto record = Record{};
+    record.eventRecord.type = RecordType::MINDSPORE_NPU_RECORD;
+    auto mindsporeNpuRecord = MindsporeNpuRecord{};
+    mindsporeNpuRecord.recordIndex = 101;
+    
+    MemoryUsage memoryUsage;
+    memoryUsage.allocSize = 128;
+    memoryUsage.totalActive = 128;
+    memoryUsage.totalReserved = 128;
+    memoryUsage.totalAllocated = 128;
+    memoryUsage.ptr = 123;
+    memoryUsage.streamPtr = 123;
+    memoryUsage.deviceIndex = 10;
+    memoryUsage.allocatorType = 0;
+    memoryUsage.dataType = 0;
+    mindsporeNpuRecord.memoryUsage = memoryUsage;
+    record.eventRecord.record.mindsporeNpuRecord = mindsporeNpuRecord;
+    Config config;
+    ClientId clientId = 0;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    config.enableCStack = true;
+    config.enablePyStack = true;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+}
+TEST(DumpRecord, dump_empty_mindsporenpu_record)
+{
+    auto record = Record{};
+    record.eventRecord.type = RecordType::MINDSPORE_NPU_RECORD;
+    auto mindsporeNpuRecord = MindsporeNpuRecord{};
+
+    MemoryUsage memoryUsage;
+    mindsporeNpuRecord.memoryUsage = memoryUsage;
+    record.eventRecord.record.mindsporeNpuRecord = mindsporeNpuRecord;
+    Config config;
+    ClientId clientId = 0;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+}
 TEST(DumpRecord, dump_invalid_memory_record)
 {
     auto record = Record{};

@@ -519,3 +519,35 @@ TEST(TraceRecord, set_dir_path)
     TraceRecord::GetInstance().SetDirPath();
     EXPECT_EQ(TraceRecord::GetInstance().dirPath_, "/MyPath/" + std::string(TRACE_FILE));
 }
+
+TEST(TraceRecord, process_mindspore_memory_record)
+{
+    auto record = EventRecord{};
+    record.type = RecordType::MINDSPORE_NPU_RECORD;
+    auto mindsporeNpuRecord = MindsporeNpuRecord{};
+    mindsporeNpuRecord.tid = 6;
+    mindsporeNpuRecord.pid = 8;
+    mindsporeNpuRecord.kernelIndex = 123;
+    MemoryUsage memoryUsage = MemoryUsage{};
+    memoryUsage.totalAllocated = 10;
+    memoryUsage.totalReserved = 30;
+    mindsporeNpuRecord.memoryUsage = memoryUsage;
+    mindsporeNpuRecord.devId = 2;
+    record.record.mindsporeNpuRecord = mindsporeNpuRecord;
+
+    std::string result = "{\n"
+"    \"ph\": \"C\",\n"
+"    \"name\": \"mindspore reserved memory\",\n"
+"    \"pid\": 8,\n"
+"    \"tid\": 6,\n"
+"    \"ts\": 123,\n"
+"    \"args\": {\n        \"size\": 30\n    }\n},\n{\n"
+"    \"ph\": \"C\",\n"
+"    \"name\": \"mindspore allocated memory\",\n"
+"    \"pid\": 8,\n"
+"    \"tid\": 6,\n"
+"    \"ts\": 123,\n"
+"    \"args\": {\n        \"size\": 10\n    }\n},\n";
+
+    TraceRecord::GetInstance().ProcessRecord(record);
+}
