@@ -116,6 +116,14 @@ int EventReport::ReportRecordEvent(EventRecord &record, PacketHead &head, CallSt
     auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(buffer);
     return sendNums;
 }
+
+int EventReport::ReportRecordEvent(EventRecord &record, PacketHead &head)
+{
+    std::string buffer = Serialize<PacketHead, EventRecord>(head, record);
+    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(buffer);
+    return sendNums;
+}
+
 EventReport& EventReport::Instance(CommType type)
 {
     static EventReport instance(type);
@@ -347,7 +355,7 @@ bool EventReport::ReportFree(uint64_t addr, CallStackString& stack)
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size, CallStackString& stack)
+bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size)
 {
     g_isInReportFunction = true;
 
@@ -371,13 +379,13 @@ bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size, CallStackString
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
 
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+    auto sendNums = ReportRecordEvent(eventRecord, head);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
 }
  
-bool EventReport::ReportHostFree(uint64_t addr, CallStackString& stack)
+bool EventReport::ReportHostFree(uint64_t addr)
 {
     g_isInReportFunction = true;
 
@@ -400,7 +408,7 @@ bool EventReport::ReportHostFree(uint64_t addr, CallStackString& stack)
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
 
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+    auto sendNums = ReportRecordEvent(eventRecord, head);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
