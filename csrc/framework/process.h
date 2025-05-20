@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <map>
+#include <set>
 #include <thread>
 #include "server_process.h"
 #include "protocol.h"
@@ -40,10 +41,18 @@ private:
 
     void MsgHandle(size_t &clientId, std::string &msg);
     void RecordHandler(const ClientId &clientId, const Record &record);
+    void MemoryRecordPreprocess(const ClientId &clientId, const Record &record, CallStackString& stack);
 private:
     std::unique_ptr<ServerProcess> server_;
     std::map<ClientId, Protocol> protocolList_;
     Config config_;
+    std::set<RecordType> preprocessTypeList_ = {
+        RecordType::MEMORY_RECORD,
+        RecordType::ATB_MEMORY_POOL_RECORD,
+        RecordType::TORCH_NPU_RECORD,
+        RecordType::MEM_ACCESS_RECORD,
+        RecordType::MINDSPORE_NPU_RECORD,
+    };
 };
 
 }

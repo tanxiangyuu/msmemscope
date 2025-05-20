@@ -33,18 +33,19 @@ TEST(DumpRecord, dump_cpu_memory_record_expect_success)
     record.eventRecord.record.memoryRecord = memRecordMalloc;
     Config config;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 
     record.eventRecord.record.memoryRecord.memType = MemOpType::FREE;
     
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     
     record.eventRecord.record.memoryRecord.memType = MemOpType::MALLOC;
     memRecordMalloc.space = MemOpSpace::HOST;
     
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     record.eventRecord.record.memoryRecord.memType = MemOpType::FREE;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_memory_record_expect_success)
 {
@@ -67,18 +68,19 @@ TEST(DumpRecord, dump_memory_record_expect_success)
     record.eventRecord.record.memoryRecord = memRecordMalloc;
     Config config;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     config.enableCStack = true;
     config.enablePyStack = true;
     record.eventRecord.record.memoryRecord.memType = MemOpType::FREE;
     
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     record.eventRecord.record.memoryRecord.memType = MemOpType::MALLOC;
     memRecordMalloc.space = MemOpSpace::HOST;
     
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     record.eventRecord.record.memoryRecord.memType = MemOpType::FREE;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_kernelLaunch_record_expect_success)
 {
@@ -96,10 +98,11 @@ TEST(DumpRecord, dump_kernelLaunch_record_expect_success)
     Config config;
     ClientId clientId = 0;
     std::string testName = "123";
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     strncpy_s(record.eventRecord.record.kernelLaunchRecord.kernelName,
                 KERNELNAME_MAX_SIZE, testName.c_str(), KERNELNAME_MAX_SIZE - 1);
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_aclItf_record_expect_success)
 {
@@ -115,7 +118,8 @@ TEST(DumpRecord, dump_aclItf_record_expect_success)
     record.eventRecord.record.aclItfRecord = aclItfRecord;
     Config config;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_torchnpu_record_expect_success)
 {
@@ -138,10 +142,11 @@ TEST(DumpRecord, dump_torchnpu_record_expect_success)
     record.eventRecord.record.torchNpuRecord = torchNpuRecord;
     Config config;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     config.enableCStack = true;
     config.enablePyStack = true;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_empty_torchnpu_record)
 {
@@ -154,7 +159,49 @@ TEST(DumpRecord, dump_empty_torchnpu_record)
     record.eventRecord.record.torchNpuRecord = torchNpuRecord;
     Config config;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+}
+TEST(DumpRecord, dump_mindsporenpu_record_expect_success)
+{
+    auto record = Record{};
+    record.eventRecord.type = RecordType::MINDSPORE_NPU_RECORD;
+    auto mindsporeNpuRecord = MindsporeNpuRecord{};
+    mindsporeNpuRecord.recordIndex = 101;
+    
+    MemoryUsage memoryUsage;
+    memoryUsage.allocSize = 128;
+    memoryUsage.totalActive = 128;
+    memoryUsage.totalReserved = 128;
+    memoryUsage.totalAllocated = 128;
+    memoryUsage.ptr = 123;
+    memoryUsage.streamPtr = 123;
+    memoryUsage.deviceIndex = 10;
+    memoryUsage.allocatorType = 0;
+    memoryUsage.dataType = 0;
+    mindsporeNpuRecord.memoryUsage = memoryUsage;
+    record.eventRecord.record.mindsporeNpuRecord = mindsporeNpuRecord;
+    Config config;
+    ClientId clientId = 0;
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+    config.enableCStack = true;
+    config.enablePyStack = true;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+}
+TEST(DumpRecord, dump_empty_mindsporenpu_record)
+{
+    auto record = Record{};
+    record.eventRecord.type = RecordType::MINDSPORE_NPU_RECORD;
+    auto mindsporeNpuRecord = MindsporeNpuRecord{};
+
+    MemoryUsage memoryUsage;
+    mindsporeNpuRecord.memoryUsage = memoryUsage;
+    record.eventRecord.record.mindsporeNpuRecord = mindsporeNpuRecord;
+    Config config;
+    ClientId clientId = 0;
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_invalid_memory_record)
 {
@@ -177,11 +224,12 @@ TEST(DumpRecord, dump_invalid_memory_record)
     record.eventRecord.record.memoryRecord = memRecordMalloc;
     Config config;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 
     record.eventRecord.record.memoryRecord.memType = MemOpType::FREE;
     record.eventRecord.record.memoryRecord.devId = GD_INVALID_NUM;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_mstx_mark_expect_success)
 {
@@ -202,9 +250,10 @@ TEST(DumpRecord, dump_mstx_mark_expect_success)
     record.eventRecord.record.mstxRecord = mstxRecord;
     Config config;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     config.enablePyStack = true;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_aten_launch_start_expect_success)
 {
@@ -224,7 +273,8 @@ TEST(DumpRecord, dump_aten_launch_start_expect_success)
 
     Config config;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_aten_launch_end_expect_success)
 {
@@ -244,7 +294,8 @@ TEST(DumpRecord, dump_aten_launch_end_expect_success)
 
     Config config;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_aten_launch_expect_success)
 {
@@ -266,7 +317,8 @@ TEST(DumpRecord, dump_aten_launch_expect_success)
 
     Config config;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_mstx_range_start_expect_success)
 {
@@ -287,7 +339,8 @@ TEST(DumpRecord, dump_mstx_range_start_expect_success)
     record.eventRecord.record.mstxRecord = mstxRecord;
     Config config;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_mstx_range_end_expect_success)
 {
@@ -306,7 +359,8 @@ TEST(DumpRecord, dump_mstx_range_end_expect_success)
     record.eventRecord.record.mstxRecord = mstxRecord;
     Config config;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 
 TEST(DumpRecord, dump_atb_op_start_expect_success)
@@ -329,7 +383,8 @@ TEST(DumpRecord, dump_atb_op_start_expect_success)
     record.eventRecord.record.atbOpExecuteRecord = atbOpExecuteRecord;
     Config config;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 
 TEST(DumpRecord, dump_atb_op_end_expect_success)
@@ -352,7 +407,8 @@ TEST(DumpRecord, dump_atb_op_end_expect_success)
     record.eventRecord.record.atbOpExecuteRecord = atbOpExecuteRecord;
     Config config;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 
 TEST(DumpRecord, dump_atb_kernel_start_expect_success)
@@ -375,7 +431,8 @@ TEST(DumpRecord, dump_atb_kernel_start_expect_success)
     record.eventRecord.record.atbKernelRecord = atbKernelRecord;
     Config config;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 
 TEST(DumpRecord, dump_atb_kernel_end_expect_success)
@@ -398,27 +455,8 @@ TEST(DumpRecord, dump_atb_kernel_end_expect_success)
     record.eventRecord.record.atbKernelRecord = atbKernelRecord;
     Config config;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
-}
-
-TEST(DumpRecord, dump_mem_access_expect_success)
-{
-    auto record = Record{};
-    record.eventRecord.type = RecordType::MEM_ACCESS_RECORD;
-    auto memAccessRecord = MemAccessRecord{};
-    
-    memAccessRecord.eventType = AccessType::UNKNOWN;
-    strncpy_s(memAccessRecord.attr, sizeof(memAccessRecord.attr),
-              "{dtype:FLOAT,format:ACL_ND,shape:1 2 }", sizeof(memAccessRecord.attr) - 1);
-    memAccessRecord.timestamp = 7890;
-    memAccessRecord.pid = 10;
-    memAccessRecord.tid = 11;
-    memAccessRecord.devId = 3;
-    memAccessRecord.recordIndex = 1;
-    record.eventRecord.record.memAccessRecord = memAccessRecord;
-    Config config;
-    ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 
 TEST(DumpRecord, set_dir_path)

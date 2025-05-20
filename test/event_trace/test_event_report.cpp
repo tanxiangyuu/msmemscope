@@ -131,7 +131,7 @@ TEST(EventReportTest, ReportHostMallocWithoutMstxTest) {
     uint64_t testSize = 1024;
     instance.isReceiveServerInfo_ = true;
     CallStackString callStack;
-    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize, callStack));
+    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize));
 }
  
 TEST(EventReportTest, ReportHostFreeWithoutMstxTest) {
@@ -144,7 +144,7 @@ TEST(EventReportTest, ReportHostFreeWithoutMstxTest) {
     uint64_t testAddr = 0x12345678;
     instance.isReceiveServerInfo_ = true;
     CallStackString callStack;
-    EXPECT_TRUE(instance.ReportHostFree(testAddr, callStack));
+    EXPECT_TRUE(instance.ReportHostFree(testAddr));
 }
 
 TEST(EventReportTest, ReportHostMallocTest) {
@@ -166,7 +166,7 @@ TEST(EventReportTest, ReportHostMallocTest) {
     uint64_t testAddr = 0x12345678;
     uint64_t testSize = 1024;
     CallStackString callStack;
-    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize, callStack));
+    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize));
 
     auto mstxRecordEnd = MstxRecord {};
     mstxRecordEnd.markType = MarkType::RANGE_END;
@@ -190,7 +190,7 @@ TEST(EventReportTest, ReportHostFreeTest) {
         "report host memory info start", sizeof(mstxRecordStart.markMessage));
     instance.ReportMark(mstxRecordStart, callStack);
     uint64_t testAddr = 0x12345678;
-    EXPECT_TRUE(instance.ReportHostFree(testAddr, callStack));
+    EXPECT_TRUE(instance.ReportHostFree(testAddr));
 
     auto mstxRecordEnd = MstxRecord {};
     mstxRecordEnd.markType = MarkType::RANGE_END;
@@ -401,8 +401,8 @@ TEST(EventReportTest, ReportTestWithNoReceiveServerInfo) {
     EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, flag, callStack));
     EXPECT_TRUE(instance.ReportFree(testAddr, callStack));
 
-    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize, callStack));
-    EXPECT_TRUE(instance.ReportHostFree(testAddr, callStack));
+    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize));
+    EXPECT_TRUE(instance.ReportHostFree(testAddr));
 
     KernelLaunchRecord kernelLaunchRecord = {};
     EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchRecord, nullptr));

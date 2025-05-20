@@ -34,15 +34,12 @@ void DumpRecord::SetDirPath()
     dirPath_ = Utility::g_dirPath + "/" + std::string(DUMP_FILE);
 }
 
-bool DumpRecord::DumpData(const ClientId &clientId, const Record &record)
+bool DumpRecord::DumpData(const ClientId &clientId, const Record &record, const CallStackString &stack)
 {
-    std::string pyStack(record.callStackInfo.pyStack, record.callStackInfo.pyStack + record.callStackInfo.pyLen);
-    std::string cStack(record.callStackInfo.cStack, record.callStackInfo.cStack + record.callStackInfo.cLen);
-    CallStackString stack{cStack, pyStack};
     switch (record.eventRecord.type) {
         case RecordType::MEMORY_RECORD: {
             auto memRecord = record.eventRecord.record.memoryRecord;
-            return DumpMemData(clientId, memRecord, stack);
+            return DumpMemData(clientId, memRecord);
         }
         case RecordType::KERNEL_LAUNCH_RECORD: {
             auto kernelLaunchRecord = record.eventRecord.record.kernelLaunchRecord;
@@ -54,7 +51,10 @@ bool DumpRecord::DumpData(const ClientId &clientId, const Record &record)
         }
         case RecordType::ATB_MEMORY_POOL_RECORD:
         case RecordType::TORCH_NPU_RECORD: {
-            return DumpMemPoolData(clientId, record.eventRecord, stack);
+            return DumpMemPoolData(clientId, record.eventRecord);
+        }
+        case RecordType::MINDSPORE_NPU_RECORD: {
+            return DumpMemPoolData(clientId, record.eventRecord);
         }
         case RecordType::MSTX_MARK_RECORD: {
             auto mstxRecord = record.eventRecord.record.mstxRecord;
@@ -71,10 +71,6 @@ bool DumpRecord::DumpData(const ClientId &clientId, const Record &record)
         case RecordType::ATEN_OP_LAUNCH_RECORD:{
             auto atenOpLaunchRecord = record.eventRecord.record.atenOpLaunchRecord;
             return DumpAtenOpLaunchData(clientId, atenOpLaunchRecord, stack);
-        }
-        case RecordType::MEM_ACCESS_RECORD: {
-            auto memAccessRecord = record.eventRecord.record.memAccessRecord;
-            return DumpMemAccessData(clientId, memAccessRecord, stack);
         }
         default:
             break;
@@ -103,60 +99,31 @@ bool DumpRecord::WriteToFile(const DumpContainer &container, const CallStackStri
     return true;
 }
 
-bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRecord, const CallStackString &stack)
+bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
     if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
         return false;
     }
-    uint64_t currentSize;
-    if (memRecord.devType == DeviceType::CPU) {
-        if (memRecord.memType == MemOpType::MALLOC) {
-            hostMemSizeMap_[clientId][memRecord.addr] = memRecord.memSize;
-            currentSize = memRecord.memSize;
-        } else if (hostMemSizeMap_[clientId].find(memRecord.addr) != hostMemSizeMap_[clientId].end()) {
-            currentSize = hostMemSizeMap_[clientId][memRecord.addr];
-            hostMemSizeMap_[clientId].erase(memRecord.addr);
-        } else {
-            return false;
-        }
-    } else {
-        if (memRecord.memType == MemOpType::MALLOC) {
-            memSizeMap_[clientId][memRecord.addr] = memRecord.memSize;
-            currentSize = memRecord.memSize;
-        } else {
-            currentSize = memSizeMap_[clientId][memRecord.addr];
-            memSizeMap_[clientId][memRecord.addr] = 0;
-        }
-    }
-    std::string memOp = memRecord.memType == MemOpType::MALLOC ? "MALLOC" : "FREE";
-    std::string deviceType;
-    if (memRecord.devId == GD_INVALID_NUM) {
-        deviceType = "N/A";
-    } else {
-        deviceType = memRecord.space == MemOpSpace::HOST || memRecord.devType == DeviceType::CPU ?
-                "host" : std::to_string(memRecord.devId);
+    if (memRecord.memType == MemOpType::MALLOC) {
+        return true;
     }
 
-    // 组装attr属性
-    std::ostringstream oss;
-    oss << "{addr:" << memRecord.addr << ",size:" << currentSize << ",owner:" << ",MID:" << memRecord.modid << "}";
-    std::string attr = "\"" + oss.str() + "\"";
+    // free事件，落盘记录的全部内存状态数据
+    auto memoryStateRecord = DeviceManager::GetInstance(config_).GetMemoryStateRecord(clientId);
+    auto ptr = memRecord.addr;
+    auto key = std::make_pair("common", ptr);
+    auto memInfoLists = memoryStateRecord->GetPtrMemInfoList(key);
+    if (memInfoLists.empty()) {
+        return false;
+    }
 
-    DumpContainer container;
-    container.id = memRecord.recordIndex;
-    container.event = memOp;
-    container.eventType = "HAL";
-    container.name = "N/A";
-    container.timeStamp = memRecord.timeStamp;
-    container.pid = memRecord.pid;
-    container.tid = memRecord.tid;
-    container.deviceId = deviceType;
-    container.addr = std::to_string(memRecord.addr);
-    container.attr = attr;
+    for (auto memInfo : memInfoLists) {
+        if (!WriteToFile(memInfo.container, memInfo.stack)) return false;
+    }
+    memoryStateRecord->DeleteMemStateInfo(key);
 
-    bool isWriteSuccess = WriteToFile(container, stack);
-    return isWriteSuccess;
+    return true;
 }
 
 bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchRecord &kernelLaunchRecord)
@@ -304,7 +271,7 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
     return isWriteSuccess;
 }
 
-bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord, const CallStackString &stack)
+bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
     if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
@@ -313,37 +280,38 @@ bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &ev
 
     MemoryUsage memoryUsage { };
     std::string memPoolType { };
+    DumpContainer container;
     if (eventRecord.type == RecordType::TORCH_NPU_RECORD) {
         memoryUsage = eventRecord.record.torchNpuRecord.memoryUsage;
         memPoolType = "PTA";
+    } else if (eventRecord.type == RecordType::MINDSPORE_NPU_RECORD) {
+        memoryUsage = eventRecord.record.mindsporeNpuRecord.memoryUsage;
+        memPoolType = "Mindspore";
     } else {
         memoryUsage = eventRecord.record.atbMemPoolRecord.memoryUsage;
         memPoolType = "ATB";
     }
-    auto record = eventRecord.type == RecordType::TORCH_NPU_RECORD ?
-        eventRecord.record.torchNpuRecord : eventRecord.record.atbMemPoolRecord;
-    std::string eventType = memoryUsage.allocSize >= 0 ? "MALLOC" : "FREE";
 
-    // 组装attr属性
-    std::ostringstream oss;
-    oss << "{addr:" << memoryUsage.ptr << ",size:" << memoryUsage.allocSize << ",owner:" << ",total:" <<
-        memoryUsage.totalReserved << ",used:" << memoryUsage.totalAllocated << "}";
-    std::string attr = "\"" + oss.str() + "\"";
+    if (memoryUsage.allocSize >= 0) {
+        return true;
+    }
 
-    DumpContainer container;
-    container.id = record.recordIndex;
-    container.event = eventType;
-    container.eventType = memPoolType;
-    container.name = "N/A";
-    container.timeStamp = record.timeStamp;
-    container.pid = record.pid;
-    container.tid = record.tid;
-    container.deviceId = std::to_string(record.devId);
-    container.addr = std::to_string(memoryUsage.ptr);
-    container.attr = attr;
+    // free事件，落盘记录的全部内存状态数据
+    auto memoryStateRecord = DeviceManager::GetInstance(config_).GetMemoryStateRecord(clientId);
+    auto ptr = memoryUsage.ptr;
+    auto key = std::make_pair(memPoolType, ptr);
+    auto memInfoLiats = memoryStateRecord->GetPtrMemInfoList(key);
+    if (memInfoLiats.empty()) {
+        return false;
+    }
 
-    bool isWriteSuccess = WriteToFile(container, stack);
-    return isWriteSuccess;
+    for (auto memInfo : memInfoLiats) {
+        bool isWriteSuccess = WriteToFile(memInfo.container, memInfo.stack);
+        if (!isWriteSuccess) return false;
+    }
+    memoryStateRecord->DeleteMemStateInfo(key);
+
+    return true;
 }
 
 bool DumpRecord::DumpAtbOpData(const ClientId &clientId, const AtbOpExecuteRecord &atbOpExecuteRecord)
@@ -355,11 +323,11 @@ bool DumpRecord::DumpAtbOpData(const ClientId &clientId, const AtbOpExecuteRecor
     std::string eventType;
     switch (atbOpExecuteRecord.eventType) {
         case Leaks::OpEventType::ATB_START: {
-            eventType = "ATB_OP_START";
+            eventType = "ATB_START";
             break;
         }
         case Leaks::OpEventType::ATB_END: {
-            eventType = "ATB_OP_END";
+            eventType = "ATB_END";
             break;
         }
         default: {
@@ -397,11 +365,11 @@ bool DumpRecord::DumpAtbKernelData(const ClientId &clientId, const AtbKernelReco
     std::string eventType;
     switch (atbKernelRecord.eventType) {
         case Leaks::KernelEventType::KERNEL_START: {
-            eventType = "ATB_KERNEL_START";
+            eventType = "KERNEL_START";
             break;
         }
         case Leaks::KernelEventType::KERNEL_END: {
-            eventType = "ATB_KERNEL_END";
+            eventType = "KERNEL_END";
             break;
         }
         default: {
@@ -428,49 +396,6 @@ bool DumpRecord::DumpAtbKernelData(const ClientId &clientId, const AtbKernelReco
 
     CallStackString emptyStack {};
     return WriteToFile(container, emptyStack);
-}
-
-bool DumpRecord::DumpMemAccessData(const ClientId &clientId, const MemAccessRecord &memAccessRecord,
-    const CallStackString &stack)
-{
-    std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
-        return false;
-    }
-    std::string eventType;
-    switch (memAccessRecord.eventType) {
-        case Leaks::AccessType::READ: {
-            eventType = "READ";
-            break;
-        }
-        case Leaks::AccessType::WRITE: {
-            eventType = "WRITE";
-            break;
-        }
-        default: {
-            eventType = "UNKNOWN";
-            break;
-        }
-    }
-
-    std::ostringstream oss;
-    oss << "\"{addr:" << memAccessRecord.addr << ",size:"
-        << memAccessRecord.memSize << "," << memAccessRecord.attr << "}\"";
-    std::string attr = oss.str();
-
-    DumpContainer container;
-    container.id = memAccessRecord.recordIndex;
-    container.event = "ACCESS";
-    container.eventType = eventType;
-    container.name = memAccessRecord.name;
-    container.timeStamp = memAccessRecord.timestamp;
-    container.pid = memAccessRecord.pid;
-    container.tid = memAccessRecord.tid;
-    container.deviceId = std::to_string(memAccessRecord.devId);
-    container.addr = std::to_string(memAccessRecord.addr);
-    container.attr = attr;
-
-    return WriteToFile(container, stack);
 }
 
 DumpRecord::~DumpRecord()

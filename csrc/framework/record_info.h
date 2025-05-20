@@ -55,6 +55,7 @@ struct TorchNpuRecord {
 };
 
 using AtbMemPoolRecord = TorchNpuRecord;
+using MindsporeNpuRecord = TorchNpuRecord;
 
 enum class MemOpType : uint8_t {
     MALLOC = 0U,
@@ -211,8 +212,14 @@ enum class AccessType : uint8_t {
     UNKNOWN,
 };
 
+enum class AccessMemType : uint8_t {
+    ATB = 0,
+    ATEN,
+};
+
 struct MemAccessRecord {
     AccessType eventType;
+    AccessMemType memType;     // 所属的mem类型
     int32_t devId;
     uint64_t timestamp;
     uint64_t pid;
@@ -232,12 +239,14 @@ enum class RecordType {
     MSTX_MARK_RECORD,
     TORCH_NPU_RECORD,
     ATB_MEMORY_POOL_RECORD,
+    MINDSPORE_NPU_RECORD,
     ATB_OP_EXECUTE_RECORD,
     ATB_KERNEL_RECORD,
     ATEN_OP_LAUNCH_RECORD,
     MEM_ACCESS_RECORD,
     INVALID_RECORD,
 };
+
 
 // 事件记录载体
 struct EventRecord {
@@ -249,6 +258,7 @@ struct EventRecord {
         KernelLaunchRecord kernelLaunchRecord;
         MstxRecord mstxRecord;
         AtbMemPoolRecord atbMemPoolRecord;
+        MindsporeNpuRecord mindsporeNpuRecord;
         AtbOpExecuteRecord atbOpExecuteRecord;
         AtbKernelRecord atbKernelRecord;
         AtenOpLaunchRecord atenOpLaunchRecord;

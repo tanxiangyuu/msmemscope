@@ -216,6 +216,11 @@ void TraceRecord::ProcessRecord(const EventRecord &record)
             TorchRecordToString(torchNpuRecord, str);
             break;
         }
+        case RecordType::MINDSPORE_NPU_RECORD: {
+            device.index = record.record.mindsporeNpuRecord.devId;
+            MindsporeRecordToString(record.record.mindsporeNpuRecord, str);
+            break;
+        }
         case RecordType::MSTX_MARK_RECORD: {
             MstxRecord mstxRecord = record.record.mstxRecord;
             device.index = mstxRecord.devId;
@@ -335,6 +340,23 @@ void TraceRecord::TorchRecordToString(const TorchNpuRecord &torchNpuRecord, std:
     truePids_[Device{DeviceType::NPU, torchNpuRecord.devId}].insert(pid);
     JsonBaseInfo reservedBaseInfo{"torch reserved memory", pid, tid, kernelIndex};
     JsonBaseInfo allocatedBaseInfo{"torch allocated memory", pid, tid, kernelIndex};
+
+    str = FormatCounterEvent(reservedBaseInfo, std::to_string(memoryUsage.totalReserved));
+    str += FormatCounterEvent(allocatedBaseInfo, std::to_string(memoryUsage.totalAllocated));
+
+    return;
+}
+
+void TraceRecord::MindsporeRecordToString(const MindsporeNpuRecord &mindsporeNpuRecord, std::string &str)
+{
+    MemoryUsage memoryUsage = mindsporeNpuRecord.memoryUsage;
+    uint64_t kernelIndex = mindsporeNpuRecord.kernelIndex;
+    uint64_t pid = mindsporeNpuRecord.pid;
+    uint64_t tid = mindsporeNpuRecord.tid;
+
+    truePids_[Device{DeviceType::NPU, mindsporeNpuRecord.devId}].insert(pid);
+    JsonBaseInfo reservedBaseInfo{"mindspore reserved memory", pid, tid, kernelIndex};
+    JsonBaseInfo allocatedBaseInfo{"mindspore allocated memory", pid, tid, kernelIndex};
 
     str = FormatCounterEvent(reservedBaseInfo, std::to_string(memoryUsage.totalReserved));
     str += FormatCounterEvent(allocatedBaseInfo, std::to_string(memoryUsage.totalAllocated));

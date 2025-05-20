@@ -116,6 +116,14 @@ int EventReport::ReportRecordEvent(EventRecord &record, PacketHead &head, CallSt
     auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(buffer);
     return sendNums;
 }
+
+int EventReport::ReportRecordEvent(EventRecord &record, PacketHead &head)
+{
+    std::string buffer = Serialize<PacketHead, EventRecord>(head, record);
+    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(buffer);
+    return sendNums;
+}
+
 EventReport& EventReport::Instance(CommType type)
 {
     static EventReport instance(type);
@@ -216,6 +224,31 @@ bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord, CallStackString
     return (sendNums >= 0);
 }
 
+bool EventReport::ReportMindsporeNpu(MindsporeNpuRecord &mindsporeNpuRecord, CallStackString& stack)
+{
+    g_isInReportFunction = true;
+
+    if (!IsConnectToServer()) {
+        return true;
+    }
+
+    if (IsNeedSkip()) {
+        return true;
+    }
+    PacketHead head = {PacketType::RECORD};
+    EventRecord eventRecord;
+    eventRecord.type = RecordType::MINDSPORE_NPU_RECORD;
+    eventRecord.record.mindsporeNpuRecord = mindsporeNpuRecord;
+    eventRecord.record.mindsporeNpuRecord.timeStamp = Utility::GetTimeMicroseconds();
+    eventRecord.record.mindsporeNpuRecord.kernelIndex = kernelLaunchRecordIndex_;
+    eventRecord.record.mindsporeNpuRecord.devId = static_cast<int32_t>(mindsporeNpuRecord.memoryUsage.deviceIndex);
+    eventRecord.record.mindsporeNpuRecord.recordIndex = ++recordIndex_;
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+
+    g_isInReportFunction = false;
+    return (sendNums >= 0);
+}
+
 bool EventReport::ReportATBMemPoolRecord(AtbMemPoolRecord &record, CallStackString& stack)
 {
     g_isInReportFunction = true;
@@ -253,8 +286,7 @@ bool EventReport::ReportATBMemPoolRecord(AtbMemPoolRecord &record, CallStackStri
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportMalloc(
-    uint64_t addr, uint64_t size, unsigned long long flag, CallStackString& stack)
+bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag, CallStackString& stack)
 {
     g_isInReportFunction = true;
 
@@ -323,7 +355,7 @@ bool EventReport::ReportFree(uint64_t addr, CallStackString& stack)
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size, CallStackString& stack)
+bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size)
 {
     g_isInReportFunction = true;
 
@@ -347,13 +379,13 @@ bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size, CallStackString
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
 
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+    auto sendNums = ReportRecordEvent(eventRecord, head);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
 }
  
-bool EventReport::ReportHostFree(uint64_t addr, CallStackString& stack)
+bool EventReport::ReportHostFree(uint64_t addr)
 {
     g_isInReportFunction = true;
 
@@ -376,7 +408,7 @@ bool EventReport::ReportHostFree(uint64_t addr, CallStackString& stack)
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
 
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+    auto sendNums = ReportRecordEvent(eventRecord, head);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
