@@ -150,7 +150,8 @@ TEST(Process, do_dump_record_except_success)
     Record record{};
 
     Config config;
-    DumpRecord::GetInstance(config).DumpData(clientId, record);
+    CallStackString stack{};
+    DumpRecord::GetInstance(config).DumpData(clientId, record, stack);
 }
 
 TEST(Process, do_record_handler_except_success)
