@@ -5,9 +5,29 @@
 
 namespace Leaks {
 
+std::map<int32_t, std::string> g_moduleIdComponetsMap = {
+    {0, "SLOG"}, {1, "IDEDD"}, {2, "IDEDH"}, {3, "HCCL"}, {4, "FMK"}, {5, "HIAIENGINE"},
+    {6, "DVPP"}, {7, "RUNTIME"}, {8, "CCE"}, {9, "HDC"}, {10, "DRV"}, {11, "MDCFUSION"},
+    {12, "MDCLOCATION"}, {13, "MDCPERCEPTION"}, {14, "MDCFSM"}, {15, "MDCCOMMON"}, {16, "MDCMONITOR"},
+    {17, "MDCBSWP"}, {18, "MDCDEFAULT"}, {19, "MDCSC"}, {20, "MDCPNC"}, {21, "MLL"}, {22, "DEVMM"},
+    {23, "KERNEL"}, {24, "LIBMEDIA"}, {25, "CCECPU"}, {26, "ASCENDDK"}, {27, "ROS"}, {28, "HCCP"},
+    {29, "ROCE"}, {30, "TEFUSION"}, {31, "PROFILING"}, {32, "DP"}, {33, "APP"}, {34, "TS"}, {35, "TSDUMP"},
+    {36, "AICPU"}, {37, "LP"}, {38, "TDT"}, {39, "FE"}, {40, "MD"}, {41, "MB"}, {42, "ME"}, {43, "IMU"},
+    {44, "IMP"}, {45, "GE"}, {46, "MDCFUSA"}, {47, "CAMERA"}, {48, "ASCENDCL"}, {49, "TEEOS"}, {50, "ISP"},
+    {51, "SIS"}, {52, "HSM"}, {53, "DSS"}, {54, "PROCMGR"}, {55, "BBOX"}, {56, "AIVECTOR"}, {57, "TBE"},
+    {58, "FV"}, {59, "MDCMAP"}, {60, "TUNE"}, {61, "HSS"}, {62, "FFTS"}, {63, "OP"}, {64, "UDF"},
+    {65, "HICAID"}, {66, "TSYNC"}, {67, "AUDIO"}, {68, "TPRT"}, {69, "ASCENDCKERNEL"}, {70, "ASYS"},
+    {71, "ATRACE"}, {72, "RTC"}, {73, "SYSMONITOR"}, {74, "AML"}, {255, "UNKNOWN"}
+};
+
 MemoryStateRecord::MemoryStateRecord(Config config)
 {
     config_ = config;
+}
+
+std::map<std::pair<std::string, uint64_t>, std::vector<MemStateInfo>>& MemoryStateRecord::GetPtrMemoryInfoMap()
+{
+    return ptrMemoryInfoMap_;
 }
 
 void MemoryStateRecord::RecordMemoryState(const Record& record, CallStackString& stack)
@@ -19,6 +39,19 @@ void MemoryStateRecord::RecordMemoryState(const Record& record, CallStackString&
         return ;
     }
     it->second(record, stack);
+}
+
+void MemoryStateRecord::SaveMemInfoData(std::pair<std::string, uint64_t> key, DumpContainer& container,
+    CallStackString& stack)
+{
+    auto it = ptrMemoryInfoMap_.find(key);
+    if (it == ptrMemoryInfoMap_.end()) {
+        ptrMemoryInfoMap_.insert({key, {}});
+    }
+    MemStateInfo memInfo {};
+    memInfo.container = container;
+    memInfo.stack = stack;
+    ptrMemoryInfoMap_[key].push_back(memInfo);
 }
 
 void MemoryStateRecord::HostMemProcess(const MemOpRecord& memRecord, uint64_t& currentSize)
@@ -52,6 +85,30 @@ void MemoryStateRecord::HalMemProcess(MemOpRecord& memRecord, uint64_t& currentS
     }
 }
 
+void MemoryStateRecord::GetHalComponet(MemOpRecord& memRecord, std::string& halOwner)
+{
+    BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
+    // halfree目前moduleId为-1，需要和malloc事件匹配对应的component
+    if (memRecord.memType == MemOpType::FREE) {
+        auto key = std::make_pair("common", memRecord.addr);
+        auto it = ptrMemoryInfoMap_.find(key);
+        if (it == ptrMemoryInfoMap_.end() || ptrMemoryInfoMap_[key][0].container.event != "MALLOC") {
+            return ;
+        }
+        halOwner = Utility::ExtractAttrValueByKey(ptrMemoryInfoMap_[key][0].container.attr, "owner");
+        return ;
+    }
+
+    if (analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
+        auto it = g_moduleIdComponetsMap.find(memRecord.modid);
+        if (it != g_moduleIdComponetsMap.end()) {
+            halOwner = "CANN@{" + g_moduleIdComponetsMap[memRecord.modid] + "}";
+        } else {
+            halOwner = "CANN@{UNKNOWN}";
+        }
+    }
+}
+
 void MemoryStateRecord::MemoryInfoProcess(const Record& record, CallStackString& stack)
 {
     auto memRecord = record.eventRecord.record.memoryRecord;
@@ -75,9 +132,11 @@ void MemoryStateRecord::MemoryInfoProcess(const Record& record, CallStackString&
         }
     }
 
-    // 组装attr属性
+    std::string halOwner = "";
+    GetHalComponet(memRecord, halOwner);
     std::ostringstream oss;
-    oss << "{addr:" << memRecord.addr << ",size:" << currentSize << ",owner:" << ",MID:" << memRecord.modid << "}";
+    oss << "{addr:" << memRecord.addr << ",size:" << currentSize << ",owner:" << halOwner <<
+        ",MID:" << memRecord.modid << "}";
     std::string attr = "\"" + oss.str() + "\"";
 
     DumpContainer container;
@@ -93,14 +152,7 @@ void MemoryStateRecord::MemoryInfoProcess(const Record& record, CallStackString&
     container.attr = attr;
 
     auto key = std::make_pair("common", ptr);
-    auto it = ptrMemoryInfoMap_.find(key);
-    if (it == ptrMemoryInfoMap_.end()) {
-        ptrMemoryInfoMap_.insert({key, {}});
-    }
-    MemStateInfo memInfo {};
-    memInfo.container = container;
-    memInfo.stack = stack;
-    ptrMemoryInfoMap_[key].push_back(memInfo);
+    SaveMemInfoData(key, container, stack);
 }
 
 void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackString& stack)
@@ -137,14 +189,7 @@ void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackStr
     container.attr = attr;
 
     auto key = std::make_pair(memPoolType, ptr);
-    auto it = ptrMemoryInfoMap_.find(key);
-    if (it == ptrMemoryInfoMap_.end()) {
-        ptrMemoryInfoMap_.insert({key, {}});
-    }
-    MemStateInfo memInfo {};
-    memInfo.container = container;
-    memInfo.stack = stack;
-    ptrMemoryInfoMap_[key].push_back(memInfo);
+    SaveMemInfoData(key, container, stack);
 }
 
 void MemoryStateRecord::MemoryAccessInfoProcess(const Record& record, CallStackString& stack)
@@ -186,14 +231,7 @@ void MemoryStateRecord::MemoryAccessInfoProcess(const Record& record, CallStackS
 
     auto key = memAccessRecord.memType == AccessMemType::ATEN?
         std::make_pair("PTA", ptr) : std::make_pair("ATB", ptr);
-    auto it = ptrMemoryInfoMap_.find(key);
-    if (it == ptrMemoryInfoMap_.end()) {
-        ptrMemoryInfoMap_.insert({key, {}});
-    }
-    MemStateInfo memInfo {};
-    memInfo.container = container;
-    memInfo.stack = stack;
-    ptrMemoryInfoMap_[key].push_back(memInfo);
+    SaveMemInfoData(key, container, stack);
 }
 
 const std::vector<MemStateInfo>& MemoryStateRecord::GetPtrMemInfoList(std::pair<std::string, int64_t> key)
@@ -222,6 +260,7 @@ MemoryStateRecord::~MemoryStateRecord()
         for (auto memInfo : memInfoLists) {
             DumpRecord::GetInstance(config_).WriteToFile(memInfo.container, memInfo.stack);
         }
+        DeleteMemStateInfo(key);
         ++it;
     }
 }

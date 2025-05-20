@@ -15,7 +15,6 @@ TEST(DeviceManagerTest, get_empty_memory_state_record_expect_true_data)
     Config config;
     auto memoryStateRecord = DeviceManager::GetInstance(config).GetMemoryStateRecord(deviceId);
     ASSERT_EQ(DeviceManager::GetInstance(config).memoryStateRecordMap_.size(), 1);
-    DeviceManager::GetInstance(config).memoryStateRecordMap_.erase(0);
 }
 
 TEST(DeviceManagerTest, get_exist_memory_state_record_expect_true_data)
@@ -26,5 +25,4 @@ TEST(DeviceManagerTest, get_exist_memory_state_record_expect_true_data)
     DeviceManager::GetInstance(config).memoryStateRecordMap_.insert({1, record});
     auto memoryStateRecord = DeviceManager::GetInstance(config).GetMemoryStateRecord(deviceId);
     ASSERT_EQ(memoryStateRecord, record);
-    DeviceManager::GetInstance(config).memoryStateRecordMap_.erase(1);
 }

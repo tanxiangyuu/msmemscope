@@ -10,6 +10,7 @@
 #include "config_info.h"
 #include "event_report.h"
 #include "bit_field.h"
+#include "log.h"
 
 namespace Leaks {
 
@@ -300,12 +301,12 @@ bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &ev
     auto memoryStateRecord = DeviceManager::GetInstance(config_).GetMemoryStateRecord(clientId);
     auto ptr = memoryUsage.ptr;
     auto key = std::make_pair(memPoolType, ptr);
-    auto memInfoLiats = memoryStateRecord->GetPtrMemInfoList(key);
-    if (memInfoLiats.empty()) {
+    auto memInfoLists = memoryStateRecord->GetPtrMemInfoList(key);
+    if (memInfoLists.empty()) {
         return false;
     }
 
-    for (auto memInfo : memInfoLiats) {
+    for (auto memInfo : memInfoLists) {
         bool isWriteSuccess = WriteToFile(memInfo.container, memInfo.stack);
         if (!isWriteSuccess) return false;
     }
@@ -400,6 +401,27 @@ bool DumpRecord::DumpAtbKernelData(const ClientId &clientId, const AtbKernelReco
 
 DumpRecord::~DumpRecord()
 {
+    // dump未匹配的内存状态事件
+    {
+        std::lock_guard<std::mutex> lock(fileMutex_);
+        auto stateRecordMap = DeviceManager::GetInstance(config_).GetMemoryStateRecordMap();
+        for (auto it = stateRecordMap.begin(); it != stateRecordMap.end();) {
+            auto memStateRecord = it->second;
+            auto ptrMemInfoMap = memStateRecord->GetPtrMemoryInfoMap();
+            for (auto itMemInfo = ptrMemInfoMap.begin(); itMemInfo != ptrMemInfoMap.end();) {
+                auto memInfoList = itMemInfo->second;
+                for (auto memInfo : memInfoList) {
+                    if (!WriteToFile(memInfo.container, memInfo.stack)) {
+                        LOG_WARN("dump mem state info failed!");
+                    }
+                }
+                memStateRecord->DeleteMemStateInfo(itMemInfo->first);
+                ++itMemInfo;
+            }
+            ++it;
+        }
+    }
+
     if (leaksDataFile_ != nullptr) {
         fclose(leaksDataFile_);
         leaksDataFile_ = nullptr;

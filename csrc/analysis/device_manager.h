@@ -14,6 +14,7 @@ public:
     static DeviceManager& GetInstance(Config config);
     std::shared_ptr<MemoryStateRecord> GetMemoryStateRecord(int32_t deviceId);
     explicit DeviceManager(Config config);
+    std::map<int32_t, std::shared_ptr<MemoryStateRecord>>& GetMemoryStateRecordMap();
 private:
     ~DeviceManager() = default;
 private:
