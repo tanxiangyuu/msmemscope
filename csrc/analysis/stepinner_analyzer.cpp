@@ -141,18 +141,18 @@ void StepInnerAnalyzer::CheckNpuLeak(const DeviceId &deviceId, const uint64_t st
     return;
 }
 
-void StepInnerAnalyzer::NotifyTraceRecord(const int32_t &devId, const TorchNpuRecord &torchNpuRecord)
+void StepInnerAnalyzer::NotifyTraceRecord(const int32_t &devId, const MemPoolRecord &memPoolRecord)
 {
-    uint64_t ptr = torchNpuRecord.memoryUsage.ptr;
+    uint64_t ptr = memPoolRecord.memoryUsage.ptr;
     if (npuMemUsages_[devId].mempooltable[ptr].duration >= (durationThreshold_ + 1)
         && npuMemUsages_[devId].mempooltable[ptr].stepId > skipSteps_
     ) {
         TorchMemLeakInfo info{
             devId,
             npuMemUsages_[devId].mempooltable[ptr].kernelIndex,
-            torchNpuRecord.kernelIndex - npuMemUsages_[devId].mempooltable[ptr].kernelIndex,
+            memPoolRecord.kernelIndex - npuMemUsages_[devId].mempooltable[ptr].kernelIndex,
             ptr,
-            -torchNpuRecord.memoryUsage.allocSize
+            -memPoolRecord.memoryUsage.allocSize
         };
         TraceRecord::GetInstance().ProcessTorchMemLeakInfo(info);
     }
@@ -234,7 +234,7 @@ void StepInnerAnalyzer::CheckGap(const DeviceId &deviceId)
 }
 
 void StepInnerAnalyzer::RecordNpuMalloc(const ClientId &clientId, const DeviceId &deviceId,
-    const TorchNpuRecord &torchnpuRecord)
+    const MemPoolRecord &torchnpuRecord)
 {
     MemoryUsage memoryusage = torchnpuRecord.memoryUsage;
     int64_t npumemptr = memoryusage.ptr;
@@ -253,7 +253,7 @@ void StepInnerAnalyzer::RecordNpuMalloc(const ClientId &clientId, const DeviceId
 }
 
 void  StepInnerAnalyzer::RecordNpuFree(const ClientId &clientId, const DeviceId &deviceId,
-    const TorchNpuRecord &torchnpuRecord)
+    const MemPoolRecord &torchnpuRecord)
 {
     MemoryUsage memoryusage = torchnpuRecord.memoryUsage;
     int64_t npumemptr = memoryusage.ptr;
@@ -300,7 +300,7 @@ bool StepInnerAnalyzer::Record(const ClientId &clientId, const EventRecord &reco
     if (!IsStepInnerAnalysisEnable()) {
         return true;
     }
-    TorchNpuRecord torchnpuRecord = record.record.torchNpuRecord;
+    MemPoolRecord torchnpuRecord = record.record.memPoolRecord;
     DeviceId deviceId = torchnpuRecord.memoryUsage.deviceIndex;
     if (!CreateTables(deviceId)) {
         LOG_ERROR("[device %ld]: Create npu Memory table failed.", deviceId);

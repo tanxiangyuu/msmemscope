@@ -54,7 +54,7 @@ TEST(EventReportTest, ReportMallocTestDEVICE) {
 TEST(EventReportTest, ReportTorchNpuMallocTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
 
-    auto npuRecordMalloc = TorchNpuRecord {};
+    auto npuRecordMalloc = MemPoolRecord {};
     npuRecordMalloc.recordIndex = 1;
     auto memoryusage1 = MemoryUsage {};
     memoryusage1.deviceIndex = 0;
@@ -71,7 +71,7 @@ TEST(EventReportTest, ReportTorchNpuMallocTest) {
 TEST(EventReportTest, ReportTorchNpuFreeTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
 
-    auto npuRecordFree = TorchNpuRecord {};
+    auto npuRecordFree = MemPoolRecord {};
     npuRecordFree.recordIndex = 3;
     auto memoryusage1 = MemoryUsage {};
     memoryusage1.deviceIndex = 3;
@@ -410,8 +410,8 @@ TEST(EventReportTest, ReportTestWithNoReceiveServerInfo) {
     AclOpType aclOpType = {};
     EXPECT_TRUE(instance.ReportAclItf(aclOpType));
 
-    TorchNpuRecord torchNpuRecord = {};
-    EXPECT_TRUE(instance.ReportTorchNpu(torchNpuRecord, callStack));
+    MemPoolRecord memPoolRecord = {};
+    EXPECT_TRUE(instance.ReportTorchNpu(memPoolRecord, callStack));
 
     MstxRecord mstxRecord = {};
     EXPECT_TRUE(instance.ReportMark(mstxRecord, callStack));

@@ -103,23 +103,28 @@ void MemoryStateRecord::MemoryInfoProcess(const Record& record, CallStackString&
     ptrMemoryInfoMap_[key].push_back(memInfo);
 }
 
+inline void CopyMemPoolRecordMember(const MemPoolRecord &record, DumpContainer &container)
+{
+    container.id = record.recordIndex;
+    container.pid = record.pid;
+    container.tid = record.tid;
+    container.timeStamp = record.timeStamp;
+    container.deviceId = std::to_string(record.devId);
+}
+
 void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackString& stack)
 {
     MemoryUsage memoryUsage { };
     std::string memPoolType { };
     DumpContainer container;
+    memoryUsage = record.eventRecord.record.memPoolRecord.memoryUsage;
+    CopyMemPoolRecordMember(record.eventRecord.record.memPoolRecord, container);
     if (record.eventRecord.type == RecordType::TORCH_NPU_RECORD) {
-        memoryUsage = record.eventRecord.record.torchNpuRecord.memoryUsage;
         memPoolType = "PTA";
-        CopyMemPoolRecordMember(record.eventRecord.record.torchNpuRecord, container);
     } else if (record.eventRecord.type == RecordType::MINDSPORE_NPU_RECORD) {
-        memoryUsage = record.eventRecord.record.mindsporeNpuRecord.memoryUsage;
         memPoolType = "Mindspore";
-        CopyMemPoolRecordMember(record.eventRecord.record.mindsporeNpuRecord, container);
     } else {
-        memoryUsage = record.eventRecord.record.atbMemPoolRecord.memoryUsage;
         memPoolType = "ATB";
-        CopyMemPoolRecordMember(record.eventRecord.record.atbMemPoolRecord, container);
     }
 
     std::string eventType = memoryUsage.allocSize >= 0 ? "MALLOC" : "FREE";
