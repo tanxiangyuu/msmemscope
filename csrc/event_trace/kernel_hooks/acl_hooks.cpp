@@ -20,6 +20,34 @@
 
 using namespace Leaks;
 
+void EnableAtenCollection()
+{
+    if (!Utility::IsPyInterpRepeInited()) {
+            CLIENT_ERROR_LOG("Python Interpreter initialization FAILED");
+            return;
+    }
+ 
+    Utility::PyInterpGuard stat;
+    Utility::PythonObject sys = Utility::PythonObject::Import("sys");
+    Utility::PythonObject modules = sys.Get("modules");
+    Utility::PythonObject torch = modules.GetItem(Utility::PythonObject("torch"));
+    if (!torch.IsBad()) {
+        Utility::PythonObject atenCollection = Utility::PythonObject::Import("msleaks.aten_collection", false);
+        if (atenCollection.IsBad()) {
+            CLIENT_ERROR_LOG("import msleaks.aten_collection FAILED");
+            return;
+        }
+ 
+        Utility::PythonObject enableAtenCollector = atenCollection.Get("enable_aten_collector");
+        if (enableAtenCollector.IsBad()) {
+            CLIENT_ERROR_LOG("enable aten collector FAILED");
+            return;
+        }
+        enableAtenCollector.Call();
+    }
+    return;
+}
+ 
 ACL_FUNC_VISIBILITY aclError aclInit(const char *configPath)
 {
     using AclInit = decltype(&aclInit);
@@ -38,23 +66,7 @@ ACL_FUNC_VISIBILITY aclError aclInit(const char *configPath)
     Config userConfig =  EventReport::Instance(CommType::SOCKET).GetConfig();
     BitField<decltype(userConfig.levelType)> levelType(userConfig.levelType);
     if (levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_OP))) {
-        if (!Utility::IsPyInterpRepeInited()) {
-            CLIENT_ERROR_LOG("Python Interpreter initialization FAILED");
-            return ret;
-        }
-        Utility::PyInterpGuard stat;
-        Utility::PythonObject atenCollection = Utility::PythonObject::Import("msleaks.aten_collection", false);
-        if (atenCollection.IsBad()) {
-            CLIENT_ERROR_LOG("import msleaks.aten_collection FAILED");
-            return ret;
-        }
-
-        Utility::PythonObject enableAtenCollector = atenCollection.Get("enable_aten_collector");
-        if (enableAtenCollector.IsBad()) {
-            CLIENT_ERROR_LOG("enable aten collector FAILED");
-            return ret;
-        }
-        enableAtenCollector.Call();
+        EnableAtenCollection();
     }
 
     return ret;

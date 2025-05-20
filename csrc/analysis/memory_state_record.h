@@ -10,7 +10,6 @@
 
 #include "record_info.h"
 #include "config_info.h"
-#include "ustring.h"
 #include "bit_field.h"
 
 namespace Leaks {
@@ -36,8 +35,7 @@ public:
 private:
     void HostMemProcess(const MemOpRecord& memRecord, uint64_t& currentSize);
     void HalMemProcess(MemOpRecord& memRecord, uint64_t& currentSize, std::string& deviceType);
-    void GetHalComponet(MemOpRecord& memRecord, std::string& halOwner);
-    void SaveMemInfoData(std::pair<std::string, uint64_t> key, DumpContainer& container, CallStackString& stack);
+    std::string& GetHalAttr(MemOpRecord& memRecord, std::string& halOwner, uint64_t currentSize);
 private:
     std::map<std::pair<std::string, uint64_t>, std::vector<MemStateInfo>> ptrMemoryInfoMap_;
     std::unordered_map<uint64_t, uint64_t> hostMemSizeMap_;
