@@ -37,6 +37,13 @@ enum class EventType : uint8_t {
     ACCESS_EVENT = 3,
 };
 
+// analysis type可以多选，每一种type占一个bit位
+enum class AnalysisType : uint8_t {
+    LEAKS_ANALYSIS = 0,
+    DECOMPOSE_ANALYSIS = 1,
+    INEFFICIENT_ANALYSIS = 2,
+};
+
 struct SelectedStepList {
     uint32_t stepIdList[SELECTED_STEP_MAX_NUM];
     uint8_t stepCount;
@@ -78,6 +85,7 @@ struct Config {
     WatchConfig watchConfig;
     uint8_t levelType;
     uint8_t eventType;
+    uint8_t analysisType;
     char outputDir[128];
 };
 
