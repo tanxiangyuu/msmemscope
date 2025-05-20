@@ -29,6 +29,7 @@ enum class OptVal : int32_t {
     DATA_TRACE_LEVEL,
     LOG_LEVEL,
     EVENT_TRACE_TYPE,
+    ANALYSIS,
 };
 constexpr uint16_t INPUT_STR_MAX_LEN = 4096;
 
@@ -66,6 +67,15 @@ void ShowHelpInfo()
         << "                                             e.g. --call-stack=c:20,python:10" << std::endl
         << "                                                  --call-stack=python" << std::endl
         << "                                             The input params need to be separated by, or ，." << std::endl
+        << "    --analysis                               Specify the analysis method to enable (optional)."
+        << std::endl
+        << "                                             Available options:" << std::endl
+        << "                                               - leaks : Enables memory leak detection (default)"
+        << std::endl
+        << "                                               - decompose : Enables memory categorization" << std::endl
+        << "                                               - inefficient : Enables memory inefficiencies detection"
+        << std::endl
+        << "                                             Leave empty to disable all analysis features." << std::endl
         << "    --compare                                Enable memory data comparison." << std::endl
         << "    --watch                                  Enable watch ability." << std::endl
         << "                                             e.g. [start[:outid]],end[,full-content]" << std::endl
@@ -138,6 +148,7 @@ std::vector<option> GetLongOptArray()
         {"version", no_argument, nullptr, 'v'},
         {"steps", required_argument, nullptr, static_cast<int32_t>(OptVal::SELECT_STEPS)},
         {"call-stack", required_argument, nullptr, static_cast<int32_t>(OptVal::CALL_STACK)},
+        {"analysis", required_argument, nullptr, static_cast<int32_t>(OptVal::ANALYSIS)},
         {"compare", no_argument, nullptr, static_cast<int32_t>(OptVal::COMPARE)},
         {"watch", required_argument, nullptr, static_cast<int32_t>(OptVal::WATCH)},
         {"input", required_argument, nullptr, static_cast<int32_t>(OptVal::INPUT)},
@@ -199,6 +210,40 @@ static void ParseSelectSteps(const std::string &param, UserCommand &userCommand)
         it++;
     }
 
+    return;
+}
+
+static void ParseAnalysis(const std::string &param, UserCommand &userCommand)
+{
+    std::regex dividePattern(R"([，,])");
+    std::sregex_token_iterator it(param.begin(), param.end(), dividePattern, -1);
+    std::sregex_token_iterator end;
+
+    auto parseFailed = [&userCommand](void) {
+        std::cout << "[msleaks] ERROR: invalid analysis type input." << std::endl;
+        userCommand.printHelpInfo = true;
+    };
+
+    BitField<decltype(userCommand.config.analysisType)> analysisTypeBit;
+
+    std::unordered_map<std::string, AnalysisType> analysisMp = {
+        {"leaks", AnalysisType::LEAKS_ANALYSIS},
+        {"decompose", AnalysisType::DECOMPOSE_ANALYSIS},
+        {"inefficient", AnalysisType::INEFFICIENT_ANALYSIS},
+    };
+    while (it != end) {
+        std::string analysisMethod = it->str();
+        if (!analysisMethod.empty()) {
+            if (analysisMp.count(analysisMethod)) {
+                analysisTypeBit.setBit(static_cast<size_t>(analysisMp[analysisMethod]));
+            } else {
+                return parseFailed();
+            }
+        }
+        it++;
+    }
+
+    userCommand.config.analysisType = analysisTypeBit.getValue();
     return;
 }
 
@@ -503,6 +548,9 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
         case static_cast<int32_t>(OptVal::SELECT_STEPS):
             ParseSelectSteps(param, userCommand);
             break;
+        case static_cast<int32_t>(OptVal::ANALYSIS):
+            ParseAnalysis(param, userCommand);
+            break;
         case static_cast<int32_t>(OptVal::CALL_STACK):
             ParseCallstack(param, userCommand);
             break;
@@ -549,6 +597,10 @@ void ClientParser::InitialUserCommand(UserCommand &userCommand)
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
     userCommand.config.eventType = eventBit.getValue();
+
+    BitField<decltype(userCommand.config.analysisType)> analysisBit;
+    analysisBit.setBit(static_cast<size_t>(AnalysisType::LEAKS_ANALYSIS));
+    userCommand.config.analysisType = analysisBit.getValue();
 
     userCommand.config.watchConfig.isWatched = false;
     (void)memset_s(userCommand.config.watchConfig.start, WATCH_OP_DIR_MAX_LENGTH, 0, WATCH_OP_DIR_MAX_LENGTH);

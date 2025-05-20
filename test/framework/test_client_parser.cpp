@@ -57,6 +57,89 @@ TEST(ClientParser, pass_help_parameter_expect_show_help_info)
     ASSERT_NE(capture.find("Usage"), std::string::npos);
 }
 
+TEST(ClientParser, pass_valid_analysis_type_case_not_set)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.analysisType, 1);
+}
+
+TEST(ClientParser, pass_valid_analysis_type_case_leaks)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--analysis=leaks"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.analysisType, 1);
+}
+
+TEST(ClientParser, pass_valid_analysis_type_case_decompose)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--analysis=decompose"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.analysisType, 2);
+}
+
+TEST(ClientParser, pass_valid_analysis_type_case_inefficient)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--analysis=inefficient"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.analysisType, 4);
+}
+
+TEST(ClientParser, pass_valid_analysis_type_case_all)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--analysis=leaks,decompose,inefficient"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.eventType, 7);
+}
+
+TEST(ClientParser, pass_invalid_analysis_type_case)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--analysis=lekas"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.printHelpInfo);
+}
+
 TEST(ClientParser, pass_valid_level_value_expect_level0)
 {
     std::vector<const char*> argv = {
