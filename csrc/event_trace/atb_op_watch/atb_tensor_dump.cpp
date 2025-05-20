@@ -8,7 +8,7 @@
 #include "atb_tensor_dump.h"
 
 namespace Leaks {
-static void CleanFileName(std::string& fileName)
+void CleanFileName(std::string& fileName)
 {
     for (size_t i = 0; i < fileName.size(); i++) {
         if (fileName[i] == '/') {
