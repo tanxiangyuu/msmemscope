@@ -88,6 +88,7 @@ void AtenManager::ReportAtenAccess(const char* msg, int32_t streamId)
     } else {
         record.eventType = AccessType::READ;
     }
+    record.memType = AccessMemType::ATEN;
 
     if (!Utility::StrToUint64(record.addr, addr)) {
         CLIENT_ERROR_LOG("Aten Tensor's addr StrToUint64 failed");
