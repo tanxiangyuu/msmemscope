@@ -7,6 +7,9 @@ endif()
 
 target_sources(ascend_kernel_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/event_report.cpp
+  ${EVENT_TRACE_INC_DIR}/kernel_hooks/kernel_event_trace.cpp
+  ${EVENT_TRACE_INC_DIR}/kernel_hooks/driver_prof_api.cpp
+  ${EVENT_TRACE_INC_DIR}/kernel_hooks/runtime_prof_api.cpp
   ${FRAMEWORK_INC_DIR}/client_process.cpp
   ${FUNC_INJECTION_CORE_DIR}/Communication.cpp
   ${FUNC_INJECTION_CORE_DIR}/DomainSocket.cpp
@@ -32,3 +35,9 @@ target_include_directories(ascend_kernel_hook PUBLIC
 )
 target_link_options(ascend_kernel_hook PRIVATE "-Wl,--disable-new-dtags")
 target_link_libraries(ascend_kernel_hook ascend_hal dl pthread stdc++fs c_sec)
+
+target_sources(ascend_leaks PRIVATE
+  driver_prof_api.cpp
+  kernel_event_trace.cpp
+  runtime_prof_api.cpp
+)

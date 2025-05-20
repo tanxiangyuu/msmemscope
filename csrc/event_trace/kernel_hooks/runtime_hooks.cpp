@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <sstream>
 #include <cstdio>
+#include <mutex>
 #include <cstdlib>
 #include <iterator>
 #include <unordered_map>
@@ -19,6 +20,7 @@
 #include "log.h"
 #include "record_info.h"
 #include "handle_mapping.h"
+#include "kernel_event_trace.h"
 
 using namespace Leaks;
 
@@ -36,9 +38,16 @@ KernelLaunchRecord CreateKernelLaunchRecord(uint32_t blockDim, rtStream_t stm, K
 }
 }
 
+void static StartKernelEventTrace()
+{
+    static std::once_flag flag;
+    std::call_once(flag, &KernelEventTrace::StartKernelEventTrace, &KernelEventTrace::GetInstance());
+}
+
 RTS_API rtError_t rtKernelLaunch(
     const void *stubFunc, uint32_t blockDim, void *args, uint32_t argsSize, rtSmDesc_t *smDesc, rtStream_t stm)
 {
+    StartKernelEventTrace();
     using RtKernelLaunch = decltype(&rtKernelLaunch);
     auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtKernelLaunch>(__func__);
     if (vallina == nullptr) {
@@ -46,19 +55,18 @@ RTS_API rtError_t rtKernelLaunch(
         return RT_ERROR_RESERVED;
     }
 
-    rtError_t ret = vallina(stubFunc, blockDim, args, argsSize, smDesc, stm);
     auto record = KernelLaunchRecord {};
     record = CreateKernelLaunchRecord(blockDim, stm, KernelLaunchType::NORMAL);
     auto hdl = HandleMapping::GetInstance().StubHandleMapFind(stubFunc);
-    if (!EventReport::Instance(CommType::SOCKET).ReportKernelLaunch(record, hdl)) {
-        CLIENT_ERROR_LOG("rtKernelLaunch report FAILED");
-    }
+    KernelEventTrace::GetInstance().KernelLaunch(record, hdl);
+    rtError_t ret = vallina(stubFunc, blockDim, args, argsSize, smDesc, stm);
     return ret;
 }
 
 RTS_API rtError_t rtKernelLaunchWithHandleV2(void *hdl, const uint64_t tilingKey, uint32_t blockDim,
     rtArgsEx_t *argsInfo, rtSmDesc_t *smDesc, rtStream_t stm, const rtTaskCfgInfo_t *cfgInfo)
 {
+    StartKernelEventTrace();
     using RtKernelLaunchWithHandleV2 = decltype(&rtKernelLaunchWithHandleV2);
     auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtKernelLaunchWithHandleV2>(__func__);
     if (vallina == nullptr) {
@@ -66,18 +74,17 @@ RTS_API rtError_t rtKernelLaunchWithHandleV2(void *hdl, const uint64_t tilingKey
         return RT_ERROR_RESERVED;
     }
 
-    rtError_t ret = vallina(hdl, tilingKey, blockDim, argsInfo, smDesc, stm, cfgInfo);
     auto record = KernelLaunchRecord {};
     record = CreateKernelLaunchRecord(blockDim, stm, KernelLaunchType::HANDLEV2);
-    if (!EventReport::Instance(CommType::SOCKET).ReportKernelLaunch(record, hdl)) {
-        CLIENT_ERROR_LOG("rtKernelLaunchWithHandleV2 report FAILED");
-    }
+    KernelEventTrace::GetInstance().KernelLaunch(record, hdl);
+    rtError_t ret = vallina(hdl, tilingKey, blockDim, argsInfo, smDesc, stm, cfgInfo);
     return ret;
 }
 
 RTS_API rtError_t rtKernelLaunchWithFlagV2(const void *stubFunc, uint32_t blockDim, rtArgsEx_t *argsInfo,
     rtSmDesc_t *smDesc, rtStream_t stm, uint32_t flags, const rtTaskCfgInfo_t *cfgInfo)
 {
+    StartKernelEventTrace();
     using RtKernelLaunchWithFlagV2 = decltype(&rtKernelLaunchWithFlagV2);
     auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtKernelLaunchWithFlagV2>(__func__);
     if (vallina == nullptr) {
@@ -85,13 +92,11 @@ RTS_API rtError_t rtKernelLaunchWithFlagV2(const void *stubFunc, uint32_t blockD
         return RT_ERROR_RESERVED;
     }
 
-    rtError_t ret = vallina(stubFunc, blockDim, argsInfo, smDesc, stm, flags, cfgInfo);
     auto record = KernelLaunchRecord {};
     record = CreateKernelLaunchRecord(blockDim, stm, KernelLaunchType::FLAGV2);
     auto hdl = HandleMapping::GetInstance().StubHandleMapFind(stubFunc);
-    if (!EventReport::Instance(CommType::SOCKET).ReportKernelLaunch(record, hdl)) {
-        CLIENT_ERROR_LOG("rtKernelLaunchWithFlagV2 report FAILED");
-    }
+    KernelEventTrace::GetInstance().KernelLaunch(record, hdl);
+    rtError_t ret = vallina(stubFunc, blockDim, argsInfo, smDesc, stm, flags, cfgInfo);
     return ret;
 }
 
