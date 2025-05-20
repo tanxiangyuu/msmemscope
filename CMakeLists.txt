@@ -12,7 +12,11 @@ add_compile_options("-fstack-protector-all")
 add_compile_options("-Wall")
 add_compile_options("-D_FORTIFY_SOURCE=2")
 add_compile_options("-fno-strict-aliasing")
-add_compile_options("-O2")
+if (${BUILD_TESTS})
+  add_compile_options("-O0") #内联扩展导致lcov覆盖率扫描不到，因此test工程不进行编译优化
+else()
+  add_compile_options("-O2")
+endif()
 
 add_link_options("-Wl,-z,now")
 add_link_options("-Wl,-z,relro")

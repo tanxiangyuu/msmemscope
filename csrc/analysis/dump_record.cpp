@@ -46,6 +46,10 @@ bool DumpRecord::DumpData(const ClientId &clientId, const Record &record, const 
             auto kernelLaunchRecord = record.eventRecord.record.kernelLaunchRecord;
             return DumpKernelData(clientId, kernelLaunchRecord);
         }
+        case RecordType::KERNEL_EXCUTE_RECORD: {
+            auto kernelExcuteRecord = record.eventRecord.record.kernelExcuteRecord;
+            return DumpKernelExcuteData(kernelExcuteRecord);
+        }
         case RecordType::ACL_ITF_RECORD: {
             auto aclItfRecord = record.eventRecord.record.aclItfRecord;
             return DumpAclItfData(clientId, aclItfRecord);
@@ -81,9 +85,11 @@ bool DumpRecord::DumpData(const ClientId &clientId, const Record &record, const 
 
 bool DumpRecord::WriteToFile(const DumpContainer &container, const CallStackString &stack)
 {
-    if (!Utility::Fprintf(leaksDataFile_, "%lu,%s,%s,%s,%lu,%lu,%lu,%s,%s,%s",
+    std::string pid = container.pid == INVALID_PROCESSID ? "N/A" : std::to_string(container.pid);
+    std::string tid = container.tid == INVALID_THREADID ? "N/A" : std::to_string(container.tid);
+    if (!Utility::Fprintf(leaksDataFile_, "%lu,%s,%s,%s,%lu,%s,%s,%s,%s,%s",
         container.id, container.event.c_str(), container.eventType.c_str(), container.name.c_str(),
-        container.timeStamp, container.pid, container.tid, container.deviceId.c_str(),
+        container.timeStamp, pid.c_str(), tid.c_str(), container.deviceId.c_str(),
         container.addr.c_str(), container.attr.c_str())) {
         return false;
     }
@@ -150,6 +156,41 @@ bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchReco
     container.tid = kernelLaunchRecord.tid;
     container.deviceId = std::to_string(kernelLaunchRecord.devId);
     container.addr = "N/A";
+
+    // 组装attr属性
+    std::ostringstream oss;
+    oss << "{steamId:" << kernelLaunchRecord.streamId << ",taskId:" << kernelLaunchRecord.taskId << "}";
+    std::string attr = "\"" + oss.str() + "\"";
+    container.attr = attr;
+
+    CallStackString emptyStack {};
+    bool isWriteSuccess = WriteToFile(container, emptyStack);
+    return isWriteSuccess;
+}
+
+bool DumpRecord::DumpKernelExcuteData(const KernelExcuteRecord &record)
+{
+    std::lock_guard<std::mutex> lock(fileMutex_);
+    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+        return false;
+    }
+
+    DumpContainer container;
+    container.id = record.recordIndex;
+    container.event = "KERNEL_LAUNCH";
+    container.eventType = record.type == KernelEventType::KERNEL_START ? "KERNEL_EXCUTE_START" : "KERNEL_EXCUTE_END";
+    container.name = record.kernelName;
+    container.timeStamp = record.timeStamp;
+    container.pid = INVALID_PROCESSID;
+    container.tid = INVALID_THREADID;
+    container.deviceId = std::to_string(record.devId);
+    container.addr = "N/A";
+
+    // 组装attr属性
+    std::ostringstream oss;
+    oss << "{steamId:" << record.streamId << ",taskId:" << record.taskId << "}";
+    std::string attr = "\"" + oss.str() + "\"";
+    container.attr = attr;
 
     CallStackString emptyStack {};
     bool isWriteSuccess = WriteToFile(container, emptyStack);

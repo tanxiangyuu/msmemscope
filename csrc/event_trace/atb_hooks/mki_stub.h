@@ -8,7 +8,9 @@
 
 namespace Mki {
 constexpr size_t DEFAULT_SVECTOR_SIZE = 48;
+constexpr bool CHECK_BOUND = true;
 
+struct MaxSizeExceeded : public std::exception {};
 template <class T, std::size_t MAX_SIZE = DEFAULT_SVECTOR_SIZE> class SVector {
 public:
     T *begin() noexcept
@@ -38,6 +40,15 @@ public:
         }
         return storage_[i];
     }
+
+    void push_back(const T &val) noexcept((!CHECK_BOUND) && std::is_nothrow_assignable<T, const T &>::value)
+    {
+        if (CHECK_BOUND && size_ == MAX_SIZE) {
+            throw MaxSizeExceeded();
+        }
+        storage_[size_++] = val;
+    }
+
     std::size_t size() const noexcept { return size_; }
 private:
     T storage_[MAX_SIZE + 1];

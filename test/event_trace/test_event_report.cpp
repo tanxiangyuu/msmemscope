@@ -220,7 +220,12 @@ TEST(EventReportTest, ReportKernelLaunchTest) {
     instance.isReceiveServerInfo_ = true;
     KernelLaunchRecord record;
     void *hdl = nullptr;
-    EXPECT_TRUE(instance.ReportKernelLaunch(record, hdl));
+    int16_t devId = 1;
+    int16_t streamId = 1;
+    int16_t taskId = 1;
+    auto taskKey = std::make_tuple(devId, streamId, taskId);
+    std::string s;
+    EXPECT_TRUE(instance.ReportKernelLaunch(record, hdl, s, taskKey));
 }
 
 TEST(EventReportTest, ReportAclItfTest) {
@@ -405,7 +410,12 @@ TEST(EventReportTest, ReportTestWithNoReceiveServerInfo) {
     EXPECT_TRUE(instance.ReportHostFree(testAddr));
 
     KernelLaunchRecord kernelLaunchRecord = {};
-    EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchRecord, nullptr));
+    int16_t devId = 1;
+    int16_t streamId = 1;
+    int16_t taskId = 1;
+    auto taskKey = std::make_tuple(devId, streamId, taskId);
+    std::string s;
+    EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchRecord, nullptr, s, taskKey));
 
     AclOpType aclOpType = {};
     EXPECT_TRUE(instance.ReportAclItf(aclOpType));

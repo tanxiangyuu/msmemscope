@@ -30,5 +30,7 @@ private:
     ATBTensorDump() = default;
     ~ATBTensorDump() = default;
 };
+
+void CleanFileName(std::string& fileName);
 }
 #endif
