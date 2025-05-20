@@ -2,6 +2,8 @@
 
 #include "memory_state_record.h"
 #include "dump_record.h"
+#include "utility/log.h"
+#include "bit_field.h"
 
 namespace Leaks {
 
@@ -103,31 +105,21 @@ void MemoryStateRecord::MemoryInfoProcess(const Record& record, CallStackString&
     ptrMemoryInfoMap_[key].push_back(memInfo);
 }
 
-void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackString& stack)
+void MemoryStateRecord::PackDumpContainer(
+    DumpContainer& container, const MemoryUsage& memoryUsage, const std::string memPoolType)
 {
-    MemoryUsage memoryUsage { };
-    std::string memPoolType { };
-    DumpContainer container;
-    if (record.eventRecord.type == RecordType::TORCH_NPU_RECORD) {
-        memoryUsage = record.eventRecord.record.torchNpuRecord.memoryUsage;
-        memPoolType = "PTA";
-        CopyMemPoolRecordMember(record.eventRecord.record.torchNpuRecord, container);
-    } else if (record.eventRecord.type == RecordType::MINDSPORE_NPU_RECORD) {
-        memoryUsage = record.eventRecord.record.mindsporeNpuRecord.memoryUsage;
-        memPoolType = "Mindspore";
-        CopyMemPoolRecordMember(record.eventRecord.record.mindsporeNpuRecord, container);
-    } else {
-        memoryUsage = record.eventRecord.record.atbMemPoolRecord.memoryUsage;
-        memPoolType = "ATB";
-        CopyMemPoolRecordMember(record.eventRecord.record.atbMemPoolRecord, container);
-    }
-
     std::string eventType = memoryUsage.allocSize >= 0 ? "MALLOC" : "FREE";
     auto ptr = memoryUsage.ptr;
 
     std::ostringstream oss;
-    oss << "{addr:" << ptr << ",size:" << memoryUsage.allocSize << ",owner:" << ",total:" <<
-        memoryUsage.totalReserved << ",used:" << memoryUsage.totalAllocated << "}";
+    oss << "{addr:" << ptr << ",size:" << memoryUsage.allocSize;
+
+    BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
+    if (eventType == "MALLOC" && analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
+        oss << ",owner:" << memPoolType;
+    }
+
+    oss << ",total:" << memoryUsage.totalReserved << ",used:" << memoryUsage.totalAllocated << "}";
     std::string attr = "\"" + oss.str() + "\"";
 
     container.event = eventType;
@@ -135,8 +127,37 @@ void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackStr
     container.name = "N/A";
     container.addr = std::to_string(memoryUsage.ptr);
     container.attr = attr;
+}
 
-    auto key = std::make_pair(memPoolType, ptr);
+void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackString& stack)
+{
+    MemoryUsage memoryUsage { };
+    std::string memPoolType { };
+    DumpContainer container;
+    switch (record.eventRecord.type) {
+        case RecordType::TORCH_NPU_RECORD:
+            memoryUsage = record.eventRecord.record.torchNpuRecord.memoryUsage;
+            memPoolType = "PTA";
+            CopyMemPoolRecordMember(record.eventRecord.record.torchNpuRecord, container);
+            break;
+        case RecordType::MINDSPORE_NPU_RECORD:
+            memoryUsage = record.eventRecord.record.mindsporeNpuRecord.memoryUsage;
+            memPoolType = "Mindspore";
+            CopyMemPoolRecordMember(record.eventRecord.record.mindsporeNpuRecord, container);
+            break;
+        case RecordType::ATB_MEMORY_POOL_RECORD:
+            memoryUsage = record.eventRecord.record.atbMemPoolRecord.memoryUsage;
+            memPoolType = "ATB";
+            CopyMemPoolRecordMember(record.eventRecord.record.atbMemPoolRecord, container);
+            break;
+        default:
+            LOG_ERROR("Undefined memory pool type.");
+            return;
+    }
+
+    PackDumpContainer(container, memoryUsage, memPoolType);
+
+    auto key = std::make_pair(memPoolType, memoryUsage.ptr);
     auto it = ptrMemoryInfoMap_.find(key);
     if (it == ptrMemoryInfoMap_.end()) {
         ptrMemoryInfoMap_.insert({key, {}});
