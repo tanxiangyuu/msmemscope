@@ -49,8 +49,6 @@ const Version VER39("3.9.0");
 constexpr uint32_t PRE_ALLOC_SIZE = 2048;
 TraceCbFunc callFunc = nullptr;
 PyInterpreterState *interpreter = nullptr;
-std::string g_ignoreCFunc = "__exit__";
-std::string g_ignoreCFile = "contextlib.py";
 
 Version GetPyVersion()
 {
@@ -327,6 +325,8 @@ void GetPyFuncInfo(PyFrameObject *frame, std::string &info, std::string &hash)
 
 bool IsIgnoreCFunc(std::string hash)
 {
+    std::string g_ignoreCFunc = "__exit__";
+    std::string g_ignoreCFile = "contextlib.py";
     std::string fileName = hash.substr(0, hash.find(":"));
     std::string funcName = hash.substr(hash.find(":") + 1);
     return funcName == g_ignoreCFunc && fileName.size() >= g_ignoreCFile.size() &&
