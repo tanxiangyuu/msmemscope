@@ -130,20 +130,20 @@ TEST(ProtocolTest, test_protocol_parse_torch_npu_record)
     PacketHead head {PacketType::RECORD};
     auto record = EventRecord {};
     
-    auto torchNpuRecord = TorchNpuRecord{};
-    torchNpuRecord.memoryUsage = MemoryUsage{};
-    torchNpuRecord.memoryUsage.deviceType = 1;
-    torchNpuRecord.memoryUsage.deviceIndex = 2;
-    torchNpuRecord.memoryUsage.dataType = 3;
-    torchNpuRecord.memoryUsage.allocatorType = 4;
-    torchNpuRecord.memoryUsage.ptr = 5;
-    torchNpuRecord.memoryUsage.allocSize = 6;
-    torchNpuRecord.memoryUsage.totalAllocated = 7;
-    torchNpuRecord.memoryUsage.totalReserved = 8;
-    torchNpuRecord.memoryUsage.totalActive = 9;
-    torchNpuRecord.memoryUsage.streamPtr = 10;
+    auto memPoolRecord = MemPoolRecord{};
+    memPoolRecord.memoryUsage = MemoryUsage{};
+    memPoolRecord.memoryUsage.deviceType = 1;
+    memPoolRecord.memoryUsage.deviceIndex = 2;
+    memPoolRecord.memoryUsage.dataType = 3;
+    memPoolRecord.memoryUsage.allocatorType = 4;
+    memPoolRecord.memoryUsage.ptr = 5;
+    memPoolRecord.memoryUsage.allocSize = 6;
+    memPoolRecord.memoryUsage.totalAllocated = 7;
+    memPoolRecord.memoryUsage.totalReserved = 8;
+    memPoolRecord.memoryUsage.totalActive = 9;
+    memPoolRecord.memoryUsage.streamPtr = 10;
 
-    record.record.torchNpuRecord = torchNpuRecord;
+    record.record.memPoolRecord = memPoolRecord;
     std::string str = Serialize(head, record);
     Protocol protocol {};
     protocol.Feed(str);
@@ -154,16 +154,16 @@ TEST(ProtocolTest, test_protocol_parse_torch_npu_record)
 
     auto body = result.GetPacketBody().record.eventRecord;
     ASSERT_EQ(body.type, record.type);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.deviceType, torchNpuRecord.memoryUsage.deviceType);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.deviceIndex, torchNpuRecord.memoryUsage.deviceIndex);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.dataType, torchNpuRecord.memoryUsage.dataType);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.allocatorType, torchNpuRecord.memoryUsage.allocatorType);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.ptr, torchNpuRecord.memoryUsage.ptr);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.allocSize, torchNpuRecord.memoryUsage.allocSize);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.totalAllocated, torchNpuRecord.memoryUsage.totalAllocated);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.totalReserved, torchNpuRecord.memoryUsage.totalReserved);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.totalActive, torchNpuRecord.memoryUsage.totalActive);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.streamPtr, torchNpuRecord.memoryUsage.streamPtr);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.deviceType, memPoolRecord.memoryUsage.deviceType);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.deviceIndex, memPoolRecord.memoryUsage.deviceIndex);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.dataType, memPoolRecord.memoryUsage.dataType);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.allocatorType, memPoolRecord.memoryUsage.allocatorType);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.ptr, memPoolRecord.memoryUsage.ptr);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.allocSize, memPoolRecord.memoryUsage.allocSize);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.totalAllocated, memPoolRecord.memoryUsage.totalAllocated);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.totalReserved, memPoolRecord.memoryUsage.totalReserved);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.totalActive, memPoolRecord.memoryUsage.totalActive);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.streamPtr, memPoolRecord.memoryUsage.streamPtr);
 }
 
 TEST(ProtocolTest, test_protocol_parse_torch_npu_record_max)
@@ -171,20 +171,20 @@ TEST(ProtocolTest, test_protocol_parse_torch_npu_record_max)
     PacketHead head {PacketType::RECORD};
     auto record = EventRecord {};
     
-    auto torchNpuRecord = TorchNpuRecord{};
-    torchNpuRecord.memoryUsage = MemoryUsage{};
-    torchNpuRecord.memoryUsage.deviceType = 127;
-    torchNpuRecord.memoryUsage.deviceIndex = 127;
-    torchNpuRecord.memoryUsage.dataType = 255;
-    torchNpuRecord.memoryUsage.allocatorType = 255;
-    torchNpuRecord.memoryUsage.ptr = 9223372036854775807;
-    torchNpuRecord.memoryUsage.allocSize = 9223372036854775807;
-    torchNpuRecord.memoryUsage.totalAllocated = 9223372036854775807;
-    torchNpuRecord.memoryUsage.totalReserved = 9223372036854775807;
-    torchNpuRecord.memoryUsage.totalActive = 9223372036854775807;
-    torchNpuRecord.memoryUsage.streamPtr = 9223372036854775807;
+    auto memPoolRecord = MemPoolRecord{};
+    memPoolRecord.memoryUsage = MemoryUsage{};
+    memPoolRecord.memoryUsage.deviceType = 127;
+    memPoolRecord.memoryUsage.deviceIndex = 127;
+    memPoolRecord.memoryUsage.dataType = 255;
+    memPoolRecord.memoryUsage.allocatorType = 255;
+    memPoolRecord.memoryUsage.ptr = 9223372036854775807;
+    memPoolRecord.memoryUsage.allocSize = 9223372036854775807;
+    memPoolRecord.memoryUsage.totalAllocated = 9223372036854775807;
+    memPoolRecord.memoryUsage.totalReserved = 9223372036854775807;
+    memPoolRecord.memoryUsage.totalActive = 9223372036854775807;
+    memPoolRecord.memoryUsage.streamPtr = 9223372036854775807;
 
-    record.record.torchNpuRecord = torchNpuRecord;
+    record.record.memPoolRecord = memPoolRecord;
     std::string str = Serialize(head, record);
     Protocol protocol {};
     protocol.Feed(str);
@@ -195,16 +195,16 @@ TEST(ProtocolTest, test_protocol_parse_torch_npu_record_max)
 
     auto body = result.GetPacketBody().record.eventRecord;
     ASSERT_EQ(body.type, record.type);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.deviceType, torchNpuRecord.memoryUsage.deviceType);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.deviceIndex, torchNpuRecord.memoryUsage.deviceIndex);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.dataType, torchNpuRecord.memoryUsage.dataType);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.allocatorType, torchNpuRecord.memoryUsage.allocatorType);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.ptr, torchNpuRecord.memoryUsage.ptr);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.allocSize, torchNpuRecord.memoryUsage.allocSize);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.totalAllocated, torchNpuRecord.memoryUsage.totalAllocated);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.totalReserved, torchNpuRecord.memoryUsage.totalReserved);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.totalActive, torchNpuRecord.memoryUsage.totalActive);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.streamPtr, torchNpuRecord.memoryUsage.streamPtr);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.deviceType, memPoolRecord.memoryUsage.deviceType);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.deviceIndex, memPoolRecord.memoryUsage.deviceIndex);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.dataType, memPoolRecord.memoryUsage.dataType);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.allocatorType, memPoolRecord.memoryUsage.allocatorType);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.ptr, memPoolRecord.memoryUsage.ptr);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.allocSize, memPoolRecord.memoryUsage.allocSize);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.totalAllocated, memPoolRecord.memoryUsage.totalAllocated);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.totalReserved, memPoolRecord.memoryUsage.totalReserved);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.totalActive, memPoolRecord.memoryUsage.totalActive);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.streamPtr, memPoolRecord.memoryUsage.streamPtr);
 }
 
 TEST(ProtocolTest, test_protocol_parse_torch_npu_record_min)
@@ -212,20 +212,20 @@ TEST(ProtocolTest, test_protocol_parse_torch_npu_record_min)
     PacketHead head {PacketType::RECORD};
     auto record = EventRecord {};
     
-    auto torchNpuRecord = TorchNpuRecord{};
-    torchNpuRecord.memoryUsage = MemoryUsage{};
-    torchNpuRecord.memoryUsage.deviceType = -128;
-    torchNpuRecord.memoryUsage.deviceIndex = -128;
-    torchNpuRecord.memoryUsage.dataType = 0;
-    torchNpuRecord.memoryUsage.allocatorType = 0;
-    torchNpuRecord.memoryUsage.ptr = -9223372036854775808;
-    torchNpuRecord.memoryUsage.allocSize = -9223372036854775808;
-    torchNpuRecord.memoryUsage.totalAllocated = -9223372036854775808;
-    torchNpuRecord.memoryUsage.totalReserved = -9223372036854775808;
-    torchNpuRecord.memoryUsage.totalActive = -9223372036854775808;
-    torchNpuRecord.memoryUsage.streamPtr = -9223372036854775808;
+    auto memPoolRecord = MemPoolRecord{};
+    memPoolRecord.memoryUsage = MemoryUsage{};
+    memPoolRecord.memoryUsage.deviceType = -128;
+    memPoolRecord.memoryUsage.deviceIndex = -128;
+    memPoolRecord.memoryUsage.dataType = 0;
+    memPoolRecord.memoryUsage.allocatorType = 0;
+    memPoolRecord.memoryUsage.ptr = -9223372036854775808;
+    memPoolRecord.memoryUsage.allocSize = -9223372036854775808;
+    memPoolRecord.memoryUsage.totalAllocated = -9223372036854775808;
+    memPoolRecord.memoryUsage.totalReserved = -9223372036854775808;
+    memPoolRecord.memoryUsage.totalActive = -9223372036854775808;
+    memPoolRecord.memoryUsage.streamPtr = -9223372036854775808;
 
-    record.record.torchNpuRecord = torchNpuRecord;
+    record.record.memPoolRecord = memPoolRecord;
     std::string testMsg = "test";
     record.pyStackLen = testMsg.size();
     record.cStackLen = testMsg.size();
@@ -240,16 +240,16 @@ TEST(ProtocolTest, test_protocol_parse_torch_npu_record_min)
 
     auto body = result.GetPacketBody().record.eventRecord;
     ASSERT_EQ(body.type, record.type);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.deviceType, torchNpuRecord.memoryUsage.deviceType);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.deviceIndex, torchNpuRecord.memoryUsage.deviceIndex);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.dataType, torchNpuRecord.memoryUsage.dataType);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.allocatorType, torchNpuRecord.memoryUsage.allocatorType);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.ptr, torchNpuRecord.memoryUsage.ptr);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.allocSize, torchNpuRecord.memoryUsage.allocSize);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.totalAllocated, torchNpuRecord.memoryUsage.totalAllocated);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.totalReserved, torchNpuRecord.memoryUsage.totalReserved);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.totalActive, torchNpuRecord.memoryUsage.totalActive);
-    ASSERT_EQ(body.record.torchNpuRecord.memoryUsage.streamPtr, torchNpuRecord.memoryUsage.streamPtr);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.deviceType, memPoolRecord.memoryUsage.deviceType);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.deviceIndex, memPoolRecord.memoryUsage.deviceIndex);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.dataType, memPoolRecord.memoryUsage.dataType);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.allocatorType, memPoolRecord.memoryUsage.allocatorType);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.ptr, memPoolRecord.memoryUsage.ptr);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.allocSize, memPoolRecord.memoryUsage.allocSize);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.totalAllocated, memPoolRecord.memoryUsage.totalAllocated);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.totalReserved, memPoolRecord.memoryUsage.totalReserved);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.totalActive, memPoolRecord.memoryUsage.totalActive);
+    ASSERT_EQ(body.record.memPoolRecord.memoryUsage.streamPtr, memPoolRecord.memoryUsage.streamPtr);
 }
 
 TEST(ProtocolTest, test_protocol_parse_kernerLaunch_Normal_record)

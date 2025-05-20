@@ -50,9 +50,7 @@ bool DumpRecord::DumpData(const ClientId &clientId, const Record &record, const 
             return DumpAclItfData(clientId, aclItfRecord);
         }
         case RecordType::ATB_MEMORY_POOL_RECORD:
-        case RecordType::TORCH_NPU_RECORD: {
-            return DumpMemPoolData(clientId, record.eventRecord);
-        }
+        case RecordType::TORCH_NPU_RECORD:
         case RecordType::MINDSPORE_NPU_RECORD: {
             return DumpMemPoolData(clientId, record.eventRecord);
         }
@@ -273,42 +271,40 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
 
 bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord)
 {
-    std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
-        return false;
-    }
-
-    MemoryUsage memoryUsage { };
-    std::string memPoolType { };
-    DumpContainer container;
-    if (eventRecord.type == RecordType::TORCH_NPU_RECORD) {
-        memoryUsage = eventRecord.record.torchNpuRecord.memoryUsage;
-        memPoolType = "PTA";
-    } else if (eventRecord.type == RecordType::MINDSPORE_NPU_RECORD) {
-        memoryUsage = eventRecord.record.mindsporeNpuRecord.memoryUsage;
-        memPoolType = "Mindspore";
-    } else {
-        memoryUsage = eventRecord.record.atbMemPoolRecord.memoryUsage;
-        memPoolType = "ATB";
-    }
-
-    if (memoryUsage.allocSize >= 0) {
+    if (eventRecord.record.memPoolRecord.memoryUsage.allocSize >= 0) {
         return true;
     }
 
     // free事件，落盘记录的全部内存状态数据
+    static auto getMemPoolName = [](RecordType type) -> std::string {
+        if (type == RecordType::TORCH_NPU_RECORD) {
+            return "PTA";
+        } else if (type == RecordType::MINDSPORE_NPU_RECORD) {
+            return "Mindspore";
+        } else {
+            return "ATB";
+        }
+    };
     auto memoryStateRecord = DeviceManager::GetInstance(config_).GetMemoryStateRecord(clientId);
-    auto ptr = memoryUsage.ptr;
-    auto key = std::make_pair(memPoolType, ptr);
+    auto ptr = eventRecord.record.memPoolRecord.memoryUsage.ptr;
+    auto key = std::make_pair(getMemPoolName(eventRecord.type), ptr);
     auto memInfoLiats = memoryStateRecord->GetPtrMemInfoList(key);
     if (memInfoLiats.empty()) {
         return false;
     }
 
-    for (auto memInfo : memInfoLiats) {
-        bool isWriteSuccess = WriteToFile(memInfo.container, memInfo.stack);
-        if (!isWriteSuccess) return false;
+    {
+        std::lock_guard<std::mutex> lock(fileMutex_);
+        if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+            return false;
+        }
+
+        for (auto memInfo : memInfoLiats) {
+            bool isWriteSuccess = WriteToFile(memInfo.container, memInfo.stack);
+            if (!isWriteSuccess) return false;
+        }
     }
+
     memoryStateRecord->DeleteMemStateInfo(key);
 
     return true;

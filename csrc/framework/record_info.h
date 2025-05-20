@@ -18,6 +18,21 @@ const size_t OP_NAME_MAX_SIZE = 128;
 const size_t ATB_PARAMS_MAX_SIZE = 128;
 const size_t MEM_ATTR_MAX_SIZE = 128;
 
+enum class RecordType {
+    MEMORY_RECORD = 0,
+    ACL_ITF_RECORD,
+    KERNEL_LAUNCH_RECORD,
+    MSTX_MARK_RECORD,
+    TORCH_NPU_RECORD,
+    ATB_MEMORY_POOL_RECORD,
+    MINDSPORE_NPU_RECORD,
+    ATB_OP_EXECUTE_RECORD,
+    ATB_KERNEL_RECORD,
+    ATEN_OP_LAUNCH_RECORD,
+    MEM_ACCESS_RECORD,
+    INVALID_RECORD,
+};
+
 enum class MemoryDataType {
     MEMORY_MALLOC = 0,
     MEMORY_FREE,
@@ -44,7 +59,8 @@ struct MemoryUsage {
     int64_t streamPtr;
 };
 
-struct TorchNpuRecord {
+struct MemPoolRecord {
+    RecordType type;
     uint64_t recordIndex;
     uint64_t kernelIndex;       // 当前所属kernellaunch索引
     uint64_t pid;
@@ -53,9 +69,6 @@ struct TorchNpuRecord {
     int32_t devId;
     MemoryUsage memoryUsage;
 };
-
-using AtbMemPoolRecord = TorchNpuRecord;
-using MindsporeNpuRecord = TorchNpuRecord;
 
 enum class MemOpType : uint8_t {
     MALLOC = 0U,
@@ -232,33 +245,15 @@ struct MemAccessRecord {
     char attr[MEM_ATTR_MAX_SIZE];
 };
 
-enum class RecordType {
-    MEMORY_RECORD = 0,
-    ACL_ITF_RECORD,
-    KERNEL_LAUNCH_RECORD,
-    MSTX_MARK_RECORD,
-    TORCH_NPU_RECORD,
-    ATB_MEMORY_POOL_RECORD,
-    MINDSPORE_NPU_RECORD,
-    ATB_OP_EXECUTE_RECORD,
-    ATB_KERNEL_RECORD,
-    ATEN_OP_LAUNCH_RECORD,
-    MEM_ACCESS_RECORD,
-    INVALID_RECORD,
-};
-
-
 // 事件记录载体
 struct EventRecord {
     RecordType type;
     union {
-        TorchNpuRecord torchNpuRecord;
+        MemPoolRecord memPoolRecord;
         MemOpRecord memoryRecord;
         AclItfRecord aclItfRecord;
         KernelLaunchRecord kernelLaunchRecord;
         MstxRecord mstxRecord;
-        AtbMemPoolRecord atbMemPoolRecord;
-        MindsporeNpuRecord mindsporeNpuRecord;
         AtbOpExecuteRecord atbOpExecuteRecord;
         AtbKernelRecord atbKernelRecord;
         AtenOpLaunchRecord atenOpLaunchRecord;
