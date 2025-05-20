@@ -50,6 +50,7 @@ namespace atb {
             record.addr = static_cast<uint64_t>((std::uintptr_t)tensor.deviceData);
             record.memSize = tensor.dataSize;
             record.eventType = AccessType::UNKNOWN;
+            record.memType = AccessMemType::ATB;
             if (strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1) != EOK) {
                 CLIENT_ERROR_LOG("strncpy_s FAILED");
                 record.name[0] = '\0';
@@ -66,6 +67,7 @@ namespace atb {
             record.addr = static_cast<uint64_t>((std::uintptr_t)tensor.deviceData);
             record.memSize = tensor.dataSize;
             record.eventType = AccessType::WRITE;
+            record.memType = AccessMemType::ATB;
             if (strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1) != EOK) {
                 CLIENT_ERROR_LOG("strncpy_s FAILED");
                 record.name[0] = '\0';
@@ -93,6 +95,7 @@ namespace atb {
             record.addr = static_cast<uint64_t>((std::uintptr_t)tensor.data);
             record.memSize = tensor.dataSize;
             record.eventType = AccessType::UNKNOWN;
+            record.memType = AccessMemType::ATB;
             if (strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1) != EOK) {
                 CLIENT_ERROR_LOG("strncpy_s FAILED");
                 record.name[0] = '\0';
@@ -109,6 +112,7 @@ namespace atb {
             record.addr = static_cast<uint64_t>((std::uintptr_t)tensor.data);
             record.memSize = tensor.dataSize;
             record.eventType = AccessType::WRITE;
+            record.memType = AccessMemType::ATB;
             if (strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1) != EOK) {
                 CLIENT_ERROR_LOG("strncpy_s FAILED");
                 record.name[0] = '\0';
