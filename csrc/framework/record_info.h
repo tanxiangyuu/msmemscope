@@ -102,6 +102,18 @@ enum class PyTraceType : uint8_t {
     PYOPCODE,
 };
 
+enum class OpEventType : uint8_t {
+    ATEN_START = 0,
+    ATEN_END,
+    ATB_START,
+    ATB_END,
+};
+
+enum class KernelEventType : uint8_t {
+    KERNEL_START = 0,
+    KERNEL_END,
+};
+
 struct MemOpRecord {
     uint64_t recordIndex;       // 记录索引
     uint64_t kernelIndex;       // 当前所属kernellaunch索引
@@ -133,12 +145,23 @@ struct KernelLaunchRecord {
     uint64_t pid;
     uint64_t tid;
     int32_t devId;              // 所属device id
+    int16_t streamId;           // streamId
+    int16_t taskId;
     uint64_t kernelLaunchIndex; // kernelLaunch索引
     uint64_t recordIndex;       // 记录索引
     KernelLaunchType type;      // KernelLaunch类型
     uint64_t timeStamp;
-    int32_t streamId;           // streamId
     uint32_t blockDim;          // 算子核函数运行所需核数
+    char kernelName[KERNELNAME_MAX_SIZE];  // kernel名称
+};
+
+struct KernelExcuteRecord {
+    uint64_t recordIndex;       // 记录索引
+    int16_t devId;              // 所属device id
+    int16_t streamId;
+    int16_t taskId;
+    KernelEventType type;       // KernelLaunch类型
+    uint64_t timeStamp;
     char kernelName[KERNELNAME_MAX_SIZE];  // kernel名称
 };
 
@@ -160,18 +183,6 @@ struct MstxRecord {
     char markMessage[256U];
     uint64_t recordIndex;       // 记录索引
     uint64_t kernelIndex;       // 当前所属kernellaunch索引
-};
-
-enum class OpEventType : uint8_t {
-    ATEN_START = 0,
-    ATEN_END,
-    ATB_START,
-    ATB_END,
-};
-
-enum class KernelEventType : uint8_t {
-    KERNEL_START = 0,
-    KERNEL_END,
 };
 
 struct AtbOpExecuteRecord {
@@ -236,6 +247,7 @@ enum class RecordType {
     MEMORY_RECORD = 0,
     ACL_ITF_RECORD,
     KERNEL_LAUNCH_RECORD,
+    KERNEL_EXCUTE_RECORD,
     MSTX_MARK_RECORD,
     TORCH_NPU_RECORD,
     ATB_MEMORY_POOL_RECORD,
@@ -256,6 +268,7 @@ struct EventRecord {
         MemOpRecord memoryRecord;
         AclItfRecord aclItfRecord;
         KernelLaunchRecord kernelLaunchRecord;
+        KernelExcuteRecord kernelExcuteRecord;
         MstxRecord mstxRecord;
         AtbMemPoolRecord atbMemPoolRecord;
         MindsporeNpuRecord mindsporeNpuRecord;

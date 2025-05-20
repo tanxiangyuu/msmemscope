@@ -224,3 +224,57 @@ TEST(ATBOpExcuteWatch, ATBOpExcuteWatchNormalCase)
     ATBOpExcuteWatchNormalCheckOpD();
     ATBOpExcuteWatchNormalCheckOpE();
 }
+
+TEST(ATBOpExcuteWatch, ATBKernelExcuteWatchCheckAtbKernelExcute)
+{
+    auto &instance = ATBOpExcuteWatch::GetInstance();
+    instance.fistWatchOp_ = "first";
+    instance.lastWatchOp_ = "last";
+    instance.outputId_ = UINT32_MAX;
+
+    std::string name = "/add/after1";
+    Mki::Tensor tensor = {};
+    tensor.dataSize = 123;
+
+    Mki::SVector<Mki::Tensor> tensors = {};
+    tensors.push_back(tensor);
+    instance.AtbKernelExcute(name, tensors);
+
+    std::string firstName = "/first/after";
+    instance.AtbKernelExcute(firstName, tensors);
+
+    tensors.push_back(tensor);
+    instance.outputId_ = 0;
+    instance.AtbKernelExcute(firstName, tensors);
+}
+
+TEST(ATBOpExcuteWatch, ATBKernelExcuteWatchCheckAtbOpExcuteBegin)
+{
+    auto &instance = ATBOpExcuteWatch::GetInstance();
+    instance.fistWatchOp_ = "first";
+    instance.lastWatchOp_ = "last";
+    instance.outputId_ = 0;
+
+    std::string name = "first";
+
+    atb::Tensor tesor1 = {};
+    tesor1.deviceData = reinterpret_cast<void *>(DATA_VALUE_5);
+    tesor1.dataSize = DATA_SIZE_5;
+
+    atb::Tensor tesor2 = {};
+    tesor2.deviceData = reinterpret_cast<void *>(DATA_VALUE_6);
+    tesor2.dataSize = DATA_SIZE_6;
+
+    atb::SVector<atb::Tensor> tensors = {};
+    tensors.push_back(tesor1);
+    tensors.push_back(tesor2);
+
+    instance.AtbOpExcuteEnd(name, tensors);
+}
+
+TEST(ATBOpExcuteWatch, ATBWatchCheckCleanFileNameFunc)
+{
+    std::string fileName = "/123/123/";
+    CleanFileName(fileName);
+    EXPECT_EQ(fileName, ".123.123.");
+}
