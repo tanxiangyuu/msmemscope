@@ -22,4 +22,10 @@ std::shared_ptr<MemoryStateRecord> DeviceManager::GetMemoryStateRecord(int32_t d
     }
     return memoryStateRecordMap_[deviceId];
 }
+
+std::map<int32_t, std::shared_ptr<MemoryStateRecord>>& DeviceManager::GetMemoryStateRecordMap()
+{
+    return memoryStateRecordMap_;
+}
+
 }
