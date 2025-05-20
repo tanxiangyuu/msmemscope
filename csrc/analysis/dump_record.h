@@ -31,6 +31,7 @@ private:
 
     bool DumpMemData(const ClientId &clientId, const MemOpRecord &memrecord);
     bool DumpKernelData(const ClientId &clientId, const KernelLaunchRecord &kernelLaunchRecord);
+    bool DumpKernelExcuteData(const KernelExcuteRecord &record);
     bool DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord);
     bool DumpMstxData(const ClientId &clientId, const MstxRecord &msxtRecord, const CallStackString &stack);
     bool DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord);

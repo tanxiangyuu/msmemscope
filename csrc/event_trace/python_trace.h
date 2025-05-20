@@ -69,7 +69,7 @@ private:
     std::string dirPath_;
     std::vector<std::string> ignorePyFunc_ = {"__torch_dispatch__"};
 };
-
+void callback(std::string hash, std::string info, PyTraceType what, uint64_t timeStamp);
 }
 
 #endif
