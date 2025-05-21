@@ -10,14 +10,27 @@
 
 #include "record_info.h"
 #include "config_info.h"
+#include "bit_field.h"
 
 namespace Leaks {
 
 using HandlerFunc = std::function<void(const Record&, CallStackString&)>;
 
-struct MemStateInfo {
+class MemRecordAttr {
+public:
+    uint64_t addr;
+    uint64_t size;
+    std::string owner;
+    int32_t modid;
+    int64_t totalAllocated;
+    int64_t totalReserved;
+};
+
+class MemStateInfo {
+public:
     DumpContainer container;
     CallStackString stack;
+    MemRecordAttr attr;
 };
 
 class MemoryStateRecord {
@@ -27,14 +40,16 @@ public:
     void MemoryPoolInfoProcess(const Record& record, CallStackString& stack);
     void MemoryAccessInfoProcess(const Record& record, CallStackString& stack);
     const std::vector<MemStateInfo>& GetPtrMemInfoList(std::pair<std::string, int64_t> key);
+    void SetPtrMemInfoList(std::pair<std::string, int64_t> key, std::vector<MemStateInfo>& infoList);
     void DeleteMemStateInfo(std::pair<std::string, uint64_t> key);
-    ~MemoryStateRecord();
     explicit MemoryStateRecord(Config config);
 private:
     void HostMemProcess(const MemOpRecord& memRecord, uint64_t& currentSize);
     void HalMemProcess(MemOpRecord& memRecord, uint64_t& currentSize, std::string& deviceType);
+    MemRecordAttr GetMemInfoAttr(MemOpRecord& memRecord, uint64_t currentSize);
 private:
-    void PackDumpContainer(DumpContainer& container, const MemoryUsage& memoryUsage, const std::string memPoolType);
+    void PackDumpContainer(DumpContainer& container, const MemoryUsage& memoryUsage,
+        const std::string memPoolType, MemRecordAttr& attr);
     std::map<std::pair<std::string, uint64_t>, std::vector<MemStateInfo>> ptrMemoryInfoMap_;
     std::unordered_map<uint64_t, uint64_t> hostMemSizeMap_;
     std::unordered_map<uint64_t, uint64_t> memSizeMap_;

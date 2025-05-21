@@ -4,6 +4,7 @@
 #include "dump_record.h"
 #include "utility/log.h"
 #include "bit_field.h"
+#include "module_info.h"
 
 namespace Leaks {
 
@@ -54,6 +55,29 @@ void MemoryStateRecord::HalMemProcess(MemOpRecord& memRecord, uint64_t& currentS
     }
 }
 
+MemRecordAttr MemoryStateRecord::GetMemInfoAttr(MemOpRecord& memRecord, uint64_t currentSize)
+{
+    BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
+    std::string halOwner = "";
+    MemRecordAttr attr;
+    if (memRecord.memType == MemOpType::MALLOC && memRecord.devType == DeviceType::NPU &&
+        analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
+        auto it = MODULE_HASH_TABLE.find(memRecord.modid);
+        if (it != MODULE_HASH_TABLE.end()) {
+            halOwner = "CANN@" + it->second;
+        } else {
+            halOwner = "CANN@UNKNOWN";
+        }
+        attr.owner = halOwner;
+    }
+    if (memRecord.devType == DeviceType::NPU) {
+        attr.modid = memRecord.modid;
+    }
+    attr.addr = memRecord.addr;
+    attr.size = currentSize;
+    return attr;
+}
+
 void MemoryStateRecord::MemoryInfoProcess(const Record& record, CallStackString& stack)
 {
     auto memRecord = record.eventRecord.record.memoryRecord;
@@ -76,12 +100,6 @@ void MemoryStateRecord::MemoryInfoProcess(const Record& record, CallStackString&
                     "host" : std::to_string(memRecord.devId);
         }
     }
-
-    // 组装attr属性
-    std::ostringstream oss;
-    oss << "{addr:" << memRecord.addr << ",size:" << currentSize << ",owner:" << ",MID:" << memRecord.modid << "}";
-    std::string attr = "\"" + oss.str() + "\"";
-
     DumpContainer container;
     container.id = memRecord.recordIndex;
     container.event = memOp;
@@ -92,7 +110,14 @@ void MemoryStateRecord::MemoryInfoProcess(const Record& record, CallStackString&
     container.tid = memRecord.tid;
     container.deviceId = deviceType;
     container.addr = std::to_string(memRecord.addr);
-    container.attr = attr;
+
+    MemRecordAttr attr = GetMemInfoAttr(memRecord, currentSize);
+    std::ostringstream oss;
+    if (memRecord.memType == MemOpType::FREE) {
+        oss << "{addr:" << memRecord.addr << ",size:" << currentSize << ",MID:" << memRecord.modid << "}";
+        std::string freeAttr = "\"" + oss.str() + "\"";
+        container.attr = freeAttr;
+    }
 
     auto key = std::make_pair("common", ptr);
     auto it = ptrMemoryInfoMap_.find(key);
@@ -102,6 +127,7 @@ void MemoryStateRecord::MemoryInfoProcess(const Record& record, CallStackString&
     MemStateInfo memInfo {};
     memInfo.container = container;
     memInfo.stack = stack;
+    memInfo.attr = attr;
     ptrMemoryInfoMap_[key].push_back(memInfo);
 }
 
@@ -115,27 +141,22 @@ inline void CopyMemPoolRecordMember(const MemPoolRecord &record, DumpContainer &
 }
 
 void MemoryStateRecord::PackDumpContainer(
-    DumpContainer& container, const MemoryUsage& memoryUsage, const std::string memPoolType)
+    DumpContainer& container, const MemoryUsage& memoryUsage, const std::string memPoolType, MemRecordAttr& attr)
 {
     std::string eventType = memoryUsage.allocSize >= 0 ? "MALLOC" : "FREE";
-    auto ptr = memoryUsage.ptr;
-
-    std::ostringstream oss;
-    oss << "{addr:" << ptr << ",size:" << memoryUsage.allocSize;
+    attr.addr = memoryUsage.ptr;
+    attr.size = memoryUsage.allocSize;
 
     BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
     if (eventType == "MALLOC" && analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
-        oss << ",owner:" << memPoolType;
+        attr.owner = memPoolType;
     }
-
-    oss << ",total:" << memoryUsage.totalReserved << ",used:" << memoryUsage.totalAllocated << "}";
-    std::string attr = "\"" + oss.str() + "\"";
-
+    attr.totalReserved = memoryUsage.totalReserved;
+    attr.totalAllocated = memoryUsage.totalAllocated;
     container.event = eventType;
     container.eventType = memPoolType;
     container.name = "N/A";
     container.addr = std::to_string(memoryUsage.ptr);
-    container.attr = attr;
 }
 
 void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackString& stack)
@@ -150,6 +171,7 @@ void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackStr
             memPoolType = "PTA";
             break;
         case RecordType::MINDSPORE_NPU_RECORD:
+            memPoolType = "MINDSPORE";
             break;
         case RecordType::ATB_MEMORY_POOL_RECORD:
             memPoolType = "ATB";
@@ -158,8 +180,16 @@ void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackStr
             LOG_ERROR("Undefined memory pool type.");
             return;
     }
+    MemRecordAttr attr;
+    PackDumpContainer(container, memoryUsage, memPoolType, attr);
 
-    PackDumpContainer(container, memoryUsage, memPoolType);
+    std::ostringstream oss;
+    if (memoryUsage.allocSize < 0) {
+        oss << "{addr:" << memoryUsage.ptr << ",size:" << memoryUsage.allocSize <<
+            ",total:" << memoryUsage.totalReserved << ",used:" << memoryUsage.totalAllocated << "}";
+        std::string freeAttr = "\"" + oss.str() + "\"";
+        container.attr = freeAttr;
+    }
 
     auto key = std::make_pair(memPoolType, memoryUsage.ptr);
     auto it = ptrMemoryInfoMap_.find(key);
@@ -169,6 +199,7 @@ void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackStr
     MemStateInfo memInfo {};
     memInfo.container = container;
     memInfo.stack = stack;
+    memInfo.attr = attr;
     ptrMemoryInfoMap_[key].push_back(memInfo);
 }
 
@@ -230,24 +261,20 @@ const std::vector<MemStateInfo>& MemoryStateRecord::GetPtrMemInfoList(std::pair<
     return ptrMemoryInfoMap_[key];
 }
 
+void MemoryStateRecord::SetPtrMemInfoList(std::pair<std::string, int64_t> key, std::vector<MemStateInfo>& infoList)
+{
+    auto it = ptrMemoryInfoMap_.find(key);
+    if (it == ptrMemoryInfoMap_.end()) {
+        return ;
+    }
+    ptrMemoryInfoMap_[key] = infoList;
+}
+
 void MemoryStateRecord::DeleteMemStateInfo(std::pair<std::string, uint64_t> key)
 {
     auto it = ptrMemoryInfoMap_.find(key);
     if (it != ptrMemoryInfoMap_.end()) {
         ptrMemoryInfoMap_.erase(key);
-    }
-}
-
-MemoryStateRecord::~MemoryStateRecord()
-{
-    std::lock_guard<std::mutex> lock(recordMutex_);
-    for (auto it = ptrMemoryInfoMap_.begin(); it != ptrMemoryInfoMap_.end();) {
-        auto key = it->first;
-        auto memInfoLists = it->second;
-        for (auto memInfo : memInfoLists) {
-            DumpRecord::GetInstance(config_).WriteToFile(memInfo.container, memInfo.stack);
-        }
-        ++it;
     }
 }
 

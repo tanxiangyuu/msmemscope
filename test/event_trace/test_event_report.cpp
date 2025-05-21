@@ -427,6 +427,58 @@ TEST(EventReportTest, ReportTestWithNoReceiveServerInfo) {
     EXPECT_TRUE(instance.ReportMark(mstxRecord, callStack));
 }
 
+TEST(EventReportTest, ReportAtenLaunchTestExpectSuccess)
+{
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.config_.stepList.stepCount = 3;
+    instance.config_.stepList.stepIdList[0] = 1;
+    instance.config_.stepList.stepIdList[1] = 2;
+    instance.config_.stepList.stepIdList[2] = 6;
+    instance.isReceiveServerInfo_ = true;
+    AtenOpLaunchRecord atenOpLaunchRecord{};
+    CallStackString stack;
+    EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord, stack));
+}
+
+TEST(EventReportTest, ReportAtenAccessTestExpectSuccess)
+{
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.config_.stepList.stepCount = 3;
+    instance.config_.stepList.stepIdList[0] = 1;
+    instance.config_.stepList.stepIdList[1] = 2;
+    instance.config_.stepList.stepIdList[2] = 6;
+    instance.isReceiveServerInfo_ = true;
+    MemAccessRecord  memAccessRecord {};
+    CallStackString stack;
+    EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord, stack));
+}
+
+TEST(EventReportTest, ReportAtenLaunchTestExpextSuccess)
+{
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.config_.stepList.stepCount = 3;
+    instance.config_.stepList.stepIdList[0] = 1;
+    instance.config_.stepList.stepIdList[1] = 2;
+    instance.config_.stepList.stepIdList[2] = 6;
+    instance.isReceiveServerInfo_ = true;
+    AtenOpLaunchRecord atenOpLaunchRecord {};
+    CallStackString stack;
+    EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord, stack));
+}
+
+TEST(EventReportTest, ReportAtenAccessTestExpextSuccess)
+{
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.config_.stepList.stepCount = 3;
+    instance.config_.stepList.stepIdList[0] = 1;
+    instance.config_.stepList.stepIdList[1] = 2;
+    instance.config_.stepList.stepIdList[2] = 6;
+    instance.isReceiveServerInfo_ = true;
+    MemAccessRecord  memAccessRecord  {};
+    CallStackString stack;
+    EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord, stack));
+}
+
 TEST(KernelNameFuncTest, PipeCallGivenLsCommandReturnFalse)
 {
     std::vector<std::string> argv = {"/bin/ls", "/tmp"};
