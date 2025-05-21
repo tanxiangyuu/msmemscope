@@ -21,7 +21,7 @@ TEST(MemoryStateRecordTest, state_cpu_memory_record_expect_success)
     memRecordMalloc.devId = 10;
     memRecordMalloc.recordIndex = 102;
     memRecordMalloc.kernelIndex = 101;
-    memRecordMalloc.space = MemOpSpace::HOST;;
+    memRecordMalloc.space = MemOpSpace::HOST;
     memRecordMalloc.addr = 0x1234;
     memRecordMalloc.memSize = 128;
     memRecordMalloc.timeStamp = 789;
@@ -135,6 +135,16 @@ TEST(MemoryStateRecordTest, memory_access_info_process_expect_success)
     memoryStateRecord.MemoryAccessInfoProcess(record, stack);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 1);
+
+    memAccessRecord.eventType = AccessType::WRITE;
+    memoryStateRecord.MemoryAccessInfoProcess(record, stack);
+    ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
+    ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 2);
+
+    memAccessRecord.eventType = AccessType::READ;
+    memoryStateRecord.MemoryAccessInfoProcess(record, stack);
+    ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
+    ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 3);
 }
 
 TEST(MemoryStateRecordTest, delete_memstateinfo_expect_success)
@@ -145,4 +155,20 @@ TEST(MemoryStateRecordTest, delete_memstateinfo_expect_success)
     memoryStateRecord.ptrMemoryInfoMap_.insert({key, {}});
     memoryStateRecord.DeleteMemStateInfo(key);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 0);
+}
+
+TEST(MemoryStateRecordTest, get_halattr_hccl_expect_success)
+{
+    auto memRecordMalloc = MemOpRecord{};
+    memRecordMalloc.devType = DeviceType::NPU;
+    memRecordMalloc.modid = 3;
+    memRecordMalloc.addr = 1234;
+    memRecordMalloc.memType = MemOpType::MALLOC;
+
+    Config config;
+    BitField<decltype(config.analysisType)> analysisTypeBit;
+    analysisTypeBit.setBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS));
+    MemoryStateRecord memoryStateRecord{config};
+    MemRecordAttr attr = memoryStateRecord.GetMemInfoAttr(memRecordMalloc, 100);
+    ASSERT_EQ(attr.owner, "CANN@HCCL");
 }
