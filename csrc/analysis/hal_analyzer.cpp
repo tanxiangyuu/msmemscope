@@ -20,6 +20,11 @@ HalAnalyzer::HalAnalyzer(Config config)
 
 bool HalAnalyzer::IsHalAnalysisEnable()
 {
+    // 确认analysis设置中是否包含泄漏分析
+    BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
+    if (!(analysisType.checkBit(static_cast<size_t>(AnalysisType::LEAKS_ANALYSIS)))) {
+        return false;
+    }
     // 当开启--steps时，关闭所有分析功能
     if (config_.stepList.stepCount!=0) {
         return false;
