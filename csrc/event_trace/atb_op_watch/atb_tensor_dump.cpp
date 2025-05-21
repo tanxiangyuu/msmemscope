@@ -5,10 +5,11 @@
 #include "utils.h"
 #include "kernel_hooks/acl_hooks.h"
 #include "file.h"
+#include "event_report.h"
 #include "atb_tensor_dump.h"
 
 namespace Leaks {
-static void CleanFileName(std::string& fileName)
+void CleanFileName(std::string& fileName)
 {
     for (size_t i = 0; i < fileName.size(); i++) {
         if (fileName[i] == '/') {
@@ -32,8 +33,8 @@ bool ATBTensorDump::Dump(const Tensor& tensor, std::string& fileName)
         return false;
     }
 
-    // 后续ouput路径需要由server传入, 且完成目录安全校验、输出文件安全校验
-    std::string dumpDir = "atb_op_dump";
+    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
+    std::string dumpDir = std::string(config.outputDir) + "/atb_op_dump";
     (void)Utility::MakeDir(dumpDir);
     CleanFileName(fileName);
     std::ofstream outFile(dumpDir + "/" + fileName, std::ios::binary);

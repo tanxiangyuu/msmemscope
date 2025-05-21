@@ -34,6 +34,7 @@ private:
     void HostMemProcess(const MemOpRecord& memRecord, uint64_t& currentSize);
     void HalMemProcess(MemOpRecord& memRecord, uint64_t& currentSize, std::string& deviceType);
 private:
+    void PackDumpContainer(DumpContainer& container, const MemoryUsage& memoryUsage, const std::string memPoolType);
     std::map<std::pair<std::string, uint64_t>, std::vector<MemStateInfo>> ptrMemoryInfoMap_;
     std::unordered_map<uint64_t, uint64_t> hostMemSizeMap_;
     std::unordered_map<uint64_t, uint64_t> memSizeMap_;

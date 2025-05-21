@@ -14,6 +14,7 @@
 #include "record_info.h"
 #include "config_info.h"
 #include "protocol.h"
+#include "kernel_hooks/kernel_event_trace.h"
 
 namespace Leaks {
 extern thread_local bool g_isReportHostMem;
@@ -45,7 +46,9 @@ public:
     bool ReportFree(uint64_t addr, CallStackString& stack);
     bool ReportHostMalloc(uint64_t addr, uint64_t size);
     bool ReportHostFree(uint64_t addr);
-    bool ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, const void *hdl);
+    bool ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, const void *hdl,
+        std::string& aKernelName, const TaskKey &key);
+    bool ReportKernelExcute(const TaskKey &key, std::string &name, uint64_t time, KernelEventType type);
     bool ReportAclItf(AclOpType aclOpType);
     bool ReportMark(MstxRecord &mstxRecord, CallStackString& stack);
     int ReportRecordEvent(EventRecord &record, PacketHead &head, CallStackString& stack);
@@ -60,7 +63,7 @@ public:
 private:
     void Init();
     explicit EventReport(CommType type);
-    ~EventReport();
+    ~EventReport() = default;
 
     bool IsNeedSkip(); // 支持采集指定step
     void SetStepInfo(const MstxRecord &mstxRecord);
@@ -79,8 +82,6 @@ private:
     std::mutex rangeIdTableMutex_;
 
     Config config_;
-    std::vector<std::thread> parseThreads_;
-    std::atomic<uint32_t> runningThreads_;  // 同时运行线程数
     std::unordered_map<uint64_t, std::unordered_map<uint64_t, uint64_t>> mstxRangeIdTables_{};
 
     std::atomic<bool> isReceiveServerInfo_;
@@ -113,6 +114,7 @@ bool PipeCall(std::vector<std::string> const &cmd, std::string &output);
 std::string ParseLine(std::string const &line);
 std::string ParseNameFromOutput(std::string output);
 std::string GetNameFromBinary(const void *hdl);
+RTS_API rtError_t GetDevice(int32_t *devId);
 
 } // namespace Leaks
 #endif
