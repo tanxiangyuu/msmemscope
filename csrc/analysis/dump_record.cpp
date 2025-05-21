@@ -54,9 +54,7 @@ bool DumpRecord::DumpData(const ClientId &clientId, const Record &record, const 
             return DumpAclItfData(clientId, aclItfRecord);
         }
         case RecordType::ATB_MEMORY_POOL_RECORD:
-        case RecordType::TORCH_NPU_RECORD: {
-            return DumpMemPoolData(clientId, record.eventRecord);
-        }
+        case RecordType::TORCH_NPU_RECORD:
         case RecordType::MINDSPORE_NPU_RECORD: {
             return DumpMemPoolData(clientId, record.eventRecord);
         }
@@ -111,32 +109,32 @@ bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRec
     if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
         return false;
     }
-    if (memRecord.memType == MemOpType::MALLOC) {
+
+    auto ptr = memRecord.addr;
+    auto key = std::make_pair("common", ptr);
+    auto memoryStateRecord = DeviceManager::GetInstance(config_).GetMemoryStateRecord(clientId);
+    auto memInfoLists = memoryStateRecord->GetPtrMemInfoList(key);
+    if (memRecord.memType == MemOpType::MALLOC && !memInfoLists.empty()) {
+        std::ostringstream oss;
+        BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
+        if (memRecord.devType == DeviceType::NPU &&
+            analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
+            oss << "{addr:" << memInfoLists[0].attr.addr << ",size:" << memInfoLists[0].attr.size << ",owner:" <<
+                memInfoLists[0].attr.owner << ",MID:" << memInfoLists[0].attr.modid << "}";
+        } else {
+            oss << "{addr:" << memInfoLists[0].attr.addr << ",size:" << memInfoLists[0].attr.size <<
+                ",MID:" << memInfoLists[0].attr.modid << "}";
+        }
+        std::string attr = "\"" + oss.str() + "\"";
+        memInfoLists[0].container.attr = attr;
+        memoryStateRecord->SetPtrMemInfoList(key, memInfoLists);
         return true;
     }
 
     // free事件，落盘记录的全部内存状态数据
-    auto memoryStateRecord = DeviceManager::GetInstance(config_).GetMemoryStateRecord(clientId);
-    auto ptr = memRecord.addr;
-    auto key = std::make_pair("common", ptr);
-    auto memInfoLists = memoryStateRecord->GetPtrMemInfoList(key);
     if (memInfoLists.empty()) {
         return false;
     }
-
-    // 拼接malloc的attr
-    std::ostringstream oss;
-    BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
-    if (memRecord.devType == DeviceType::NPU &&
-        analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
-        oss << "{addr:" << memInfoLists[0].attr.addr << ",size:" << memInfoLists[0].attr.size << ",owner:" <<
-            memInfoLists[0].attr.owner << ",MID:" << memInfoLists[0].attr.modid << "}";
-    } else {
-        oss << "{addr:" << memInfoLists[0].attr.addr << ",size:" << memInfoLists[0].attr.size <<
-            ",MID:" << memInfoLists[0].attr.modid << "}";
-    }
-    std::string attr = "\"" + oss.str() + "\"";
-    memInfoLists[0].container.attr = attr;
 
     for (auto memInfo : memInfoLists) {
         if (!WriteToFile(memInfo.container, memInfo.stack)) return false;
@@ -328,41 +326,50 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
 
 bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord)
 {
-    std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
-        return false;
-    }
-
-    MemoryUsage memoryUsage { };
-    std::string memPoolType { };
-    DumpContainer container;
-    if (eventRecord.type == RecordType::TORCH_NPU_RECORD) {
-        memoryUsage = eventRecord.record.torchNpuRecord.memoryUsage;
-        memPoolType = "PTA";
-    } else if (eventRecord.type == RecordType::MINDSPORE_NPU_RECORD) {
-        memoryUsage = eventRecord.record.mindsporeNpuRecord.memoryUsage;
-        memPoolType = "Mindspore";
-    } else {
-        memoryUsage = eventRecord.record.atbMemPoolRecord.memoryUsage;
-        memPoolType = "ATB";
-    }
-
-    if (memoryUsage.allocSize >= 0) {
+    static auto getMemPoolName = [](RecordType type) -> std::string {
+        if (type == RecordType::TORCH_NPU_RECORD) {
+            return "PTA";
+        } else if (type == RecordType::MINDSPORE_NPU_RECORD) {
+            return "MINDSPORE";
+        } else {
+            return "ATB";
+        }
+    };
+    auto ptr = eventRecord.record.memPoolRecord.memoryUsage.ptr;
+    auto key = std::make_pair(getMemPoolName(eventRecord.type), ptr);
+    auto memoryStateRecord = DeviceManager::GetInstance(config_).GetMemoryStateRecord(clientId);
+    auto memInfoLists = memoryStateRecord->GetPtrMemInfoList(key);
+    if (eventRecord.record.memPoolRecord.memoryUsage.allocSize >= 0 && !memInfoLists.empty()) {
+        std::ostringstream oss;
+        BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
+        if (analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
+            oss << "{addr:" << memInfoLists[0].attr.addr << ",size:" << memInfoLists[0].attr.size << ",owner:" <<
+                memInfoLists[0].attr.owner << ",total:" << memInfoLists[0].attr.totalReserved
+                << ",used:" << memInfoLists[0].attr.totalAllocated << "}";
+        } else {
+            oss << "{addr:" << memInfoLists[0].attr.addr << ",size:" << memInfoLists[0].attr.size <<",total:"
+                << memInfoLists[0].attr.totalReserved << ",used:" << memInfoLists[0].attr.totalAllocated << "}";
+        }
+        std::string attr = "\"" + oss.str() + "\"";
+        memInfoLists[0].container.attr = attr;
+        memoryStateRecord->SetPtrMemInfoList(key, memInfoLists);
         return true;
     }
 
     // free事件，落盘记录的全部内存状态数据
-    auto memoryStateRecord = DeviceManager::GetInstance(config_).GetMemoryStateRecord(clientId);
-    auto ptr = memoryUsage.ptr;
-    auto key = std::make_pair(memPoolType, ptr);
-    auto memInfoLists = memoryStateRecord->GetPtrMemInfoList(key);
     if (memInfoLists.empty()) {
         return false;
     }
+    {
+        std::lock_guard<std::mutex> lock(fileMutex_);
+        if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+            return false;
+        }
 
-    for (auto memInfo : memInfoLists) {
-        bool isWriteSuccess = WriteToFile(memInfo.container, memInfo.stack);
-        if (!isWriteSuccess) return false;
+        for (auto memInfo : memInfoLists) {
+            bool isWriteSuccess = WriteToFile(memInfo.container, memInfo.stack);
+            if (!isWriteSuccess) return false;
+        }
     }
     memoryStateRecord->DeleteMemStateInfo(key);
 

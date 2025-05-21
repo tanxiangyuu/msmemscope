@@ -40,6 +40,7 @@ public:
     void MemoryPoolInfoProcess(const Record& record, CallStackString& stack);
     void MemoryAccessInfoProcess(const Record& record, CallStackString& stack);
     const std::vector<MemStateInfo>& GetPtrMemInfoList(std::pair<std::string, int64_t> key);
+    void SetPtrMemInfoList(std::pair<std::string, int64_t> key, std::vector<MemStateInfo>& infoList);
     void DeleteMemStateInfo(std::pair<std::string, uint64_t> key);
     explicit MemoryStateRecord(Config config);
 private:
@@ -47,7 +48,8 @@ private:
     void HalMemProcess(MemOpRecord& memRecord, uint64_t& currentSize, std::string& deviceType);
     MemRecordAttr GetMemInfoAttr(MemOpRecord& memRecord, uint64_t currentSize);
 private:
-    void PackDumpContainer(DumpContainer& container, const MemoryUsage& memoryUsage, const std::string memPoolType);
+    void PackDumpContainer(DumpContainer& container, const MemoryUsage& memoryUsage,
+        const std::string memPoolType, MemRecordAttr& attr);
     std::map<std::pair<std::string, uint64_t>, std::vector<MemStateInfo>> ptrMemoryInfoMap_;
     std::unordered_map<uint64_t, uint64_t> hostMemSizeMap_;
     std::unordered_map<uint64_t, uint64_t> memSizeMap_;
@@ -66,16 +68,6 @@ private:
     std::mutex recordMutex_;
     Config config_;
 };
-
-template <typename T>
-void CopyMemPoolRecordMember(const T &record, DumpContainer &container)
-{
-    container.id = record.recordIndex;
-    container.pid = record.pid;
-    container.tid = record.tid;
-    container.timeStamp = record.timeStamp;
-    container.deviceId = std::to_string(record.devId);
-}
 
 }
 

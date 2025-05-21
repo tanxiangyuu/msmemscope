@@ -51,12 +51,10 @@ public:
     bool ReportKernelExcute(const TaskKey &key, std::string &name, uint64_t time, KernelEventType type);
     bool ReportAclItf(AclOpType aclOpType);
     bool ReportMark(MstxRecord &mstxRecord, CallStackString& stack);
-    bool ReportTorchNpu(TorchNpuRecord &torchNpuRecord, CallStackString& stack);
-    bool ReportMindsporeNpu(MindsporeNpuRecord &mindsporeNpuRecord, CallStackString& stack);
     int ReportRecordEvent(EventRecord &record, PacketHead &head, CallStackString& stack);
     int ReportRecordEvent(EventRecord &record, PacketHead &head);
     Config GetConfig();
-    bool ReportATBMemPoolRecord(AtbMemPoolRecord &record, CallStackString& stack);
+    bool ReportMemPoolRecord(MemPoolRecord &record, CallStackString& stack);
     bool ReportAtbOpExecute(AtbOpExecuteRecord& atbOpExecuteRecord);
     bool ReportAtbKernel(AtbKernelRecord& atbKernelRecord);
     bool ReportAtbAccessMemory(std::vector<MemAccessRecord>& memAccessRecords);
