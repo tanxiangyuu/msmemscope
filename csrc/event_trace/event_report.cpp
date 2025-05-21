@@ -15,6 +15,7 @@
 #include "umask_guard.h"
 #include "securec.h"
 #include "bit_field.h"
+#include "kernel_hooks/runtime_prof_api.h"
 
 namespace Leaks {
 thread_local bool g_isReportHostMem = false;
@@ -102,7 +103,7 @@ KernelLaunchRecord CreateKernelLaunchRecord(KernelLaunchRecord kernelLaunchRecor
 {
     auto record = KernelLaunchRecord {};
     record = kernelLaunchRecord;
-    record.timeStamp = Utility::GetTimeMicroseconds();
+    record.timeStamp = Utility::GetTimeNanoseconds();
     record.pid = Utility::GetPid();
     record.tid = Utility::GetTid();
     return record;
@@ -135,7 +136,6 @@ void EventReport::Init()
     recordIndex_.store(0);
     kernelLaunchRecordIndex_.store(0);
     aclItfRecordIndex_.store(0);
-    runningThreads_.store(0);
     isReceiveServerInfo_.store(false);
 }
 
@@ -143,6 +143,7 @@ Config EventReport::GetConfig()
 {
     return config_;
 }
+
 EventReport::EventReport(CommType type)
 {
     Init();
@@ -152,6 +153,11 @@ EventReport::EventReport(CommType type)
     uint32_t reTryTimes = 5; // 当前系统设置（setsockopt）的read超时时长是1s，默认至多尝试5次
     isReceiveServerInfo_ = (ClientProcess::GetInstance(type).Wait(msg, reTryTimes) > 0) ? true : false;
     Deserialize(msg, config_);
+
+    BitField<decltype(config_.levelType)> levelType(config_.levelType);
+    if (levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_KERNEL))) {
+        RegisterRtProfileCallback();
+    }
     return;
 }
 
@@ -175,15 +181,6 @@ bool EventReport::IsNeedSkip()
 bool EventReport::IsConnectToServer()
 {
     return isReceiveServerInfo_;
-}
-
-EventReport::~EventReport()
-{
-    for (std::thread &t : parseThreads_) {
-        if (t.joinable()) {
-            t.join();
-        }
-    }
 }
 
 bool EventReport::ReportMemPoolRecord(MemPoolRecord &memPoolRecord, CallStackString& stack)
@@ -501,7 +498,8 @@ bool EventReport::ReportAtenAccess(MemAccessRecord &memAccessRecord, CallStackSt
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, const void *hdl)
+bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, const void *hdl,
+    std::string& aKernelName, const TaskKey &key)
 {
     g_isInReportFunction = true;
 
@@ -518,15 +516,19 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
         return true;
     }
 
-    int32_t devId = GD_INVALID_NUM;
-    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
-        CLIENT_ERROR_LOG("[kernellaunch] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+    int32_t devId = std::get<0>(key);
+    if (devId < 0) {
+        if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+            CLIENT_ERROR_LOG("RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+        }
     }
 
     auto eventRecord = EventRecord{};
     eventRecord.type = RecordType::KERNEL_LAUNCH_RECORD;
     eventRecord.record.kernelLaunchRecord = CreateKernelLaunchRecord(kernelLaunchRecord);
     eventRecord.record.kernelLaunchRecord.devId = devId;
+    eventRecord.record.kernelLaunchRecord.streamId = std::get<1>(key);
+    eventRecord.record.kernelLaunchRecord.taskId = std::get<2>(key);
     eventRecord.record.kernelLaunchRecord.kernelLaunchIndex = ++kernelLaunchRecordIndex_;
     eventRecord.record.kernelLaunchRecord.recordIndex = ++recordIndex_;
     CallStackString stack;
@@ -543,6 +545,7 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
         if (!kernelName.empty()) {
             auto ret = strncpy_s(eventRecord.record.kernelLaunchRecord.kernelName,
                 KERNELNAME_MAX_SIZE, kernelName.c_str(), KERNELNAME_MAX_SIZE - 1);
+            aKernelName = kernelName;
             if (ret != EOK) {
                 CLIENT_WARN_LOG("strncpy_s FAILED");
             }
@@ -554,31 +557,24 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
             }
             return true;
         }
-        std::thread th = std::thread([eventRecord, hdl, this]()mutable {
-            while (runningThreads_ >= MAX_THREAD_NUM) { // 达到最大线程数，等待直到有可用的线程
-                std::this_thread::sleep_for(std::chrono::milliseconds(100)); // 等待100ms
-            }
-            ++runningThreads_;
-            std::string tempName = GetNameFromBinary(hdl);
-            auto ret = strncpy_s(eventRecord.record.kernelLaunchRecord.kernelName,
-                KERNELNAME_MAX_SIZE, tempName.c_str(), KERNELNAME_MAX_SIZE - 1);
-            if (ret != EOK) {
-                CLIENT_WARN_LOG("strncpy_s FAILED");
-            }
-            {
-                std::lock_guard<std::mutex> lock(threadMutex_);
-                hdlKernelNameMap_.insert({hdl, tempName});
-            }
-            PacketHead head = {PacketType::RECORD};
-            CallStackString stack;
-            auto sendNums = ReportRecordEvent(eventRecord, head, stack);
-            if (sendNums < 0) {
-                CLIENT_ERROR_LOG("rtKernelLaunch report FAILED");
-                return;
-            }
-            --runningThreads_;
-        });
-        parseThreads_.emplace_back(std::move(th));
+        std::string tempName = GetNameFromBinary(hdl);
+        auto ret = strncpy_s(eventRecord.record.kernelLaunchRecord.kernelName,
+            KERNELNAME_MAX_SIZE, tempName.c_str(), KERNELNAME_MAX_SIZE - 1);
+        aKernelName = tempName;
+        if (ret != EOK) {
+            CLIENT_WARN_LOG("strncpy_s FAILED");
+        }
+        {
+            std::lock_guard<std::mutex> lock(threadMutex_);
+            hdlKernelNameMap_.insert({hdl, tempName});
+        }
+        PacketHead head = {PacketType::RECORD};
+        CallStackString stack;
+        auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+        if (sendNums < 0) {
+            CLIENT_ERROR_LOG("rtKernelLaunch report FAILED");
+            return false;
+        }
     } else {
         PacketHead head = {PacketType::RECORD};
         auto sendNums = ReportRecordEvent(eventRecord, head, stack);
@@ -591,6 +587,38 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
     return true;
 }
 
+bool EventReport::ReportKernelExcute(const TaskKey &key, std::string &name, uint64_t time, KernelEventType type)
+{
+    g_isInReportFunction = true;
+
+    if (!IsConnectToServer()) {
+        return true;
+    }
+    
+    if (IsNeedSkip()) {
+        return true;
+    }
+
+    PacketHead head = {PacketType::RECORD};
+    auto eventRecord = EventRecord{};
+    eventRecord.type = RecordType::KERNEL_EXCUTE_RECORD;
+    eventRecord.record.kernelExcuteRecord.type = type;
+    eventRecord.record.kernelExcuteRecord.devId = std::get<0>(key);
+    eventRecord.record.kernelExcuteRecord.streamId = std::get<1>(key);
+    eventRecord.record.kernelExcuteRecord.taskId = std::get<2>(key);
+    eventRecord.record.kernelExcuteRecord.timeStamp = time;
+    eventRecord.record.kernelExcuteRecord.recordIndex = ++recordIndex_;
+    auto ret = strncpy_s(eventRecord.record.kernelExcuteRecord.kernelName,
+        KERNELNAME_MAX_SIZE, name.c_str(), KERNELNAME_MAX_SIZE - 1);
+    if (ret != EOK) {
+        CLIENT_WARN_LOG("strncpy_s FAILED");
+    }
+    CallStackString stack;
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+
+    g_isInReportFunction = false;
+    return (sendNums >= 0);
+}
 bool EventReport::ReportAclItf(AclOpType aclOpType)
 {
     g_isInReportFunction = true;
@@ -603,6 +631,9 @@ bool EventReport::ReportAclItf(AclOpType aclOpType)
         return true;
     }
 
+    if (aclOpType == AclOpType::FINALIZE) {
+        KernelEventTrace::GetInstance().EndKernelEventTrace();
+    }
     int32_t devId = GD_INVALID_NUM;
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord{};
