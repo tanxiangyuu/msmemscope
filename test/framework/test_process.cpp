@@ -159,7 +159,7 @@ TEST(Process, do_record_handler_except_success)
     ClientId clientId = 0;
     auto record1 = Record{};
     record1.eventRecord.type = RecordType::TORCH_NPU_RECORD;
-    auto npuRecordMalloc = TorchNpuRecord {};
+    auto npuRecordMalloc = MemPoolRecord {};
     npuRecordMalloc.recordIndex = 1;
     auto memoryusage1 = MemoryUsage {};
     memoryusage1.dataType = 0;
@@ -167,7 +167,7 @@ TEST(Process, do_record_handler_except_success)
     memoryusage1.allocSize = 512;
     memoryusage1.totalAllocated = 512;
     npuRecordMalloc.memoryUsage = memoryusage1;
-    record1.eventRecord.record.torchNpuRecord = npuRecordMalloc;
+    record1.eventRecord.record.memPoolRecord = npuRecordMalloc;
 
     auto record2 = Record{};
     record2.eventRecord.type = RecordType::MSTX_MARK_RECORD;

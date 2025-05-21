@@ -125,8 +125,8 @@ TEST(DumpRecord, dump_torchnpu_record_expect_success)
 {
     auto record = Record{};
     record.eventRecord.type = RecordType::TORCH_NPU_RECORD;
-    auto torchNpuRecord = TorchNpuRecord{};
-    torchNpuRecord.recordIndex = 101;
+    auto memPoolRecord = MemPoolRecord{};
+    memPoolRecord.recordIndex = 101;
     
     MemoryUsage memoryUsage;
     memoryUsage.allocSize = 128;
@@ -138,8 +138,8 @@ TEST(DumpRecord, dump_torchnpu_record_expect_success)
     memoryUsage.deviceIndex = 10;
     memoryUsage.allocatorType = 0;
     memoryUsage.dataType = 0;
-    torchNpuRecord.memoryUsage = memoryUsage;
-    record.eventRecord.record.torchNpuRecord = torchNpuRecord;
+    memPoolRecord.memoryUsage = memoryUsage;
+    record.eventRecord.record.memPoolRecord = memPoolRecord;
     Config config;
     ClientId clientId = 0;
     CallStackString stack{};
@@ -152,11 +152,11 @@ TEST(DumpRecord, dump_empty_torchnpu_record)
 {
     auto record = Record{};
     record.eventRecord.type = RecordType::TORCH_NPU_RECORD;
-    auto torchNpuRecord = TorchNpuRecord{};
+    auto memPoolRecord = MemPoolRecord{};
 
     MemoryUsage memoryUsage;
-    torchNpuRecord.memoryUsage = memoryUsage;
-    record.eventRecord.record.torchNpuRecord = torchNpuRecord;
+    memPoolRecord.memoryUsage = memoryUsage;
+    record.eventRecord.record.memPoolRecord = memPoolRecord;
     Config config;
     ClientId clientId = 0;
     CallStackString stack{};
@@ -166,8 +166,8 @@ TEST(DumpRecord, dump_mindsporenpu_record_expect_success)
 {
     auto record = Record{};
     record.eventRecord.type = RecordType::MINDSPORE_NPU_RECORD;
-    auto mindsporeNpuRecord = MindsporeNpuRecord{};
-    mindsporeNpuRecord.recordIndex = 101;
+    auto memPoolRecord = MemPoolRecord{};
+    memPoolRecord.recordIndex = 101;
     
     MemoryUsage memoryUsage;
     memoryUsage.allocSize = 128;
@@ -179,8 +179,8 @@ TEST(DumpRecord, dump_mindsporenpu_record_expect_success)
     memoryUsage.deviceIndex = 10;
     memoryUsage.allocatorType = 0;
     memoryUsage.dataType = 0;
-    mindsporeNpuRecord.memoryUsage = memoryUsage;
-    record.eventRecord.record.mindsporeNpuRecord = mindsporeNpuRecord;
+    memPoolRecord.memoryUsage = memoryUsage;
+    record.eventRecord.record.memPoolRecord = memPoolRecord;
     Config config;
     ClientId clientId = 0;
     CallStackString stack{};
@@ -193,11 +193,11 @@ TEST(DumpRecord, dump_empty_mindsporenpu_record)
 {
     auto record = Record{};
     record.eventRecord.type = RecordType::MINDSPORE_NPU_RECORD;
-    auto mindsporeNpuRecord = MindsporeNpuRecord{};
+    auto memPoolRecord = MemPoolRecord{};
 
     MemoryUsage memoryUsage;
-    mindsporeNpuRecord.memoryUsage = memoryUsage;
-    record.eventRecord.record.mindsporeNpuRecord = mindsporeNpuRecord;
+    memPoolRecord.memoryUsage = memoryUsage;
+    record.eventRecord.record.memPoolRecord = memPoolRecord;
     Config config;
     ClientId clientId = 0;
     CallStackString stack{};
