@@ -75,6 +75,39 @@ TEST(MemoryStateRecordTest, state_ATB_memory_pool_record_expect_success)
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 2);
 }
 
+TEST(MemoryStateRecordTest, state_PTA_memory_pool_record_with_decompose_expect_success)
+{
+    auto record = Record{};
+    record.eventRecord.type = RecordType::TORCH_NPU_RECORD;
+    auto ptaPoolRecord = TorchNpuRecord{};
+    ptaPoolRecord.recordIndex = 1;
+    ptaPoolRecord.pid = 1234;
+    ptaPoolRecord.tid = 1234;
+    ptaPoolRecord.timeStamp = 1000;
+    ptaPoolRecord.devId = 1;
+    auto ptaMemUsage = MemoryUsage{};
+    ptaMemUsage.ptr = 1234;
+    ptaMemUsage.allocSize = 100;
+    ptaMemUsage.totalAllocated = 10000;
+    ptaMemUsage.totalReserved = 30000;
+    ptaPoolRecord.memoryUsage = ptaMemUsage;
+    record.eventRecord.record.torchNpuRecord = ptaPoolRecord;
+
+    CallStackString stack{};
+    Config config;
+    config.analysisType = 2;
+    MemoryStateRecord memoryStateRecord{config};
+    auto key = std::make_pair("PTA", ptaPoolRecord.memoryUsage.ptr);
+    memoryStateRecord.MemoryPoolInfoProcess(record, stack);
+    ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
+    ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 1);
+
+    ptaPoolRecord.memoryUsage.allocSize = -100;
+    memoryStateRecord.MemoryPoolInfoProcess(record, stack);
+    ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
+    ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 2);
+}
+
 TEST(MemoryStateRecordTest, memory_access_info_process_expect_success)
 {
     auto record = Record{};
