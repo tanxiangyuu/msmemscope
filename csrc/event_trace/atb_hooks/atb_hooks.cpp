@@ -172,7 +172,7 @@ namespace atb {
         if (!levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_OP))) {
             return funcExecute(thisPtr, runnerVariantPack);
         }
-        BitField<decltype(config.levelType)> eventType(config.eventType);
+        BitField<decltype(config.eventType)> eventType(config.eventType);
         std::string name;
         std::string params;
         if (eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
@@ -270,7 +270,7 @@ namespace atb {
                 getOutTensors(const_cast<Mki::LaunchParam*>(&launchParam)));
         }
         std::string name;
-        BitField<decltype(config.levelType)> eventType(config.eventType);
+        BitField<decltype(config.eventType)> eventType(config.eventType);
         if (eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
             if (!ReportAtbKernel(name, dirPath)) {
                 return;
