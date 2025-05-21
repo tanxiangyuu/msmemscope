@@ -10,7 +10,6 @@
 #include "config_info.h"
 #include "event_report.h"
 #include "bit_field.h"
-#include "log.h"
 
 namespace Leaks {
 
@@ -124,6 +123,20 @@ bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRec
     if (memInfoLists.empty()) {
         return false;
     }
+
+    // 拼接malloc的attr
+    std::ostringstream oss;
+    BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
+    if (memRecord.devType == DeviceType::NPU &&
+        analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
+        oss << "{addr:" << memInfoLists[0].attr.addr << ",size:" << memInfoLists[0].attr.size << ",owner:" <<
+            memInfoLists[0].attr.owner << ",MID:" << memInfoLists[0].attr.modid << "}";
+    } else {
+        oss << "{addr:" << memInfoLists[0].attr.addr << ",size:" << memInfoLists[0].attr.size <<
+            ",MID:" << memInfoLists[0].attr.modid << "}";
+    }
+    std::string attr = "\"" + oss.str() + "\"";
+    memInfoLists[0].container.attr = attr;
 
     for (auto memInfo : memInfoLists) {
         if (!WriteToFile(memInfo.container, memInfo.stack)) return false;
@@ -442,27 +455,6 @@ bool DumpRecord::DumpAtbKernelData(const ClientId &clientId, const AtbKernelReco
 
 DumpRecord::~DumpRecord()
 {
-    // dump未匹配的内存状态事件
-    {
-        std::lock_guard<std::mutex> lock(fileMutex_);
-        auto stateRecordMap = DeviceManager::GetInstance(config_).GetMemoryStateRecordMap();
-        for (auto it = stateRecordMap.begin(); it != stateRecordMap.end();) {
-            auto memStateRecord = it->second;
-            auto ptrMemInfoMap = memStateRecord->GetPtrMemoryInfoMap();
-            for (auto itMemInfo = ptrMemInfoMap.begin(); itMemInfo != ptrMemInfoMap.end();) {
-                auto memInfoList = itMemInfo->second;
-                for (auto memInfo : memInfoList) {
-                    if (!WriteToFile(memInfo.container, memInfo.stack)) {
-                        LOG_WARN("dump mem state info failed!");
-                    }
-                }
-                memStateRecord->DeleteMemStateInfo(itMemInfo->first);
-                ++itMemInfo;
-            }
-            ++it;
-        }
-    }
-
     if (leaksDataFile_ != nullptr) {
         fclose(leaksDataFile_);
         leaksDataFile_ = nullptr;

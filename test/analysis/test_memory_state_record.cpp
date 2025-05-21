@@ -21,7 +21,7 @@ TEST(MemoryStateRecordTest, state_cpu_memory_record_expect_success)
     memRecordMalloc.devId = 10;
     memRecordMalloc.recordIndex = 102;
     memRecordMalloc.kernelIndex = 101;
-    memRecordMalloc.space = MemOpSpace::HOST;;
+    memRecordMalloc.space = MemOpSpace::HOST;
     memRecordMalloc.addr = 0x1234;
     memRecordMalloc.memSize = 128;
     memRecordMalloc.timeStamp = 789;
@@ -75,6 +75,39 @@ TEST(MemoryStateRecordTest, state_ATB_memory_pool_record_expect_success)
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 2);
 }
 
+TEST(MemoryStateRecordTest, state_PTA_memory_pool_record_with_decompose_expect_success)
+{
+    auto record = Record{};
+    record.eventRecord.type = RecordType::TORCH_NPU_RECORD;
+    auto ptaPoolRecord = TorchNpuRecord{};
+    ptaPoolRecord.recordIndex = 1;
+    ptaPoolRecord.pid = 1234;
+    ptaPoolRecord.tid = 1234;
+    ptaPoolRecord.timeStamp = 1000;
+    ptaPoolRecord.devId = 1;
+    auto ptaMemUsage = MemoryUsage{};
+    ptaMemUsage.ptr = 1234;
+    ptaMemUsage.allocSize = 100;
+    ptaMemUsage.totalAllocated = 10000;
+    ptaMemUsage.totalReserved = 30000;
+    ptaPoolRecord.memoryUsage = ptaMemUsage;
+    record.eventRecord.record.torchNpuRecord = ptaPoolRecord;
+
+    CallStackString stack{};
+    Config config;
+    config.analysisType = 2;
+    MemoryStateRecord memoryStateRecord{config};
+    auto key = std::make_pair("PTA", ptaPoolRecord.memoryUsage.ptr);
+    memoryStateRecord.MemoryPoolInfoProcess(record, stack);
+    ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
+    ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 1);
+
+    ptaPoolRecord.memoryUsage.allocSize = -100;
+    memoryStateRecord.MemoryPoolInfoProcess(record, stack);
+    ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
+    ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 2);
+}
+
 TEST(MemoryStateRecordTest, memory_access_info_process_expect_success)
 {
     auto record = Record{};
@@ -112,4 +145,20 @@ TEST(MemoryStateRecordTest, delete_memstateinfo_expect_success)
     memoryStateRecord.ptrMemoryInfoMap_.insert({key, {}});
     memoryStateRecord.DeleteMemStateInfo(key);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 0);
+}
+
+TEST(MemoryStateRecordTest, get_halattr_hccl_expect_success)
+{
+    auto memRecordMalloc = MemOpRecord{};
+    memRecordMalloc.devType = DeviceType::NPU;
+    memRecordMalloc.modid = 3;
+    memRecordMalloc.addr = 1234;
+    memRecordMalloc.memType = MemOpType::MALLOC;
+
+    Config config;
+    BitField<decltype(config.analysisType)> analysisTypeBit;
+    analysisTypeBit.setBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS));
+    MemoryStateRecord memoryStateRecord{config};
+    MemRecordAttr attr = memoryStateRecord.GetMemInfoAttr(memRecordMalloc, 100);
+    ASSERT_EQ(attr.owner, "CANN@HCCL");
 }
