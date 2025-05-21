@@ -93,8 +93,8 @@ private:
     void KernelLaunchRecordToString(const KernelLaunchRecord &kernelLaunchRecord, std::string &str);
     void SaveKernelLaunchRecordToCpuTrace(const std::string &str);
     void AclItfRecordToString(const AclItfRecord &aclItfRecord, std::string &str);
-    void TorchRecordToString(const TorchNpuRecord &torchNpuRecord, std::string &str);
-    void MindsporeRecordToString(const MindsporeNpuRecord &mindsporeNpuRecord, std::string &str);
+    void TorchRecordToString(const MemPoolRecord &memPoolRecord, std::string &str);
+    void MindsporeRecordToString(const MemPoolRecord &memPoolRecord, std::string &str);
     void MstxRecordToString(const MstxRecord &mstxRecord, std::string &str);
     void TorchMemLeakInfoToString(const TorchMemLeakInfo &info, std::string &str);
 

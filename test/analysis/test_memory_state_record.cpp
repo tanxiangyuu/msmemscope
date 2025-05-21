@@ -46,7 +46,7 @@ TEST(MemoryStateRecordTest, state_ATB_memory_pool_record_expect_success)
 {
     auto record = Record{};
     record.eventRecord.type = RecordType::ATB_MEMORY_POOL_RECORD;
-    auto atbPoolRecord = AtbMemPoolRecord{};
+    auto atbPoolRecord = MemPoolRecord{};
     atbPoolRecord.recordIndex = 1;
     atbPoolRecord.pid = 1234;
     atbPoolRecord.tid = 1234;
@@ -59,7 +59,7 @@ TEST(MemoryStateRecordTest, state_ATB_memory_pool_record_expect_success)
     atbMemUsage.totalReserved = 30000;
     atbMemUsage.totalActive = 10000;
     atbPoolRecord.memoryUsage = atbMemUsage;
-    record.eventRecord.record.atbMemPoolRecord = atbPoolRecord;
+    record.eventRecord.record.memPoolRecord = atbPoolRecord;
 
     CallStackString stack{};
     Config config;
@@ -79,7 +79,7 @@ TEST(MemoryStateRecordTest, state_PTA_memory_pool_record_with_decompose_expect_s
 {
     auto record = Record{};
     record.eventRecord.type = RecordType::TORCH_NPU_RECORD;
-    auto ptaPoolRecord = TorchNpuRecord{};
+    auto ptaPoolRecord = MemPoolRecord{};
     ptaPoolRecord.recordIndex = 1;
     ptaPoolRecord.pid = 1234;
     ptaPoolRecord.tid = 1234;
@@ -91,7 +91,7 @@ TEST(MemoryStateRecordTest, state_PTA_memory_pool_record_with_decompose_expect_s
     ptaMemUsage.totalAllocated = 10000;
     ptaMemUsage.totalReserved = 30000;
     ptaPoolRecord.memoryUsage = ptaMemUsage;
-    record.eventRecord.record.torchNpuRecord = ptaPoolRecord;
+    record.eventRecord.record.memPoolRecord = ptaPoolRecord;
 
     CallStackString stack{};
     Config config;

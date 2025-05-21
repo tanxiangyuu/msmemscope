@@ -417,16 +417,16 @@ TEST(TraceRecord, process_torch_memory_record)
 {
     auto record = EventRecord{};
     record.type = RecordType::TORCH_NPU_RECORD;
-    auto torchNpuRecord = TorchNpuRecord{};
-    torchNpuRecord.tid = 6;
-    torchNpuRecord.pid = 8;
-    torchNpuRecord.kernelIndex = 123;
+    auto memPoolRecord = MemPoolRecord{};
+    memPoolRecord.tid = 6;
+    memPoolRecord.pid = 8;
+    memPoolRecord.kernelIndex = 123;
     MemoryUsage memoryUsage = MemoryUsage{};
     memoryUsage.totalAllocated = 10;
     memoryUsage.totalReserved = 30;
-    torchNpuRecord.memoryUsage = memoryUsage;
-    torchNpuRecord.devId = 2;
-    record.record.torchNpuRecord = torchNpuRecord;
+    memPoolRecord.memoryUsage = memoryUsage;
+    memPoolRecord.devId = 2;
+    record.record.memPoolRecord = memPoolRecord;
 
     std::string result = "{\n"
 "    \"ph\": \"C\",\n"
@@ -445,7 +445,7 @@ TEST(TraceRecord, process_torch_memory_record)
     TraceRecord::GetInstance().ProcessRecord(record);
     std::string fileContent;
     bool hasReadFile = ReadFile(
-        TraceRecord::GetInstance().traceFiles_[Device{DeviceType::NPU, torchNpuRecord.devId}].filePath, fileContent);
+        TraceRecord::GetInstance().traceFiles_[Device{DeviceType::NPU, memPoolRecord.devId}].filePath, fileContent);
     bool hasRemoveDir = RemoveDir(TraceRecord::GetInstance().dirPath_);
     EXPECT_NE(fileContent.find(result), std::string::npos);
     EXPECT_TRUE(hasReadFile && hasRemoveDir);
@@ -524,16 +524,16 @@ TEST(TraceRecord, process_mindspore_memory_record)
 {
     auto record = EventRecord{};
     record.type = RecordType::MINDSPORE_NPU_RECORD;
-    auto mindsporeNpuRecord = MindsporeNpuRecord{};
-    mindsporeNpuRecord.tid = 6;
-    mindsporeNpuRecord.pid = 8;
-    mindsporeNpuRecord.kernelIndex = 123;
+    auto memPoolRecord = MemPoolRecord{};
+    memPoolRecord.tid = 6;
+    memPoolRecord.pid = 8;
+    memPoolRecord.kernelIndex = 123;
     MemoryUsage memoryUsage = MemoryUsage{};
     memoryUsage.totalAllocated = 10;
     memoryUsage.totalReserved = 30;
-    mindsporeNpuRecord.memoryUsage = memoryUsage;
-    mindsporeNpuRecord.devId = 2;
-    record.record.mindsporeNpuRecord = mindsporeNpuRecord;
+    memPoolRecord.memoryUsage = memoryUsage;
+    memPoolRecord.devId = 2;
+    record.record.memPoolRecord = memPoolRecord;
 
     std::string result = "{\n"
 "    \"ph\": \"C\",\n"
