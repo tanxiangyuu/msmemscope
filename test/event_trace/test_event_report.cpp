@@ -54,7 +54,7 @@ TEST(EventReportTest, ReportMallocTestDEVICE) {
 TEST(EventReportTest, ReportTorchNpuMallocTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
 
-    auto npuRecordMalloc = TorchNpuRecord {};
+    auto npuRecordMalloc = MemPoolRecord {};
     npuRecordMalloc.recordIndex = 1;
     auto memoryusage1 = MemoryUsage {};
     memoryusage1.deviceIndex = 0;
@@ -65,13 +65,13 @@ TEST(EventReportTest, ReportTorchNpuMallocTest) {
     npuRecordMalloc.memoryUsage = memoryusage1;
     instance.isReceiveServerInfo_ = true;
     CallStackString callStack;
-    EXPECT_TRUE(instance.ReportTorchNpu(npuRecordMalloc, callStack));
+    EXPECT_TRUE(instance.ReportMemPoolRecord(npuRecordMalloc, callStack));
 }
 
 TEST(EventReportTest, ReportTorchNpuFreeTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
 
-    auto npuRecordFree = TorchNpuRecord {};
+    auto npuRecordFree = MemPoolRecord {};
     npuRecordFree.recordIndex = 3;
     auto memoryusage1 = MemoryUsage {};
     memoryusage1.deviceIndex = 3;
@@ -82,7 +82,7 @@ TEST(EventReportTest, ReportTorchNpuFreeTest) {
     npuRecordFree.memoryUsage = memoryusage1;
     instance.isReceiveServerInfo_ = true;
     CallStackString callStack;
-    EXPECT_TRUE(instance.ReportTorchNpu(npuRecordFree, callStack));
+    EXPECT_TRUE(instance.ReportMemPoolRecord(npuRecordFree, callStack));
 }
 
 TEST(EventReportTest, ReportMallocTestHost) {
@@ -420,11 +420,63 @@ TEST(EventReportTest, ReportTestWithNoReceiveServerInfo) {
     AclOpType aclOpType = {};
     EXPECT_TRUE(instance.ReportAclItf(aclOpType));
 
-    TorchNpuRecord torchNpuRecord = {};
-    EXPECT_TRUE(instance.ReportTorchNpu(torchNpuRecord, callStack));
+    MemPoolRecord memPoolRecord = {};
+    EXPECT_TRUE(instance.ReportMemPoolRecord(memPoolRecord, callStack));
 
     MstxRecord mstxRecord = {};
     EXPECT_TRUE(instance.ReportMark(mstxRecord, callStack));
+}
+
+TEST(EventReportTest, ReportAtenLaunchTestExpectSuccess)
+{
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.config_.stepList.stepCount = 3;
+    instance.config_.stepList.stepIdList[0] = 1;
+    instance.config_.stepList.stepIdList[1] = 2;
+    instance.config_.stepList.stepIdList[2] = 6;
+    instance.isReceiveServerInfo_ = true;
+    AtenOpLaunchRecord atenOpLaunchRecord{};
+    CallStackString stack;
+    EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord, stack));
+}
+
+TEST(EventReportTest, ReportAtenAccessTestExpectSuccess)
+{
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.config_.stepList.stepCount = 3;
+    instance.config_.stepList.stepIdList[0] = 1;
+    instance.config_.stepList.stepIdList[1] = 2;
+    instance.config_.stepList.stepIdList[2] = 6;
+    instance.isReceiveServerInfo_ = true;
+    MemAccessRecord  memAccessRecord {};
+    CallStackString stack;
+    EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord, stack));
+}
+
+TEST(EventReportTest, ReportAtenLaunchTestExpextSuccess)
+{
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.config_.stepList.stepCount = 3;
+    instance.config_.stepList.stepIdList[0] = 1;
+    instance.config_.stepList.stepIdList[1] = 2;
+    instance.config_.stepList.stepIdList[2] = 6;
+    instance.isReceiveServerInfo_ = true;
+    AtenOpLaunchRecord atenOpLaunchRecord {};
+    CallStackString stack;
+    EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord, stack));
+}
+
+TEST(EventReportTest, ReportAtenAccessTestExpextSuccess)
+{
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.config_.stepList.stepCount = 3;
+    instance.config_.stepList.stepIdList[0] = 1;
+    instance.config_.stepList.stepIdList[1] = 2;
+    instance.config_.stepList.stepIdList[2] = 6;
+    instance.isReceiveServerInfo_ = true;
+    MemAccessRecord  memAccessRecord  {};
+    CallStackString stack;
+    EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord, stack));
 }
 
 TEST(KernelNameFuncTest, PipeCallGivenLsCommandReturnFalse)

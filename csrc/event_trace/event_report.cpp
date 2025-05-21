@@ -183,7 +183,7 @@ bool EventReport::IsConnectToServer()
     return isReceiveServerInfo_;
 }
 
-bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord, CallStackString& stack)
+bool EventReport::ReportMemPoolRecord(MemPoolRecord &memPoolRecord, CallStackString& stack)
 {
     g_isInReportFunction = true;
 
@@ -197,7 +197,7 @@ bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord, CallStackString
 
     BitField<decltype(config_.eventType)> eventType(config_.eventType);
     // 根据命令行参数判断malloc和free是否上报, 0为malloc，剩下的为free
-    if (torchNpuRecord.memoryUsage.dataType == 0) {
+    if (memPoolRecord.memoryUsage.dataType == 0) {
         if (!eventType.checkBit(static_cast<size_t>(EventType::ALLOC_EVENT))) {
             return true;
         }
@@ -209,76 +209,14 @@ bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord, CallStackString
 
     PacketHead head = {PacketType::RECORD};
     EventRecord eventRecord;
-    eventRecord.type = RecordType::TORCH_NPU_RECORD;
-    eventRecord.record.torchNpuRecord = torchNpuRecord;
-    eventRecord.record.torchNpuRecord.timeStamp = Utility::GetTimeMicroseconds();
-    eventRecord.record.torchNpuRecord.kernelIndex = kernelLaunchRecordIndex_;
-    eventRecord.record.torchNpuRecord.devId = static_cast<int32_t>(torchNpuRecord.memoryUsage.deviceIndex);
-    eventRecord.record.torchNpuRecord.recordIndex = ++recordIndex_;
+    eventRecord.type = memPoolRecord.type;
+    eventRecord.record.memPoolRecord = memPoolRecord;
+    eventRecord.record.memPoolRecord.timeStamp = Utility::GetTimeMicroseconds();
+    eventRecord.record.memPoolRecord.kernelIndex = kernelLaunchRecordIndex_;
+    eventRecord.record.memPoolRecord.devId = static_cast<int32_t>(memPoolRecord.memoryUsage.deviceIndex);
+    eventRecord.record.memPoolRecord.recordIndex = ++recordIndex_;
     auto sendNums = ReportRecordEvent(eventRecord, head, stack);
 
-    g_isInReportFunction = false;
-    return (sendNums >= 0);
-}
-
-bool EventReport::ReportMindsporeNpu(MindsporeNpuRecord &mindsporeNpuRecord, CallStackString& stack)
-{
-    g_isInReportFunction = true;
-
-    if (!IsConnectToServer()) {
-        return true;
-    }
-
-    if (IsNeedSkip()) {
-        return true;
-    }
-    PacketHead head = {PacketType::RECORD};
-    EventRecord eventRecord;
-    eventRecord.type = RecordType::MINDSPORE_NPU_RECORD;
-    eventRecord.record.mindsporeNpuRecord = mindsporeNpuRecord;
-    eventRecord.record.mindsporeNpuRecord.timeStamp = Utility::GetTimeMicroseconds();
-    eventRecord.record.mindsporeNpuRecord.kernelIndex = kernelLaunchRecordIndex_;
-    eventRecord.record.mindsporeNpuRecord.devId = static_cast<int32_t>(mindsporeNpuRecord.memoryUsage.deviceIndex);
-    eventRecord.record.mindsporeNpuRecord.recordIndex = ++recordIndex_;
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
-
-    g_isInReportFunction = false;
-    return (sendNums >= 0);
-}
-
-bool EventReport::ReportATBMemPoolRecord(AtbMemPoolRecord &record, CallStackString& stack)
-{
-    g_isInReportFunction = true;
-
-    if (!IsConnectToServer()) {
-        return true;
-    }
-
-    if (IsNeedSkip()) {
-        return true;
-    }
-
-    BitField<decltype(config_.eventType)> eventType(config_.eventType);
-    // 根据命令行参数判断malloc和free是否上报, 0为malloc，剩下的为free
-    if (record.memoryUsage.dataType == 0) {
-        if (!eventType.checkBit(static_cast<size_t>(EventType::ALLOC_EVENT))) {
-            return true;
-        }
-    } else {
-        if (!eventType.checkBit(static_cast<size_t>(EventType::FREE_EVENT))) {
-            return true;
-        }
-    }
-
-    PacketHead head = {PacketType::RECORD};
-    EventRecord eventRecord;
-    eventRecord.type = RecordType::ATB_MEMORY_POOL_RECORD;
-    eventRecord.record.atbMemPoolRecord = record;
-    eventRecord.record.atbMemPoolRecord.timeStamp = Utility::GetTimeMicroseconds();
-    eventRecord.record.atbMemPoolRecord.kernelIndex = kernelLaunchRecordIndex_;
-    eventRecord.record.atbMemPoolRecord.devId = static_cast<int32_t>(record.memoryUsage.deviceIndex);
-    eventRecord.record.atbMemPoolRecord.recordIndex = ++recordIndex_;
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
     g_isInReportFunction = false;
     return (sendNums >= 0);
 }

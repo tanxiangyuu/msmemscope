@@ -4,6 +4,7 @@
 #include <string>
 #define private public
 #include "dump_record.h"
+#include "device_manager.h"
 #undef private
 #include "record_info.h"
 #include "config_info.h"
@@ -26,7 +27,7 @@ TEST(DumpRecord, dump_cpu_memory_record_expect_success)
     memRecordMalloc.recordIndex = 102;
     memRecordMalloc.kernelIndex = 101;
     memRecordMalloc.space = MemOpSpace::DEVICE;
-    memRecordMalloc.addr = 0x1234;
+    memRecordMalloc.addr = 1234;
     memRecordMalloc.memSize = 128;
     memRecordMalloc.timeStamp = 789;
     memRecordMalloc.memType = MemOpType::MALLOC;
@@ -34,16 +35,22 @@ TEST(DumpRecord, dump_cpu_memory_record_expect_success)
     Config config;
     ClientId clientId = 0;
     CallStackString stack{};
+    std::shared_ptr<MemoryStateRecord> memoryStateRecord = std::make_shared<MemoryStateRecord>(config);
+    std::vector<MemStateInfo> meminfoList = {};
+    MemStateInfo info;
+    meminfoList.push_back(info);
+    memoryStateRecord->ptrMemoryInfoMap_.insert({{"common", 1234}, meminfoList});
+    DeviceManager::GetInstance(config).memoryStateRecordMap_[clientId] = memoryStateRecord;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 
     record.eventRecord.record.memoryRecord.memType = MemOpType::FREE;
     
-    EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     
     record.eventRecord.record.memoryRecord.memType = MemOpType::MALLOC;
     memRecordMalloc.space = MemOpSpace::HOST;
     
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+    EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     record.eventRecord.record.memoryRecord.memType = MemOpType::FREE;
     EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
@@ -61,7 +68,7 @@ TEST(DumpRecord, dump_memory_record_expect_success)
     memRecordMalloc.recordIndex = 102;
     memRecordMalloc.kernelIndex = 101;
     memRecordMalloc.space = MemOpSpace::DEVICE;
-    memRecordMalloc.addr = 0x1234;
+    memRecordMalloc.addr = 1234;
     memRecordMalloc.memSize = 128;
     memRecordMalloc.timeStamp = 789;
     memRecordMalloc.memType = MemOpType::MALLOC;
@@ -69,16 +76,22 @@ TEST(DumpRecord, dump_memory_record_expect_success)
     Config config;
     ClientId clientId = 0;
     CallStackString stack{};
+    std::shared_ptr<MemoryStateRecord> memoryStateRecord = std::make_shared<MemoryStateRecord>(config);
+    std::vector<MemStateInfo> meminfoList = {};
+    MemStateInfo info;
+    meminfoList.push_back(info);
+    memoryStateRecord->ptrMemoryInfoMap_.insert({{"common", 1234}, meminfoList});
+    DeviceManager::GetInstance(config).memoryStateRecordMap_[clientId] = memoryStateRecord;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     config.enableCStack = true;
     config.enablePyStack = true;
     record.eventRecord.record.memoryRecord.memType = MemOpType::FREE;
     
-    EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     record.eventRecord.record.memoryRecord.memType = MemOpType::MALLOC;
     memRecordMalloc.space = MemOpSpace::HOST;
     
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+    EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     record.eventRecord.record.memoryRecord.memType = MemOpType::FREE;
     EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
@@ -125,8 +138,8 @@ TEST(DumpRecord, dump_torchnpu_record_expect_success)
 {
     auto record = Record{};
     record.eventRecord.type = RecordType::TORCH_NPU_RECORD;
-    auto torchNpuRecord = TorchNpuRecord{};
-    torchNpuRecord.recordIndex = 101;
+    auto memPoolRecord = MemPoolRecord{};
+    memPoolRecord.recordIndex = 101;
     
     MemoryUsage memoryUsage;
     memoryUsage.allocSize = 128;
@@ -138,36 +151,49 @@ TEST(DumpRecord, dump_torchnpu_record_expect_success)
     memoryUsage.deviceIndex = 10;
     memoryUsage.allocatorType = 0;
     memoryUsage.dataType = 0;
-    torchNpuRecord.memoryUsage = memoryUsage;
-    record.eventRecord.record.torchNpuRecord = torchNpuRecord;
+    memPoolRecord.memoryUsage = memoryUsage;
+    record.eventRecord.record.memPoolRecord = memPoolRecord;
     Config config;
     ClientId clientId = 0;
     CallStackString stack{};
+    std::shared_ptr<MemoryStateRecord> memoryStateRecord = std::make_shared<MemoryStateRecord>(config);
+    std::vector<MemStateInfo> meminfoList = {};
+    MemStateInfo info;
+    meminfoList.push_back(info);
+    memoryStateRecord->ptrMemoryInfoMap_.insert({{"PTA", 123}, meminfoList});
+    DeviceManager::GetInstance(config).memoryStateRecordMap_[clientId] = memoryStateRecord;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     config.enableCStack = true;
     config.enablePyStack = true;
+    memoryUsage.allocSize = -128;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_empty_torchnpu_record)
 {
     auto record = Record{};
     record.eventRecord.type = RecordType::TORCH_NPU_RECORD;
-    auto torchNpuRecord = TorchNpuRecord{};
+    auto memPoolRecord = MemPoolRecord{};
 
     MemoryUsage memoryUsage;
-    torchNpuRecord.memoryUsage = memoryUsage;
-    record.eventRecord.record.torchNpuRecord = torchNpuRecord;
+    memPoolRecord.memoryUsage = memoryUsage;
+    record.eventRecord.record.memPoolRecord = memPoolRecord;
     Config config;
     ClientId clientId = 0;
     CallStackString stack{};
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+    std::shared_ptr<MemoryStateRecord> memoryStateRecord = std::make_shared<MemoryStateRecord>(config);
+    std::vector<MemStateInfo> meminfoList = {};
+    MemStateInfo info;
+    meminfoList.push_back(info);
+    memoryStateRecord->ptrMemoryInfoMap_.insert({{"PTA", 123}, meminfoList});
+    DeviceManager::GetInstance(config).memoryStateRecordMap_[clientId] = memoryStateRecord;
+    EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_mindsporenpu_record_expect_success)
 {
     auto record = Record{};
     record.eventRecord.type = RecordType::MINDSPORE_NPU_RECORD;
-    auto mindsporeNpuRecord = MindsporeNpuRecord{};
-    mindsporeNpuRecord.recordIndex = 101;
+    auto memPoolRecord = MemPoolRecord{};
+    memPoolRecord.recordIndex = 101;
     
     MemoryUsage memoryUsage;
     memoryUsage.allocSize = 128;
@@ -179,11 +205,17 @@ TEST(DumpRecord, dump_mindsporenpu_record_expect_success)
     memoryUsage.deviceIndex = 10;
     memoryUsage.allocatorType = 0;
     memoryUsage.dataType = 0;
-    mindsporeNpuRecord.memoryUsage = memoryUsage;
-    record.eventRecord.record.mindsporeNpuRecord = mindsporeNpuRecord;
+    memPoolRecord.memoryUsage = memoryUsage;
+    record.eventRecord.record.memPoolRecord = memPoolRecord;
     Config config;
     ClientId clientId = 0;
     CallStackString stack{};
+    std::shared_ptr<MemoryStateRecord> memoryStateRecord = std::make_shared<MemoryStateRecord>(config);
+    std::vector<MemStateInfo> meminfoList = {};
+    MemStateInfo info;
+    meminfoList.push_back(info);
+    memoryStateRecord->ptrMemoryInfoMap_.insert({{"MINDSPORE", 123}, meminfoList});
+    DeviceManager::GetInstance(config).memoryStateRecordMap_[clientId] = memoryStateRecord;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     config.enableCStack = true;
     config.enablePyStack = true;
@@ -193,15 +225,21 @@ TEST(DumpRecord, dump_empty_mindsporenpu_record)
 {
     auto record = Record{};
     record.eventRecord.type = RecordType::MINDSPORE_NPU_RECORD;
-    auto mindsporeNpuRecord = MindsporeNpuRecord{};
+    auto memPoolRecord = MemPoolRecord{};
 
     MemoryUsage memoryUsage;
-    mindsporeNpuRecord.memoryUsage = memoryUsage;
-    record.eventRecord.record.mindsporeNpuRecord = mindsporeNpuRecord;
+    memPoolRecord.memoryUsage = memoryUsage;
+    record.eventRecord.record.memPoolRecord = memPoolRecord;
     Config config;
     ClientId clientId = 0;
     CallStackString stack{};
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+    std::shared_ptr<MemoryStateRecord> memoryStateRecord = std::make_shared<MemoryStateRecord>(config);
+    std::vector<MemStateInfo> meminfoList = {};
+    MemStateInfo info;
+    meminfoList.push_back(info);
+    memoryStateRecord->ptrMemoryInfoMap_.insert({{"MINDSPORE", 123}, meminfoList});
+    DeviceManager::GetInstance(config).memoryStateRecordMap_[clientId] = memoryStateRecord;
+    EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_invalid_memory_record)
 {
@@ -225,7 +263,7 @@ TEST(DumpRecord, dump_invalid_memory_record)
     Config config;
     ClientId clientId = 0;
     CallStackString stack{};
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+    EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 
     record.eventRecord.record.memoryRecord.memType = MemOpType::FREE;
     record.eventRecord.record.memoryRecord.devId = GD_INVALID_NUM;
@@ -457,6 +495,16 @@ TEST(DumpRecord, dump_atb_kernel_end_expect_success)
     ClientId clientId = 0;
     CallStackString stack{};
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+}
+
+TEST(DumpRecord, dump_kernel_execute_data_expect_success)
+{
+    auto kernelExcuteRecord = KernelExcuteRecord{};
+    Config config;
+    kernelExcuteRecord.recordIndex = 1;
+    kernelExcuteRecord.devId = 0;
+    kernelExcuteRecord.type = KernelEventType::KERNEL_START;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpKernelExcuteData(kernelExcuteRecord));
 }
 
 TEST(DumpRecord, set_dir_path)
