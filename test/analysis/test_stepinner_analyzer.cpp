@@ -381,8 +381,11 @@ TEST(StepInnerAnalyzerTest, do_not_input_steps_command_enable_analysis)
     Config config;
     config.stepList.stepCount = 0;
     BitField<decltype(config.eventType)> eventBit;
+    BitField<decltype(config.analysisType)> analysisBit;
+    analysisBit.setBit(static_cast<size_t>(AnalysisType::LEAKS_ANALYSIS));
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.analysisType = analysisBit.getValue();
     config.eventType = eventBit.getValue();
     StepInnerAnalyzer stepInner{config};
     auto ret = stepInner.IsStepInnerAnalysisEnable();
@@ -624,8 +627,11 @@ TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedUpdateMaxTest)
     Config config;
     config.stepList.stepCount = 0;
     BitField<decltype(config.eventType)> eventBit;
+    BitField<decltype(config.analysisType)> analysisBit;
+    analysisBit.setBit(static_cast<size_t>(AnalysisType::LEAKS_ANALYSIS));
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.analysisType = analysisBit.getValue();
     config.eventType = eventBit.getValue();
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
@@ -643,8 +649,11 @@ TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedInitTest)
 {
     Config config;
     BitField<decltype(config.eventType)> eventBit;
+    BitField<decltype(config.analysisType)> analysisBit;
+    analysisBit.setBit(static_cast<size_t>(AnalysisType::LEAKS_ANALYSIS));
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    config.analysisType = analysisBit.getValue();
     config.eventType = eventBit.getValue();
     config.stepList.stepCount = 0;
     StepInnerAnalyzer stepInner{config};
