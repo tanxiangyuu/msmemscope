@@ -2,6 +2,8 @@
 
 #include "memory_state_record.h"
 #include "dump_record.h"
+#include "utility/log.h"
+#include "bit_field.h"
 #include "module_info.h"
 
 namespace Leaks {
@@ -9,11 +11,6 @@ namespace Leaks {
 MemoryStateRecord::MemoryStateRecord(Config config)
 {
     config_ = config;
-}
-
-std::map<std::pair<std::string, uint64_t>, std::vector<MemStateInfo>>& MemoryStateRecord::GetPtrMemoryInfoMap()
-{
-    return ptrMemoryInfoMap_;
 }
 
 void MemoryStateRecord::RecordMemoryState(const Record& record, CallStackString& stack)
@@ -58,22 +55,26 @@ void MemoryStateRecord::HalMemProcess(MemOpRecord& memRecord, uint64_t& currentS
     }
 }
 
-std::string& MemoryStateRecord::GetHalAttr(MemOpRecord& memRecord, std::string& halOwner, uint64_t currentSize)
+MemRecordAttr MemoryStateRecord::GetMemInfoAttr(MemOpRecord& memRecord, uint64_t currentSize)
 {
     BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
-    std::ostringstream oss;
-    if (analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
+    std::string halOwner = "";
+    MemRecordAttr attr;
+    if (memRecord.memType == MemOpType::MALLOC && memRecord.devType == DeviceType::NPU &&
+        analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
         auto it = MODULE_HASH_TABLE.find(memRecord.modid);
         if (it != MODULE_HASH_TABLE.end()) {
-            halOwner = "CANN@{" + it->second + "}";
+            halOwner = "CANN@" + it->second;
         } else {
-            halOwner = "CANN@{UNKNOWN}";
+            halOwner = "CANN@UNKNOWN";
         }
-        oss << "{addr:" << memRecord.addr << ",size:" << currentSize << ",owner:" << ",MID:" << memRecord.modid << "}";
-    } else {
-        oss << "{addr:" << memRecord.addr << ",size:" << currentSize << ",MID:" << memRecord.modid << "}";
+        attr.owner = halOwner;
     }
-    std::string attr = "\"" + oss.str() + "\"";
+    if (memRecord.devType == DeviceType::NPU) {
+        attr.modid = memRecord.modid;
+    }
+    attr.addr = memRecord.addr;
+    attr.size = currentSize;
     return attr;
 }
 
@@ -99,9 +100,6 @@ void MemoryStateRecord::MemoryInfoProcess(const Record& record, CallStackString&
                     "host" : std::to_string(memRecord.devId);
         }
     }
-    std::string halOwner = "";
-    std::string attr = GetHalAttr(memRecord, halOwner, currentSize);
-
     DumpContainer container;
     container.id = memRecord.recordIndex;
     container.event = memOp;
@@ -112,7 +110,14 @@ void MemoryStateRecord::MemoryInfoProcess(const Record& record, CallStackString&
     container.tid = memRecord.tid;
     container.deviceId = deviceType;
     container.addr = std::to_string(memRecord.addr);
-    container.attr = attr;
+
+    MemRecordAttr attr = GetMemInfoAttr(memRecord, currentSize);
+    std::ostringstream oss;
+    if (memRecord.memType == MemOpType::FREE) {
+        oss << "{addr:" << memRecord.addr << ",size:" << currentSize << ",MID:" << memRecord.modid << "}";
+        std::string freeAttr = "\"" + oss.str() + "\"";
+        container.attr = freeAttr;
+    }
 
     auto key = std::make_pair("common", ptr);
     auto it = ptrMemoryInfoMap_.find(key);
@@ -122,34 +127,25 @@ void MemoryStateRecord::MemoryInfoProcess(const Record& record, CallStackString&
     MemStateInfo memInfo {};
     memInfo.container = container;
     memInfo.stack = stack;
+    memInfo.attr = attr;
     ptrMemoryInfoMap_[key].push_back(memInfo);
 }
 
-void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackString& stack)
+void MemoryStateRecord::PackDumpContainer(
+    DumpContainer& container, const MemoryUsage& memoryUsage, const std::string memPoolType)
 {
-    MemoryUsage memoryUsage { };
-    std::string memPoolType { };
-    DumpContainer container;
-    if (record.eventRecord.type == RecordType::TORCH_NPU_RECORD) {
-        memoryUsage = record.eventRecord.record.torchNpuRecord.memoryUsage;
-        memPoolType = "PTA";
-        CopyMemPoolRecordMember(record.eventRecord.record.torchNpuRecord, container);
-    } else if (record.eventRecord.type == RecordType::MINDSPORE_NPU_RECORD) {
-        memoryUsage = record.eventRecord.record.mindsporeNpuRecord.memoryUsage;
-        memPoolType = "Mindspore";
-        CopyMemPoolRecordMember(record.eventRecord.record.mindsporeNpuRecord, container);
-    } else {
-        memoryUsage = record.eventRecord.record.atbMemPoolRecord.memoryUsage;
-        memPoolType = "ATB";
-        CopyMemPoolRecordMember(record.eventRecord.record.atbMemPoolRecord, container);
-    }
-
     std::string eventType = memoryUsage.allocSize >= 0 ? "MALLOC" : "FREE";
     auto ptr = memoryUsage.ptr;
 
     std::ostringstream oss;
-    oss << "{addr:" << ptr << ",size:" << memoryUsage.allocSize << ",owner:" << ",total:" <<
-        memoryUsage.totalReserved << ",used:" << memoryUsage.totalAllocated << "}";
+    oss << "{addr:" << ptr << ",size:" << memoryUsage.allocSize;
+
+    BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
+    if (eventType == "MALLOC" && analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
+        oss << ",owner:" << memPoolType;
+    }
+
+    oss << ",total:" << memoryUsage.totalReserved << ",used:" << memoryUsage.totalAllocated << "}";
     std::string attr = "\"" + oss.str() + "\"";
 
     container.event = eventType;
@@ -157,8 +153,37 @@ void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackStr
     container.name = "N/A";
     container.addr = std::to_string(memoryUsage.ptr);
     container.attr = attr;
+}
 
-    auto key = std::make_pair(memPoolType, ptr);
+void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackString& stack)
+{
+    MemoryUsage memoryUsage { };
+    std::string memPoolType { };
+    DumpContainer container;
+    switch (record.eventRecord.type) {
+        case RecordType::TORCH_NPU_RECORD:
+            memoryUsage = record.eventRecord.record.torchNpuRecord.memoryUsage;
+            memPoolType = "PTA";
+            CopyMemPoolRecordMember(record.eventRecord.record.torchNpuRecord, container);
+            break;
+        case RecordType::MINDSPORE_NPU_RECORD:
+            memoryUsage = record.eventRecord.record.mindsporeNpuRecord.memoryUsage;
+            memPoolType = "Mindspore";
+            CopyMemPoolRecordMember(record.eventRecord.record.mindsporeNpuRecord, container);
+            break;
+        case RecordType::ATB_MEMORY_POOL_RECORD:
+            memoryUsage = record.eventRecord.record.atbMemPoolRecord.memoryUsage;
+            memPoolType = "ATB";
+            CopyMemPoolRecordMember(record.eventRecord.record.atbMemPoolRecord, container);
+            break;
+        default:
+            LOG_ERROR("Undefined memory pool type.");
+            return;
+    }
+
+    PackDumpContainer(container, memoryUsage, memPoolType);
+
+    auto key = std::make_pair(memPoolType, memoryUsage.ptr);
     auto it = ptrMemoryInfoMap_.find(key);
     if (it == ptrMemoryInfoMap_.end()) {
         ptrMemoryInfoMap_.insert({key, {}});
@@ -232,20 +257,6 @@ void MemoryStateRecord::DeleteMemStateInfo(std::pair<std::string, uint64_t> key)
     auto it = ptrMemoryInfoMap_.find(key);
     if (it != ptrMemoryInfoMap_.end()) {
         ptrMemoryInfoMap_.erase(key);
-    }
-}
-
-MemoryStateRecord::~MemoryStateRecord()
-{
-    std::lock_guard<std::mutex> lock(recordMutex_);
-    for (auto it = ptrMemoryInfoMap_.begin(); it != ptrMemoryInfoMap_.end();) {
-        auto key = it->first;
-        auto memInfoLists = it->second;
-        for (auto memInfo : memInfoLists) {
-            DumpRecord::GetInstance(config_).WriteToFile(memInfo.container, memInfo.stack);
-        }
-        DeleteMemStateInfo(key);
-        ++it;
     }
 }
 
