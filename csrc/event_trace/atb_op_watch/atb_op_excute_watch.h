@@ -41,8 +41,10 @@ private:
     
     void DumpATBTensor(const std::string &op, OpEventType eventType);
 
-    void BeginExcute(const std::string &excuteItem);
-    void EndExcute(const std::string &excuteItem, const std::vector<Tensor> &outputTensors = {});
+    // 落盘时需要用完整的opName，包含卡号和线程号。
+    void BeginExcute(const std::string &rawItem);
+    void EndExcute(const std::string &excuteItem, const std::string &rawItem,
+        const std::vector<Tensor> &outputTensors = {});
 
     bool IsFirstWatchOp(const std::string &op);
     bool IsLastWatchOp(const std::string &op);
