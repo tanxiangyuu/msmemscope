@@ -37,6 +37,8 @@ bool ATBTensorDump::Dump(const Tensor& tensor, std::string& fileName)
     std::string dumpDir = std::string(config.outputDir) + "/atb_op_dump";
     (void)Utility::MakeDir(dumpDir);
     CleanFileName(fileName);
+
+    Utility::UmaskGuard guard{Utility::DEFAULT_UMASK_FOR_BIN_FILE};
     std::ofstream outFile(dumpDir + "/" + fileName, std::ios::binary);
     if (!outFile) {
         return false;
