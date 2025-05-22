@@ -16,6 +16,7 @@
 #include "securec.h"
 #include "bit_field.h"
 #include "kernel_hooks/runtime_prof_api.h"
+#include "describe_trace.h"
 
 namespace Leaks {
 thread_local bool g_isReportHostMem = false;
@@ -183,6 +184,30 @@ bool EventReport::IsConnectToServer()
     return isReceiveServerInfo_;
 }
 
+void GetOwner(char *res, uint32_t size)
+{
+    std::string owner = DescribeTrace::GetInstance().GetDescribe();
+    if (strncpy_s(res, size, owner.c_str(), size - 1) != EOK) {
+        CLIENT_ERROR_LOG("strncpy_s FAILED");
+    }
+}
+
+bool EventReport::ReportAddrInfo(AddrInfo &info)
+{
+    g_isInReportFunction = true;
+    if (!IsConnectToServer()) {
+        return true;
+    }
+    PacketHead head = {PacketType::RECORD};
+    EventRecord eventRecord;
+    eventRecord.type = RecordType::ADDR_INFO_RECORD;
+    eventRecord.record.addrInfo = info;
+    CallStackString stack;
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+    g_isInReportFunction = false;
+    return (sendNums >= 0);
+}
+
 bool EventReport::ReportMemPoolRecord(MemPoolRecord &memPoolRecord, CallStackString& stack)
 {
     g_isInReportFunction = true;
@@ -214,10 +239,16 @@ bool EventReport::ReportMemPoolRecord(MemPoolRecord &memPoolRecord, CallStackStr
     eventRecord.record.memPoolRecord.timeStamp = Utility::GetTimeMicroseconds();
     eventRecord.record.memPoolRecord.kernelIndex = kernelLaunchRecordIndex_;
     eventRecord.record.memPoolRecord.devId = static_cast<int32_t>(memPoolRecord.memoryUsage.deviceIndex);
+    if (eventRecord.record.memPoolRecord.memoryUsage.dataType) {
+        eventRecord.record.memPoolRecord.owner[0] = '\0';
+    } else {
+        GetOwner(eventRecord.record.memPoolRecord.owner, sizeof(eventRecord.record.memPoolRecord.owner));
+    }
     eventRecord.record.memPoolRecord.recordIndex = ++recordIndex_;
     auto sendNums = ReportRecordEvent(eventRecord, head, stack);
 
     g_isInReportFunction = false;
+
     return (sendNums >= 0);
 }
 
@@ -251,7 +282,7 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
     eventRecord.record.memoryRecord.modid = moduleId;
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
-
+    GetOwner(eventRecord.record.memoryRecord.owner, sizeof(eventRecord.record.memoryRecord.owner));
     auto sendNums = ReportRecordEvent(eventRecord, head, stack);
 
     g_isInReportFunction = false;
@@ -284,6 +315,7 @@ bool EventReport::ReportFree(uint64_t addr, CallStackString& stack)
     eventRecord.record.memoryRecord.modid = INVALID_MODID;
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
+    eventRecord.record.memoryRecord.owner[0] = '\0';
     auto sendNums = ReportRecordEvent(eventRecord, head, stack);
 
     g_isInReportFunction = false;
@@ -313,7 +345,7 @@ bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size)
     eventRecord.record.memoryRecord.modid = INVALID_MODID;
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
-
+    GetOwner(eventRecord.record.memoryRecord.owner, sizeof(eventRecord.record.memoryRecord.owner));
     auto sendNums = ReportRecordEvent(eventRecord, head);
 
     g_isInReportFunction = false;
@@ -342,7 +374,7 @@ bool EventReport::ReportHostFree(uint64_t addr)
     eventRecord.record.memoryRecord.modid = INVALID_MODID;
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
-
+    eventRecord.record.memoryRecord.owner[0] = '\0';
     auto sendNums = ReportRecordEvent(eventRecord, head);
 
     g_isInReportFunction = false;

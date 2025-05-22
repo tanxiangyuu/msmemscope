@@ -12,7 +12,7 @@
 #include "bit_field.h"
 
 namespace Leaks {
-
+constexpr uint8_t OWNER_POS = 2;
 DumpRecord& DumpRecord::GetInstance(Config config)
 {
     static DumpRecord instance(config);
@@ -80,7 +80,7 @@ bool DumpRecord::DumpData(const ClientId &clientId, const Record &record, const 
     return true;
 }
 
-bool DumpRecord::WriteToFile(const DumpContainer &container, const CallStackString &stack)
+bool DumpRecord::WriteToFile(DumpContainer &container, const CallStackString &stack)
 {
     std::string pid = container.pid == INVALID_PROCESSID ? "N/A" : std::to_string(container.pid);
     std::string tid = container.tid == INVALID_THREADID ? "N/A" : std::to_string(container.tid);
@@ -335,31 +335,31 @@ bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &ev
             return "ATB";
         }
     };
+    if (eventRecord.record.memPoolRecord.memoryUsage.allocSize >= 0) {
+        return true;
+    }
+    // free事件，落盘记录的全部内存状态数据
     auto ptr = eventRecord.record.memPoolRecord.memoryUsage.ptr;
     auto key = std::make_pair(getMemPoolName(eventRecord.type), ptr);
     auto memoryStateRecord = DeviceManager::GetInstance(config_).GetMemoryStateRecord(clientId);
     auto memInfoLists = memoryStateRecord->GetPtrMemInfoList(key);
-    if (eventRecord.record.memPoolRecord.memoryUsage.allocSize >= 0 && !memInfoLists.empty()) {
-        std::ostringstream oss;
-        BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
-        if (analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
-            oss << "{addr:" << memInfoLists[0].attr.addr << ",size:" << memInfoLists[0].attr.size << ",owner:" <<
-                memInfoLists[0].attr.owner << ",total:" << memInfoLists[0].attr.totalReserved
-                << ",used:" << memInfoLists[0].attr.totalAllocated << "}";
-        } else {
-            oss << "{addr:" << memInfoLists[0].attr.addr << ",size:" << memInfoLists[0].attr.size <<",total:"
-                << memInfoLists[0].attr.totalReserved << ",used:" << memInfoLists[0].attr.totalAllocated << "}";
-        }
-        std::string attr = "\"" + oss.str() + "\"";
-        memInfoLists[0].container.attr = attr;
-        memoryStateRecord->SetPtrMemInfoList(key, memInfoLists);
-        return true;
-    }
-
-    // free事件，落盘记录的全部内存状态数据
     if (memInfoLists.empty()) {
         return false;
     }
+    std::ostringstream oss;
+    BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
+    if (analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
+        oss << "{addr:" << memInfoLists[0].attr.addr << ",size:" << memInfoLists[0].attr.size
+            << ",owner:" << memInfoLists[0].attr.owner << ",total:" << memInfoLists[0].attr.totalReserved
+            << ",used:" << memInfoLists[0].attr.totalAllocated << "}";
+    } else {
+        oss << "{addr:" << memInfoLists[0].attr.addr << ",size:" << memInfoLists[0].attr.size <<",total:"
+            << memInfoLists[0].attr.totalReserved << ",used:" << memInfoLists[0].attr.totalAllocated << "}";
+    }
+    std::string attr = "\"" + oss.str() + "\"";
+    memInfoLists[0].container.attr = attr;
+    memoryStateRecord->SetPtrMemInfoList(key, memInfoLists);
+    
     {
         std::lock_guard<std::mutex> lock(fileMutex_);
         if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
