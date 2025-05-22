@@ -5,28 +5,29 @@
 
 namespace Leaks {
 
-void ATBOpExcuteWatch::BeginExcute(const std::string &excuteItem)
+void ATBOpExcuteWatch::BeginExcute(const std::string &rawItem)
 {
     if (IsInMonitoring()) {
-        DumpATBTensor(excuteItem, OpEventType::ATB_START);
+        DumpATBTensor(rawItem, OpEventType::ATB_START);
         return;
     }
     return;
 }
 
-void ATBOpExcuteWatch::EndExcute(const std::string &excuteItem, const std::vector<Tensor> &outputTensors)
+void ATBOpExcuteWatch::EndExcute(const std::string &excuteItem, const std::string &rawItem,
+    const std::vector<Tensor> &outputTensors)
 {
     if (IsFirstWatchOp(excuteItem)) {
         SetWatchedOpName(excuteItem);
         SetWatchedTensors(outputTensors);
 
-        DumpATBTensor(excuteItem, OpEventType::ATEN_END);
+        DumpATBTensor(rawItem, OpEventType::ATEN_END);
 
         SetMonitoringStatus();
         return;
     }
     if (IsLastWatchOp(excuteItem)) {
-        DumpATBTensor(excuteItem, OpEventType::ATEN_END);
+        DumpATBTensor(rawItem, OpEventType::ATEN_END);
         
         ClearWatchedOpName();
         ClearWatchedTensors();
@@ -35,7 +36,7 @@ void ATBOpExcuteWatch::EndExcute(const std::string &excuteItem, const std::vecto
         return;
     }
     if (IsInMonitoring()) {
-        DumpATBTensor(excuteItem, OpEventType::ATEN_END);
+        DumpATBTensor(rawItem, OpEventType::ATEN_END);
         return;
     }
 
@@ -45,8 +46,7 @@ void ATBOpExcuteWatch::EndExcute(const std::string &excuteItem, const std::vecto
 void ATBOpExcuteWatch::AtbOpExcuteBegin(const std::string &rawOp)
 {
     std::lock_guard<std::mutex> guard(mutex_);
-    auto op = rawOp.substr(rawOp.find("/") + 1);
-    return BeginExcute(op);
+    return BeginExcute(rawOp);
 }
 
 void ATBOpExcuteWatch::AtbOpExcuteEnd(const std::string &rawOp, const atb::SVector<atb::Tensor>& tensors)
@@ -55,14 +55,14 @@ void ATBOpExcuteWatch::AtbOpExcuteEnd(const std::string &rawOp, const atb::SVect
     auto op = rawOp.substr(rawOp.find("/") + 1);
     std::vector<Tensor> dumpTensors;
     if (!IsFirstWatchOp(op)) {
-        return EndExcute(op);
+        return EndExcute(op, rawOp);
     }
     if (outputId_ < tensors.size()) {
         Tensor tensor {};
         tensor.data = tensors[outputId_].deviceData;
         tensor.dataSize = tensors[outputId_].dataSize;
         dumpTensors.emplace_back(tensor);
-        return EndExcute(op, dumpTensors);
+        return EndExcute(op, rawOp, dumpTensors);
     }
     for (auto &item : tensors) {
         Tensor tensor {};
@@ -70,7 +70,7 @@ void ATBOpExcuteWatch::AtbOpExcuteEnd(const std::string &rawOp, const atb::SVect
         tensor.dataSize = item.dataSize;
         dumpTensors.emplace_back(tensor);
     }
-    return EndExcute(op, dumpTensors);
+    return EndExcute(op, rawOp, dumpTensors);
 }
 
 void ATBOpExcuteWatch::AtbKernelExcute(const std::string &rawKernel, const Mki::SVector<Mki::Tensor>& tensors)
@@ -79,11 +79,11 @@ void ATBOpExcuteWatch::AtbKernelExcute(const std::string &rawKernel, const Mki::
     auto beforPos = rawKernel.find("/before");
     auto afterPos = rawKernel.find("/after");
     if (beforPos != std::string::npos) {
-        return BeginExcute(rawKernel.substr(0, beforPos).substr(rawKernel.find("/") + 1));
+        return BeginExcute(rawKernel.substr(0, beforPos));
     } else if (afterPos != std::string::npos) {
         std::string kernelDir = rawKernel.substr(0, afterPos).substr(rawKernel.find("/") + 1);
         if (!IsFirstWatchOp(kernelDir)) {
-            return EndExcute(kernelDir);
+            return EndExcute(kernelDir, rawKernel.substr(0, afterPos));
         }
         std::vector<Tensor> dumpTensors;
         if (outputId_ < tensors.size()) {
@@ -91,7 +91,7 @@ void ATBOpExcuteWatch::AtbKernelExcute(const std::string &rawKernel, const Mki::
             tensor.data = tensors[outputId_].data;
             tensor.dataSize = static_cast<uint64_t>(tensors[outputId_].dataSize);
             dumpTensors.emplace_back(tensor);
-            return EndExcute(kernelDir, dumpTensors);
+            return EndExcute(kernelDir, rawKernel.substr(0, afterPos), dumpTensors);
         }
         for (auto &item : tensors) {
             Tensor tensor {};
@@ -99,7 +99,7 @@ void ATBOpExcuteWatch::AtbKernelExcute(const std::string &rawKernel, const Mki::
             tensor.dataSize = static_cast<uint64_t>(item.dataSize);
             dumpTensors.emplace_back(tensor);
         }
-        return EndExcute(kernelDir, dumpTensors);
+        return EndExcute(kernelDir, rawKernel.substr(0, afterPos), dumpTensors);
     } else {
         CLIENT_ERROR_LOG("Invalid kernel info.\n");
         return;

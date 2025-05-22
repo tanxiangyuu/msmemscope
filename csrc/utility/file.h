@@ -16,6 +16,7 @@
 namespace Utility {
     constexpr uint32_t DIRMOD = 0750;
     constexpr uint32_t DEFAULT_UMASK_FOR_CSV_FILE = 0177;
+    constexpr uint32_t DEFAULT_UMASK_FOR_BIN_FILE = 0177;
     extern std::string g_dirPath;
     constexpr uint64_t MAX_INPUT_FILE_SIZE = 1UL << 33; // 8GB
 
