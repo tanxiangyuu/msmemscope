@@ -17,7 +17,7 @@ if (${BUILD_TESTS})
 else()
   add_compile_options("-O2")
 endif()
-
+add_compile_definitions(_GLIBCXX_USE_CXX11_ABI=0)
 add_link_options("-Wl,-z,now")
 add_link_options("-Wl,-z,relro")
 add_link_options("-Wl,-z,noexecstack")
