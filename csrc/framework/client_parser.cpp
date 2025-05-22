@@ -288,7 +288,7 @@ static void ParseCallstack(const std::string &param, UserCommand &userCommand)
 
     while (it != end) {
         std::string depthStr = it->str();
-        if (!CheckIsValidDepthInfo(depthStr, userCommand)) {
+        if (!depthStr.empty() && !CheckIsValidDepthInfo(depthStr, userCommand)) {
             return parseFailed();
         }
         it++;
