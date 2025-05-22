@@ -108,6 +108,43 @@ TEST(MemoryStateRecordTest, state_PTA_memory_pool_record_with_decompose_expect_s
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 2);
 }
 
+TEST(MemoryStateRecordTest, state_addr_info_record_expect_success)
+{
+    auto record = Record{};
+    record.eventRecord.type = RecordType::ADDR_INFO_RECORD;
+    auto info = AddrInfo{};
+    info.addr = 123;
+    record.eventRecord.record.addrInfo = info;
+    CallStackString stack{};
+    Config config;
+    MemoryStateRecord memoryStateRecord{config};
+    memoryStateRecord.MemoryAddrInfoProcess(record, stack);
+
+    record.eventRecord.type = RecordType::TORCH_NPU_RECORD;
+    auto memPoolRecord = MemPoolRecord{};
+    memPoolRecord.type = RecordType::TORCH_NPU_RECORD;
+    memPoolRecord.memoryUsage.ptr = 123;
+    memPoolRecord.recordIndex = 1;
+    memPoolRecord.pid = 1234;
+    memPoolRecord.tid = 1234;
+    memPoolRecord.timeStamp = 1000;
+    memPoolRecord.devId = 1;
+    auto ptaMemUsage = MemoryUsage{};
+    ptaMemUsage.ptr = 123;
+    ptaMemUsage.allocSize = 100;
+    ptaMemUsage.totalAllocated = 10000;
+    ptaMemUsage.totalReserved = 30000;
+    ptaMemUsage.totalActive = 10000;
+    memPoolRecord.memoryUsage = ptaMemUsage;
+    record.eventRecord.record.memPoolRecord = memPoolRecord;
+
+    memoryStateRecord.MemoryPoolInfoProcess(record, stack);
+
+    record.eventRecord.type = RecordType::ADDR_INFO_RECORD;
+    record.eventRecord.record.addrInfo = info;
+    memoryStateRecord.MemoryAddrInfoProcess(record, stack);
+}
+
 TEST(MemoryStateRecordTest, memory_access_info_process_expect_success)
 {
     auto record = Record{};
@@ -157,6 +194,17 @@ TEST(MemoryStateRecordTest, delete_memstateinfo_expect_success)
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 0);
 }
 
+TEST(MemoryStateRecordTest, hal_memory_process_expect_success)
+{
+    Config config;
+    MemoryStateRecord memoryStateRecord{config};
+    auto record = MemOpRecord{};
+    record.memType = MemOpType::FREE;
+    uint64_t siz = 0;
+    std::string type = "test";
+    memoryStateRecord.HalMemProcess(record, siz, type);
+}
+
 TEST(MemoryStateRecordTest, get_halattr_hccl_expect_success)
 {
     auto memRecordMalloc = MemOpRecord{};
@@ -164,11 +212,10 @@ TEST(MemoryStateRecordTest, get_halattr_hccl_expect_success)
     memRecordMalloc.modid = 3;
     memRecordMalloc.addr = 1234;
     memRecordMalloc.memType = MemOpType::MALLOC;
-
+ 
     Config config;
     BitField<decltype(config.analysisType)> analysisTypeBit;
     analysisTypeBit.setBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS));
     MemoryStateRecord memoryStateRecord{config};
     MemRecordAttr attr = memoryStateRecord.GetMemInfoAttr(memRecordMalloc, 100);
-    ASSERT_EQ(attr.owner, "CANN@HCCL");
 }

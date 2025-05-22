@@ -10,6 +10,7 @@ target_sources(ascend_kernel_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/kernel_hooks/kernel_event_trace.cpp
   ${EVENT_TRACE_INC_DIR}/kernel_hooks/driver_prof_api.cpp
   ${EVENT_TRACE_INC_DIR}/kernel_hooks/runtime_prof_api.cpp
+  ${EVENT_TRACE_INC_DIR}/describe_trace.cpp
   ${FRAMEWORK_INC_DIR}/client_process.cpp
   ${FUNC_INJECTION_CORE_DIR}/Communication.cpp
   ${FUNC_INJECTION_CORE_DIR}/DomainSocket.cpp
