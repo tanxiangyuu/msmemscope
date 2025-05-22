@@ -52,6 +52,7 @@ private:
         RecordType::TORCH_NPU_RECORD,
         RecordType::MEM_ACCESS_RECORD,
         RecordType::MINDSPORE_NPU_RECORD,
+        RecordType::ADDR_INFO_RECORD,
     };
 };
 

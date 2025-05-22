@@ -2,8 +2,10 @@
 
 #include <Python.h>
 #include <vector>
+#include <string>
 #include "watcherobject.h"
 #include "tracerobject.h"
+#include "describerobject.h"
 
 namespace Leaks {
 
@@ -65,5 +67,16 @@ PyMODINIT_FUNC PyInit__msleaks(void)
         return nullptr;
     }
 
+    PyObject* describer = Leaks::PyLeaks_GetDescriber();
+    if (describer == nullptr) {
+        Py_DECREF(m);
+        return nullptr;
+    }
+    if (PyModule_AddObject(m, "_describer", describer) < 0) {
+        PyErr_SetString(PyExc_ImportError, "Failed to bind describer.");
+        Py_DECREF(describer);
+        Py_DECREF(m);
+        return nullptr;
+    }
     return m;
 }

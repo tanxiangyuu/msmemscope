@@ -64,9 +64,9 @@ MemRecordAttr MemoryStateRecord::GetMemInfoAttr(MemOpRecord& memRecord, uint64_t
         analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
         auto it = MODULE_HASH_TABLE.find(memRecord.modid);
         if (it != MODULE_HASH_TABLE.end()) {
-            halOwner = "CANN@" + it->second;
+            halOwner = "CANN@" + it->second + std::string(memRecord.owner);
         } else {
-            halOwner = "CANN@UNKNOWN";
+            halOwner = "CANN@UNKNOWN" + std::string(memRecord.owner);
         }
         attr.owner = halOwner;
     }
@@ -138,25 +138,26 @@ inline void CopyMemPoolRecordMember(const MemPoolRecord &record, DumpContainer &
     container.tid = record.tid;
     container.timeStamp = record.timeStamp;
     container.deviceId = std::to_string(record.devId);
+    container.owner += std::string(record.owner);
 }
 
 void MemoryStateRecord::PackDumpContainer(
-    DumpContainer& container, const MemoryUsage& memoryUsage, const std::string memPoolType, MemRecordAttr& attr)
+    DumpContainer& container, const MemPoolRecord& memPool, const std::string memPoolType, MemRecordAttr& attr)
 {
-    std::string eventType = memoryUsage.allocSize >= 0 ? "MALLOC" : "FREE";
-    attr.addr = memoryUsage.ptr;
-    attr.size = memoryUsage.allocSize;
+    std::string eventType = memPool.memoryUsage.allocSize >= 0 ? "MALLOC" : "FREE";
+    attr.addr = memPool.memoryUsage.ptr;
+    attr.size = memPool.memoryUsage.allocSize;
 
     BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
     if (eventType == "MALLOC" && analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
-        attr.owner = memPoolType;
+        attr.owner = memPoolType + std::string(memPool.owner);
     }
-    attr.totalReserved = memoryUsage.totalReserved;
-    attr.totalAllocated = memoryUsage.totalAllocated;
+    attr.totalReserved = memPool.memoryUsage.totalReserved;
+    attr.totalAllocated = memPool.memoryUsage.totalAllocated;
     container.event = eventType;
     container.eventType = memPoolType;
     container.name = "N/A";
-    container.addr = std::to_string(memoryUsage.ptr);
+    container.addr = std::to_string(memPool.memoryUsage.ptr);
 }
 
 void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackString& stack)
@@ -181,7 +182,7 @@ void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackStr
             return;
     }
     MemRecordAttr attr;
-    PackDumpContainer(container, memoryUsage, memPoolType, attr);
+    PackDumpContainer(container, record.eventRecord.record.memPoolRecord, memPoolType, attr);
 
     std::ostringstream oss;
     if (memoryUsage.allocSize < 0) {
@@ -190,7 +191,6 @@ void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackStr
         std::string freeAttr = "\"" + oss.str() + "\"";
         container.attr = freeAttr;
     }
-
     auto key = std::make_pair(memPoolType, memoryUsage.ptr);
     auto it = ptrMemoryInfoMap_.find(key);
     if (it == ptrMemoryInfoMap_.end()) {
@@ -201,6 +201,18 @@ void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackStr
     memInfo.stack = stack;
     memInfo.attr = attr;
     ptrMemoryInfoMap_[key].push_back(memInfo);
+}
+
+void MemoryStateRecord::MemoryAddrInfoProcess(const Record& record, CallStackString& stack)
+{
+    auto addrInfoRecord = record.eventRecord.record.addrInfo;
+    auto key = std::make_pair("PTA", addrInfoRecord.addr);
+    if (!ptrMemoryInfoMap_.count(key)) {
+        return;
+    }
+    for (auto &record : ptrMemoryInfoMap_[key]) {
+        record.attr.owner += std::string(addrInfoRecord.owner);
+    }
 }
 
 void MemoryStateRecord::MemoryAccessInfoProcess(const Record& record, CallStackString& stack)

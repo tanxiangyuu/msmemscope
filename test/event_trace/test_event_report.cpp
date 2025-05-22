@@ -51,6 +51,12 @@ TEST(EventReportTest, ReportMallocTestDEVICE) {
     EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
 }
 
+TEST(EventReportTest, ReportAddrInfoTest) {
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    AddrInfo info;
+    EXPECT_TRUE(instance.ReportAddrInfo(info));
+}
+
 TEST(EventReportTest, ReportTorchNpuMallocTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
 
