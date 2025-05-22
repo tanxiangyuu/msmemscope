@@ -186,7 +186,7 @@ TEST(DumpRecord, dump_empty_torchnpu_record)
     meminfoList.push_back(info);
     memoryStateRecord->ptrMemoryInfoMap_.insert({{"PTA", 123}, meminfoList});
     DeviceManager::GetInstance(config).memoryStateRecordMap_[clientId] = memoryStateRecord;
-    EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_mindsporenpu_record_expect_success)
 {
@@ -239,7 +239,7 @@ TEST(DumpRecord, dump_empty_mindsporenpu_record)
     meminfoList.push_back(info);
     memoryStateRecord->ptrMemoryInfoMap_.insert({{"MINDSPORE", 123}, meminfoList});
     DeviceManager::GetInstance(config).memoryStateRecordMap_[clientId] = memoryStateRecord;
-    EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_invalid_memory_record)
 {

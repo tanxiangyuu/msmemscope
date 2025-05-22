@@ -39,6 +39,7 @@ public:
     void MemoryInfoProcess(const Record& record, CallStackString& stack);
     void MemoryPoolInfoProcess(const Record& record, CallStackString& stack);
     void MemoryAccessInfoProcess(const Record& record, CallStackString& stack);
+    void MemoryAddrInfoProcess(const Record& record, CallStackString& stack);
     const std::vector<MemStateInfo>& GetPtrMemInfoList(std::pair<std::string, int64_t> key);
     void SetPtrMemInfoList(std::pair<std::string, int64_t> key, std::vector<MemStateInfo>& infoList);
     void DeleteMemStateInfo(std::pair<std::string, uint64_t> key);
@@ -48,8 +49,8 @@ private:
     void HalMemProcess(MemOpRecord& memRecord, uint64_t& currentSize, std::string& deviceType);
     MemRecordAttr GetMemInfoAttr(MemOpRecord& memRecord, uint64_t currentSize);
 private:
-    void PackDumpContainer(DumpContainer& container, const MemoryUsage& memoryUsage,
-        const std::string memPoolType, MemRecordAttr& attr);
+    void PackDumpContainer(
+        DumpContainer &container, const MemPoolRecord &memPool, const std::string memPoolType, MemRecordAttr &attr);
     std::map<std::pair<std::string, uint64_t>, std::vector<MemStateInfo>> ptrMemoryInfoMap_;
     std::unordered_map<uint64_t, uint64_t> hostMemSizeMap_;
     std::unordered_map<uint64_t, uint64_t> memSizeMap_;
@@ -64,6 +65,8 @@ private:
             std::bind(&MemoryStateRecord::MemoryPoolInfoProcess, this, std::placeholders::_1, std::placeholders::_2)},
         {RecordType::MEM_ACCESS_RECORD,
             std::bind(&MemoryStateRecord::MemoryAccessInfoProcess, this, std::placeholders::_1, std::placeholders::_2)},
+        {RecordType::ADDR_INFO_RECORD,
+            std::bind(&MemoryStateRecord::MemoryAddrInfoProcess, this, std::placeholders::_1, std::placeholders::_2)},
     };
     std::mutex recordMutex_;
     Config config_;

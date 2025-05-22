@@ -60,6 +60,7 @@ struct DumpContainer {
     uint64_t tid;
     std::string deviceId;
     std::string addr;
+    std::string owner = "";
     std::string callStack = "";
     std::string attr = "";
 };

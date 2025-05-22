@@ -19,7 +19,7 @@ class DumpRecord {
 public:
     static DumpRecord& GetInstance(Config config);
     bool DumpData(const ClientId &clientId, const Record &record, const CallStackString &stack);
-    bool WriteToFile(const DumpContainer &container, const CallStackString &stack);
+    bool WriteToFile(DumpContainer &container, const CallStackString &stack);
 private:
     explicit DumpRecord(Config config);
     ~DumpRecord();

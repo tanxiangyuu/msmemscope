@@ -17,6 +17,7 @@ const size_t ATEN_NAME_MAX_SIZE = 128;
 const size_t OP_NAME_MAX_SIZE = 128;
 const size_t ATB_PARAMS_MAX_SIZE = 128;
 const size_t MEM_ATTR_MAX_SIZE = 128;
+const size_t ADDR_OWNER_SIZE = 64;
 
 enum class RecordType {
     MEMORY_RECORD = 0,
@@ -31,6 +32,7 @@ enum class RecordType {
     ATB_KERNEL_RECORD,
     ATEN_OP_LAUNCH_RECORD,
     MEM_ACCESS_RECORD,
+    ADDR_INFO_RECORD,
     INVALID_RECORD,
 };
 
@@ -69,6 +71,12 @@ struct MemPoolRecord {
     uint64_t timeStamp;
     int32_t devId;
     MemoryUsage memoryUsage;
+    char owner[ADDR_OWNER_SIZE];
+};
+
+struct AddrInfo {
+    uint64_t addr;
+    char owner[ADDR_OWNER_SIZE];
 };
 
 enum class MemOpType : uint8_t {
@@ -142,6 +150,7 @@ struct MemOpRecord {
     uint64_t addr;              // 地址
     uint64_t memSize;           // 操作大小
     uint64_t timeStamp;
+    char owner[ADDR_OWNER_SIZE];
 };
 
 struct AclItfRecord {
@@ -271,6 +280,7 @@ struct EventRecord {
         AtbKernelRecord atbKernelRecord;
         AtenOpLaunchRecord atenOpLaunchRecord;
         MemAccessRecord memAccessRecord;
+        AddrInfo addrInfo;
     } record;
     uint64_t pyStackLen;
     uint64_t cStackLen;
