@@ -12,7 +12,8 @@ namespace Leaks {
 class DeviceManager {
 public:
     static DeviceManager& GetInstance(Config config);
-    std::shared_ptr<MemoryStateRecord> GetMemoryStateRecord(int32_t deviceId);
+    std::shared_ptr<MemoryStateRecord>& GetMemoryStateRecord(int32_t deviceId);
+    std::map<int32_t, std::shared_ptr<MemoryStateRecord>>& GetMemoryStateRecordMap();
     explicit DeviceManager(Config config);
 private:
     ~DeviceManager() = default;

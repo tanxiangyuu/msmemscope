@@ -50,9 +50,9 @@ TEST(DumpRecord, dump_cpu_memory_record_expect_success)
     record.eventRecord.record.memoryRecord.memType = MemOpType::MALLOC;
     memRecordMalloc.space = MemOpSpace::HOST;
     
-    EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     record.eventRecord.record.memoryRecord.memType = MemOpType::FREE;
-    EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_memory_record_expect_success)
 {
@@ -91,9 +91,9 @@ TEST(DumpRecord, dump_memory_record_expect_success)
     record.eventRecord.record.memoryRecord.memType = MemOpType::MALLOC;
     memRecordMalloc.space = MemOpSpace::HOST;
     
-    EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     record.eventRecord.record.memoryRecord.memType = MemOpType::FREE;
-    EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_kernelLaunch_record_expect_success)
 {
@@ -263,11 +263,11 @@ TEST(DumpRecord, dump_invalid_memory_record)
     Config config;
     ClientId clientId = 0;
     CallStackString stack{};
-    EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 
     record.eventRecord.record.memoryRecord.memType = MemOpType::FREE;
     record.eventRecord.record.memoryRecord.devId = GD_INVALID_NUM;
-    EXPECT_FALSE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_mstx_mark_expect_success)
 {

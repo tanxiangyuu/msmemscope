@@ -210,6 +210,10 @@ void MemoryStateRecord::MemoryAddrInfoProcess(const Record& record, CallStackStr
     if (!ptrMemoryInfoMap_.count(key)) {
         return;
     }
+    BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
+    if (!analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
+        return ;
+    }
     for (auto &record : ptrMemoryInfoMap_[key]) {
         record.attr.owner += std::string(addrInfoRecord.owner);
     }
@@ -273,13 +277,9 @@ const std::vector<MemStateInfo>& MemoryStateRecord::GetPtrMemInfoList(std::pair<
     return ptrMemoryInfoMap_[key];
 }
 
-void MemoryStateRecord::SetPtrMemInfoList(std::pair<std::string, int64_t> key, std::vector<MemStateInfo>& infoList)
+std::map<std::pair<std::string, uint64_t>, std::vector<MemStateInfo>>& MemoryStateRecord::GetPtrMemInfoMap()
 {
-    auto it = ptrMemoryInfoMap_.find(key);
-    if (it == ptrMemoryInfoMap_.end()) {
-        return ;
-    }
-    ptrMemoryInfoMap_[key] = infoList;
+    return ptrMemoryInfoMap_;
 }
 
 void MemoryStateRecord::DeleteMemStateInfo(std::pair<std::string, uint64_t> key)
