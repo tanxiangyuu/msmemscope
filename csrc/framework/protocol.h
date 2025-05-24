@@ -33,9 +33,30 @@ union PacketBody {
 
 class Packet {
 public:
-    Packet(void) : head_{PacketType::INVALID}, body_{} {}
+    Packet(void) : head_{PacketType::INVALID}, body_{}
+    {}
+
+    Packet(Packet &&rhs) : head_{rhs.head_}, body_{rhs.body_}
+    {
+        if (rhs.head_.type == PacketType::LOG) {
+            body_.log.buf = rhs.body_.log.buf;
+            rhs.body_.log.buf = nullptr;
+        } else if (rhs.head_.type == PacketType::RECORD) {
+            body_.record.callStackInfo.cStack = rhs.body_.record.callStackInfo.cStack;
+            rhs.body_.record.callStackInfo.cStack = nullptr;
+            body_.record.callStackInfo.pyStack = rhs.body_.record.callStackInfo.pyStack;
+            rhs.body_.record.callStackInfo.pyStack = nullptr;
+        }
+    }
+
     ~Packet(void)
     {
+        if (head_.type == PacketType::RECORD) {
+            delete[] body_.record.callStackInfo.cStack;
+            delete[] body_.record.callStackInfo.pyStack;
+        } else if (head_.type == PacketType::LOG) {
+            delete[] body_.log.buf;
+        }
     }
     explicit Packet(EventRecord const &record, std::string &pyStack, std::string &cStack)
     {
