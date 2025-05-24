@@ -11,6 +11,8 @@
 #include "event_report.h"
 #include "bit_field.h"
 
+#include <iostream>
+
 namespace Leaks {
 constexpr uint8_t OWNER_POS = 2;
 DumpRecord& DumpRecord::GetInstance(Config config)
@@ -103,41 +105,47 @@ bool DumpRecord::WriteToFile(DumpContainer &container, const CallStackString &st
     return true;
 }
 
-bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRecord)
+void DumpRecord::SetAllocAttr(MemStateInfo& memInfo)
 {
-    std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
-        return false;
+    std::ostringstream oss;
+    oss << "{addr:" << memInfo.attr.addr << ",size:" << memInfo.attr.size;
+    if (memInfo.container.eventType == "HAL") {
+        oss << ",MID:" << memInfo.attr.modid;
+    } else if (memInfo.container.eventType == "PTA" || memInfo.container.eventType == "MINDSPORE"
+        || memInfo.container.eventType == "ATB") {
+        oss << ",total:" << memInfo.attr.totalReserved << ",used:" << memInfo.attr.totalAllocated;
     }
 
-    auto ptr = memRecord.addr;
-    auto key = std::make_pair("common", ptr);
-    auto memoryStateRecord = DeviceManager::GetInstance(config_).GetMemoryStateRecord(clientId);
-    auto memInfoLists = memoryStateRecord->GetPtrMemInfoList(key);
-    if (memRecord.memType == MemOpType::MALLOC && !memInfoLists.empty()) {
-        std::ostringstream oss;
-        BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
-        if (memRecord.devType == DeviceType::NPU &&
-            analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
-            oss << "{addr:" << memInfoLists[0].attr.addr << ",size:" << memInfoLists[0].attr.size << ",owner:" <<
-                memInfoLists[0].attr.owner << ",MID:" << memInfoLists[0].attr.modid << "}";
-        } else {
-            oss << "{addr:" << memInfoLists[0].attr.addr << ",size:" << memInfoLists[0].attr.size <<
-                ",MID:" << memInfoLists[0].attr.modid << "}";
-        }
-        std::string attr = "\"" + oss.str() + "\"";
-        memInfoLists[0].container.attr = attr;
-        memoryStateRecord->SetPtrMemInfoList(key, memInfoLists);
+    if (!memInfo.attr.owner.empty()) {
+        oss << ",owner:" << memInfo.attr.owner;
+    }
+    oss << "}";
+    std::string attr = "\"" + oss.str() + "\"";
+    memInfo.container.attr = attr;
+}
+
+bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRecord)
+{
+    if (memRecord.memType == MemOpType::MALLOC) {
         return true;
     }
 
     // free事件，落盘记录的全部内存状态数据
-    if (memInfoLists.empty()) {
-        return false;
-    }
-
-    for (auto memInfo : memInfoLists) {
-        if (!WriteToFile(memInfo.container, memInfo.stack)) return false;
+    auto ptr = memRecord.addr;
+    auto key = std::make_pair("common", ptr);
+    auto memoryStateRecord = DeviceManager::GetInstance(config_).GetMemoryStateRecord(clientId);
+    auto memInfoLists = memoryStateRecord->GetPtrMemInfoList(key);
+    {
+        std::lock_guard<std::mutex> lock(fileMutex_);
+        if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+            return false;
+        }
+        for (auto& memInfo : memInfoLists) {
+            if (memInfo.container.event == "MALLOC") {
+                SetAllocAttr(memInfo);
+            }
+            if (!WriteToFile(memInfo.container, memInfo.stack)) return false;
+        }
     }
     memoryStateRecord->DeleteMemStateInfo(key);
 
@@ -326,6 +334,9 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
 
 bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord)
 {
+    if (eventRecord.record.memPoolRecord.memoryUsage.allocSize >= 0) {
+        return true;
+    }
     static auto getMemPoolName = [](RecordType type) -> std::string {
         if (type == RecordType::TORCH_NPU_RECORD) {
             return "PTA";
@@ -335,40 +346,22 @@ bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &ev
             return "ATB";
         }
     };
-    if (eventRecord.record.memPoolRecord.memoryUsage.allocSize >= 0) {
-        return true;
-    }
+
     // free事件，落盘记录的全部内存状态数据
     auto ptr = eventRecord.record.memPoolRecord.memoryUsage.ptr;
     auto key = std::make_pair(getMemPoolName(eventRecord.type), ptr);
     auto memoryStateRecord = DeviceManager::GetInstance(config_).GetMemoryStateRecord(clientId);
     auto memInfoLists = memoryStateRecord->GetPtrMemInfoList(key);
-    if (memInfoLists.empty()) {
-        return false;
-    }
-    std::ostringstream oss;
-    BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
-    if (analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
-        oss << "{addr:" << memInfoLists[0].attr.addr << ",size:" << memInfoLists[0].attr.size
-            << ",owner:" << memInfoLists[0].attr.owner << ",total:" << memInfoLists[0].attr.totalReserved
-            << ",used:" << memInfoLists[0].attr.totalAllocated << "}";
-    } else {
-        oss << "{addr:" << memInfoLists[0].attr.addr << ",size:" << memInfoLists[0].attr.size <<",total:"
-            << memInfoLists[0].attr.totalReserved << ",used:" << memInfoLists[0].attr.totalAllocated << "}";
-    }
-    std::string attr = "\"" + oss.str() + "\"";
-    memInfoLists[0].container.attr = attr;
-    memoryStateRecord->SetPtrMemInfoList(key, memInfoLists);
-    
     {
         std::lock_guard<std::mutex> lock(fileMutex_);
         if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
             return false;
         }
-
         for (auto memInfo : memInfoLists) {
-            bool isWriteSuccess = WriteToFile(memInfo.container, memInfo.stack);
-            if (!isWriteSuccess) return false;
+            if (memInfo.container.event == "MALLOC") {
+                SetAllocAttr(memInfo);
+            }
+            if (!WriteToFile(memInfo.container, memInfo.stack)) return false;
         }
     }
     memoryStateRecord->DeleteMemStateInfo(key);
