@@ -20,6 +20,7 @@ public:
     static DumpRecord& GetInstance(Config config);
     bool DumpData(const ClientId &clientId, const Record &record, const CallStackString &stack);
     bool WriteToFile(DumpContainer &container, const CallStackString &stack);
+    void SetAllocAttr(MemStateInfo& memInfo);
 private:
     explicit DumpRecord(Config config);
     ~DumpRecord();

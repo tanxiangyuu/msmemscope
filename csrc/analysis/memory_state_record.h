@@ -41,7 +41,7 @@ public:
     void MemoryAccessInfoProcess(const Record& record, CallStackString& stack);
     void MemoryAddrInfoProcess(const Record& record, CallStackString& stack);
     const std::vector<MemStateInfo>& GetPtrMemInfoList(std::pair<std::string, int64_t> key);
-    void SetPtrMemInfoList(std::pair<std::string, int64_t> key, std::vector<MemStateInfo>& infoList);
+    std::map<std::pair<std::string, uint64_t>, std::vector<MemStateInfo>>& GetPtrMemInfoMap();
     void DeleteMemStateInfo(std::pair<std::string, uint64_t> key);
     explicit MemoryStateRecord(Config config);
 private:

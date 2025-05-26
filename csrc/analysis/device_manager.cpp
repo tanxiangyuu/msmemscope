@@ -14,12 +14,17 @@ DeviceManager::DeviceManager(Config config)
     config_ = config;
 }
 
-std::shared_ptr<MemoryStateRecord> DeviceManager::GetMemoryStateRecord(int32_t deviceId)
+std::shared_ptr<MemoryStateRecord>& DeviceManager::GetMemoryStateRecord(int32_t deviceId)
 {
     auto it = memoryStateRecordMap_.find(deviceId);
     if (it == memoryStateRecordMap_.end()) {
         memoryStateRecordMap_.insert({deviceId, std::make_shared<MemoryStateRecord>(config_)});
     }
     return memoryStateRecordMap_[deviceId];
+}
+
+std::map<int32_t, std::shared_ptr<MemoryStateRecord>>& DeviceManager::GetMemoryStateRecordMap()
+{
+    return memoryStateRecordMap_;
 }
 }
