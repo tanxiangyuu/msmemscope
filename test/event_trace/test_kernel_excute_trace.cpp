@@ -25,13 +25,14 @@ TEST(TestKernelExcuteTrace, TestKernelExcuteTraceNormal)
     GetRealTimeFromSysCnt(deviceId, sysCnt);
     // aclnn下发
     auto taskKey = std::make_tuple(static_cast<int16_t>(deviceId), streamId, taskId);
-    AclnnKernelLaunchMap::GetInstance().AclnnLaunch(taskKey);
+    uint64_t hashId = 1;
+    RuntimeKernelLinker::GetInstance().RuntimeTaskInfoLaunch(taskKey, hashId);
 
     std::string name = "add";
     uint64_t startTime = 123;
     uint64_t endTime = 1234;
     // kernel下发
-    AclnnKernelLaunchMap::GetInstance().KernelLaunch(name);
+    RuntimeKernelLinker::GetInstance().KernelLaunch();
 
     // kernel执行
     KernelEventTrace::GetInstance().KernelStartExcute(taskKey, startTime);

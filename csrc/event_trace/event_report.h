@@ -46,8 +46,7 @@ public:
     bool ReportFree(uint64_t addr, CallStackString& stack);
     bool ReportHostMalloc(uint64_t addr, uint64_t size);
     bool ReportHostFree(uint64_t addr);
-    bool ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, const void *hdl,
-        std::string& aKernelName, const TaskKey &key);
+    bool ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo);
     bool ReportKernelExcute(const TaskKey &key, std::string &name, uint64_t time, KernelEventType type);
     bool ReportAclItf(AclOpType aclOpType);
     bool ReportMark(MstxRecord &mstxRecord, CallStackString& stack);
@@ -86,35 +85,9 @@ private:
     std::unordered_map<uint64_t, std::unordered_map<uint64_t, uint64_t>> mstxRangeIdTables_{};
 
     std::atomic<bool> isReceiveServerInfo_;
-    std::map<const void*, std::string> hdlKernelNameMap_;
 };
 
 MemOpSpace GetMemOpSpace(unsigned long long flag);
-
-inline int32_t GetMallocModuleId(unsigned long long flag);
-
-extern "C" {
-#ifndef RTS_API
-#define RTS_API
-#endif
-RTS_API rtError_t GetDeviceID(int32_t *devId);
-}
-
-inline bool WriteBinary(std::string const &filename, char const *data, uint64_t length)
-{
-    if (!data) {
-        return false;
-    }
-    std::ofstream ofs(filename, std::ios::out | std::ios::binary);
-    ofs.write(data, length);
-    return ofs.good();
-}
-
-std::vector<char *> ToRawCArgv(std::vector<std::string> const &argv);
-bool PipeCall(std::vector<std::string> const &cmd, std::string &output);
-std::string ParseLine(std::string const &line);
-std::string ParseNameFromOutput(std::string output);
-std::string GetNameFromBinary(const void *hdl);
 RTS_API rtError_t GetDevice(int32_t *devId);
 
 } // namespace Leaks
