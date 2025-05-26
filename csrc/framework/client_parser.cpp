@@ -61,7 +61,7 @@ void ShowHelpInfo()
         << "                                             The maximum number of steps is 5." << std::endl
         << "    --call-stack=<c/python>[:<Depth>],...    Enable C,Python call stack collection for memory event."
         << std::endl
-        << "                                             Select the maximum depth of the collected call stack."
+        << "                                             Select the maximum depth of the collected call stack([0,1000])"
         << std::endl
         << "                                             If no depth is specified, use default depth(50)." << std::endl
         << "                                             e.g. --call-stack=c:20,python:10" << std::endl
@@ -251,7 +251,7 @@ static bool CheckIsValidDepthInfo(const std::string &param, UserCommand &userCom
 {
     size_t pos = param.find(':');
     std::string callType = param.substr(0, pos);
-    std::regex numberPattern(R"(^(0|[1-9]\d*)$)");
+    std::regex numberPattern(R"(^(0|1000|[1-9]\d{0,2})$)");
     uint32_t depth = DEFAULT_CALL_STACK_DEPTH;
 
     if (pos != std::string::npos) {
