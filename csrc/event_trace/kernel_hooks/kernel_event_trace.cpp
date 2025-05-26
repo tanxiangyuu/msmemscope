@@ -11,20 +11,18 @@
 
 namespace Leaks {
 
-void KernelEventTrace::KernelLaunch(KernelLaunchRecord& kernelLaunchRecord, const void *hdl)
+void KernelEventTrace::KernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
 {
-    std::string kernelName;
-    if (!EventReport::Instance(CommType::SOCKET).ReportKernelLaunch(kernelLaunchRecord, hdl, kernelName,
-        AclnnKernelLaunchMap::GetInstance().GetTaskKey())) {
+    if (!EventReport::Instance(CommType::SOCKET).ReportKernelLaunch(kernelLaunchInfo)) {
         CLIENT_ERROR_LOG("KernelLaunch launch report failed");
     }
-    AclnnKernelLaunchMap::GetInstance().KernelLaunch(kernelName);
+    
     return;
 }
 
 void KernelEventTrace::KernelStartExcute(const TaskKey& key, uint64_t time)
 {
-    auto kernelName = AclnnKernelLaunchMap::GetInstance().GetKernelName(key, KernelEventType::KERNEL_START);
+    auto kernelName = RuntimeKernelLinker::GetInstance().GetKernelName(key, KernelEventType::KERNEL_START);
     if (!kernelName.empty()) {
         if (!EventReport::Instance(CommType::SOCKET).ReportKernelExcute(key,
             kernelName, time, KernelEventType::KERNEL_START)) {
@@ -36,7 +34,7 @@ void KernelEventTrace::KernelStartExcute(const TaskKey& key, uint64_t time)
 
 void KernelEventTrace::KernelEndExcute(const TaskKey& key, uint64_t time)
 {
-    auto kernelName = AclnnKernelLaunchMap::GetInstance().GetKernelName(key, KernelEventType::KERNEL_END);
+    auto kernelName = RuntimeKernelLinker::GetInstance().GetKernelName(key, KernelEventType::KERNEL_END);
     if (!kernelName.empty()) {
         if (!EventReport::Instance(CommType::SOCKET).ReportKernelExcute(key,
             kernelName, time, KernelEventType::KERNEL_END)) {
@@ -157,25 +155,11 @@ KernelEventTrace::~KernelEventTrace()
     }
 }
 
-void AclnnKernelLaunchMap::AclnnLaunch(const TaskKey& key)
+void RuntimeKernelLinker::RuntimeTaskInfoLaunch(const TaskKey& key, uint64_t hashId)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
-    auto iter = kernelNameMp_.find(Utility::GetTid());
-    if (iter == kernelNameMp_.end()) {
-        AclnnKernelMapInfo value = {key, ""};
-        std::vector<AclnnKernelMapInfo> vec {};
-        vec.push_back(value);
-        kernelNameMp_.insert({Utility::GetTid(), vec});
-    } else {
-        auto &vec = iter->second;
-        AclnnKernelMapInfo value = {key, ""};
-        vec.push_back(value);
+    if (hashId == 0) {
+        return;
     }
-    return;
-}
-
-void AclnnKernelLaunchMap::KernelLaunch(std::string &kernelName)
-{
     std::lock_guard<std::mutex> lock(mutex_);
     auto iter = kernelNameMp_.find(Utility::GetTid());
     if (iter == kernelNameMp_.end()) {
@@ -183,27 +167,34 @@ void AclnnKernelLaunchMap::KernelLaunch(std::string &kernelName)
     }
     auto &vec = iter->second;
     if (!vec.empty()) {
-        vec.back().kernelName = kernelName;
+        vec.back().taskKey = key;
+        vec.back().kernelName = GetHashInfo(hashId);
+        KernelEventTrace::GetInstance().KernelLaunch(vec.back());
     }
+
+    return;
 }
 
-TaskKey AclnnKernelLaunchMap::GetTaskKey()
+void RuntimeKernelLinker::KernelLaunch()
 {
+    uint64_t timeStamp = Utility::GetTimeMicroseconds();
     std::lock_guard<std::mutex> lock(mutex_);
+
+    AclnnKernelMapInfo value = {timeStamp, std::make_tuple(-1, -1, -1), ""};
     auto iter = kernelNameMp_.find(Utility::GetTid());
-    auto invalidTaskKey = std::make_tuple(-1, -1, -1);
     if (iter == kernelNameMp_.end()) {
-        CLIENT_ERROR_LOG("Get task key failed");
-        return invalidTaskKey;
+        std::vector<AclnnKernelMapInfo> vec {};
+        vec.push_back(value);
+        kernelNameMp_.insert({Utility::GetTid(), vec});
+    } else {
+        auto &vec = iter->second;
+        vec.push_back(value);
     }
-    auto &vec = iter->second;
-    if (!vec.empty()) {
-        return vec.back().taskKey;
-    }
-    return invalidTaskKey;
+
+    return;
 }
 
-std::string AclnnKernelLaunchMap::GetKernelName(const TaskKey& key, KernelEventType type)
+std::string RuntimeKernelLinker::GetKernelName(const TaskKey& key, KernelEventType type)
 {
     std::lock_guard<std::mutex> lock(mutex_);
     for (auto &pair : kernelNameMp_) {
@@ -217,6 +208,24 @@ std::string AclnnKernelLaunchMap::GetKernelName(const TaskKey& key, KernelEventT
                 return name;
             }
         }
+    }
+    return "";
+}
+
+void RuntimeKernelLinker::SetHashInfo(uint64_t hashId, const std::string &hashInfo)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    const auto iter = hashInfo_map_.find(hashId);
+    if (iter == hashInfo_map_.end()) {
+        hashInfo_map_.insert({hashId, hashInfo});
+    }
+}
+
+std::string RuntimeKernelLinker::GetHashInfo(uint64_t hashId)
+{
+    const auto iter = hashInfo_map_.find(hashId);
+    if (iter != hashInfo_map_.end()) {
+        return iter->second;
     }
     return "";
 }
