@@ -4,7 +4,6 @@
 #include "event_trace/event_report.h"
 #undef private
 #include "event_trace/vallina_symbol.h"
-#include "handle_mapping.h"
 #include "securec.h"
 #include "bit_field.h"
 
@@ -224,14 +223,15 @@ TEST(EventReportTest, ReportKernelLaunchTest) {
     instance.config_.eventType = eventBit.getValue();
     instance.config_.levelType = levelBit.getValue();
     instance.isReceiveServerInfo_ = true;
-    KernelLaunchRecord record;
-    void *hdl = nullptr;
     int16_t devId = 1;
     int16_t streamId = 1;
     int16_t taskId = 1;
     auto taskKey = std::make_tuple(devId, streamId, taskId);
-    std::string s;
-    EXPECT_TRUE(instance.ReportKernelLaunch(record, hdl, s, taskKey));
+    AclnnKernelMapInfo kernelLaunchInfo {};
+    kernelLaunchInfo.taskKey = taskKey;
+    kernelLaunchInfo.timeStamp = 123;
+    kernelLaunchInfo.kernelName = "add";
+    EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchInfo));
 }
 
 TEST(EventReportTest, ReportAclItfTest) {
@@ -415,13 +415,15 @@ TEST(EventReportTest, ReportTestWithNoReceiveServerInfo) {
     EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize));
     EXPECT_TRUE(instance.ReportHostFree(testAddr));
 
-    KernelLaunchRecord kernelLaunchRecord = {};
     int16_t devId = 1;
     int16_t streamId = 1;
     int16_t taskId = 1;
     auto taskKey = std::make_tuple(devId, streamId, taskId);
-    std::string s;
-    EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchRecord, nullptr, s, taskKey));
+    AclnnKernelMapInfo kernelLaunchInfo {};
+    kernelLaunchInfo.taskKey = taskKey;
+    kernelLaunchInfo.timeStamp = 123;
+    kernelLaunchInfo.kernelName = "add";
+    EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchInfo));
 
     AclOpType aclOpType = {};
     EXPECT_TRUE(instance.ReportAclItf(aclOpType));
@@ -483,87 +485,6 @@ TEST(EventReportTest, ReportAtenAccessTestExpextSuccess)
     MemAccessRecord  memAccessRecord  {};
     CallStackString stack;
     EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord, stack));
-}
-
-TEST(KernelNameFuncTest, PipeCallGivenLsCommandReturnFalse)
-{
-    std::vector<std::string> argv = {"/bin/ls", "/tmp"};
-    std::string output;
-    ASSERT_TRUE(PipeCall(argv, output));
-    ASSERT_FALSE(output.empty());
-}
-
-TEST(KernelNameFuncTest, PipeCallGivenTestCommandReturnFalse)
-{
-    std::vector<std::string> argv = {"test-command"};
-    std::string output;
-    ASSERT_FALSE(PipeCall(argv, output));
-}
-
-TEST(KernelNameFuncTest, WriteBinaryGivenValidDataReturnSuccess)
-{
-    std::string fileName = "./test.bin";
-    char wbuf[] = "123456789";
-    ASSERT_TRUE(WriteBinary(fileName, wbuf, sizeof(wbuf)));
-
-    std::ifstream ifs;
-    ifs.open(fileName, std::ios::binary);
-    ASSERT_TRUE(ifs.is_open());
-    char rbuf[sizeof(wbuf)];
-    ifs.read(rbuf, sizeof(rbuf));
-    ifs.close();
-    ASSERT_EQ(std::string(wbuf), std::string(rbuf));
-
-    std::remove(fileName.c_str());
-}
-
-TEST(KernelNameFuncTest, ParseLineGivenValidKernelNameLineReturnTrueName)
-{
-    std::string line = "0000 g F .text ReduceSum_7a09f_high_performance_123_mix_aiv";
-    std::string kernelName;
-    kernelName = ParseLine(line);
-    ASSERT_EQ(kernelName, "ReduceSum_7a09f");
-}
-
-TEST(KernelNameFuncTest, ParseLineGivenInvalidKernelNameLineReturnEmptyName)
-{
-    std::string line = "000 g O .data g_opSystemRunCfg";
-    std::string kernelName;
-    kernelName = ParseLine(line);
-    ASSERT_EQ(kernelName, "");
-}
-
-TEST(KernelNameFuncTest, ParseNameFromOutputGivenValidSymbolTableReturnTrueName)
-{
-    std::string output = ("SYMBOL TABLE:\n"
-    "000 g F .text test_000_mix_aic"
-    "000 g O .data g_opSystemRunCfg\n");
-    std::string kernelName;
-    kernelName = ParseNameFromOutput(output);
-    ASSERT_EQ(kernelName, "test_000");
-}
-
-TEST(KernelNameFuncTest, ParseNameFromOutputGivenInValidSymbolTableReturnEmptyName)
-{
-    std::string output = ("TEST TABLE:\n"
-    "000 g F .text test_000_mix_aic"
-    "000 g O .data g_opSystemRunCfg\n");
-    std::string kernelName;
-    kernelName = ParseNameFromOutput(output);
-    ASSERT_EQ(kernelName, "");
-}
-
-TEST(KernelNameFuncTest, GetNameFromBinaryGivenHdlReturnEmptyName)
-{
-    std::vector<uint8_t> handleData{1, 2, 3};
-    void *hdl = handleData.data();
-    Leaks::BinKernel binData {};
-    binData.bin = {0x01, 0x02, 0x03, 0x04};
-    std::string kernelName;
-    Leaks::HandleMapping::GetInstance().handleBinKernelMap_.insert({hdl, binData});
-    kernelName = GetNameFromBinary(hdl);
-    Leaks::HandleMapping::GetInstance().handleBinKernelMap_.erase(hdl);
-    ASSERT_EQ(kernelName, "");
 }
 
 constexpr uint64_t MEM_VIRT_BIT = 10;
@@ -753,10 +674,4 @@ TEST(GetSpaceFunc, GetMemOpSpaceExpectSuccess)
     ASSERT_EQ(GetMemOpSpace(flag), MemOpSpace::DVPP);
     flag = 0b11110000000000;
     ASSERT_EQ(GetMemOpSpace(flag), MemOpSpace::INVALID);
-}
-
-TEST(EventReportTest, ToRawCArgvExpectSuccess)
-{
-    std::vector<std::string> argv = {"test"};
-    ToRawCArgv(argv);
 }

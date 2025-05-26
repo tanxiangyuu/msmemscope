@@ -11,7 +11,6 @@
 #include "utils.h"
 #include "vallina_symbol.h"
 #include "ustring.h"
-#include "handle_mapping.h"
 #include "umask_guard.h"
 #include "securec.h"
 #include "bit_field.h"
@@ -95,16 +94,6 @@ AclItfRecord CreateAclItfRecord(AclOpType type)
     auto record = AclItfRecord {};
     record.timeStamp = Utility::GetTimeMicroseconds();
     record.type = type;
-    record.pid = Utility::GetPid();
-    record.tid = Utility::GetTid();
-    return record;
-}
-
-KernelLaunchRecord CreateKernelLaunchRecord(KernelLaunchRecord kernelLaunchRecord)
-{
-    auto record = KernelLaunchRecord {};
-    record = kernelLaunchRecord;
-    record.timeStamp = Utility::GetTimeNanoseconds();
     record.pid = Utility::GetPid();
     record.tid = Utility::GetTid();
     return record;
@@ -530,8 +519,7 @@ bool EventReport::ReportAtenAccess(MemAccessRecord &memAccessRecord, CallStackSt
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, const void *hdl,
-    std::string& aKernelName, const TaskKey &key)
+bool EventReport::ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
 {
     g_isInReportFunction = true;
 
@@ -544,11 +532,13 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
     }
 
     BitField<decltype(config_.eventType)> eventType(config_.eventType);
-    if (!eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
+    BitField<decltype(config_.levelType)> levelType(config_.levelType);
+    if (!eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT)) ||
+        !levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_KERNEL))) {
         return true;
     }
 
-    int32_t devId = std::get<0>(key);
+    int32_t devId = std::get<0>(kernelLaunchInfo.taskKey);
     if (devId < 0) {
         if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
             CLIENT_ERROR_LOG("RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
@@ -557,62 +547,25 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
 
     auto eventRecord = EventRecord{};
     eventRecord.type = RecordType::KERNEL_LAUNCH_RECORD;
-    eventRecord.record.kernelLaunchRecord = CreateKernelLaunchRecord(kernelLaunchRecord);
+    eventRecord.record.kernelLaunchRecord.timeStamp = kernelLaunchInfo.timeStamp;
+    eventRecord.record.kernelLaunchRecord.pid = Utility::GetPid();
+    eventRecord.record.kernelLaunchRecord.tid = Utility::GetTid();
     eventRecord.record.kernelLaunchRecord.devId = devId;
-    eventRecord.record.kernelLaunchRecord.streamId = std::get<1>(key);
-    eventRecord.record.kernelLaunchRecord.taskId = std::get<2>(key);
+    eventRecord.record.kernelLaunchRecord.streamId = std::get<1>(kernelLaunchInfo.taskKey);
+    eventRecord.record.kernelLaunchRecord.taskId = std::get<2>(kernelLaunchInfo.taskKey);
     eventRecord.record.kernelLaunchRecord.kernelLaunchIndex = ++kernelLaunchRecordIndex_;
     eventRecord.record.kernelLaunchRecord.recordIndex = ++recordIndex_;
+    auto ret = strncpy_s(eventRecord.record.kernelLaunchRecord.kernelName,
+        KERNELNAME_MAX_SIZE, kernelLaunchInfo.kernelName.c_str(), KERNELNAME_MAX_SIZE - 1);
+    if (ret != EOK) {
+        CLIENT_WARN_LOG("strncpy_s FAILED");
+    }
     CallStackString stack;
-    BitField<decltype(config_.levelType)> levelType(config_.levelType);
-    if (levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_KERNEL))) {
-        std::string kernelName;
-        {
-            std::lock_guard<std::mutex> lock(threadMutex_);
-            auto it = hdlKernelNameMap_.find(hdl);
-            if (it != hdlKernelNameMap_.end()) {
-                kernelName = it->second;
-            }
-        }
-        if (!kernelName.empty()) {
-            auto ret = strncpy_s(eventRecord.record.kernelLaunchRecord.kernelName,
-                KERNELNAME_MAX_SIZE, kernelName.c_str(), KERNELNAME_MAX_SIZE - 1);
-            aKernelName = kernelName;
-            if (ret != EOK) {
-                CLIENT_WARN_LOG("strncpy_s FAILED");
-            }
-            PacketHead head = {PacketType::RECORD};
-            auto sendNums = ReportRecordEvent(eventRecord, head, stack);
-            if (sendNums < 0) {
-                CLIENT_ERROR_LOG("rtKernelLaunch report FAILED");
-                return false;
-            }
-            return true;
-        }
-        std::string tempName = GetNameFromBinary(hdl);
-        auto ret = strncpy_s(eventRecord.record.kernelLaunchRecord.kernelName,
-            KERNELNAME_MAX_SIZE, tempName.c_str(), KERNELNAME_MAX_SIZE - 1);
-        aKernelName = tempName;
-        if (ret != EOK) {
-            CLIENT_WARN_LOG("strncpy_s FAILED");
-        }
-        {
-            std::lock_guard<std::mutex> lock(threadMutex_);
-            hdlKernelNameMap_.insert({hdl, tempName});
-        }
-        PacketHead head = {PacketType::RECORD};
-        CallStackString stack;
-        auto sendNums = ReportRecordEvent(eventRecord, head, stack);
-        if (sendNums < 0) {
-            CLIENT_ERROR_LOG("rtKernelLaunch report FAILED");
-            return false;
-        }
-    } else {
-        PacketHead head = {PacketType::RECORD};
-        auto sendNums = ReportRecordEvent(eventRecord, head, stack);
-        if (sendNums < 0) {
-            return false;
-        }
+
+    PacketHead head = {PacketType::RECORD};
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+    if (sendNums < 0) {
+        return false;
     }
 
     g_isInReportFunction = false;
@@ -791,140 +744,6 @@ bool EventReport::ReportAtbAccessMemory(std::vector<MemAccessRecord>& memAccessR
 
     g_isInReportFunction = false;
     return true;
-}
-
-std::vector<char *> ToRawCArgv(std::vector<std::string> const &argv)
-{
-    std::vector<char *> rawArgv;
-    for (auto const &arg: argv) {
-        rawArgv.emplace_back(const_cast<char *>(arg.data()));
-    }
-    rawArgv.emplace_back(nullptr);
-    return rawArgv;
-}
-
-bool PipeCall(std::vector<std::string> const &cmd, std::string &output)
-{
-    int pipeStdout[2];
-    if (pipe(pipeStdout) != 0) {
-        CLIENT_ERROR_LOG("PipeCall: get pipe failed");
-        return false;
-    }
-
-    pid_t pid = fork();
-    if (pid < 0) {
-        CLIENT_ERROR_LOG("PipeCall: create subprocess failed");
-        return false;
-    } else if (pid == 0) {
-        dup2(pipeStdout[1], STDOUT_FILENO);
-        close(pipeStdout[0]);
-        close(pipeStdout[1]);
-        // llvm-objdump解析kernel.o文件中的二进制数据
-        execvp(cmd[0].c_str(), ToRawCArgv(cmd).data());
-        _exit(EXIT_FAILURE);
-    } else {
-        close(pipeStdout[1]);
-        static constexpr std::size_t bufLen = 256UL;
-        char buf[bufLen] = {'\0'};
-        ssize_t nBytes = 0L;
-        for (; (nBytes = read(pipeStdout[0], buf, bufLen)) > 0L;) {
-            output.append(buf, static_cast<std::size_t>(nBytes));
-        }
-        close(pipeStdout[0]);
-        int status;
-        waitpid(pid, &status, 0);
-        return WIFEXITED(status) && WEXITSTATUS(status) == 0;
-    }
-    return true;
-}
-
-std::string ParseLine(std::string const &line)
-{
-    std::vector<std::string> items;
-    Utility::Split(line, std::back_inserter(items), " ");
-    if (items.size() < 5UL) {
-        return "";
-    }
-    constexpr std::size_t scopeIdx = 1UL;
-    constexpr std::size_t symbolKindIdx = 2UL;
-    if (items[scopeIdx] != "g" || items[symbolKindIdx] != "F") {
-        return "";
-    }
-    constexpr std::size_t kernelNameIdx = 4UL;
-    std::string kernelName = items[kernelNameIdx];
-    if (Utility::EndWith(kernelName, "_mix_aic") ||
-        Utility::EndWith(kernelName, "_mix_aiv")) {
-        kernelName = kernelName.substr(0UL, kernelName.length() - 8UL);
-    }
-
-    items.clear();
-    Utility::Split(kernelName, std::back_inserter(items), "_");
-    if (items.size() < 2UL) {
-        return "";
-    }
-    std::string kernelNamePrefix = items[0] + "_" + items[1];
-    return kernelNamePrefix;
-}
-
-std::string ParseNameFromOutput(std::string output)
-{
-    std::string kernelName;
-    std::vector<std::string> lines;
-    Utility::Split(output, std::back_inserter(lines), "\n");
-
-    // skip headers
-    auto it = lines.cbegin();
-    for (; it != lines.cend(); ++it) {
-        if (it->find("SYMBOL TABLE:") != std::string::npos) {
-            break;
-        }
-    }
-
-    if (it == lines.cend()) {
-        return kernelName;
-    }
-    ++it;
-
-    for (; it != lines.cend(); ++it) {
-        // 解析每一行符号表数据，取出kernelname
-        kernelName = ParseLine(*it);
-        if (!kernelName.empty()) {
-            return kernelName;
-        }
-    }
-    return kernelName;
-}
-
-std::string GetNameFromBinary(const void *hdl)
-{
-    std::string kernelName;
-    std::vector<char> binary = HandleMapping::GetInstance().BinKernelMapFind(hdl);
-    if (binary.empty()) {
-        return kernelName;
-    }
-    auto time = Utility::GetTimeNanoseconds();
-    std::string kernelPath = "./kernel.o." + std::to_string(time);
-    {
-        Utility::UmaskGuard umaskGuard(REGULAR_MODE_MASK);
-        if (!WriteBinary(kernelPath, binary.data(), binary.size())) {
-            return kernelName;
-        }
-    }
-    std::vector<std::string> cmd = {
-        "llvm-objdump",
-        "-t",
-        kernelPath
-    };
-
-    std::string output;
-    bool ret = PipeCall(cmd, output);
-    if (!ret) {
-        CLIENT_ERROR_LOG("pipe call failed!");
-        return kernelName;
-    }
-    kernelName = ParseNameFromOutput(output);
-    remove(kernelPath.c_str());
-    return kernelName;
 }
 
 }

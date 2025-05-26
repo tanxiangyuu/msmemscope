@@ -19,24 +19,9 @@
 #include "serializer.h"
 #include "log.h"
 #include "record_info.h"
-#include "handle_mapping.h"
 #include "kernel_event_trace.h"
 
 using namespace Leaks;
-
-namespace Leaks {
-
-KernelLaunchRecord CreateKernelLaunchRecord(uint32_t blockDim, rtStream_t stm, KernelLaunchType type)
-{
-    auto record = KernelLaunchRecord {};
-    int32_t streamId;
-    rtGetStreamId(stm, &streamId);
-    record.type = type;
-    record.blockDim = blockDim;
-    record.streamId = streamId;
-    return record;
-}
-}
 
 void static StartKernelEventTrace()
 {
@@ -55,10 +40,7 @@ RTS_API rtError_t rtKernelLaunch(
         return RT_ERROR_RESERVED;
     }
 
-    auto record = KernelLaunchRecord {};
-    record = CreateKernelLaunchRecord(blockDim, stm, KernelLaunchType::NORMAL);
-    auto hdl = HandleMapping::GetInstance().StubHandleMapFind(stubFunc);
-    KernelEventTrace::GetInstance().KernelLaunch(record, hdl);
+    RuntimeKernelLinker::GetInstance().KernelLaunch();
     rtError_t ret = vallina(stubFunc, blockDim, args, argsSize, smDesc, stm);
     return ret;
 }
@@ -74,9 +56,7 @@ RTS_API rtError_t rtKernelLaunchWithHandleV2(void *hdl, const uint64_t tilingKey
         return RT_ERROR_RESERVED;
     }
 
-    auto record = KernelLaunchRecord {};
-    record = CreateKernelLaunchRecord(blockDim, stm, KernelLaunchType::HANDLEV2);
-    KernelEventTrace::GetInstance().KernelLaunch(record, hdl);
+    RuntimeKernelLinker::GetInstance().KernelLaunch();
     rtError_t ret = vallina(hdl, tilingKey, blockDim, argsInfo, smDesc, stm, cfgInfo);
     return ret;
 }
@@ -92,10 +72,7 @@ RTS_API rtError_t rtKernelLaunchWithFlagV2(const void *stubFunc, uint32_t blockD
         return RT_ERROR_RESERVED;
     }
 
-    auto record = KernelLaunchRecord {};
-    record = CreateKernelLaunchRecord(blockDim, stm, KernelLaunchType::FLAGV2);
-    auto hdl = HandleMapping::GetInstance().StubHandleMapFind(stubFunc);
-    KernelEventTrace::GetInstance().KernelLaunch(record, hdl);
+    RuntimeKernelLinker::GetInstance().KernelLaunch();
     rtError_t ret = vallina(stubFunc, blockDim, argsInfo, smDesc, stm, flags, cfgInfo);
     return ret;
 }
@@ -110,88 +87,4 @@ RTS_API rtError_t rtGetStreamId(rtStream_t stm, int32_t *streamId)
     }
     rtError_t ret = vallina(stm, streamId);
     return ret;
-}
-
-RTS_API rtError_t rtFunctionRegister(
-    void *binHandle, const void *stubFunc, const char *stubName, const void *kernelInfoExt, uint32_t funcMode)
-{
-    using RtFunctionRegister = decltype(&rtFunctionRegister);
-    auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtFunctionRegister>(__func__);
-    if (vallina == nullptr) {
-        CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
-        return RT_ERROR_RESERVED;
-    }
-    rtError_t result = vallina(binHandle, stubFunc, stubName, kernelInfoExt, funcMode);
-    HandleMapping::GetInstance().StubHandleMapInsert(stubFunc, binHandle);
-    return result;
-}
-
-RTS_API rtError_t rtDevBinaryRegister(const rtDevBinary_t *bin, void **hdl)
-{
-    using RtDevBinaryRegister = decltype(&rtDevBinaryRegister);
-    auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtDevBinaryRegister>(__func__);
-    if (vallina == nullptr) {
-        CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
-        return RT_ERROR_RESERVED;
-    }
-    
-    rtError_t result = vallina(bin, hdl);
-    if (result == RT_ERROR_NONE && bin != nullptr && bin->data != nullptr && hdl != nullptr) {
-        // register handle bin map
-        if (bin->length > MAX_BINARY_SIZE) {
-            std::string errorInfo = "Illegal binary size: binary size[" + std::to_string(bin->length)
-                                    + "] exceeds max binary size[" + std::to_string(MAX_BINARY_SIZE) + "].";
-            CLIENT_ERROR_LOG(errorInfo);
-            return RT_ERROR_MEMORY_ALLOCATION ;
-        }
-        auto binData = static_cast<char const *>(bin->data);
-        BinKernel binKernel {};
-        binKernel.bin = std::vector<char>(binData, binData + bin->length);
-        HandleMapping::GetInstance().BinKernelMapInsert(*hdl, binKernel);
-    }
-    return result;
-}
-
-RTS_API rtError_t rtRegisterAllKernel(const rtDevBinary_t *bin, void **hdl)
-{
-    using RtRegisterAllKernel = decltype(&rtRegisterAllKernel);
-    auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtRegisterAllKernel>(__func__);
-    if (vallina == nullptr) {
-        CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
-        return RT_ERROR_RESERVED;
-    }
-    rtError_t result = vallina(bin, hdl);
-    if (result == RT_ERROR_NONE && bin != nullptr && bin->data != nullptr && hdl != nullptr) {
-        // register handle bin map
-        if (bin->length > MAX_BINARY_SIZE) {
-            std::string errorInfo = "Illegal binary size: binary size[" + std::to_string(bin->length)
-                                    + "] exceeds max binary size[" + std::to_string(MAX_BINARY_SIZE) + "].";
-            CLIENT_ERROR_LOG(errorInfo);
-            return RT_ERROR_MEMORY_ALLOCATION ;
-        }
-        auto binData = static_cast<char const *>(bin->data);
-        BinKernel binKernel {};
-        binKernel.bin = std::vector<char>(binData, binData + bin->length);
-        HandleMapping::GetInstance().BinKernelMapInsert(*hdl, binKernel);
-    }
-    return result;
-}
-
-RTS_API rtError_t rtDevBinaryUnRegister(void *hdl)
-{
-    using RtDevBinaryUnRegister = decltype(&rtDevBinaryUnRegister);
-    auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtDevBinaryUnRegister>(__func__);
-    if (vallina == nullptr) {
-        CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
-        return RT_ERROR_RESERVED;
-    }
-
-    rtError_t result = vallina(hdl);
-    if (result == RT_ERROR_NONE) {
-        // unregister handle bin map
-        HandleMapping::GetInstance().BinKernelMapErase(hdl);
-        // unregister stub handle map
-        HandleMapping::GetInstance().StubHandleMapErase(hdl);
-    }
-    return result;
 }

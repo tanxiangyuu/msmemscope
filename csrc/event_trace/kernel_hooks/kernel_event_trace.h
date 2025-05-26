@@ -16,6 +16,7 @@ using TaskKey = std::tuple<int16_t, int16_t, int16_t>; // <deviceId, streamId, t
 using ThreadId = uint64_t;
 
 struct AclnnKernelMapInfo {
+    uint64_t timeStamp;
     TaskKey taskKey;
     std::string kernelName;
 };
@@ -33,7 +34,7 @@ public:
         return instance;
     }
 
-    void KernelLaunch(KernelLaunchRecord& kernelLaunchRecord, const void *hdl); // kernel下发
+    void KernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo); // kernel下发
     void KernelStartExcute(const TaskKey& key, uint64_t time); // kernel开始执行
     void KernelEndExcute(const TaskKey& key, uint64_t time); // kernel结束执行
 
@@ -49,30 +50,33 @@ private:
     std::thread readTh_;
 };
 
-// 用于关联aclnn下发和kernel下发，在一个线程内，aclnn下发和对应的kernel下发是保序的，中间不会插入其他aclnn和kernel下发
-class AclnnKernelLaunchMap {
+// 用于关联runtime task下发和kernel下发
+// 在一个线程内，runtime任务下发和对应的kernel下发是保序的，中间不会插入runtime任务和kernel下发
+class RuntimeKernelLinker {
 public:
-    AclnnKernelLaunchMap(const AclnnKernelLaunchMap&) = delete;
-    AclnnKernelLaunchMap& operator=(const AclnnKernelLaunchMap&) = delete;
+    RuntimeKernelLinker(const RuntimeKernelLinker&) = delete;
+    RuntimeKernelLinker& operator=(const RuntimeKernelLinker&) = delete;
 
-    static AclnnKernelLaunchMap& GetInstance()
+    static RuntimeKernelLinker& GetInstance()
     {
-        static AclnnKernelLaunchMap instance;
+        static RuntimeKernelLinker instance;
         return instance;
     }
 
-    void AclnnLaunch(const TaskKey& key);
-    void KernelLaunch(std::string &kernelName);
-
-    TaskKey GetTaskKey();
+    void RuntimeTaskInfoLaunch(const TaskKey& key, uint64_t hashId);
+    void KernelLaunch();
+    void SetHashInfo(uint64_t hashId, const std::string &hashInfo);
+    std::string GetHashInfo(uint64_t hashId);
     std::string GetKernelName(const TaskKey& key, KernelEventType type);
 private:
-    AclnnKernelLaunchMap() = default;
-    ~AclnnKernelLaunchMap() = default;
+    RuntimeKernelLinker() = default;
+    ~RuntimeKernelLinker() = default;
 
 private:
     std::mutex mutex_;
     std::unordered_map<ThreadId, std::vector<AclnnKernelMapInfo>> kernelNameMp_;
+
+    std::unordered_map<uint64_t, std::string> hashInfo_map_;
 };
 
 }
