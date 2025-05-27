@@ -20,10 +20,11 @@ class MemRecordAttr {
 public:
     uint64_t addr;
     uint64_t size;
-    std::string owner;
     int32_t modid;
     int64_t totalAllocated;
     int64_t totalReserved;
+    std::string leaksDefinedOwner;
+    std::string userDefinedOwner;
 };
 
 class MemStateInfo {
@@ -48,9 +49,12 @@ private:
     void HostMemProcess(const MemOpRecord& memRecord, uint64_t& currentSize);
     void HalMemProcess(MemOpRecord& memRecord, uint64_t& currentSize, std::string& deviceType);
     MemRecordAttr GetMemInfoAttr(MemOpRecord& memRecord, uint64_t currentSize);
-private:
     void PackDumpContainer(
-        DumpContainer &container, const MemPoolRecord &memPool, const std::string memPoolType, MemRecordAttr &attr);
+        DumpContainer &container, const MemPoolRecord &memPool, const std::string& memPoolType, MemRecordAttr &attr);
+    void PackDumpContainer(DumpContainer& container,
+        const MemAccessRecord& memAccessRecord, const std::string& eventType, const std::string& attr);
+    void UpdateLeaksDefinedOwner(std::string& owner, const std::string& newOwner);
+private:
     std::map<std::pair<std::string, uint64_t>, std::vector<MemStateInfo>> ptrMemoryInfoMap_;
     std::unordered_map<uint64_t, uint64_t> hostMemSizeMap_;
     std::unordered_map<uint64_t, uint64_t> memSizeMap_;

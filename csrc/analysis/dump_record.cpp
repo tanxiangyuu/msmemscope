@@ -116,8 +116,8 @@ void DumpRecord::SetAllocAttr(MemStateInfo& memInfo)
         oss << ",total:" << memInfo.attr.totalReserved << ",used:" << memInfo.attr.totalAllocated;
     }
 
-    if (!memInfo.attr.owner.empty()) {
-        oss << ",owner:" << memInfo.attr.owner;
+    if (!memInfo.attr.leaksDefinedOwner.empty() || !memInfo.attr.userDefinedOwner.empty()) {
+        oss << ",owner:" << memInfo.attr.leaksDefinedOwner << memInfo.attr.userDefinedOwner;
     }
     oss << "}";
     std::string attr = "\"" + oss.str() + "\"";
