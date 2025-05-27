@@ -85,6 +85,10 @@ int ClientProcess::Notify(std::string const &msg)
 
 int ClientProcess::Wait(std::string& msg, uint32_t timeOut)
 {
+    if (client_ == nullptr) {
+        std::cout << "Client doesn't exist! ClientProcess wait failed!" << std::endl;
+        return static_cast<int>(msg.size());
+    }
     std::string recvMsg;
     msg.clear();
     int len = 0;
