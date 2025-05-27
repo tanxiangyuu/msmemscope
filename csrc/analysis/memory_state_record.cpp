@@ -33,6 +33,7 @@ void MemoryStateRecord::HostMemProcess(const MemOpRecord& memRecord, uint64_t& c
         currentSize = hostMemSizeMap_[memRecord.addr];
         hostMemSizeMap_.erase(memRecord.addr);
     } else {
+        LOG_DEBUG("No matching malloc operation found for free operator: addr: 0x%lx", memRecord.addr);
         return ;
     }
 }
