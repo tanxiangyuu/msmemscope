@@ -20,7 +20,7 @@
 
 using namespace Leaks;
 
-void EnableAtenCollection()
+void LeaksPythonCall(const std::string& module, const std::string& function)
 {
     if (!Utility::IsPyInterpRepeInited()) {
             CLIENT_ERROR_LOG("Python Interpreter initialization FAILED");
@@ -32,18 +32,18 @@ void EnableAtenCollection()
     Utility::PythonObject modules = sys.Get("modules");
     Utility::PythonObject torch = modules.GetItem(Utility::PythonObject("torch"));
     if (!torch.IsBad()) {
-        Utility::PythonObject atenCollection = Utility::PythonObject::Import("msleaks.aten_collection", false);
-        if (atenCollection.IsBad()) {
-            CLIENT_ERROR_LOG("import msleaks.aten_collection FAILED");
+        Utility::PythonObject pythonModule = Utility::PythonObject::Import(module, false);
+        if (pythonModule.IsBad()) {
+            CLIENT_ERROR_LOG("import " + module + " FAILED");
             return;
         }
  
-        Utility::PythonObject enableAtenCollector = atenCollection.Get("enable_aten_collector");
-        if (enableAtenCollector.IsBad()) {
-            CLIENT_ERROR_LOG("enable aten collector FAILED");
+        Utility::PythonObject pythonFunction = pythonModule.Get(function);
+        if (pythonFunction.IsBad()) {
+            CLIENT_ERROR_LOG("cannot get function " + function);
             return;
         }
-        enableAtenCollector.Call();
+        pythonFunction.Call();
     }
     return;
 }
@@ -66,7 +66,12 @@ ACL_FUNC_VISIBILITY aclError aclInit(const char *configPath)
     Config userConfig =  EventReport::Instance(CommType::SOCKET).GetConfig();
     BitField<decltype(userConfig.levelType)> levelType(userConfig.levelType);
     if (levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_OP))) {
-        EnableAtenCollection();
+        LeaksPythonCall("msleaks.aten_collection", "enable_aten_collector");
+    }
+
+    BitField<decltype(userConfig.analysisType)> analysisType(userConfig.analysisType);
+    if (analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
+        LeaksPythonCall("msleaks.optimizer_step_hook", "enable_optimizer_step_hook");
     }
 
     return ret;
@@ -85,5 +90,12 @@ ACL_FUNC_VISIBILITY aclError aclFinalize()
     if (!EventReport::Instance(CommType::SOCKET).ReportAclItf(AclOpType::FINALIZE)) {
         CLIENT_ERROR_LOG("aclInit report FAILED");
     }
+
+    Config userConfig =  EventReport::Instance(CommType::SOCKET).GetConfig();
+    BitField<decltype(userConfig.analysisType)> analysisType(userConfig.analysisType);
+    if (analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
+        LeaksPythonCall("msleaks.optimizer_step_hook", "disable_optimizer_step_hook");
+    }
+
     return ret;
 }
