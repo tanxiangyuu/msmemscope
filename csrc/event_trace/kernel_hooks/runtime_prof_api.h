@@ -178,6 +178,7 @@ enum ProfApiErrorCode {
 
 void RegisterRtProfileCallback();
 int32_t CompactInfoReporterCallbackImpl(uint32_t agingFlag, const void *data, uint32_t length);
+uint64_t GetHashIdCallBackImply(const char* hashInfo, size_t len);
 void SetProfCommand(uint32_t devId);
 }
 #endif
