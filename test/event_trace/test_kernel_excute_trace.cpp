@@ -23,9 +23,12 @@ TEST(TestKernelExcuteTrace, TestKernelExcuteTraceNormal)
     CompactInfoReporterCallbackImpl(agingFlag, data, length);
 
     GetRealTimeFromSysCnt(deviceId, sysCnt);
+
     // aclnn下发
     auto taskKey = std::make_tuple(static_cast<int16_t>(deviceId), streamId, taskId);
-    uint64_t hashId = 1;
+
+    std::string hashInfo = "add";
+    uint64_t hashId = GetHashIdCallBackImply(hashInfo.c_str(), hashInfo.size());
     RuntimeKernelLinker::GetInstance().RuntimeTaskInfoLaunch(taskKey, hashId);
 
     std::string name = "add";
