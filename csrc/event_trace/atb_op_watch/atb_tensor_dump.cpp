@@ -2,13 +2,12 @@
 
 #include <fstream>
 #include <vector>
-#include <sstream>
-#include <iomanip>
 #include "utils.h"
 #include "kernel_hooks/acl_hooks.h"
 #include "file.h"
 #include "event_report.h"
 #include "atb_tensor_dump.h"
+#include "calculate_md5.h"
 
 namespace Leaks {
 void CleanFileName(std::string& fileName)
@@ -37,7 +36,7 @@ ATBTensorDump::ATBTensorDump()
         if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
             CLIENT_ERROR_LOG("Get device id failed, " + std::to_string(devId));
         }
-        std::string fileName = "tensor_md5_" + std::to_string(devId) + "_";
+        std::string fileName = "watch_dump_md5_" + std::to_string(devId) + "_";
         std::string tableHeader = "tensor info,MD5\n";
         if (!Utility::CreateCsvFile(&csvFile_, dumpDir_, fileName, tableHeader)) {
             CLIENT_ERROR_LOG("Create csv file failed.");
@@ -56,30 +55,6 @@ ATBTensorDump::~ATBTensorDump()
 bool ATBTensorDump::IsDumpFullContent()
 {
     return fullContent_;
-}
-
-std::string ATBTensorDump::GetTensorMD5(const std::vector<char>& data)
-{
-    static auto func = VallinaSymbol<OpenSSLLibLoader>::Instance().Get<MD5Func>("MD5");
-    if (func == nullptr) {
-        CLIENT_ERROR_LOG("Cannot find MD5Func");
-        return "";
-    }
-
-    // 计算哈希
-    static size_t valueSize = 16;
-    unsigned char digest[valueSize]; // MD5 结果为 16 字节
-    func(reinterpret_cast<const unsigned char*>(data.data()), data.size(), digest);
-
-    // 转换为十六进制字符串
-    std::ostringstream oss;
-    static size_t valueWide = 2;
-    oss << std::hex << std::setfill('0');
-    for (int i = 0; i < valueSize; i++) {
-        oss << std::setw(valueWide) << static_cast<int>(digest[i]);
-    }
-
-    return oss.str();
 }
 
 bool ATBTensorDump::DumpTensorBinary(const std::vector<char> &hostData, std::string& fileName)
@@ -105,7 +80,7 @@ bool ATBTensorDump::DumpTensorBinary(const std::vector<char> &hostData, std::str
 
 bool ATBTensorDump::DumpTensorMD5(const std::vector<char> &hostData, std::string& fileName)
 {
-    auto MD5Value = GetTensorMD5(hostData);
+    auto MD5Value = Utility::GetTensorMD5(hostData);
     std::lock_guard<std::mutex> lock(mutex_);
     if (!Utility::Fprintf(csvFile_, "%s,%s\n", fileName.c_str(), MD5Value.c_str())) {
         CLIENT_ERROR_LOG("Write tensor md5 info failed.");

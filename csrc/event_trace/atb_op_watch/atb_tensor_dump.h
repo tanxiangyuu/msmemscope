@@ -6,9 +6,6 @@
 #include <string>
 #include <mutex>
 
-// 定义 OpenSSL MD5 函数类型
-using MD5Func = unsigned char* (*)(const unsigned char*, size_t, unsigned char*);
-
 namespace Leaks {
 
 // 对于dump功能，只需要tensor的device地址和大小即可
@@ -38,7 +35,6 @@ private:
 
     bool DumpTensorBinary(const std::vector<char> &hostData, std::string& fileName);
     bool DumpTensorMD5(const std::vector<char> &hostData, std::string& fileName);
-    std::string GetTensorMD5(const std::vector<char>& data);
 
 private:
     bool fullContent_;
