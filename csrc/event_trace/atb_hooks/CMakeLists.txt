@@ -7,6 +7,7 @@ target_sources(atb_abi_0_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/atb_op_watch/atb_tensor_dump.cpp
   ${UTILITY_INC_DIR}/log.cpp
   ${UTILITY_INC_DIR}/file.cpp
+  ${UTILITY_INC_DIR}/calculate_md5.cpp
   ${UTILITY_INC_DIR}/path.cpp
   ${FRAMEWORK_INC_DIR}/client_process.cpp
 )
@@ -36,6 +37,7 @@ target_sources(atb_abi_1_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/atb_op_watch/atb_tensor_dump.cpp
   ${UTILITY_INC_DIR}/log.cpp
   ${UTILITY_INC_DIR}/file.cpp
+  ${UTILITY_INC_DIR}/calculate_md5.cpp
   ${UTILITY_INC_DIR}/path.cpp
   ${FRAMEWORK_INC_DIR}/client_process.cpp
 )
