@@ -520,7 +520,7 @@ static void ParseWatchConfig(const std::string param, UserCommand &userCommand)
 
     // 如果仅落盘哈希值，需要保证环境中有OpenSSL库
     if (!userCommand.config.watchConfig.fullContent) {
-        auto func = VallinaSymbol<OpenSSLLibLoader>::Instance().Get<Utility::MD5Func>("MD5");
+        auto func = VallinaSymbol<OpenSSLLibLoader>::Instance().Get<MD5Func>("MD5");
         if (func == nullptr) {
             std::cout << "[msleaks] ERROR: OpenSSL library not installed." << std::endl;
             userCommand.printHelpInfo = true;

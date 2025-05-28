@@ -6,8 +6,8 @@
 #include "kernel_hooks/acl_hooks.h"
 #include "file.h"
 #include "event_report.h"
-#include "atb_tensor_dump.h"
 #include "calculate_md5.h"
+#include "atb_tensor_dump.h"
 
 namespace Leaks {
 void CleanFileName(std::string& fileName)
@@ -25,7 +25,7 @@ ATBTensorDump::ATBTensorDump()
     Config config = EventReport::Instance(CommType::SOCKET).GetConfig();
     fullContent_ = config.watchConfig.fullContent;
 
-    dumpDir_ = std::string(config.outputDir) + "/atb_op_dump";
+    dumpDir_ = std::string(config.outputDir) + "/watch_dump";
     if (!Utility::MakeDir(dumpDir_)) {
         CLIENT_ERROR_LOG("Make dir failed.");
     }
@@ -80,7 +80,7 @@ bool ATBTensorDump::DumpTensorBinary(const std::vector<char> &hostData, std::str
 
 bool ATBTensorDump::DumpTensorMD5(const std::vector<char> &hostData, std::string& fileName)
 {
-    auto MD5Value = Utility::GetTensorMD5(hostData);
+    auto MD5Value = GetTensorMD5(hostData);
     std::lock_guard<std::mutex> lock(mutex_);
     if (!Utility::Fprintf(csvFile_, "%s,%s\n", fileName.c_str(), MD5Value.c_str())) {
         CLIENT_ERROR_LOG("Write tensor md5 info failed.");

@@ -6,12 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace Utility {
-
 // 定义 OpenSSL MD5 函数类型
 using MD5Func = unsigned char* (*)(const unsigned char*, size_t, unsigned char*);
-
 std::string GetTensorMD5(const std::vector<char>& data);
-
-}
 #endif

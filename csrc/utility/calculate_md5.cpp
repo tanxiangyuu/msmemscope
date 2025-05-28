@@ -2,20 +2,17 @@
 
 #include <sstream>
 #include <iomanip>
-#include "calculate_md5.h"
 #include "vallina_symbol.h"
 #include "client_process.h"
-
-namespace Utility {
+#include "calculate_md5.h"
 
 std::string GetTensorMD5(const std::vector<char>& data)
 {
-    static auto func = Leaks::VallinaSymbol<Leaks::OpenSSLLibLoader>::Instance().Get<Utility::MD5Func>("MD5");
+    static auto func = Leaks::VallinaSymbol<Leaks::OpenSSLLibLoader>::Instance().Get<MD5Func>("MD5");
     if (func == nullptr) {
         CLIENT_ERROR_LOG("Cannot find MD5Func");
         return "";
     }
-
     // 计算哈希
     static size_t valueSize = 16;
     unsigned char digest[valueSize]; // MD5 结果为 16 字节
@@ -30,6 +27,4 @@ std::string GetTensorMD5(const std::vector<char>& data)
     }
 
     return oss.str();
-}
-
 }
