@@ -27,7 +27,7 @@ def calculate_tensor_size(tensor: torch.Tensor):
     element_size = tensor.itemsize
     size = numel * element_size
 
-    return size
+    return int(size)
 
 
 def zip_by_key(a: dict, b: dict) -> Iterator:
