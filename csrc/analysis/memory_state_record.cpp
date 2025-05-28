@@ -65,11 +65,12 @@ MemRecordAttr MemoryStateRecord::GetMemInfoAttr(MemOpRecord& memRecord, uint64_t
         analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
         auto it = MODULE_HASH_TABLE.find(memRecord.modid);
         if (it != MODULE_HASH_TABLE.end()) {
-            halOwner = "CANN@" + it->second + std::string(memRecord.owner);
+            halOwner = "CANN@" + it->second;
         } else {
-            halOwner = "CANN@UNKNOWN" + std::string(memRecord.owner);
+            halOwner = "CANN@UNKNOWN";
         }
-        attr.owner = halOwner;
+        attr.leaksDefinedOwner = halOwner;
+        attr.userDefinedOwner = std::string(memRecord.owner);
     }
     if (memRecord.devType == DeviceType::NPU) {
         attr.modid = memRecord.modid;
@@ -142,25 +143,6 @@ inline void CopyMemPoolRecordMember(const MemPoolRecord &record, DumpContainer &
     container.owner += std::string(record.owner);
 }
 
-void MemoryStateRecord::PackDumpContainer(
-    DumpContainer& container, const MemPoolRecord& memPool, const std::string memPoolType, MemRecordAttr& attr)
-{
-    std::string eventType = memPool.memoryUsage.allocSize >= 0 ? "MALLOC" : "FREE";
-    attr.addr = memPool.memoryUsage.ptr;
-    attr.size = memPool.memoryUsage.allocSize;
-
-    BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
-    if (eventType == "MALLOC" && analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
-        attr.owner = memPoolType + std::string(memPool.owner);
-    }
-    attr.totalReserved = memPool.memoryUsage.totalReserved;
-    attr.totalAllocated = memPool.memoryUsage.totalAllocated;
-    container.event = eventType;
-    container.eventType = memPoolType;
-    container.name = "N/A";
-    container.addr = std::to_string(memPool.memoryUsage.ptr);
-}
-
 void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackString& stack)
 {
     MemoryUsage memoryUsage { };
@@ -206,17 +188,27 @@ void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackStr
 
 void MemoryStateRecord::MemoryAddrInfoProcess(const Record& record, CallStackString& stack)
 {
+    BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
+    if (!analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
+        return;
+    }
+
     auto addrInfoRecord = record.eventRecord.record.addrInfo;
     auto key = std::make_pair("PTA", addrInfoRecord.addr);
     if (!ptrMemoryInfoMap_.count(key)) {
         return;
     }
-    BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
-    if (!analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
-        return ;
+
+    auto& addrInfo = ptrMemoryInfoMap_[key][0];
+    if (addrInfo.container.event != "MALLOC") {
+        return;
     }
-    for (auto &record : ptrMemoryInfoMap_[key]) {
-        record.attr.owner += std::string(addrInfoRecord.owner);
+
+    std::string owner = std::string(addrInfoRecord.owner);
+    if (addrInfoRecord.type == AddrInfoType::USER_DEFINED) {
+        addrInfo.attr.userDefinedOwner += owner;
+    } else if (addrInfoRecord.type == AddrInfoType::PTA_OPTIMIZER_STEP) {
+        UpdateLeaksDefinedOwner(addrInfo.attr.leaksDefinedOwner, owner);
     }
 }
 
@@ -246,16 +238,7 @@ void MemoryStateRecord::MemoryAccessInfoProcess(const Record& record, CallStackS
     std::string attr = oss.str();
 
     DumpContainer container;
-    container.id = memAccessRecord.recordIndex;
-    container.event = "ACCESS";
-    container.eventType = eventType;
-    container.name = memAccessRecord.name;
-    container.timeStamp = memAccessRecord.timestamp;
-    container.pid = memAccessRecord.pid;
-    container.tid = memAccessRecord.tid;
-    container.deviceId = std::to_string(memAccessRecord.devId);
-    container.addr = std::to_string(memAccessRecord.addr);
-    container.attr = attr;
+    PackDumpContainer(container, memAccessRecord, eventType, attr);
 
     auto key = memAccessRecord.memType == AccessMemType::ATEN?
         std::make_pair("PTA", ptr) : std::make_pair("ATB", ptr);
@@ -267,6 +250,10 @@ void MemoryStateRecord::MemoryAccessInfoProcess(const Record& record, CallStackS
     memInfo.container = container;
     memInfo.stack = stack;
     ptrMemoryInfoMap_[key].push_back(memInfo);
+
+    if (memAccessRecord.memType == AccessMemType::ATEN && ptrMemoryInfoMap_[key][0].container.event == "MALLOC") {
+        UpdateLeaksDefinedOwner(ptrMemoryInfoMap_[key][0].attr.leaksDefinedOwner, "@ops@aten");
+    }
 }
 
 const std::vector<MemStateInfo>& MemoryStateRecord::GetPtrMemInfoList(std::pair<std::string, int64_t> key)
@@ -288,6 +275,62 @@ void MemoryStateRecord::DeleteMemStateInfo(std::pair<std::string, uint64_t> key)
     auto it = ptrMemoryInfoMap_.find(key);
     if (it != ptrMemoryInfoMap_.end()) {
         ptrMemoryInfoMap_.erase(key);
+    }
+}
+
+void MemoryStateRecord::PackDumpContainer(
+    DumpContainer& container, const MemPoolRecord& memPool, const std::string& memPoolType, MemRecordAttr& attr)
+{
+    std::string eventType = memPool.memoryUsage.allocSize >= 0 ? "MALLOC" : "FREE";
+    attr.addr = memPool.memoryUsage.ptr;
+    attr.size = memPool.memoryUsage.allocSize;
+
+    BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
+    if (eventType == "MALLOC" && analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
+        attr.leaksDefinedOwner = memPoolType;
+        attr.userDefinedOwner = std::string(memPool.owner);
+    }
+    attr.totalReserved = memPool.memoryUsage.totalReserved;
+    attr.totalAllocated = memPool.memoryUsage.totalAllocated;
+    container.event = eventType;
+    container.eventType = memPoolType;
+    container.name = "N/A";
+    container.addr = std::to_string(memPool.memoryUsage.ptr);
+}
+
+void MemoryStateRecord::PackDumpContainer(
+    DumpContainer& container, const MemAccessRecord& memAccessRecord,
+    const std::string& eventType, const std::string& attr)
+{
+    container.id = memAccessRecord.recordIndex;
+    container.event = "ACCESS";
+    container.eventType = eventType;
+    container.name = memAccessRecord.name;
+    container.timeStamp = memAccessRecord.timestamp;
+    container.pid = memAccessRecord.pid;
+    container.tid = memAccessRecord.tid;
+    container.deviceId = std::to_string(memAccessRecord.devId);
+    container.addr = std::to_string(memAccessRecord.addr);
+    container.attr = attr;
+}
+
+void MemoryStateRecord::UpdateLeaksDefinedOwner(std::string& owner, const std::string& newOwner)
+{
+    static std::string ptaPrefix = "PTA";
+    static size_t ptaPrefixLen = ptaPrefix.length();
+
+    if (owner.rfind(ptaPrefix, 0) != 0) {
+        return;
+    }
+
+    if (owner.length() == ptaPrefixLen) {
+        owner += newOwner;
+    } else {
+        // 部分内存有可能先作为算子操作的内容，然后被识别为其他类型，如weight，
+        // 则优先用weight覆盖aten，而aten不能覆盖其他类型
+        if (newOwner != "@ops@aten") {
+            owner = ptaPrefix + newOwner;
+        }
     }
 }
 
