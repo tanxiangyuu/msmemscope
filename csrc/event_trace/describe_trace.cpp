@@ -36,6 +36,7 @@ void DescribeTrace::DescribeAddr(uint64_t addr, std::string owner)
     auto tid = Utility::GetTid();
     owner = "@" + owner;
     AddrInfo info;
+    info.type = AddrInfoType::USER_DEFINED;
     info.addr = addr;
     if (strncpy_s(info.owner, sizeof(info.owner), owner.c_str(), sizeof(info.owner) - 1) != EOK) {
         CLIENT_ERROR_LOG("strncpy_s FAILED");

@@ -74,7 +74,13 @@ struct MemPoolRecord {
     char owner[ADDR_OWNER_SIZE];
 };
 
+enum class AddrInfoType : uint8_t {
+    USER_DEFINED = 0U,
+    PTA_OPTIMIZER_STEP,
+};
+
 struct AddrInfo {
+    AddrInfoType type;
     uint64_t addr;
     char owner[ADDR_OWNER_SIZE];
 };
