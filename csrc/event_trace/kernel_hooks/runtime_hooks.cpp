@@ -77,6 +77,55 @@ RTS_API rtError_t rtKernelLaunchWithFlagV2(const void *stubFunc, uint32_t blockD
     return ret;
 }
 
+RTS_API rtError_t rtAicpuKernelLaunchExWithArgs(const uint32_t kernelType, const char* const opName,
+    const uint32_t blockDim, const RtAicpuArgsExT *argsInfo, RtSmDescT * const smDesc, const RtStreamT stm,
+    const uint32_t flags)
+{
+    StartKernelEventTrace();
+    using RtAicpuKernelLaunchExWithArgs = decltype(&rtAicpuKernelLaunchExWithArgs);
+    auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtAicpuKernelLaunchExWithArgs>(__func__);
+    if (vallina == nullptr) {
+        CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
+        return RT_ERROR_RESERVED;
+    }
+
+    RuntimeKernelLinker::GetInstance().KernelLaunch();
+    rtError_t ret = vallina(kernelType, opName, blockDim, argsInfo, smDesc, stm, flags);
+    return ret;
+}
+
+RTS_API rtError_t rtLaunchKernelByFuncHandle(rtFuncHandle funcHandle, uint32_t blockDim,
+    rtLaunchArgsHandle argsHandle, RtStreamT stm)
+{
+    StartKernelEventTrace();
+    using RtLaunchKernelByFuncHandle = decltype(&rtLaunchKernelByFuncHandle);
+    auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtLaunchKernelByFuncHandle>(__func__);
+    if (vallina == nullptr) {
+        CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
+        return RT_ERROR_RESERVED;
+    }
+
+    RuntimeKernelLinker::GetInstance().KernelLaunch();
+    rtError_t ret = vallina(funcHandle, blockDim, argsHandle, stm);
+    return ret;
+}
+
+RTS_API rtError_t rtLaunchKernelByFuncHandleV2(rtFuncHandle funcHandle, uint32_t blockDim,
+    rtLaunchArgsHandle argsHandle, RtStreamT stm, const RtTaskCfgInfoT *cfgInfo)
+{
+    StartKernelEventTrace();
+    using RtLaunchKernelByFuncHandleV2 = decltype(&rtLaunchKernelByFuncHandleV2);
+    auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtLaunchKernelByFuncHandleV2>(__func__);
+    if (vallina == nullptr) {
+        CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
+        return RT_ERROR_RESERVED;
+    }
+
+    RuntimeKernelLinker::GetInstance().KernelLaunch();
+    rtError_t ret = vallina(funcHandle, blockDim, argsHandle, stm, cfgInfo);
+    return ret;
+}
+
 RTS_API rtError_t rtGetStreamId(rtStream_t stm, int32_t *streamId)
 {
     using rtGetStreamId = decltype(&rtGetStreamId);
