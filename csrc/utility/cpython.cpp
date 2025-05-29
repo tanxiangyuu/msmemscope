@@ -400,7 +400,7 @@ std::vector<PyThreadState*> getInterpreterThreads(PyInterpreterState* interprete
 
 void GetTraceCallStack(std::string type)
 {
-    uint64_t time = GetTimeMicroseconds();
+    uint64_t time = GetTimeNanoseconds();
     const size_t stackMaxDepth = 128;
     auto frame = PyEval_GetFrame();
     if (frame != nullptr) {
