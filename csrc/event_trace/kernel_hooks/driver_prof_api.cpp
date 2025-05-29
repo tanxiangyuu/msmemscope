@@ -5,12 +5,14 @@
 #include "securec.h"
 #include "event_report.h"
 #include "runtime_prof_api.h"
+#include "kernel_event_trace.h"
+#include "ascend_hal.h"
 
 namespace Leaks {
 
-static DrvError HalGetDeviceInfo(uint32_t deviceId, int32_t moduleType, int32_t infoType, int64_t* value)
+static tagDrvError HalGetDeviceInfo(uint32_t deviceId, int32_t moduleType, int32_t infoType, int64_t* value)
 {
-    using HalGetDeviceInfoFunc = DrvError(*)(uint32_t, int32_t, int32_t, int64_t*);
+    using HalGetDeviceInfoFunc = tagDrvError(*)(uint32_t, int32_t, int32_t, int64_t*);
     auto vallina = Leaks::VallinaSymbol<DriverProfApiLoader>::Instance().Get<HalGetDeviceInfoFunc>("halGetDeviceInfo");
     if (vallina == nullptr) {
         CLIENT_ERROR_LOG("halGetDeviceInfo api get failed");
@@ -22,10 +24,10 @@ static DrvError HalGetDeviceInfo(uint32_t deviceId, int32_t moduleType, int32_t 
 
 static int64_t GetDrvVersion(uint32_t deviceId)
 {
-    constexpr int64_t ERR_VERSION = -1;
+    static int64_t errorVersion = -1;
     int64_t version = 0;
-    DrvError ret = HalGetDeviceInfo(deviceId, DRV_MODULE_TYPE_SYSTEM, DRV_INFO_TYPE_VERSION, &version);
-    return (ret == DRV_ERROR_NONE) ? version : ERR_VERSION;
+    tagDrvError ret = HalGetDeviceInfo(deviceId, DRV_MODULE_TYPE_SYSTEM, DRV_INFO_TYPE_VERSION, &version);
+    return (ret == DRV_ERROR_NONE) ? version : errorVersion;
 }
 
 static PlatformType GetChipTypeImpl(uint32_t deviceId)
@@ -45,17 +47,17 @@ static PlatformType GetChipTypeImpl(uint32_t deviceId)
 
 static uint64_t GetDevFreq(uint32_t device)
 {
-    constexpr uint64_t DEFAULT_FREQ = 50;
+    static uint64_t freqDefault = 50;
     static const std::unordered_map<PlatformType, uint64_t> FREQ_MAP = {
         {PlatformType::CHIP_910B, 50},
         {PlatformType::CHIP_310B, 50},
     };
     int64_t freq = 0;
-    DrvError ret = HalGetDeviceInfo(device, DRV_MODULE_TYPE_SYSTEM, DRV_INFO_TYPE_DEV_OSC_FREQUE, &freq);
+    tagDrvError ret = HalGetDeviceInfo(device, DRV_MODULE_TYPE_SYSTEM, DRV_INFO_TYPE_DEV_OSC_FREQUE, &freq);
     if (ret != DRV_ERROR_NONE) {
         auto platform = GetChipTypeImpl(device);
         auto iter = FREQ_MAP.find(platform);
-        uint64_t defaultFreq = (iter == FREQ_MAP.end()) ? DEFAULT_FREQ : iter->second;
+        uint64_t defaultFreq = (iter == FREQ_MAP.end()) ? freqDefault : iter->second;
         return defaultFreq;
     }
     return freq;
@@ -73,31 +75,31 @@ static uint64_t GetClockRealTimeNs()
 
 static uint64_t GetDevStartSysCnt(uint32_t device)
 {
-    constexpr uint64_t ERR_SYSCNT = 0;
+    constexpr uint64_t errorSystemCnt = 0;
     int64_t syscnt = 0;
-    DrvError ret = HalGetDeviceInfo(device, DRV_MODULE_TYPE_SYSTEM, DRV_INFO_TYPE_SYS_COUNT, &syscnt);
-    return (ret == DRV_ERROR_NONE) ? static_cast<uint64_t>(syscnt) : ERR_SYSCNT;
+    tagDrvError ret = HalGetDeviceInfo(device, DRV_MODULE_TYPE_SYSTEM, DRV_INFO_TYPE_SYS_COUNT, &syscnt);
+    return (ret == DRV_ERROR_NONE) ? static_cast<uint64_t>(syscnt) : errorSystemCnt;
 }
 
 DevTimeInfo g_devTimeInfo = { };
 
 static void InitDevTimeInfo(uint32_t deviceId)
 {
-    static constexpr uint32_t AVE_NUM = 2;
+    static constexpr uint32_t aveNum = 2;
 
     g_devTimeInfo.freq = GetDevFreq(deviceId);
     auto t1 = GetClockRealTimeNs();
     g_devTimeInfo.startSysCnt = GetDevStartSysCnt(deviceId);
     auto t2 = GetClockRealTimeNs();
-    g_devTimeInfo.startRealTime = (t2 + t1) / AVE_NUM;
+    g_devTimeInfo.startRealTime = (t2 + t1) / aveNum;
     return;
 }
 
 uint64_t GetRealTimeFromSysCnt(uint32_t deviceId, uint64_t sysCnt)
 {
-    uint64_t real_time = MSTONS * (sysCnt - g_devTimeInfo.startSysCnt) / g_devTimeInfo.freq +
+    uint64_t realTime = MSTONS * (sysCnt - g_devTimeInfo.startSysCnt) / g_devTimeInfo.freq +
         g_devTimeInfo.startRealTime;
-    return real_time;
+    return realTime;
 }
 
 void StartDriverKernelInfoTrace(int32_t devId)
@@ -129,6 +131,8 @@ void StartDriverKernelInfoTrace(int32_t devId)
     if (ret != 0) {
         CLIENT_ERROR_LOG("driver prof start failed.");
     }
+    RuntimeKernelLinker::GetInstance();
+    atexit(EndDriverKernelInfoTrace);
     return;
 }
 
