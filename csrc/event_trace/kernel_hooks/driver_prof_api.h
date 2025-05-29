@@ -17,12 +17,6 @@ constexpr uint64_t MAX_BUFFER_SIZE = 1024 * 1024 * 2;
 constexpr uint32_t SECTONSEC = 1000000000UL;
 constexpr uint32_t MSTONS = 1000000;
 
-enum DrvError {
-    DRV_ERROR_NONE = 0,
-    DRV_ERROR_NO_DEVICE = 1,
-    DRV_ERROR_NOT_SUPPORT = 0xfffe,
-};
-
 typedef enum ProfChannelType {
     PROF_CHANNEL_TYPE_TS,
     PROF_CHANNEL_TYPE_PERIPHERAL,
