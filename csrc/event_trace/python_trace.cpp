@@ -25,7 +25,7 @@ void PythonTrace::RecordPyCall(std::string funcHash, std::string funcInfo, uint6
         return;
     }
     TraceEvent event{};
-    event.startTs = timeStamp ? timeStamp : Utility::GetTimeMicroseconds();
+    event.startTs = timeStamp ? timeStamp : Utility::GetTimeNanoseconds();
     event.hash = funcHash;
     event.info = funcInfo;
     event.pid = Utility::GetPid();
@@ -57,7 +57,7 @@ void PythonTrace::RecordCCall(std::string funcHash, std::string funcInfo)
         return;
     }
     TraceEvent event{};
-    event.startTs = Utility::GetTimeMicroseconds();
+    event.startTs = Utility::GetTimeNanoseconds();
     event.hash = funcHash;
     event.info = funcInfo;
     event.pid = Utility::GetPid();
@@ -72,11 +72,11 @@ void PythonTrace::RecordReturn(std::string funcHash, std::string funcInfo)
         auto event = frameStack_[tid].top();
         if (funcHash == event.hash) {
             throw_[tid] = false;
-            event.endTs = Utility::GetTimeMicroseconds();
+            event.endTs = Utility::GetTimeNanoseconds();
             DumpTraceEvent(event);
             frameStack_[tid].pop();
         } else if (throw_[tid] == false) {
-            TraceEvent event{0, Utility::GetTimeMicroseconds(), tid, Utility::GetPid(), funcInfo, funcHash};
+            TraceEvent event{0, Utility::GetTimeNanoseconds(), tid, Utility::GetPid(), funcInfo, funcHash};
             DumpTraceEvent(event);
         }
     }

@@ -177,7 +177,7 @@ void RuntimeKernelLinker::RuntimeTaskInfoLaunch(const TaskKey& key, uint64_t has
 
 void RuntimeKernelLinker::KernelLaunch()
 {
-    uint64_t timeStamp = Utility::GetTimeMicroseconds();
+    uint64_t timeStamp = Utility::GetTimeNanoseconds();
     std::lock_guard<std::mutex> lock(mutex_);
 
     AclnnKernelMapInfo value = {timeStamp, std::make_tuple(-1, -1, -1), ""};

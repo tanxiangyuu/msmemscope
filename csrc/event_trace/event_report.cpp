@@ -78,7 +78,7 @@ RTS_API rtError_t GetDevice(int32_t *devId)
 MemOpRecord CreateMemRecord(MemOpType type, unsigned long long flag, MemOpSpace space, uint64_t addr, uint64_t size)
 {
     MemOpRecord record;
-    record.timeStamp = Utility::GetTimeMicroseconds();
+    record.timeStamp = Utility::GetTimeNanoseconds();
     record.flag = flag;
     record.memType = type;
     record.space = space;
@@ -92,7 +92,7 @@ MemOpRecord CreateMemRecord(MemOpType type, unsigned long long flag, MemOpSpace 
 AclItfRecord CreateAclItfRecord(AclOpType type)
 {
     auto record = AclItfRecord {};
-    record.timeStamp = Utility::GetTimeMicroseconds();
+    record.timeStamp = Utility::GetTimeNanoseconds();
     record.type = type;
     record.pid = Utility::GetPid();
     record.tid = Utility::GetTid();
@@ -225,7 +225,7 @@ bool EventReport::ReportMemPoolRecord(MemPoolRecord &memPoolRecord, CallStackStr
     EventRecord eventRecord;
     eventRecord.type = memPoolRecord.type;
     eventRecord.record.memPoolRecord = memPoolRecord;
-    eventRecord.record.memPoolRecord.timeStamp = Utility::GetTimeMicroseconds();
+    eventRecord.record.memPoolRecord.timeStamp = Utility::GetTimeNanoseconds();
     eventRecord.record.memPoolRecord.kernelIndex = kernelLaunchRecordIndex_;
     eventRecord.record.memPoolRecord.devId = static_cast<int32_t>(memPoolRecord.memoryUsage.deviceIndex);
     if (eventRecord.record.memPoolRecord.memoryUsage.dataType) {
@@ -420,7 +420,7 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord, CallStackString& stack)
     eventRecord.record.mstxRecord = mstxRecord;
     eventRecord.record.mstxRecord.pid = Utility::GetPid();
     eventRecord.record.mstxRecord.tid = Utility::GetTid();
-    eventRecord.record.mstxRecord.timeStamp = Utility::GetTimeMicroseconds();
+    eventRecord.record.mstxRecord.timeStamp = Utility::GetTimeNanoseconds();
     eventRecord.record.mstxRecord.kernelIndex = kernelLaunchRecordIndex_;
     eventRecord.record.mstxRecord.recordIndex = ++recordIndex_;
 
@@ -475,7 +475,7 @@ bool EventReport::ReportAtenLaunch(AtenOpLaunchRecord &atenOpLaunchRecord, CallS
     atenOpLaunchRecord.devId = devId;
     atenOpLaunchRecord.pid = Utility::GetPid();
     atenOpLaunchRecord.tid = Utility::GetTid();
-    atenOpLaunchRecord.timestamp = Utility::GetTimeMicroseconds();
+    atenOpLaunchRecord.timestamp = Utility::GetTimeNanoseconds();
     atenOpLaunchRecord.recordIndex = ++recordIndex_;
     eventRecord.record.atenOpLaunchRecord = atenOpLaunchRecord;
 
@@ -507,7 +507,7 @@ bool EventReport::ReportAtenAccess(MemAccessRecord &memAccessRecord, CallStackSt
     eventRecord.type = RecordType::MEM_ACCESS_RECORD;
     memAccessRecord.pid = Utility::GetPid();
     memAccessRecord.tid = Utility::GetTid();
-    memAccessRecord.timestamp = Utility::GetTimeMicroseconds();
+    memAccessRecord.timestamp = Utility::GetTimeNanoseconds();
     memAccessRecord.devId = devId;
     memAccessRecord.devType = DeviceType::NPU;
     memAccessRecord.recordIndex = ++recordIndex_;
@@ -658,7 +658,7 @@ bool EventReport::ReportAtbOpExecute(AtbOpExecuteRecord& atbOpExecuteRecord)
     atbOpExecuteRecord.devId = devId;
     atbOpExecuteRecord.pid = Utility::GetPid();
     atbOpExecuteRecord.tid = Utility::GetTid();
-    atbOpExecuteRecord.timestamp = Utility::GetTimeMicroseconds();
+    atbOpExecuteRecord.timestamp = Utility::GetTimeNanoseconds();
     atbOpExecuteRecord.recordIndex = ++recordIndex_;
     eventRecord.record.atbOpExecuteRecord = atbOpExecuteRecord;
 
@@ -692,7 +692,7 @@ bool EventReport::ReportAtbKernel(AtbKernelRecord& atbKernelRecord)
     atbKernelRecord.devId = devId;
     atbKernelRecord.pid = Utility::GetPid();
     atbKernelRecord.tid = Utility::GetTid();
-    atbKernelRecord.timestamp = Utility::GetTimeMicroseconds();
+    atbKernelRecord.timestamp = Utility::GetTimeNanoseconds();
     atbKernelRecord.recordIndex = ++recordIndex_;
     eventRecord.record.atbKernelRecord = atbKernelRecord;
 
@@ -722,7 +722,7 @@ bool EventReport::ReportAtbAccessMemory(std::vector<MemAccessRecord>& memAccessR
 
     uint64_t pid = Utility::GetPid();
     uint64_t tid = Utility::GetTid();
-    uint64_t timestamp = Utility::GetTimeMicroseconds();
+    uint64_t timestamp = Utility::GetTimeNanoseconds();
 
     for (auto& record : memAccessRecords) {
         PacketHead head = {PacketType::RECORD};
