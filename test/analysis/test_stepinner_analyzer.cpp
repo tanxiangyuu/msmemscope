@@ -120,9 +120,9 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks_warning)
     StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
     static StepInnerAnalyzer analyzer(analysisConfig);
     EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, record1));
-    EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStart1));
-    EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStart2));
-    EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordEnd));
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStart1);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStart2);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEnd);
 }
 
 TEST(StepInnerAnalyzerTest, do_npu_malloc_record_expect_sucess) {
@@ -233,7 +233,7 @@ TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_free_error) {
     EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, record));
 }
 
-TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks) {
+TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_torch_leaks) {
     ClientId clientId = 0;
     Leaks::DeviceId deviceId = 0;
     // 先初始化注册
@@ -254,35 +254,133 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks) {
     auto mstxRecordStartSecond = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 2, 2, 123);
     auto mstxRecordEndSecond = CreatMstxRecord(MarkType::RANGE_END, "", 2, 2, 123);
 
-
     // 构造第三个step时仍未释放的情景
     auto mstxRecordStartThird = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 3, 3, 123);
     auto mstxRecordEndThird = CreatMstxRecord(MarkType::RANGE_END, "", 3, 3, 123);
 
+    // 构造第四个step时仍未释放的情景，超过duration限制
+    auto mstxRecordStartFourth = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 4, 4, 123);
+    auto mstxRecordEndFourth = CreatMstxRecord(MarkType::RANGE_END, "", 4, 4, 123);
 
     // step前后allocated内存不一致
     auto record = EventRecord{};
     record.type = RecordType::TORCH_NPU_RECORD;
     auto npuRecordMalloc = MemPoolRecord {};
     npuRecordMalloc.recordIndex = 1;
+    npuRecordMalloc.type = RecordType::TORCH_NPU_RECORD;
     auto memoryusage = MemoryUsage {};
     memoryusage.deviceIndex = 0;
     memoryusage.dataType = 0;
-    memoryusage.ptr = 12345;
+    memoryusage.ptr = 92345;
     memoryusage.allocSize = 512;
     memoryusage.totalAllocated = 512;
     npuRecordMalloc.memoryUsage = memoryusage;
     record.record.memPoolRecord = npuRecordMalloc;
 
-    MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStartFirst);
-    MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordEndFirst);
-    MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStartSecond);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartFirst);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndFirst);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartSecond);
     EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, record));
-    MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStartSecond);
-    EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordStartThird));
-    EXPECT_TRUE(MstxAnalyzer::Instance().RecordMstx(clientId, mstxRecordEndThird));
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReportGap(deviceId);
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReportLeak(deviceId);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndSecond);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartThird);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndThird);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartFourth);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndFourth);
+}
+
+TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_mindspore_leaks) {
+    ClientId clientId = 0;
+    Leaks::DeviceId deviceId = 0;
+    // 先初始化注册
+    Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
+    analysisConfig.stepList.stepCount = 0;
+    StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
+    static StepInnerAnalyzer analyzer(analysisConfig);
+
+    auto mstxRecordStartFirst = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 1, 1, 123);
+    auto mstxRecordEndFirst = CreatMstxRecord(MarkType::RANGE_END, "", 1, 1, 123);
+    auto mstxRecordStartSecond = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 2, 2, 123);
+    auto mstxRecordEndSecond = CreatMstxRecord(MarkType::RANGE_END, "", 2, 2, 123);
+    auto mstxRecordStartThird = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 3, 3, 123);
+    auto mstxRecordEndThird = CreatMstxRecord(MarkType::RANGE_END, "", 3, 3, 123);
+    auto mstxRecordStartFourth = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 4, 4, 123);
+    auto mstxRecordEndFourth = CreatMstxRecord(MarkType::RANGE_END, "", 4, 4, 123);
+
+    // step前后allocated内存不一致
+    auto record = EventRecord{};
+    record.type = RecordType::MINDSPORE_NPU_RECORD;
+    auto npuRecordMalloc = MemPoolRecord {};
+    npuRecordMalloc.recordIndex = 1;
+    npuRecordMalloc.type = RecordType::MINDSPORE_NPU_RECORD;
+    auto memoryusage = MemoryUsage {};
+    memoryusage.deviceIndex = 0;
+    memoryusage.dataType = 0;
+    memoryusage.ptr = 93345;
+    memoryusage.allocSize = 512;
+    memoryusage.totalAllocated = 512;
+    npuRecordMalloc.memoryUsage = memoryusage;
+    record.record.memPoolRecord = npuRecordMalloc;
+
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartFirst);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndFirst);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartSecond);
+    EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, record));
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndSecond);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartThird);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndThird);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartFourth);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndFourth);
+}
+
+TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_atb_leaks) {
+    ClientId clientId = 0;
+    Leaks::DeviceId deviceId = 0;
+    Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
+    analysisConfig.stepList.stepCount = 0;
+    StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
+    static StepInnerAnalyzer analyzer(analysisConfig);
+
+    auto mstxRecordStartFirst = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 1, 1, 123);
+    auto mstxRecordEndFirst = CreatMstxRecord(MarkType::RANGE_END, "", 1, 1, 123);
+    auto mstxRecordStartSecond = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 2, 2, 123);
+    auto mstxRecordEndSecond = CreatMstxRecord(MarkType::RANGE_END, "", 2, 2, 123);
+    auto mstxRecordStartThird = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 3, 3, 123);
+    auto mstxRecordEndThird = CreatMstxRecord(MarkType::RANGE_END, "", 3, 3, 123);
+    auto mstxRecordStartFourth = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 4, 4, 123);
+    auto mstxRecordEndFourth = CreatMstxRecord(MarkType::RANGE_END, "", 4, 4, 123);
+
+    // step前后allocated内存不一致
+    auto record = EventRecord{};
+    record.type = RecordType::ATB_MEMORY_POOL_RECORD;
+    auto npuRecordMalloc = MemPoolRecord {};
+    npuRecordMalloc.recordIndex = 1;
+    npuRecordMalloc.type = RecordType::ATB_MEMORY_POOL_RECORD;
+    auto memoryusage = MemoryUsage {};
+    memoryusage.deviceIndex = 0;
+    memoryusage.dataType = 0;
+    memoryusage.ptr = 94345;
+    memoryusage.allocSize = 512;
+    memoryusage.totalAllocated = 512;
+    npuRecordMalloc.memoryUsage = memoryusage;
+    record.record.memPoolRecord = npuRecordMalloc;
+
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartFirst);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndFirst);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartSecond);
+    EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, record));
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndSecond);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartThird);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndThird);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartFourth);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndFourth);
 }
 
 TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateTables_return_true)
