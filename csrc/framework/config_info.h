@@ -12,11 +12,11 @@ namespace Leaks {
 constexpr uint8_t SELECTED_STEP_MAX_NUM = 5;  // 先设定最多指定5个step的信息采集
 constexpr uint8_t DEFAULT_CALL_STACK_DEPTH = 50;
 constexpr uint8_t SKIP_DEPTH = 2;
-constexpr const char *LEAKS_HEADERS = "ID,Event,Event Type,Name,Timestamp(us),Process Id,Thread Id,Device Id,"
+constexpr const char *LEAKS_HEADERS = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,"
         "Ptr,Attr";
 constexpr const char *STEP_INTER_HEADERS = ",,Base,Compare\nName,Device Id,Allocated Memory(byte),"
         "Allocated Memory(byte),Diff Memory(byte)\n";
-constexpr const char *TRACE_HEADERS = "FuncInfo,StartTime,EndTime,Thread Id,Process Id\n";
+constexpr const char *TRACE_HEADERS = "FuncInfo,StartTime(ns),EndTime(ns),Thread Id,Process Id\n";
 constexpr const char *OUTPUT_PATH = "leaksDumpResults";
 constexpr const char *TRACE_FILE = "trace";
 constexpr const char *DUMP_FILE = "dump";

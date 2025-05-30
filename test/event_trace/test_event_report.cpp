@@ -546,7 +546,7 @@ TEST(GetMemOpSpaceFuncTest, GetMemOpSpaceIfOverType1)
 MemOpRecord CreateMemRecord(MemOpType type, unsigned long long flag, MemOpSpace space, uint64_t addr, uint64_t size)
 {
     MemOpRecord record;
-    record.timeStamp = Utility::GetTimeMicroseconds();
+    record.timeStamp = Utility::GetTimeNanoseconds();
     record.flag = flag;
     record.memType = type;
     record.space = space;
@@ -560,7 +560,7 @@ MemOpRecord CreateMemRecord(MemOpType type, unsigned long long flag, MemOpSpace 
 AclItfRecord CreateAclItfRecord(AclOpType type)
 {
     auto record = AclItfRecord {};
-    record.timeStamp = Utility::GetTimeMicroseconds();
+    record.timeStamp = Utility::GetTimeNanoseconds();
     record.type = type;
     record.pid = Utility::GetPid();
     record.tid = Utility::GetTid();
@@ -571,7 +571,7 @@ KernelLaunchRecord CreateKernelLaunchRecord(KernelLaunchRecord kernelLaunchRecor
 {
     auto record = KernelLaunchRecord {};
     record = kernelLaunchRecord;
-    record.timeStamp = Utility::GetTimeMicroseconds();
+    record.timeStamp = Utility::GetTimeNanoseconds();
     record.pid = Utility::GetPid();
     record.tid = Utility::GetTid();
     return record;

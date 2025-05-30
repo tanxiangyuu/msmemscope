@@ -17,22 +17,22 @@ void CreateCsvData(CSV_FIELD_DATA &data)
     temp["Event Type"] = "PTA";
     temp["Attr"] = "{addr:1000,size:123,owner:,MID:3}";
     temp["Device Id"] = "0";
-    temp["Timestamp(us)"] = "1";
+    temp["Timestamp(ns)"] = "1";
     data.emplace_back(temp);
     temp["Event"] = "KERNEL_LAUNCH";
     temp["Event Type"] = "KERNEL_LAUNCH";
     temp["Name"] = "matmul_v1";
-    temp["Timestamp(us)"] = "2";
+    temp["Timestamp(ns)"] = "2";
     data.emplace_back(temp);
     temp["Event"] = "KERNEL_LAUNCH";
     temp["Event Type"] = "KERNEL_LAUNCH";
     temp["Name"] = "matmul_v2";
-    temp["Timestamp(us)"] = "3";
+    temp["Timestamp(ns)"] = "3";
     data.emplace_back(temp);
     temp["Event"] = "MALLOC";
     temp["Event Type"] = "PTA";
     temp["Attr"] = "{addr:1001,size:124,owner:,MID:3}";
-    temp["Timestamp(us)"] = "4";
+    temp["Timestamp(ns)"] = "4";
     data.emplace_back(temp);
 }
 
