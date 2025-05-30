@@ -105,6 +105,8 @@ void Process::RecordHandler(const ClientId &clientId, const Record &record)
             HalAnalyzer::GetInstance(config_).Record(clientId, record.eventRecord);
             break;
         case RecordType::TORCH_NPU_RECORD:
+        case RecordType::ATB_MEMORY_POOL_RECORD:
+        case RecordType::MINDSPORE_NPU_RECORD:
             StepInnerAnalyzer::GetInstance(config_).Record(clientId, record.eventRecord);
             break;
         default:
