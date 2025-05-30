@@ -33,6 +33,28 @@ RTS_API rtError_t MockRtKernelLaunchWithFlagV2(const void *stubFunc, uint32_t bl
     return RT_ERROR_NONE;
 }
 
+RTS_API rtError_t MockRtAicpuKernelLaunchExWithArgs(const uint32_t kernelType, const char* const opName,
+    const uint32_t blockDim, const RtAicpuArgsExT *argsInfo, RtSmDescT * const smDesc, const RtStreamT stm,
+    const uint32_t flags)
+{
+    std::cout << "Stub Func: " << __func__ << std::endl;
+    return RT_ERROR_NONE;
+}
+
+RTS_API rtError_t MockRtLaunchKernelByFuncHandle(rtFuncHandle funcHandle, uint32_t blockDim,
+    rtLaunchArgsHandle argsHandle, RtStreamT stm)
+{
+    std::cout << "Stub Func: " << __func__ << std::endl;
+    return RT_ERROR_NONE;
+}
+
+RTS_API rtError_t MockRtLaunchKernelByFuncHandleV2(rtFuncHandle funcHandle, uint32_t blockDim,
+    rtLaunchArgsHandle argsHandle, RtStreamT stm, const RtTaskCfgInfoT *cfgInfo)
+{
+    std::cout << "Stub Func: " << __func__ << std::endl;
+    return RT_ERROR_NONE;
+}
+
 RTS_API rtError_t MockRtGetStreamId(rtStream_t stm, int32_t *streamId)
 {
     std::cout << "Stub Func: " << __func__ << std::endl;
@@ -55,6 +77,9 @@ std::unordered_map<std::string, void *> g_funcMocks{
     {"rtKernelLaunch", reinterpret_cast<void *>(&MockRtKernelLaunch)},
     {"rtKernelLaunchWithHandleV2", reinterpret_cast<void *>(&MockRtKernelLaunchWithHandleV2)},
     {"rtKernelLaunchWithFlagV2", reinterpret_cast<void *>(&MockRtKernelLaunchWithFlagV2)},
+    {"rtAicpuKernelLaunchExWithArgs", reinterpret_cast<void *>(&MockRtAicpuKernelLaunchExWithArgs)},
+    {"rtLaunchKernelByFuncHandle", reinterpret_cast<void *>(&MockRtLaunchKernelByFuncHandle)},
+    {"rtLaunchKernelByFuncHandleV2", reinterpret_cast<void *>(&MockRtLaunchKernelByFuncHandleV2)},
     {"rtGetStreamId", reinterpret_cast<void *>(&MockRtGetStreamId)},
     {"aclInit", reinterpret_cast<void *>(&MockAclInit)},
     {"aclFinalize", reinterpret_cast<void *>(&MockAclFinalize)},
@@ -155,6 +180,41 @@ TEST(RuntimeHooks, do_rtKernelLaunchWithFlagV2_expect_success)
     EXPECT_EQ(rtKernelLaunchWithFlagV2(stubFunc, blockDim, argsInfo, smDesc, stm, flags, cfgInfo), RT_ERROR_NONE);
 }
 
+TEST(RuntimeHooks, do_rtAicpuKernelLaunchExWithArgs_expect_success)
+{
+    g_isDlsymNullptr = false;
+    uint32_t kernelType = 0;
+    const char* const opName = "add";
+    uint32_t blockDim = 1;
+    const RtAicpuArgsExT *argsInfo = nullptr;
+    RtSmDescT * const smDesc = nullptr;
+    const RtStreamT stm = nullptr;
+    uint32_t flags = 1;
+    const rtTaskCfgInfo_t *cfgInfo = nullptr;
+    EXPECT_EQ(rtAicpuKernelLaunchExWithArgs(kernelType, opName, blockDim, argsInfo, smDesc, stm, flags), RT_ERROR_NONE);
+}
+
+TEST(RuntimeHooks, do_rtLaunchKernelByFuncHandle_expect_success)
+{
+    g_isDlsymNullptr = false;
+    rtFuncHandle funcHandle = nullptr;
+    rtLaunchArgsHandle argsHandle = nullptr;
+    uint32_t blockDim = 1;
+    const RtStreamT stm = nullptr;
+    EXPECT_EQ(rtLaunchKernelByFuncHandle(funcHandle, blockDim, argsHandle, stm), RT_ERROR_NONE);
+}
+
+TEST(RuntimeHooks, do_rtLaunchKernelByFuncHandleV2_expect_success)
+{
+    g_isDlsymNullptr = false;
+    rtFuncHandle funcHandle = nullptr;
+    rtLaunchArgsHandle argsHandle = nullptr;
+    uint32_t blockDim = 1;
+    const RtStreamT stm = nullptr;
+    RtTaskCfgInfoT *cfgInfo = nullptr;
+    EXPECT_EQ(rtLaunchKernelByFuncHandleV2(funcHandle, blockDim, argsHandle, stm, cfgInfo), RT_ERROR_NONE);
+}
+
 TEST(RuntimeHooks, do_rtKernelLaunch_expect_error)
 {
     g_isDlsymNullptr = true;
@@ -191,6 +251,42 @@ TEST(RuntimeHooks, do_rtKernelLaunchWithFlagV2_expect_error)
     uint32_t flags = 1;
     const rtTaskCfgInfo_t *cfgInfo = nullptr;
     EXPECT_EQ(rtKernelLaunchWithFlagV2(stubFunc, blockDim, argsInfo, smDesc, stm, flags, cfgInfo), RT_ERROR_RESERVED);
+}
+
+TEST(RuntimeHooks, do_rtAicpuKernelLaunchExWithArgs_expect_error)
+{
+    g_isDlsymNullptr = true;
+    uint32_t kernelType = 0;
+    const char* const opName = "add";
+    uint32_t blockDim = 1;
+    const RtAicpuArgsExT *argsInfo = nullptr;
+    RtSmDescT * const smDesc = nullptr;
+    const RtStreamT stm = nullptr;
+    uint32_t flags = 1;
+    const rtTaskCfgInfo_t *cfgInfo = nullptr;
+    EXPECT_EQ(rtAicpuKernelLaunchExWithArgs(kernelType, opName, blockDim, argsInfo, smDesc, stm, flags),
+        RT_ERROR_RESERVED);
+}
+
+TEST(RuntimeHooks, do_rtLaunchKernelByFuncHandle_expect_error)
+{
+    g_isDlsymNullptr = true;
+    rtFuncHandle funcHandle = nullptr;
+    rtLaunchArgsHandle argsHandle = nullptr;
+    uint32_t blockDim = 1;
+    const RtStreamT stm = nullptr;
+    EXPECT_EQ(rtLaunchKernelByFuncHandle(funcHandle, blockDim, argsHandle, stm), RT_ERROR_RESERVED);
+}
+
+TEST(RuntimeHooks, do_rtLaunchKernelByFuncHandleV2_expect_error)
+{
+    g_isDlsymNullptr = true;
+    rtFuncHandle funcHandle = nullptr;
+    rtLaunchArgsHandle argsHandle = nullptr;
+    uint32_t blockDim = 1;
+    const RtStreamT stm = nullptr;
+    RtTaskCfgInfoT *cfgInfo = nullptr;
+    EXPECT_EQ(rtLaunchKernelByFuncHandleV2(funcHandle, blockDim, argsHandle, stm, cfgInfo), RT_ERROR_RESERVED);
 }
 
 TEST(RuntimeHooks, do_rtGetStreamId_expect_success)

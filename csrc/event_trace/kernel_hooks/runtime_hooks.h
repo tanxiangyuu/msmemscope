@@ -112,6 +112,11 @@ typedef struct tagRtArgsEx {
     uint8_t reserved[4];
 } rtArgsEx_t;
 
+using rtFuncHandle = void *;
+using rtLaunchArgsHandle = void *;
+using RtStreamT = void *;
+using RtSmDescT = void *;
+
 typedef struct tagRtTaskCfgInfo {
     uint8_t qos;
     uint8_t partId;
@@ -119,14 +124,44 @@ typedef struct tagRtTaskCfgInfo {
     uint8_t res[1];     // res
 } rtTaskCfgInfo_t;
 
+typedef struct tagRtTaskCfgInfoByHandle {
+    uint8_t qos;
+    uint8_t partId;
+    uint8_t schemMode; // rtschemModeType_t 0:normal;1:batch;2:sync
+    bool d2dCrossFlag; // d2dCrossFlag true:D2D_CROSS flase:D2D_INNER
+    uint32_t blockDimOffset;
+    uint8_t dumpflag; // dumpflag 0:fault 2:RT_KERNEL_DUMPFLAG 4:RT_FUSION_KERNEL_DUMPFLAG
+} RtTaskCfgInfoT;
+
+typedef struct tagRtAicpuArgsEx {
+    void *args; // args host mem addr
+    rtHostInputInfo_t *hostInputInfoPtr; // nullptr means no host mem input
+    rtHostInputInfo_t *kernelOffsetInfoPtr; // KernelOffsetInfo, it is different for CCE Kernel and fwk kernel
+    uint32_t argsSize;
+    uint16_t hostInputInfoNum; // hostInputInfo num
+    uint16_t kernelOffsetInfoNum; // KernelOffsetInfo num
+    uint32_t soNameAddrOffset; // just for CCE Kernel, default value is 0xffff for FWK kernel
+    uint32_t kernelNameAddrOffset; // just for CCE Kernel, default value is 0xffff for FWK kernel
+    bool isNoNeedH2DCopy; // is no need host to device copy: 0 means need H2D copy,
+                               // other means doesn't need H2D copy.
+    uint8_t reserved[3];
+} RtAicpuArgsExT;
+
 RTS_API rtError_t rtKernelLaunch(
     const void *stubFunc, uint32_t blockDim, void *args, uint32_t argsSize, rtSmDesc_t *smDesc, rtStream_t stm);
 RTS_API rtError_t rtKernelLaunchWithHandleV2(void *hdl, const uint64_t tilingKey, uint32_t blockDim,
     rtArgsEx_t *argsInfo, rtSmDesc_t *smDesc, rtStream_t stm, const rtTaskCfgInfo_t *cfgInfo);
 RTS_API rtError_t rtKernelLaunchWithFlagV2(const void *stubFunc, uint32_t blockDim, rtArgsEx_t *argsInfo,
     rtSmDesc_t *smDesc, rtStream_t stm, uint32_t flags, const rtTaskCfgInfo_t *cfgInfo);
-RTS_API rtError_t rtGetStreamId(rtStream_t stm, int32_t *streamId);
+RTS_API rtError_t rtAicpuKernelLaunchExWithArgs(const uint32_t kernelType, const char* const opName,
+    const uint32_t blockDim, const RtAicpuArgsExT *argsInfo, RtSmDescT * const smDesc, const RtStreamT stm,
+    const uint32_t flags);
+RTS_API rtError_t rtLaunchKernelByFuncHandle(rtFuncHandle funcHandle, uint32_t blockDim,
+    rtLaunchArgsHandle argsHandle, RtStreamT stm);
+RTS_API rtError_t rtLaunchKernelByFuncHandleV2(rtFuncHandle funcHandle, uint32_t blockDim,
+    rtLaunchArgsHandle argsHandle, RtStreamT stm, const RtTaskCfgInfoT *cfgInfo);
 
+RTS_API rtError_t rtGetStreamId(rtStream_t stm, int32_t *streamId);
 #ifdef __cplusplus
 }  // extern "C"
 #endif
