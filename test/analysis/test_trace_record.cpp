@@ -275,7 +275,7 @@ TEST(TraceRecord, process_invalid_npu_memory_record)
     freeMemOpRecord.space = MemOpSpace::HOST;
     freeMemOpRecord.devType = DeviceType::NPU;
     freeMemOpRecord.devId = 2;
-    freeMemOpRecord.memType = MemOpType::FREE;
+    freeMemOpRecord.subtype = RecordSubType::FREE;
     freeMemOpRecord.addr = 10000000;
     freeMemOpRecord.memSize = 0;
     freeRecord.record.memoryRecord = freeMemOpRecord;
@@ -301,7 +301,7 @@ TEST(TraceRecord, process_invalid_cpu_memory_record)
     freeMemOpRecord.space = MemOpSpace::HOST;
     freeMemOpRecord.devType = DeviceType::CPU;
     freeMemOpRecord.devId = 0;
-    freeMemOpRecord.memType = MemOpType::FREE;
+    freeMemOpRecord.subtype = RecordSubType::FREE;
     freeMemOpRecord.addr = 10000000;
     freeMemOpRecord.memSize = 0;
     freeRecord.record.memoryRecord = freeMemOpRecord;
@@ -318,36 +318,33 @@ TEST(TraceRecord, process_invalid_cpu_memory_record)
 
 TEST(TraceRecord, process_cpu_memory_record)
 {
-    auto mallocRecord = EventRecord{};
-    mallocRecord.type = RecordType::MEMORY_RECORD;
     auto mallocMemOpRecord = MemOpRecord{};
+    mallocMemOpRecord.type = RecordType::MEMORY_RECORD;
     mallocMemOpRecord.tid = 6;
     mallocMemOpRecord.pid = 8;
     mallocMemOpRecord.kernelIndex = 123;
     mallocMemOpRecord.space = MemOpSpace::HOST;
     mallocMemOpRecord.devType = DeviceType::CPU;
     mallocMemOpRecord.devId = 0;
-    mallocMemOpRecord.memType = MemOpType::MALLOC;
+    mallocMemOpRecord.subtype = RecordSubType::MALLOC;
     mallocMemOpRecord.addr = 10000000;
     mallocMemOpRecord.memSize = 10000;
-    mallocRecord.record.memoryRecord = mallocMemOpRecord;
 
-    auto freeRecord = EventRecord{};
-    freeRecord.type = RecordType::MEMORY_RECORD;
+
     auto freeMemOpRecord = MemOpRecord{};
+    freeMemOpRecord.type = RecordType::MEMORY_RECORD;
     freeMemOpRecord.tid = 6;
     freeMemOpRecord.pid = 8;
     freeMemOpRecord.kernelIndex = 133;
     freeMemOpRecord.space = MemOpSpace::INVALID;
     freeMemOpRecord.devType = DeviceType::CPU;
     freeMemOpRecord.devId = 0;
-    freeMemOpRecord.memType = MemOpType::FREE;
+    freeMemOpRecord.subtype = RecordSubType::FREE;
     freeMemOpRecord.addr = 10000000;
     freeMemOpRecord.memSize = 0;
-    freeRecord.record.memoryRecord = freeMemOpRecord;
 
-    TraceRecord::GetInstance().ProcessRecord(mallocRecord);
-    TraceRecord::GetInstance().ProcessRecord(freeRecord);
+    TraceRecord::GetInstance().ProcessRecord(mallocMemOpRecord);
+    TraceRecord::GetInstance().ProcessRecord(freeMemOpRecord);
     std::string result = "{\n"
 "    \"ph\": \"C\",\n    \"name\": \"memory\",\n"
 "    \"pid\": 8,\n    \"tid\": 6,\n    \"ts\": 123,\n"
@@ -366,36 +363,32 @@ TEST(TraceRecord, process_cpu_memory_record)
 
 TEST(TraceRecord, process_hal_host_memory_record)
 {
-    auto mallocRecord = EventRecord{};
-    mallocRecord.type = RecordType::MEMORY_RECORD;
     auto mallocMemOpRecord = MemOpRecord{};
+    mallocMemOpRecord.type = RecordType::MEMORY_RECORD;
     mallocMemOpRecord.tid = 6;
     mallocMemOpRecord.pid = 8;
     mallocMemOpRecord.kernelIndex = 123;
     mallocMemOpRecord.space = MemOpSpace::HOST;
     mallocMemOpRecord.devType = DeviceType::NPU;
     mallocMemOpRecord.devId = 2;
-    mallocMemOpRecord.memType = MemOpType::MALLOC;
+    mallocMemOpRecord.subtype = RecordSubType::MALLOC;
     mallocMemOpRecord.addr = 10000000;
     mallocMemOpRecord.memSize = 10000;
-    mallocRecord.record.memoryRecord = mallocMemOpRecord;
 
-    auto freeRecord = EventRecord{};
-    freeRecord.type = RecordType::MEMORY_RECORD;
     auto freeMemOpRecord = MemOpRecord{};
+    freeMemOpRecord.type = RecordType::MEMORY_RECORD;
     freeMemOpRecord.tid = 6;
     freeMemOpRecord.pid = 8;
     freeMemOpRecord.kernelIndex = 133;
     freeMemOpRecord.space = MemOpSpace::INVALID;
     freeMemOpRecord.devType = DeviceType::NPU;
     freeMemOpRecord.devId = 2;
-    freeMemOpRecord.memType = MemOpType::FREE;
+    freeMemOpRecord.subtype = RecordSubType::FREE;
     freeMemOpRecord.addr = 10000000;
     freeMemOpRecord.memSize = 0;
-    freeRecord.record.memoryRecord = freeMemOpRecord;
 
-    TraceRecord::GetInstance().ProcessRecord(mallocRecord);
-    TraceRecord::GetInstance().ProcessRecord(freeRecord);
+    TraceRecord::GetInstance().ProcessRecord(mallocMemOpRecord);
+    TraceRecord::GetInstance().ProcessRecord(freeMemOpRecord);
     std::string result = "{\n"
 "    \"ph\": \"C\",\n    \"name\": \"pin memory\",\n"
 "    \"pid\": 8,\n    \"tid\": 6,\n    \"ts\": 123,\n"

@@ -55,7 +55,7 @@ struct DumpContainer {
     std::string event;
     std::string eventType;
     std::string name;
-    uint64_t timeStamp;
+    uint64_t timestamp;
     uint64_t pid;
     uint64_t tid;
     std::string deviceId;

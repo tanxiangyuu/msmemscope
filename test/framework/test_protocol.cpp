@@ -10,7 +10,7 @@ using namespace Leaks;
 
 TEST(ProtocolTest, test_protocol_parse_memrecord)
 {
-    PacketHead head {PacketType::RECORD};
+    PacketHead head {PacketType::RECORD, sizeof(EventRecord)};
     auto record = EventRecord {};
     auto memRecord = MemOpRecord {};
     memRecord.recordIndex = 123;
@@ -19,12 +19,12 @@ TEST(ProtocolTest, test_protocol_parse_memrecord)
     memRecord.pid = 345;
     memRecord.tid = 345;
     memRecord.devId = 9;
-    memRecord.memType = MemOpType::MALLOC;
+    memRecord.subtype = RecordSubType::MALLOC;
     memRecord.space = MemOpSpace::HOST;
     memRecord.modid = 234;
     memRecord.addr = 0x7958;
     memRecord.memSize = 1024;
-    memRecord.timeStamp = 1234567;
+    memRecord.timestamp = 1234567;
     record.type = RecordType::MEMORY_RECORD;
     record.record.memoryRecord = memRecord;
     std::string str = Serialize(head, record);
@@ -39,20 +39,20 @@ TEST(ProtocolTest, test_protocol_parse_memrecord)
     ASSERT_EQ(body.record.memoryRecord.recordIndex, memRecord.recordIndex);
     ASSERT_EQ(body.record.memoryRecord.addr, memRecord.addr);
     ASSERT_EQ(body.record.memoryRecord.memSize, memRecord.memSize);
-    ASSERT_EQ(body.record.memoryRecord.timeStamp, memRecord.timeStamp);
+    ASSERT_EQ(body.record.memoryRecord.timestamp, memRecord.timestamp);
     ASSERT_EQ(body.record.memoryRecord.kernelIndex, memRecord.kernelIndex);
     ASSERT_EQ(body.record.memoryRecord.flag, memRecord.flag);
     ASSERT_EQ(body.record.memoryRecord.pid, memRecord.pid);
     ASSERT_EQ(body.record.memoryRecord.tid, memRecord.tid);
     ASSERT_EQ(body.record.memoryRecord.devId, memRecord.devId);
-    ASSERT_EQ(body.record.memoryRecord.memType, memRecord.memType);
+    ASSERT_EQ(body.record.memoryRecord.subtype, memRecord.subtype);
     ASSERT_EQ(body.record.memoryRecord.space, memRecord.space);
     ASSERT_EQ(body.record.memoryRecord.modid, memRecord.modid);
 }
 
 TEST(ProtocolTest, test_protocol_parse_Invalidrecord)
 {
-    PacketHead head {PacketType::RECORD};
+    PacketHead head {PacketType::RECORD, sizeof(EventRecord)};
     auto record = EventRecord{};
     std::string str = Serialize(head, record);
     Protocol protocol {};
@@ -65,14 +65,14 @@ TEST(ProtocolTest, test_protocol_parse_Invalidrecord)
 
 TEST(ProtocolTest, test_protocol_parse_acl_itf_Init_record)
 {
-    PacketHead head {PacketType::RECORD};
+    PacketHead head {PacketType::RECORD, sizeof(EventRecord)};
     auto record = EventRecord {};
     auto aclItfRecord = AclItfRecord {};
     aclItfRecord.recordIndex = 13456;
     aclItfRecord.pid = 123;
     aclItfRecord.tid = 123;
     aclItfRecord.aclItfRecordIndex = 123;
-    aclItfRecord.timeStamp = 234;
+    aclItfRecord.timestamp = 234;
     aclItfRecord.type = AclOpType::INIT;
     record.type = RecordType::ACL_ITF_RECORD;
     record.record.aclItfRecord = aclItfRecord;
@@ -91,19 +91,19 @@ TEST(ProtocolTest, test_protocol_parse_acl_itf_Init_record)
     ASSERT_EQ(body.record.aclItfRecord.pid, aclItfRecord.pid);
     ASSERT_EQ(body.record.aclItfRecord.tid, aclItfRecord.tid);
     ASSERT_EQ(body.record.aclItfRecord.aclItfRecordIndex, aclItfRecord.aclItfRecordIndex);
-    ASSERT_EQ(body.record.aclItfRecord.timeStamp, aclItfRecord.timeStamp);
+    ASSERT_EQ(body.record.aclItfRecord.timestamp, aclItfRecord.timestamp);
 }
 
 TEST(ProtocolTest, test_protocol_parse_acl_itf_finalize_record)
 {
-    PacketHead head {PacketType::RECORD};
+    PacketHead head {PacketType::RECORD, sizeof(EventRecord)};
     auto record = EventRecord {};
     auto aclItfRecord = AclItfRecord {};
     aclItfRecord.recordIndex = 13456;
     aclItfRecord.pid = 123;
     aclItfRecord.tid = 123;
     aclItfRecord.aclItfRecordIndex = 123;
-    aclItfRecord.timeStamp = 234;
+    aclItfRecord.timestamp = 234;
     aclItfRecord.type = AclOpType::FINALIZE;
     record.type = RecordType::ACL_ITF_RECORD;
     record.record.aclItfRecord = aclItfRecord;
@@ -122,12 +122,12 @@ TEST(ProtocolTest, test_protocol_parse_acl_itf_finalize_record)
     ASSERT_EQ(body.record.aclItfRecord.pid, aclItfRecord.pid);
     ASSERT_EQ(body.record.aclItfRecord.tid, aclItfRecord.tid);
     ASSERT_EQ(body.record.aclItfRecord.aclItfRecordIndex, aclItfRecord.aclItfRecordIndex);
-    ASSERT_EQ(body.record.aclItfRecord.timeStamp, aclItfRecord.timeStamp);
+    ASSERT_EQ(body.record.aclItfRecord.timestamp, aclItfRecord.timestamp);
 }
 
 TEST(ProtocolTest, test_protocol_parse_torch_npu_record)
 {
-    PacketHead head {PacketType::RECORD};
+    PacketHead head {PacketType::RECORD, sizeof(EventRecord)};
     auto record = EventRecord {};
     
     auto memPoolRecord = MemPoolRecord{};
@@ -168,7 +168,7 @@ TEST(ProtocolTest, test_protocol_parse_torch_npu_record)
 
 TEST(ProtocolTest, test_protocol_parse_torch_npu_record_max)
 {
-    PacketHead head {PacketType::RECORD};
+    PacketHead head {PacketType::RECORD, sizeof(EventRecord)};
     auto record = EventRecord {};
     
     auto memPoolRecord = MemPoolRecord{};
@@ -209,7 +209,6 @@ TEST(ProtocolTest, test_protocol_parse_torch_npu_record_max)
 
 TEST(ProtocolTest, test_protocol_parse_torch_npu_record_min)
 {
-    PacketHead head {PacketType::RECORD};
     auto record = EventRecord {};
     
     auto memPoolRecord = MemPoolRecord{};
@@ -229,6 +228,7 @@ TEST(ProtocolTest, test_protocol_parse_torch_npu_record_min)
     std::string testMsg = "test";
     record.pyStackLen = testMsg.size();
     record.cStackLen = testMsg.size();
+    PacketHead head {PacketType::RECORD, sizeof(EventRecord) + record.pyStackLen + record.cStackLen};
     std::string str = Serialize(head, record);
     str += testMsg + testMsg;
     Protocol protocol {};
@@ -254,7 +254,6 @@ TEST(ProtocolTest, test_protocol_parse_torch_npu_record_min)
 
 TEST(ProtocolTest, test_protocol_parse_kernerLaunch_Normal_record)
 {
-    PacketHead head {PacketType::RECORD};
     auto record = EventRecord {};
     
     auto kernelLaunchRecord = KernelLaunchRecord{};
@@ -266,6 +265,7 @@ TEST(ProtocolTest, test_protocol_parse_kernerLaunch_Normal_record)
     std::string testMsg = "test";
     record.pyStackLen = testMsg.size();
     record.cStackLen = testMsg.size();
+    PacketHead head {PacketType::RECORD, sizeof(EventRecord) + record.pyStackLen + record.cStackLen};
     std::string str = Serialize(head, record);
     str += testMsg + testMsg;
     Protocol protocol {};
@@ -283,7 +283,6 @@ TEST(ProtocolTest, test_protocol_parse_kernerLaunch_Normal_record)
 
 TEST(ProtocolTest, test_protocol_parse_kernerLaunch_HandleV2_record)
 {
-    PacketHead head {PacketType::RECORD};
     auto record = EventRecord {};
     
     auto kernelLaunchRecord = KernelLaunchRecord{};
@@ -295,6 +294,7 @@ TEST(ProtocolTest, test_protocol_parse_kernerLaunch_HandleV2_record)
     std::string testMsg = "test";
     record.pyStackLen = testMsg.size();
     record.cStackLen = testMsg.size();
+    PacketHead head {PacketType::RECORD, sizeof(EventRecord) + record.pyStackLen + record.cStackLen};
     std::string str = Serialize(head, record);
     str += testMsg + testMsg;
     Protocol protocol {};
@@ -312,7 +312,6 @@ TEST(ProtocolTest, test_protocol_parse_kernerLaunch_HandleV2_record)
 
 TEST(ProtocolTest, test_protocol_parse_kernerLaunch_FlagV2_record)
 {
-    PacketHead head {PacketType::RECORD};
     auto record = EventRecord {};
     
     auto kernelLaunchRecord = KernelLaunchRecord{};
@@ -324,6 +323,7 @@ TEST(ProtocolTest, test_protocol_parse_kernerLaunch_FlagV2_record)
     std::string testMsg = "test";
     record.pyStackLen = testMsg.size();
     record.cStackLen = testMsg.size();
+    PacketHead head {PacketType::RECORD, sizeof(EventRecord) + record.pyStackLen + record.cStackLen};
     std::string str = Serialize(head, record);
     str += testMsg + testMsg;
     Protocol protocol {};
@@ -341,7 +341,6 @@ TEST(ProtocolTest, test_protocol_parse_kernerLaunch_FlagV2_record)
 
 TEST(ProtocolTest, test_protocol_parse_mstx_MarkA_record)
 {
-    PacketHead head {PacketType::RECORD};
     auto record = EventRecord {};
     
     auto mstxRecord = MstxRecord{};
@@ -354,6 +353,7 @@ TEST(ProtocolTest, test_protocol_parse_mstx_MarkA_record)
     std::string testMsg = "test";
     record.pyStackLen = testMsg.size();
     record.cStackLen = testMsg.size();
+    PacketHead head {PacketType::RECORD, sizeof(EventRecord) + record.pyStackLen + record.cStackLen};
     std::string str = Serialize(head, record);
     str += testMsg + testMsg;
     Protocol protocol {};
@@ -372,7 +372,6 @@ TEST(ProtocolTest, test_protocol_parse_mstx_MarkA_record)
 
 TEST(ProtocolTest, test_protocol_parse_mstx_Start_record)
 {
-    PacketHead head {PacketType::RECORD};
     auto record = EventRecord {};
     
     auto mstxRecord = MstxRecord{};
@@ -385,6 +384,7 @@ TEST(ProtocolTest, test_protocol_parse_mstx_Start_record)
     std::string testMsg = "test";
     record.pyStackLen = testMsg.size();
     record.cStackLen = testMsg.size();
+    PacketHead head {PacketType::RECORD, sizeof(record) + record.pyStackLen + record.cStackLen};
     std::string str = Serialize(head, record);
     str += testMsg + testMsg;
     Protocol protocol {};
@@ -403,7 +403,6 @@ TEST(ProtocolTest, test_protocol_parse_mstx_Start_record)
 
 TEST(ProtocolTest, test_protocol_parse_mstx_End_record)
 {
-    PacketHead head {PacketType::RECORD};
     auto record = EventRecord {};
     
     auto mstxRecord = MstxRecord{};
@@ -411,11 +410,11 @@ TEST(ProtocolTest, test_protocol_parse_mstx_End_record)
     mstxRecord.stepId = 1;
     mstxRecord.markType = MarkType::RANGE_END;
 
-
     record.record.mstxRecord = mstxRecord;
     std::string testMsg = "test";
     record.pyStackLen = testMsg.size();
     record.cStackLen = testMsg.size();
+    PacketHead head {PacketType::RECORD, sizeof(record) + record.pyStackLen + record.cStackLen};
     std::string str = Serialize(head, record);
     str += testMsg + testMsg;
     Protocol protocol {};
@@ -433,7 +432,6 @@ TEST(ProtocolTest, test_protocol_parse_mstx_End_record)
 }
 TEST(ProtocolTest, test_protocol_parse_memrecord_max)
 {
-    PacketHead head {PacketType::RECORD};
     auto record = EventRecord {};
     
     auto memOpRecord = MemOpRecord {};
@@ -444,15 +442,16 @@ TEST(ProtocolTest, test_protocol_parse_memrecord_max)
     memOpRecord.pid = 18446744073709551615;
     memOpRecord.tid = 18446744073709551615;
     memOpRecord.devId = 2147483647;
-    memOpRecord.memType = MemOpType::MALLOC;
+    memOpRecord.subtype = RecordSubType::MALLOC;
     memOpRecord.space = MemOpSpace::HOST;
     memOpRecord.addr = 18446744073709551615;
     memOpRecord.memSize = 18446744073709551615;
-    memOpRecord.timeStamp = 18446744073709551615;
+    memOpRecord.timestamp = 18446744073709551615;
     record.record.memoryRecord = memOpRecord;
     std::string testMsg = "test";
     record.pyStackLen = testMsg.size();
     record.cStackLen = testMsg.size();
+    PacketHead head {PacketType::RECORD, sizeof(record) + record.pyStackLen + record.cStackLen};
     std::string str = Serialize(head, record);
     str += testMsg + testMsg;
     Protocol protocol {};
@@ -467,19 +466,18 @@ TEST(ProtocolTest, test_protocol_parse_memrecord_max)
     ASSERT_EQ(body.record.memoryRecord.recordIndex, memOpRecord.recordIndex);
     ASSERT_EQ(body.record.memoryRecord.addr, memOpRecord.addr);
     ASSERT_EQ(body.record.memoryRecord.memSize, memOpRecord.memSize);
-    ASSERT_EQ(body.record.memoryRecord.timeStamp, memOpRecord.timeStamp);
+    ASSERT_EQ(body.record.memoryRecord.timestamp, memOpRecord.timestamp);
     ASSERT_EQ(body.record.memoryRecord.tid, memOpRecord.tid);
     ASSERT_EQ(body.record.memoryRecord.pid, memOpRecord.pid);
     ASSERT_EQ(body.record.memoryRecord.flag, memOpRecord.flag);
     ASSERT_EQ(body.record.memoryRecord.devId, memOpRecord.devId);
-    ASSERT_EQ(body.record.memoryRecord.memType, memOpRecord.memType);
+    ASSERT_EQ(body.record.memoryRecord.subtype, memOpRecord.subtype);
     ASSERT_EQ(body.record.memoryRecord.space, memOpRecord.space);
     ASSERT_EQ(body.record.memoryRecord.kernelIndex, memOpRecord.kernelIndex);
     ASSERT_EQ(body.record.memoryRecord.modid, memOpRecord.modid);
 }
 TEST(ProtocolTest, test_protocol_parse_memrecord_min)
 {
-    PacketHead head {PacketType::RECORD};
     auto record = EventRecord {};
     
     auto memOpRecord = MemOpRecord {};
@@ -490,15 +488,16 @@ TEST(ProtocolTest, test_protocol_parse_memrecord_min)
     memOpRecord.pid = 0;
     memOpRecord.tid = 0;
     memOpRecord.devId = -2147483648;
-    memOpRecord.memType = MemOpType::MALLOC;
+    memOpRecord.subtype = RecordSubType::MALLOC;
     memOpRecord.space = MemOpSpace::HOST;
     memOpRecord.addr = 0;
     memOpRecord.memSize = 0;
-    memOpRecord.timeStamp = 0;
+    memOpRecord.timestamp = 0;
     record.record.memoryRecord = memOpRecord;
     std::string testMsg = "test";
     record.pyStackLen = testMsg.size();
     record.cStackLen = testMsg.size();
+    PacketHead head {PacketType::RECORD, sizeof(record) + record.pyStackLen + record.cStackLen};
     std::string str = Serialize(head, record);
     str += testMsg + testMsg;
     Protocol protocol {};
@@ -513,12 +512,12 @@ TEST(ProtocolTest, test_protocol_parse_memrecord_min)
     ASSERT_EQ(body.record.memoryRecord.recordIndex, memOpRecord.recordIndex);
     ASSERT_EQ(body.record.memoryRecord.addr, memOpRecord.addr);
     ASSERT_EQ(body.record.memoryRecord.memSize, memOpRecord.memSize);
-    ASSERT_EQ(body.record.memoryRecord.timeStamp, memOpRecord.timeStamp);
+    ASSERT_EQ(body.record.memoryRecord.timestamp, memOpRecord.timestamp);
     ASSERT_EQ(body.record.memoryRecord.tid, memOpRecord.tid);
     ASSERT_EQ(body.record.memoryRecord.pid, memOpRecord.pid);
     ASSERT_EQ(body.record.memoryRecord.flag, memOpRecord.flag);
     ASSERT_EQ(body.record.memoryRecord.devId, memOpRecord.devId);
-    ASSERT_EQ(body.record.memoryRecord.memType, memOpRecord.memType);
+    ASSERT_EQ(body.record.memoryRecord.subtype, memOpRecord.subtype);
     ASSERT_EQ(body.record.memoryRecord.space, memOpRecord.space);
     ASSERT_EQ(body.record.memoryRecord.kernelIndex, memOpRecord.kernelIndex);
     ASSERT_EQ(body.record.memoryRecord.modid, memOpRecord.modid);
@@ -526,7 +525,6 @@ TEST(ProtocolTest, test_protocol_parse_memrecord_min)
 
 TEST(ProtocolTest, test_protocol_parse_kernellaunchrecord_min)
 {
-    PacketHead head {PacketType::RECORD};
     auto record = EventRecord {};
     
     auto kernelLaunchRecord = KernelLaunchRecord {};
@@ -537,11 +535,12 @@ TEST(ProtocolTest, test_protocol_parse_kernellaunchrecord_min)
     kernelLaunchRecord.type = KernelLaunchType::NORMAL;
     kernelLaunchRecord.streamId = -2147483648;
     kernelLaunchRecord.blockDim = 0;
-    kernelLaunchRecord.timeStamp = 0;
+    kernelLaunchRecord.timestamp = 0;
     record.record.kernelLaunchRecord = kernelLaunchRecord;
     std::string testMsg = "test";
     record.pyStackLen = testMsg.size();
     record.cStackLen = testMsg.size();
+    PacketHead head {PacketType::RECORD, sizeof(record) + record.pyStackLen + record.cStackLen};
     std::string str = Serialize(head, record);
     str += testMsg + testMsg;
     Protocol protocol {};
@@ -560,12 +559,11 @@ TEST(ProtocolTest, test_protocol_parse_kernellaunchrecord_min)
     ASSERT_EQ(body.record.kernelLaunchRecord.type, kernelLaunchRecord.type);
     ASSERT_EQ(body.record.kernelLaunchRecord.streamId, kernelLaunchRecord.streamId);
     ASSERT_EQ(body.record.kernelLaunchRecord.blockDim, kernelLaunchRecord.blockDim);
-    ASSERT_EQ(body.record.kernelLaunchRecord.timeStamp, kernelLaunchRecord.timeStamp);
+    ASSERT_EQ(body.record.kernelLaunchRecord.timestamp, kernelLaunchRecord.timestamp);
 }
 
 TEST(ProtocolTest, test_protocol_parse_kernellaunchrecord_max)
 {
-    PacketHead head {PacketType::RECORD};
     auto record = EventRecord {};
     
     auto kernelLaunchRecord = KernelLaunchRecord {};
@@ -576,11 +574,12 @@ TEST(ProtocolTest, test_protocol_parse_kernellaunchrecord_max)
     kernelLaunchRecord.type = KernelLaunchType::NORMAL;
     kernelLaunchRecord.streamId = 2147483647;
     kernelLaunchRecord.blockDim = 4294967295;
-    kernelLaunchRecord.timeStamp = 18446744073709551615;
+    kernelLaunchRecord.timestamp = 18446744073709551615;
     record.record.kernelLaunchRecord = kernelLaunchRecord;
     std::string testMsg = "test";
     record.pyStackLen = testMsg.size();
     record.cStackLen = testMsg.size();
+    PacketHead head {PacketType::RECORD, sizeof(record) + record.pyStackLen + record.cStackLen};
     std::string str = Serialize(head, record);
     str += testMsg + testMsg;
     Protocol protocol {};
@@ -599,12 +598,11 @@ TEST(ProtocolTest, test_protocol_parse_kernellaunchrecord_max)
     ASSERT_EQ(body.record.kernelLaunchRecord.type, kernelLaunchRecord.type);
     ASSERT_EQ(body.record.kernelLaunchRecord.streamId, kernelLaunchRecord.streamId);
     ASSERT_EQ(body.record.kernelLaunchRecord.blockDim, kernelLaunchRecord.blockDim);
-    ASSERT_EQ(body.record.kernelLaunchRecord.timeStamp, kernelLaunchRecord.timeStamp);
+    ASSERT_EQ(body.record.kernelLaunchRecord.timestamp, kernelLaunchRecord.timestamp);
 }
 
 TEST(ProtocolTest, test_protocol_parse_aclitfrecord_max)
 {
-    PacketHead head {PacketType::RECORD};
     auto record = EventRecord {};
     
     auto aclItfRecord= AclItfRecord {};
@@ -613,11 +611,12 @@ TEST(ProtocolTest, test_protocol_parse_aclitfrecord_max)
     aclItfRecord.pid = 18446744073709551615;
     aclItfRecord.tid = 18446744073709551615;
     aclItfRecord.type = AclOpType::INIT;
-    aclItfRecord.timeStamp = 18446744073709551615;
+    aclItfRecord.timestamp = 18446744073709551615;
     record.record.aclItfRecord = aclItfRecord;
     std::string testMsg = "test";
     record.pyStackLen = testMsg.size();
     record.cStackLen = testMsg.size();
+    PacketHead head {PacketType::RECORD, sizeof(record) + record.pyStackLen + record.cStackLen};
     std::string str = Serialize(head, record);
     str += testMsg + testMsg;
     Protocol protocol {};
@@ -634,12 +633,11 @@ TEST(ProtocolTest, test_protocol_parse_aclitfrecord_max)
     ASSERT_EQ(body.record.aclItfRecord.pid, aclItfRecord.pid);
     ASSERT_EQ(body.record.aclItfRecord.tid, aclItfRecord.tid);
     ASSERT_EQ(body.record.aclItfRecord.type, aclItfRecord.type);
-    ASSERT_EQ(body.record.aclItfRecord.timeStamp, aclItfRecord.timeStamp);
+    ASSERT_EQ(body.record.aclItfRecord.timestamp, aclItfRecord.timestamp);
 }
 
 TEST(ProtocolTest, test_protocol_parse_aclitfrecord_min)
 {
-    PacketHead head {PacketType::RECORD};
     auto record = EventRecord {};
     
     auto aclItfRecord= AclItfRecord {};
@@ -648,11 +646,12 @@ TEST(ProtocolTest, test_protocol_parse_aclitfrecord_min)
     aclItfRecord.pid = 0;
     aclItfRecord.tid = 0;
     aclItfRecord.type = AclOpType::INIT;
-    aclItfRecord.timeStamp = 0;
+    aclItfRecord.timestamp = 0;
     record.record.aclItfRecord = aclItfRecord;
     std::string testMsg = "test";
     record.pyStackLen = testMsg.size();
     record.cStackLen = testMsg.size();
+    PacketHead head {PacketType::RECORD, sizeof(record) + record.pyStackLen + record.cStackLen};
     std::string str = Serialize(head, record);
     str += testMsg + testMsg;
     Protocol protocol {};
@@ -669,12 +668,11 @@ TEST(ProtocolTest, test_protocol_parse_aclitfrecord_min)
     ASSERT_EQ(body.record.aclItfRecord.pid, aclItfRecord.pid);
     ASSERT_EQ(body.record.aclItfRecord.tid, aclItfRecord.tid);
     ASSERT_EQ(body.record.aclItfRecord.type, aclItfRecord.type);
-    ASSERT_EQ(body.record.aclItfRecord.timeStamp, aclItfRecord.timeStamp);
+    ASSERT_EQ(body.record.aclItfRecord.timestamp, aclItfRecord.timestamp);
 }
 
 TEST(ProtocolTest, test_protocol_parse_device_record)
 {
-    PacketHead head {PacketType::RECORD};
     auto record = EventRecord {};
 
     auto memOpRecord = MemOpRecord {};
@@ -683,6 +681,7 @@ TEST(ProtocolTest, test_protocol_parse_device_record)
     std::string testMsg = "test";
     record.pyStackLen = testMsg.size();
     record.cStackLen = testMsg.size();
+    PacketHead head {PacketType::RECORD, sizeof(record) + record.pyStackLen + record.cStackLen};
     std::string str = Serialize(head, record);
     str += testMsg + testMsg;
     Protocol protocol {};
@@ -700,8 +699,8 @@ TEST(ProtocolTest, test_protocol_parse_device_record)
 TEST(ProtocolTest, test_protocol_parse_log_record)
 {
     std::string logMsg = "test";
-    Leaks::PacketHead head {Leaks::PacketType::LOG};
-    std::string buffer = Leaks::Serialize(head, logMsg.size());
+    Leaks::PacketHead head {Leaks::PacketType::LOG, logMsg.size()};
+    std::string buffer = Leaks::Serialize(head);
     buffer += logMsg;
 
     Protocol protocol {};
@@ -718,8 +717,8 @@ TEST(ProtocolTest, test_protocol_parse_log_record)
 TEST(ProtocolTest, test_protocol_drop_user_bytes)
 {
     std::string logMsg(2048, 'a');
-    Leaks::PacketHead head {Leaks::PacketType::LOG};
-    std::string buffer = Leaks::Serialize(head, logMsg.size());
+    Leaks::PacketHead head {Leaks::PacketType::LOG, logMsg.size()};
+    std::string buffer = Leaks::Serialize(head);
     buffer += logMsg;
 
     Protocol protocol {};

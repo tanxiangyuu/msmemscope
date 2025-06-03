@@ -104,6 +104,11 @@ void TraceRecord::TraceHandler(const EventRecord &record)
     ProcessRecord(record);
 }
 
+void TraceRecord::TraceHandler(const RecordBase &record)
+{
+    ProcessRecord(record);
+}
+
 void TraceRecord::SetDirPath()
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
@@ -189,13 +194,6 @@ void TraceRecord::ProcessRecord(const EventRecord &record)
     Device device{DeviceType::NPU, GD_INVALID_NUM};
 
     switch (record.type) {
-        case RecordType::MEMORY_RECORD: {
-            auto memRecord = record.record.memoryRecord;
-            MemRecordToString(memRecord, str);
-            device.type = memRecord.devType;
-            device.index = memRecord.devId;
-            break;
-        }
         case RecordType::KERNEL_LAUNCH_RECORD: {
             auto kernelLaunchRecord = record.record.kernelLaunchRecord;
             device.index = kernelLaunchRecord.devId;
@@ -238,6 +236,30 @@ void TraceRecord::ProcessRecord(const EventRecord &record)
     return;
 }
 
+void TraceRecord::ProcessRecord(const RecordBase &record)
+{
+    std::string str = "";
+    Device device{DeviceType::NPU, GD_INVALID_NUM};
+
+    switch (record.type) {
+        case RecordType::MEMORY_RECORD: {
+            auto memRecord = static_cast<const MemOpRecord&>(record);
+            MemRecordToString(memRecord, str);
+            device.type = memRecord.devType;
+            device.index = memRecord.devId;
+            break;
+        }
+        default:
+            break;
+    }
+
+    if (!CheckStrHasContent(str)) {
+        return;
+    }
+    SafeWriteString(str, device);
+    return;
+}
+
 void TraceRecord::NpuMemRecordToString(MemOpRecord &memRecord, std::string &str)
 {
     int32_t devId = memRecord.devId;
@@ -247,7 +269,7 @@ void TraceRecord::NpuMemRecordToString(MemOpRecord &memRecord, std::string &str)
     uint64_t pid = memRecord.pid;
 
     std::lock_guard<std::mutex> lock(halMemMutex_);
-    if (space == MemOpSpace::HOST && memRecord.memType == MemOpType::MALLOC) {
+    if (space == MemOpSpace::HOST && memRecord.subtype == RecordSubType::MALLOC) {
         halHostMemAllocation_[pid][addr] = MemAllocationInfo{size, devId};
         halHostMemUsage_[pid][devId] = Utility::GetAddResult(halHostMemUsage_[pid][devId], size);
     } else if (halHostMemAllocation_.find(pid) != halHostMemAllocation_.end()
@@ -272,7 +294,7 @@ void TraceRecord::CpuMemRecordToString(const MemOpRecord &memRecord, std::string
     uint64_t size = memRecord.memSize;
 
     std::lock_guard<std::mutex> lock(hostMemMutex_);
-    if (memRecord.memType == MemOpType::MALLOC) {
+    if (memRecord.subtype == RecordSubType::MALLOC) {
         hostMemAllocation_[addr] = size;
         hostMemUsage_ = Utility::GetAddResult(hostMemUsage_, size);
     } else {
@@ -290,10 +312,10 @@ void TraceRecord::CpuMemRecordToString(const MemOpRecord &memRecord, std::string
     return;
 }
 
-void TraceRecord::MemRecordToString(MemOpRecord &memRecord, std::string &str)
+void TraceRecord::MemRecordToString(const MemOpRecord &memRecord, std::string &str)
 {
     if (memRecord.devType == DeviceType::NPU) {
-        NpuMemRecordToString(memRecord, str);
+        NpuMemRecordToString(const_cast<MemOpRecord&>(memRecord), str);
     } else {
         CpuMemRecordToString(memRecord, str);
     }

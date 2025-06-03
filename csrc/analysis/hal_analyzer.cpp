@@ -114,11 +114,36 @@ bool HalAnalyzer::Record(const ClientId &clientId, const EventRecord &record)
         return false;
     }
     auto memrecord = record.record.memoryRecord;
-    if (memrecord.memType == MemOpType::MALLOC) {
+    if (memrecord.subtype == RecordSubType::MALLOC) {
         RecordMalloc(clientId, memrecord);
         return true;
-    } else if (memrecord.memType == MemOpType::FREE) {
+    } else if (memrecord.subtype == RecordSubType::FREE) {
         RecordFree(clientId, memrecord);
+        return true;
+    }
+    return false;
+}
+
+bool HalAnalyzer::Record(const ClientId &clientId, const RecordBase &record)
+{
+    // 判断是否满足功能开启条件
+    if (!IsHalAnalysisEnable()) {
+        return true;
+    }
+    auto memRecord = static_cast<const MemOpRecord&>(record);
+    // 目前不处理CPU侧数据
+    if (memRecord.devType == DeviceType::CPU) {
+        return true;
+    }
+    if (!CreateMemTables(clientId)) {
+        LOG_ERROR("[client %u]: Create hal Memory table failed.", clientId);
+        return false;
+    }
+    if (memRecord.subtype == RecordSubType::MALLOC) {
+        RecordMalloc(clientId, memRecord);
+        return true;
+    } else if (memRecord.subtype == RecordSubType::FREE) {
+        RecordFree(clientId, memRecord);
         return true;
     }
     return false;
