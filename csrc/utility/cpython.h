@@ -14,7 +14,7 @@
 
 namespace Utility {
 
-using TraceCbFunc = std::function<void(std::string, std::string, Leaks::PyTraceType, uint64_t)>;
+using TraceCbFunc = std::function<void(const std::string&, const std::string&, Leaks::PyTraceType, uint64_t)>;
 void RegisterTraceCb(TraceCbFunc func);
 void UnRegisterTraceCb();
 bool IsPyInterpRepeInited();
