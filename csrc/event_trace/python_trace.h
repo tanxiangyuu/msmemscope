@@ -39,7 +39,7 @@ public:
     }
     PythonTrace(const PythonTrace&) = delete;
     PythonTrace& operator=(const PythonTrace&) = delete;
-    void RecordPyCall(std::string funcHash, std::string funcInfo, uint64_t timeStamp);
+    void RecordPyCall(const std::string& funcHash, const std::string& funcInfo, uint64_t timestamp);
     void RecordCCall(std::string funcHash, std::string funcInfo);
     void RecordReturn(std::string funcHash, std::string funcInfo);
     void Start();
@@ -69,7 +69,7 @@ private:
     std::string dirPath_;
     std::vector<std::string> ignorePyFunc_ = {"__torch_dispatch__"};
 };
-void callback(std::string hash, std::string info, PyTraceType what, uint64_t timeStamp);
+void callback(const std::string& hash, const std::string& info, PyTraceType what, uint64_t timestamp);
 }
 
 #endif
