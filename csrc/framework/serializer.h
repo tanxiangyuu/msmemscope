@@ -9,7 +9,7 @@
 
 namespace Leaks {
 
-template<typename T, typename = typename std::enable_if<std::is_pod<T>::value>::type>
+template<typename T>
 inline std::string Serialize(const T &val)
 {
     constexpr std::size_t size = sizeof(T);
@@ -17,13 +17,13 @@ inline std::string Serialize(const T &val)
     return msg;
 }
 
-template<typename T, typename... Ts, typename = typename std::enable_if<std::is_pod<T>::value>::type>
+template<typename T, typename... Ts>
 inline std::string Serialize(const T &val, const Ts &... vals)
 {
     return Serialize(val) + Serialize(vals...);
 }
 
-template<typename T, typename = typename std::enable_if<std::is_pod<T>::value>::type>
+template<typename T>
 inline bool Deserialize(const std::string &msg, T &val)
 {
     constexpr std::size_t size = sizeof(T);
