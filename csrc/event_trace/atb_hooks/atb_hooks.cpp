@@ -11,7 +11,7 @@
 #include "event_report.h"
 #include "bit_field.h"
 #include "securec.h"
-#include "atb_op_watch/atb_op_excute_watch.h"
+#include "op_watch/op_excute_watch.h"
 
 using namespace Leaks;
 
@@ -50,7 +50,7 @@ namespace atb {
             record.addr = static_cast<uint64_t>((std::uintptr_t)tensor.deviceData);
             record.memSize = tensor.dataSize;
             record.eventType = AccessType::UNKNOWN;
-            record.memType = AccessMemType::ATB;
+            record.memType = OpType::ATB;
             if (strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1) != EOK) {
                 CLIENT_ERROR_LOG("strncpy_s FAILED");
                 record.name[0] = '\0';
@@ -67,7 +67,7 @@ namespace atb {
             record.addr = static_cast<uint64_t>((std::uintptr_t)tensor.deviceData);
             record.memSize = tensor.dataSize;
             record.eventType = AccessType::WRITE;
-            record.memType = AccessMemType::ATB;
+            record.memType = OpType::ATB;
             if (strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1) != EOK) {
                 CLIENT_ERROR_LOG("strncpy_s FAILED");
                 record.name[0] = '\0';
@@ -95,7 +95,7 @@ namespace atb {
             record.addr = static_cast<uint64_t>((std::uintptr_t)tensor.data);
             record.memSize = tensor.dataSize;
             record.eventType = AccessType::UNKNOWN;
-            record.memType = AccessMemType::ATB;
+            record.memType = OpType::ATB;
             if (strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1) != EOK) {
                 CLIENT_ERROR_LOG("strncpy_s FAILED");
                 record.name[0] = '\0';
@@ -112,7 +112,7 @@ namespace atb {
             record.addr = static_cast<uint64_t>((std::uintptr_t)tensor.data);
             record.memSize = tensor.dataSize;
             record.eventType = AccessType::WRITE;
-            record.memType = AccessMemType::ATB;
+            record.memType = OpType::ATB;
             if (strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1) != EOK) {
                 CLIENT_ERROR_LOG("strncpy_s FAILED");
                 record.name[0] = '\0';
@@ -148,22 +148,35 @@ namespace atb {
         }
     }
 
-    atb::Status LeaksRunnerExecute(atb::Runner* thisPtr, atb::RunnerVariantPack& runnerVariantPack)
+    void GetOpNameAndDir(atb::Runner* thisPtr, std::string& name, std::string& dir)
     {
 #if defined(_GLIBCXX_USE_CXX11_ABI) && (_GLIBCXX_USE_CXX11_ABI == 0)
-        static auto funcGetOperationName = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetOperationName>(
-            "_ZNK3atb6Runner16GetOperationNameEv");
-        static auto funcGetSaveTensorDir = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetSaveTensorDir>(
-            "_ZNK3atb6Runner16GetSaveTensorDirEv");
+    static auto funcGetOperationName = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetOperationName>(
+        "_ZNK3atb6Runner16GetOperationNameEv");
+    static auto funcGetSaveTensorDir = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetSaveTensorDir>(
+        "_ZNK3atb6Runner16GetSaveTensorDirEv");
 #else
-        static auto funcGetOperationName = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetOperationName>(
-            "_ZNK3atb6Runner16GetOperationNameB5cxx11Ev");
-        static auto funcGetSaveTensorDir = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetSaveTensorDir>(
-            "_ZNK3atb6Runner16GetSaveTensorDirB5cxx11Ev");
+    static auto funcGetOperationName = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetOperationName>(
+        "_ZNK3atb6Runner16GetOperationNameB5cxx11Ev");
+    static auto funcGetSaveTensorDir = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetSaveTensorDir>(
+        "_ZNK3atb6Runner16GetSaveTensorDirB5cxx11Ev");
 #endif
+        if (funcGetOperationName == nullptr || funcGetSaveTensorDir == nullptr) {
+            CLIENT_ERROR_LOG("Cannot find origin function of atb.\n");
+            return ;
+        }
+        name = funcGetOperationName(thisPtr);
+        dir = funcGetSaveTensorDir(thisPtr);
+    }
+
+    atb::Status LeaksRunnerExecute(atb::Runner* thisPtr, atb::RunnerVariantPack& runnerVariantPack)
+    {
+        std::string name;
+        std::string dir;
+        GetOpNameAndDir(thisPtr, name, dir);
         static auto funcExecute = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalRunnerExecuteFunc>(
             "_ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE");
-        if (funcGetOperationName == nullptr || funcGetSaveTensorDir == nullptr || funcExecute == nullptr) {
+        if (funcExecute == nullptr) {
             CLIENT_ERROR_LOG("Cannot find origin function of atb.\n");
             return 0;
         }
@@ -173,12 +186,10 @@ namespace atb {
             return funcExecute(thisPtr, runnerVariantPack);
         }
         BitField<decltype(config.eventType)> eventType(config.eventType);
-        std::string name;
         std::string params;
         if (eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
-            name = funcGetOperationName(thisPtr);
             std::ostringstream oss;
-            oss << "path:" << funcGetSaveTensorDir(thisPtr) << ",workspace ptr:"
+            oss << "path:" << dir << ",workspace ptr:"
                 << static_cast<void*>(runnerVariantPack.workspaceBuffer) << ",workspace size:"
                 << runnerVariantPack.workspaceBufferSize + runnerVariantPack.intermediateBufferSize;
             params = oss.str();
@@ -187,18 +198,20 @@ namespace atb {
         if (eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT))) {
             atb::LeaksReportTensors(runnerVariantPack, name);
         }
-
         if (config.watchConfig.isWatched) {
-            Leaks::ATBOpExcuteWatch::GetInstance().AtbOpExcuteBegin(funcGetSaveTensorDir(thisPtr));
+            Leaks::OpExcuteWatch::GetInstance().OpExcuteBegin(dir, OpType::ATB);
         }
-
         atb::Status st = funcExecute(thisPtr, runnerVariantPack);
-
         if (config.watchConfig.isWatched) {
-            Leaks::ATBOpExcuteWatch::GetInstance().AtbOpExcuteEnd(funcGetSaveTensorDir(thisPtr),
-                runnerVariantPack.outTensors);
+            std::vector<MonitoredTensor> outputTensors;
+            for (auto &item : runnerVariantPack.outTensors) {
+                MonitoredTensor tensor {};
+                tensor.data = item.deviceData;
+                tensor.dataSize = item.dataSize;
+                outputTensors.emplace_back(tensor);
+            }
+            Leaks::OpExcuteWatch::GetInstance().OpExcuteEnd(dir, outputTensors, OpType::ATB);
         }
-
         if (eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
             atb::LeaksReportOp(name, params, false);
         }
@@ -266,8 +279,8 @@ namespace atb {
         }
 
         if (config.watchConfig.isWatched) {
-            Leaks::ATBOpExcuteWatch::GetInstance().AtbKernelExcute(dirPath,
-                getOutTensors(const_cast<Mki::LaunchParam*>(&launchParam)));
+            Leaks::OpExcuteWatch::GetInstance().KernelExcute(dirPath,
+                getOutTensors(const_cast<Mki::LaunchParam*>(&launchParam)), OpType::ATB);
         }
         std::string name;
         BitField<decltype(config.eventType)> eventType(config.eventType);

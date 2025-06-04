@@ -314,7 +314,7 @@ TEST(MemoryStateRecordTest, memory_access_info_process_expect_success)
     auto memAccessRecord = MemAccessRecord{};
     
     memAccessRecord.eventType = AccessType::UNKNOWN;
-    memAccessRecord.memType = AccessMemType::ATEN;
+    memAccessRecord.memType = OpType::ATEN;
     strncpy_s(memAccessRecord.name, sizeof(memAccessRecord.name),
               "ElewiseOperation", sizeof(memAccessRecord.name) - 1);
     strncpy_s(memAccessRecord.attr, sizeof(memAccessRecord.attr),
@@ -417,7 +417,7 @@ TEST(MemoryStateRecordTest, pack_access_container_info)
     auto memAccessRecord = MemAccessRecord{};
     
     memAccessRecord.eventType = AccessType::UNKNOWN;
-    memAccessRecord.memType = AccessMemType::ATEN;
+    memAccessRecord.memType = OpType::ATEN;
     strncpy_s(memAccessRecord.name, sizeof(memAccessRecord.name),
               "ElewiseOperation", sizeof(memAccessRecord.name) - 1);
     strncpy_s(memAccessRecord.attr, sizeof(memAccessRecord.attr),

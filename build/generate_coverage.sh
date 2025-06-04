@@ -14,6 +14,8 @@ lcov -r ./coverage/leaks_test.info '*opensource*' -o ./coverage/leaks_test.info 
 lcov -r ./coverage/leaks_test.info '*test*' -o ./coverage/leaks_test.info $lcov_opt
 lcov -r ./coverage/leaks_test.info '*c++*' -o ./coverage/leaks_test.info $lcov_opt
 lcov -r ./coverage/leaks_test.info '/usr/include/*' -o ./coverage/leaks_test.info $lcov_opt
+lcov -r ./coverage/leaks_test.info '*op_watch*' -o ./coverage/leaks_test.info $lcov_opt
+lcov -r ./coverage/leaks_test.info '*utility*' -o ./coverage/leaks_test.info $lcov_opt
 
 genhtml ./coverage/leaks_test.info -o ./coverage/report --branch-coverage
 

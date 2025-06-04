@@ -252,14 +252,14 @@ enum class AccessType : uint8_t {
     UNKNOWN,
 };
 
-enum class AccessMemType : uint8_t {
-    ATB = 0,
-    ATEN,
+enum class OpType : uint8_t {
+    ATEN = 0,
+    ATB,
 };
 
 struct MemAccessRecord {
     AccessType eventType;
-    AccessMemType memType;     // 所属的mem类型
+    OpType memType;     // 所属的mem类型
     int32_t devId;
     uint64_t timestamp;
     uint64_t pid;
