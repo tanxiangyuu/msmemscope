@@ -23,7 +23,7 @@ constexpr uint64_t DATA_VALUE_4 = 6543210;
 constexpr uint64_t DATA_VALUE_5 = 12345600;
 constexpr uint64_t DATA_VALUE_6 = 65432100;
 
-void ATBOpExcuteWatchNormalCheckOpA()
+void OpExcuteWatchNormalCheckOpA()
 {
     auto &instance = OpExcuteWatch::GetInstance();
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
@@ -32,6 +32,12 @@ void ATBOpExcuteWatchNormalCheckOpA()
     EXPECT_EQ(instance.IsInMonitoring(), false);
 
     instance.OpExcuteBegin("A", OpType::ATB);
+
+    EXPECT_EQ(watchedTensors.size(), 0);
+    EXPECT_EQ(instance.GetWatchedOpName(), "");
+    EXPECT_EQ(instance.IsInMonitoring(), false);
+
+    instance.OpExcuteBegin("A", OpType::ATEN);
 
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
@@ -54,9 +60,15 @@ void ATBOpExcuteWatchNormalCheckOpA()
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
     EXPECT_EQ(instance.IsInMonitoring(), false);
+
+    instance.OpExcuteEnd("A", tensors, OpType::ATEN);
+
+    EXPECT_EQ(watchedTensors.size(), 0);
+    EXPECT_EQ(instance.GetWatchedOpName(), "");
+    EXPECT_EQ(instance.IsInMonitoring(), false);
 }
 
-void ATBOpExcuteWatchNormalCheckOpB()
+void OpExcuteWatchNormalCheckOpB()
 {
     auto &instance = OpExcuteWatch::GetInstance();
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
@@ -93,7 +105,7 @@ void ATBOpExcuteWatchNormalCheckOpB()
     EXPECT_EQ(instance.IsInMonitoring(), true);
 }
 
-void ATBOpExcuteWatchNormalCheckOpC()
+void OpExcuteWatchNormalCheckOpC()
 {
     auto &instance = OpExcuteWatch::GetInstance();
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
@@ -137,7 +149,7 @@ void ATBOpExcuteWatchNormalCheckOpC()
     EXPECT_EQ(instance.IsInMonitoring(), true);
 }
 
-void ATBOpExcuteWatchNormalCheckOpD()
+void OpExcuteWatchNormalCheckOpD()
 {
     auto &instance = OpExcuteWatch::GetInstance();
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
@@ -178,7 +190,7 @@ void ATBOpExcuteWatchNormalCheckOpD()
     EXPECT_EQ(instance.IsInMonitoring(), false);
 }
 
-void ATBOpExcuteWatchNormalCheckOpE()
+void OpExcuteWatchNormalCheckOpE()
 {
     auto &instance = OpExcuteWatch::GetInstance();
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
@@ -212,21 +224,21 @@ void ATBOpExcuteWatchNormalCheckOpE()
 }
 
 // 分别执行ABCDE五个OP，其中B和D为start和end算子，校验整个过程中系统的状态是否符合预期
-TEST(ATBOpExcuteWatch, ATBOpExcuteWatchNormalCase)
+TEST(OpExcuteWatch, OpExcuteWatchNormalCase)
 {
     auto &instance = OpExcuteWatch::GetInstance();
     instance.fistWatchOp_ = "first";
     instance.lastWatchOp_ = "last";
     instance.outputId_ = UINT32_MAX;
 
-    ATBOpExcuteWatchNormalCheckOpA();
-    ATBOpExcuteWatchNormalCheckOpB();
-    ATBOpExcuteWatchNormalCheckOpC();
-    ATBOpExcuteWatchNormalCheckOpD();
-    ATBOpExcuteWatchNormalCheckOpE();
+    OpExcuteWatchNormalCheckOpA();
+    OpExcuteWatchNormalCheckOpB();
+    OpExcuteWatchNormalCheckOpC();
+    OpExcuteWatchNormalCheckOpD();
+    OpExcuteWatchNormalCheckOpE();
 }
 
-void ATBKernelExcuteWatchNormalCheckOpA()
+void KernelExcuteWatchNormalCheckOpA()
 {
     auto &instance = OpExcuteWatch::GetInstance();
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
@@ -261,7 +273,7 @@ void ATBKernelExcuteWatchNormalCheckOpA()
     EXPECT_EQ(instance.IsInMonitoring(), false);
 }
 
-void ATBKernelExcuteWatchNormalCheckOpB()
+void KernelExcuteWatchNormalCheckOpB()
 {
     auto &instance = OpExcuteWatch::GetInstance();
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
@@ -300,7 +312,7 @@ void ATBKernelExcuteWatchNormalCheckOpB()
     EXPECT_EQ(instance.IsInMonitoring(), true);
 }
 
-void ATBKernelExcuteWatchNormalCheckOpC()
+void KernelExcuteWatchNormalCheckOpC()
 {
     auto &instance = OpExcuteWatch::GetInstance();
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
@@ -346,7 +358,7 @@ void ATBKernelExcuteWatchNormalCheckOpC()
     EXPECT_EQ(instance.IsInMonitoring(), true);
 }
 
-void ATBKernelExcuteWatchNormalCheckOpD()
+void KernelExcuteWatchNormalCheckOpD()
 {
     auto &instance = OpExcuteWatch::GetInstance();
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
@@ -389,7 +401,7 @@ void ATBKernelExcuteWatchNormalCheckOpD()
     EXPECT_EQ(instance.IsInMonitoring(), false);
 }
 
-void ATBKernelExcuteWatchNormalCheckOpE()
+void KernelExcuteWatchNormalCheckOpE()
 {
     auto &instance = OpExcuteWatch::GetInstance();
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
@@ -425,37 +437,37 @@ void ATBKernelExcuteWatchNormalCheckOpE()
 }
 
 // 分别执行ABCDE五个kernel，其中B和D为start和end算子，校验整个过程中系统的状态是否符合预期
-TEST(ATBOpExcuteWatch, ATBKernelExcuteWatchNormalCase)
+TEST(OpExcuteWatch, KernelExcuteWatchNormalCase)
 {
     auto &instance = OpExcuteWatch::GetInstance();
     instance.fistWatchOp_ = "first";
     instance.lastWatchOp_ = "last";
     instance.outputId_ = UINT32_MAX;
 
-    ATBKernelExcuteWatchNormalCheckOpA();
-    ATBKernelExcuteWatchNormalCheckOpB();
-    ATBKernelExcuteWatchNormalCheckOpC();
-    ATBKernelExcuteWatchNormalCheckOpD();
-    ATBKernelExcuteWatchNormalCheckOpE();
+    KernelExcuteWatchNormalCheckOpA();
+    KernelExcuteWatchNormalCheckOpB();
+    KernelExcuteWatchNormalCheckOpC();
+    KernelExcuteWatchNormalCheckOpD();
+    KernelExcuteWatchNormalCheckOpE();
 }
 
 // 分别执行ABCDE五个算子（OP和kernel混合），其中B和D为start和end算子，且D和E为kernel，其余为OP
 // 校验整个过程中系统的状态是否符合预期
-TEST(ATBOpExcuteWatch, ATBOpKernelMixExcuteWatchNormalCase)
+TEST(OpExcuteWatch, OpKernelMixExcuteWatchNormalCase)
 {
     auto &instance = OpExcuteWatch::GetInstance();
     instance.fistWatchOp_ = "first";
     instance.lastWatchOp_ = "last";
     instance.outputId_ = UINT32_MAX;
 
-    ATBOpExcuteWatchNormalCheckOpA();
-    ATBOpExcuteWatchNormalCheckOpB();
-    ATBKernelExcuteWatchNormalCheckOpC();
-    ATBKernelExcuteWatchNormalCheckOpD();
-    ATBOpExcuteWatchNormalCheckOpE();
+    OpExcuteWatchNormalCheckOpA();
+    OpExcuteWatchNormalCheckOpB();
+    KernelExcuteWatchNormalCheckOpC();
+    KernelExcuteWatchNormalCheckOpD();
+    OpExcuteWatchNormalCheckOpE();
 }
 
-void ATBOpExcuteWatchNormalCheckOpBWithOutputId()
+void OpExcuteWatchNormalCheckOpBWithOutputId()
 {
     auto &instance = OpExcuteWatch::GetInstance();
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
@@ -491,7 +503,7 @@ void ATBOpExcuteWatchNormalCheckOpBWithOutputId()
     EXPECT_EQ(instance.IsInMonitoring(), true);
 }
 
-void ATBOpExcuteWatchNormalCheckOpCWithOutputId()
+void OpExcuteWatchNormalCheckOpCWithOutputId()
 {
     auto &instance = OpExcuteWatch::GetInstance();
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
@@ -532,7 +544,7 @@ void ATBOpExcuteWatchNormalCheckOpCWithOutputId()
     EXPECT_EQ(instance.IsInMonitoring(), true);
 }
 
-void ATBOpExcuteWatchNormalCheckOpDWithOutputId()
+void OpExcuteWatchNormalCheckOpDWithOutputId()
 {
     auto &instance = OpExcuteWatch::GetInstance();
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
@@ -572,21 +584,21 @@ void ATBOpExcuteWatchNormalCheckOpDWithOutputId()
 }
 
 // 分别执行ABCDE五个OP，其中B和D为start和end算子，校验整个过程中系统的状态是否符合预期（设置outputId）
-TEST(ATBOpExcuteWatch, ATBOpExcuteWatchSetOutputIdCase)
+TEST(OpExcuteWatch, OpExcuteWatchSetOutputIdCase)
 {
     auto &instance = OpExcuteWatch::GetInstance();
     instance.fistWatchOp_ = "first";
     instance.lastWatchOp_ = "last";
     instance.outputId_ = 1; // 只取下标为1的tensor
 
-    ATBOpExcuteWatchNormalCheckOpA();
-    ATBOpExcuteWatchNormalCheckOpBWithOutputId();
-    ATBOpExcuteWatchNormalCheckOpCWithOutputId();
-    ATBOpExcuteWatchNormalCheckOpDWithOutputId();
-    ATBOpExcuteWatchNormalCheckOpE();
+    OpExcuteWatchNormalCheckOpA();
+    OpExcuteWatchNormalCheckOpBWithOutputId();
+    OpExcuteWatchNormalCheckOpCWithOutputId();
+    OpExcuteWatchNormalCheckOpDWithOutputId();
+    OpExcuteWatchNormalCheckOpE();
 }
 
-TEST(ATBOpExcuteWatch, ATBKernelExcuteWatchCheckAtbKernelExcuteFuc)
+TEST(OpExcuteWatch, KernelExcuteWatchCheckAtbKernelExcuteFuc)
 {
     auto &instance = OpExcuteWatch::GetInstance();
     instance.fistWatchOp_ = "first";
@@ -609,7 +621,7 @@ TEST(ATBOpExcuteWatch, ATBKernelExcuteWatchCheckAtbKernelExcuteFuc)
     instance.KernelExcute(firstName, tensors, OpType::ATB);
 }
 
-TEST(ATBOpExcuteWatch, ATBKernelExcuteWatchCheckAtbOpExcuteBeginFuc)
+TEST(OpExcuteWatch, KernelExcuteWatchCheckAtbOpExcuteBeginFuc)
 {
     auto &instance = OpExcuteWatch::GetInstance();
     instance.fistWatchOp_ = "first";
@@ -633,7 +645,7 @@ TEST(ATBOpExcuteWatch, ATBKernelExcuteWatchCheckAtbOpExcuteBeginFuc)
     instance.OpExcuteEnd(name, tensors, OpType::ATB);
 }
 
-TEST(ATBOpExcuteWatch, ATBWatchCheckCleanFileNameFunc)
+TEST(OpExcuteWatch, WatchCheckCleanFileNameFunc)
 {
     std::string fileName = "/123/123/";
     CleanFileName(fileName);
