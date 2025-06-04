@@ -82,27 +82,13 @@ bool DumpRecord::DumpData(const ClientId &clientId, const Record &record, const 
     return true;
 }
 
-bool DumpRecord::DumpData(const ClientId &clientId, const RecordBase &record)
-{
-    switch (record.type) {
-        case RecordType::MEMORY_RECORD: {
-            auto memRecord = static_cast<const MemOpRecord&>(record);
-            return DumpMemData(clientId, memRecord);
-        }
-        default:
-            break;
-    }
-    return true;
-}
-
-
 bool DumpRecord::WriteToFile(DumpContainer &container, const CallStackString &stack)
 {
     std::string pid = container.pid == INVALID_PROCESSID ? "N/A" : std::to_string(container.pid);
     std::string tid = container.tid == INVALID_THREADID ? "N/A" : std::to_string(container.tid);
     if (!Utility::Fprintf(leaksDataFile_, "%lu,%s,%s,%s,%lu,%s,%s,%s,%s,%s",
         container.id, container.event.c_str(), container.eventType.c_str(), container.name.c_str(),
-        container.timestamp, pid.c_str(), tid.c_str(), container.deviceId.c_str(),
+        container.timeStamp, pid.c_str(), tid.c_str(), container.deviceId.c_str(),
         container.addr.c_str(), container.attr.c_str())) {
         return false;
     }
@@ -140,7 +126,7 @@ void DumpRecord::SetAllocAttr(MemStateInfo& memInfo)
 
 bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRecord)
 {
-    if (memRecord.subtype == RecordSubType::MALLOC) {
+    if (memRecord.memType == MemOpType::MALLOC) {
         return true;
     }
 
@@ -184,7 +170,7 @@ bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchReco
     container.event = "KERNEL_LAUNCH";
     container.eventType = "KERNEL_LAUNCH";
     container.name = name;
-    container.timestamp = kernelLaunchRecord.timestamp;
+    container.timeStamp = kernelLaunchRecord.timeStamp;
     container.pid = kernelLaunchRecord.pid;
     container.tid = kernelLaunchRecord.tid;
     container.deviceId = std::to_string(kernelLaunchRecord.devId);
@@ -213,7 +199,7 @@ bool DumpRecord::DumpKernelExcuteData(const KernelExcuteRecord &record)
     container.event = "KERNEL_LAUNCH";
     container.eventType = record.type == KernelEventType::KERNEL_START ? "KERNEL_EXCUTE_START" : "KERNEL_EXCUTE_END";
     container.name = record.kernelName;
-    container.timestamp = record.timestamp;
+    container.timeStamp = record.timeStamp;
     container.pid = INVALID_PROCESSID;
     container.tid = INVALID_THREADID;
     container.deviceId = std::to_string(record.devId);
@@ -264,7 +250,7 @@ bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRe
     container.event = "MSTX";
     container.eventType = markType;
     container.name = "\"" + mstxMsgString + "\""; // 用引号包住防止逗号影响判断
-    container.timestamp = mstxRecord.timestamp;
+    container.timeStamp = mstxRecord.timeStamp;
     container.pid = mstxRecord.pid;
     container.tid = mstxRecord.tid;
     container.deviceId = std::to_string(mstxRecord.devId);
@@ -302,7 +288,7 @@ bool DumpRecord::DumpAtenOpLaunchData(const ClientId &clientId, const AtenOpLaun
     container.event = "OP_LAUNCH";
     container.eventType = eventType;
     container.name = atenOpLaunchRecord.name;
-    container.timestamp = atenOpLaunchRecord.timestamp;
+    container.timeStamp = atenOpLaunchRecord.timestamp;
     container.pid = atenOpLaunchRecord.pid;
     container.tid = atenOpLaunchRecord.tid;
     container.deviceId = std::to_string(atenOpLaunchRecord.devId);
@@ -335,7 +321,7 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
     container.event = "SYSTEM";
     container.eventType = aclType;
     container.name = "N/A";
-    container.timestamp = aclItfRecord.timestamp;
+    container.timeStamp = aclItfRecord.timeStamp;
     container.pid = aclItfRecord.pid;
     container.tid = aclItfRecord.tid;
     container.deviceId = "N/A";
@@ -414,7 +400,7 @@ bool DumpRecord::DumpAtbOpData(const ClientId &clientId, const AtbOpExecuteRecor
     container.event = "OP_LAUNCH";
     container.eventType = eventType;
     container.name = atbOpExecuteRecord.name;
-    container.timestamp = atbOpExecuteRecord.timestamp;
+    container.timeStamp = atbOpExecuteRecord.timestamp;
     container.pid = atbOpExecuteRecord.pid;
     container.tid = atbOpExecuteRecord.tid;
     container.deviceId = std::to_string(atbOpExecuteRecord.devId);
@@ -456,7 +442,7 @@ bool DumpRecord::DumpAtbKernelData(const ClientId &clientId, const AtbKernelReco
     container.event = "KERNEL_LAUNCH";
     container.eventType = eventType;
     container.name = atbKernelRecord.name;
-    container.timestamp = atbKernelRecord.timestamp;
+    container.timeStamp = atbKernelRecord.timestamp;
     container.pid = atbKernelRecord.pid;
     container.tid = atbKernelRecord.tid;
     container.deviceId = std::to_string(atbKernelRecord.devId);

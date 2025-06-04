@@ -72,7 +72,6 @@ class TraceRecord {
 public:
     static TraceRecord& GetInstance();
     void TraceHandler(const EventRecord &record);
-    void TraceHandler(const RecordBase &record);
     void ProcessTorchMemLeakInfo(const TorchMemLeakInfo &info);
 
     std::unordered_map<Device, std::unordered_set<uint64_t>, DeviceStructHash> truePids_;
@@ -88,7 +87,7 @@ private:
 
     void SetDirPath();
 
-    void MemRecordToString(const MemOpRecord &memRecord, std::string &str);
+    void MemRecordToString(MemOpRecord &memRecord, std::string &str);
     void NpuMemRecordToString(MemOpRecord &memRecord, std::string &str);
     void CpuMemRecordToString(const MemOpRecord &memRecord, std::string &str);
     void KernelLaunchRecordToString(const KernelLaunchRecord &kernelLaunchRecord, std::string &str);
@@ -105,7 +104,6 @@ private:
     bool CreateFileByDevice(const Device &device);
 
     void ProcessRecord(const EventRecord &record);
-    void ProcessRecord(const RecordBase &record);
     void SetMetadataEvent(const Device &device);
 
     uint64_t mstxEventPid_ = 0;

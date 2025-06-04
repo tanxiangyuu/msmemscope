@@ -213,7 +213,6 @@ void ATBOpExcuteWatchNormalCheckOpE()
 // 分别执行ABCDE五个OP，其中B和D为start和end算子，校验整个过程中系统的状态是否符合预期
 TEST(ATBOpExcuteWatch, ATBOpExcuteWatchNormalCase)
 {
-    EventReport::Instance(CommType::MEMORY);
     auto &instance = ATBOpExcuteWatch::GetInstance();
     instance.fistWatchOp_ = "first";
     instance.lastWatchOp_ = "last";

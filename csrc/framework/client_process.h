@@ -28,6 +28,10 @@ public:
     int TerminateWithSignal(int signal = SIGINT);
 };
 
+int ClientNotify(std::string msg);
+
+int ClientWait(std::string& msg);
+
 #define CLIENT_DEBUG_LOG(format)                                                                                      \
     do {                                                                                                              \
         Leaks::ClientProcess::GetInstance().Log(Leaks::ClientLogLevel::DEBUG, format,                                 \
