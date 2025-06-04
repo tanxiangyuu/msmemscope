@@ -336,11 +336,13 @@ TEST(MemoryStateRecordTest, memory_access_info_process_expect_success)
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 1);
 
     memAccessRecord.eventType = AccessType::WRITE;
+    record.eventRecord.record.memAccessRecord = memAccessRecord;
     memoryStateRecord.MemoryAccessInfoProcess(record, stack);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 2);
 
     memAccessRecord.eventType = AccessType::READ;
+    record.eventRecord.record.memAccessRecord = memAccessRecord;
     memoryStateRecord.MemoryAccessInfoProcess(record, stack);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 3);
