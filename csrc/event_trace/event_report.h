@@ -50,9 +50,8 @@ public:
     bool ReportKernelExcute(const TaskKey &key, std::string &name, uint64_t time, KernelEventType type);
     bool ReportAclItf(AclOpType aclOpType);
     bool ReportMark(MstxRecord &mstxRecord, CallStackString& stack);
-    int ReportRecordEvent(EventRecord &record, CallStackString& stack);
-    int ReportRecordEvent(EventRecord &record);
-    int ReportRecordEvent(const RecordBuffer& record);
+    int ReportRecordEvent(EventRecord &record, PacketHead &head, CallStackString& stack);
+    int ReportRecordEvent(EventRecord &record, PacketHead &head);
     Config GetConfig();
     bool ReportMemPoolRecord(MemPoolRecord &record, CallStackString& stack);
     bool ReportAtbOpExecute(AtbOpExecuteRecord& atbOpExecuteRecord);

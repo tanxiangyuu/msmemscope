@@ -24,20 +24,9 @@ void MemoryStateRecord::RecordMemoryState(const Record& record, CallStackString&
     it->second(record, stack);
 }
 
-void MemoryStateRecord::RecordMemoryState(const RecordBase& record)
-{
-    std::lock_guard<std::mutex> lock(recordMutex_);
-    auto type = record.type;
-    auto it = memInfoProcessFuncMapV2_.find(type);
-    if (it == memInfoProcessFuncMapV2_.end()) {
-        return;
-    }
-    it->second(record);
-}
-
 void MemoryStateRecord::HostMemProcess(const MemOpRecord& memRecord, uint64_t& currentSize)
 {
-    if (memRecord.subtype == RecordSubType::MALLOC) {
+    if (memRecord.memType == MemOpType::MALLOC) {
         hostMemSizeMap_[memRecord.addr] = memRecord.memSize;
         currentSize = memRecord.memSize;
     } else if (hostMemSizeMap_.find(memRecord.addr) != hostMemSizeMap_.end()) {
@@ -49,9 +38,9 @@ void MemoryStateRecord::HostMemProcess(const MemOpRecord& memRecord, uint64_t& c
     }
 }
 
-void MemoryStateRecord::HalMemProcess(const MemOpRecord& memRecord, uint64_t& currentSize, std::string& deviceType)
+void MemoryStateRecord::HalMemProcess(MemOpRecord& memRecord, uint64_t& currentSize, std::string& deviceType)
 {
-    if (memRecord.subtype == RecordSubType::MALLOC) {
+    if (memRecord.memType == MemOpType::MALLOC) {
         memSizeMap_[memRecord.addr] = memRecord.memSize;
         currentSize = memRecord.memSize;
     } else {
@@ -67,12 +56,12 @@ void MemoryStateRecord::HalMemProcess(const MemOpRecord& memRecord, uint64_t& cu
     }
 }
 
-MemRecordAttr MemoryStateRecord::GetMemInfoAttr(const MemOpRecord& memRecord, uint64_t currentSize)
+MemRecordAttr MemoryStateRecord::GetMemInfoAttr(MemOpRecord& memRecord, uint64_t currentSize)
 {
     BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
     std::string halOwner = "";
     MemRecordAttr attr;
-    if (memRecord.subtype == RecordSubType::MALLOC && memRecord.devType == DeviceType::NPU &&
+    if (memRecord.memType == MemOpType::MALLOC && memRecord.devType == DeviceType::NPU &&
         analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
         auto it = MODULE_HASH_TABLE.find(memRecord.modid);
         if (it != MODULE_HASH_TABLE.end()) {
@@ -81,8 +70,7 @@ MemRecordAttr MemoryStateRecord::GetMemInfoAttr(const MemOpRecord& memRecord, ui
             halOwner = "CANN@UNKNOWN";
         }
         attr.leaksDefinedOwner = halOwner;
-        const TLVBlock* tlv = GetTlvBlock(memRecord, TLVBlockType::MEM_OWNER);
-        attr.userDefinedOwner = std::string(tlv == nullptr ? "" : tlv->data);
+        attr.userDefinedOwner = std::string(memRecord.owner);
     }
     if (memRecord.devType == DeviceType::NPU) {
         attr.modid = memRecord.modid;
@@ -92,10 +80,10 @@ MemRecordAttr MemoryStateRecord::GetMemInfoAttr(const MemOpRecord& memRecord, ui
     return attr;
 }
 
-void MemoryStateRecord::MemoryInfoProcess(const RecordBase& record)
+void MemoryStateRecord::MemoryInfoProcess(const Record& record, CallStackString& stack)
 {
-    const MemOpRecord& memRecord = static_cast<const MemOpRecord&>(record);
-    std::string memOp = memRecord.subtype == RecordSubType::MALLOC ? "MALLOC" : "FREE";
+    auto memRecord = record.eventRecord.record.memoryRecord;
+    std::string memOp = memRecord.memType == MemOpType::MALLOC ? "MALLOC" : "FREE";
     auto ptr = memRecord.addr;
     uint64_t currentSize = 0;
     std::string deviceType = "";
@@ -119,7 +107,7 @@ void MemoryStateRecord::MemoryInfoProcess(const RecordBase& record)
     container.event = memOp;
     container.eventType = "HAL";
     container.name = "N/A";
-    container.timestamp = memRecord.timestamp;
+    container.timeStamp = memRecord.timeStamp;
     container.pid = memRecord.pid;
     container.tid = memRecord.tid;
     container.deviceId = deviceType;
@@ -127,7 +115,7 @@ void MemoryStateRecord::MemoryInfoProcess(const RecordBase& record)
 
     MemRecordAttr attr = GetMemInfoAttr(memRecord, currentSize);
     std::ostringstream oss;
-    if (memRecord.subtype == RecordSubType::FREE) {
+    if (memRecord.memType == MemOpType::FREE) {
         oss << "{addr:" << memRecord.addr << ",size:" << currentSize << ",MID:" << memRecord.modid << "}";
         std::string freeAttr = "\"" + oss.str() + "\"";
         container.attr = freeAttr;
@@ -140,11 +128,7 @@ void MemoryStateRecord::MemoryInfoProcess(const RecordBase& record)
     }
     MemStateInfo memInfo {};
     memInfo.container = container;
-
-    const TLVBlock* cstack = GetTlvBlock(memRecord, TLVBlockType::CALL_STACK_C);
-    const TLVBlock* pystack = GetTlvBlock(memRecord, TLVBlockType::CALL_STACK_PYTHON);
-    memInfo.stack.cStack = cstack == nullptr ? std::string("") : std::string(cstack->data);
-    memInfo.stack.pyStack = pystack == nullptr ? std::string("") : std::string(pystack->data);
+    memInfo.stack = stack;
     memInfo.attr = attr;
     ptrMemoryInfoMap_[key].push_back(memInfo);
 }
@@ -154,7 +138,7 @@ inline void CopyMemPoolRecordMember(const MemPoolRecord &record, DumpContainer &
     container.id = record.recordIndex;
     container.pid = record.pid;
     container.tid = record.tid;
-    container.timestamp = record.timestamp;
+    container.timeStamp = record.timeStamp;
     container.deviceId = std::to_string(record.devId);
     container.owner += std::string(record.owner);
 }
@@ -322,7 +306,7 @@ void MemoryStateRecord::PackDumpContainer(
     container.event = "ACCESS";
     container.eventType = eventType;
     container.name = memAccessRecord.name;
-    container.timestamp = memAccessRecord.timestamp;
+    container.timeStamp = memAccessRecord.timestamp;
     container.pid = memAccessRecord.pid;
     container.tid = memAccessRecord.tid;
     container.deviceId = std::to_string(memAccessRecord.devId);

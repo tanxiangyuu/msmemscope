@@ -177,10 +177,10 @@ void RuntimeKernelLinker::RuntimeTaskInfoLaunch(const TaskKey& key, uint64_t has
 
 void RuntimeKernelLinker::KernelLaunch()
 {
-    uint64_t timestamp = Utility::GetTimeNanoseconds();
+    uint64_t timeStamp = Utility::GetTimeNanoseconds();
     std::lock_guard<std::mutex> lock(mutex_);
 
-    AclnnKernelMapInfo value = {timestamp, std::make_tuple(-1, -1, -1), ""};
+    AclnnKernelMapInfo value = {timeStamp, std::make_tuple(-1, -1, -1), ""};
     auto iter = kernelNameMp_.find(Utility::GetTid());
     if (iter == kernelNameMp_.end()) {
         std::vector<AclnnKernelMapInfo> vec {};

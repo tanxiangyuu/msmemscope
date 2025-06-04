@@ -90,20 +90,6 @@ void Process::MemoryRecordPreprocess(const ClientId &clientId, const Record &rec
     memoryStateRecord->RecordMemoryState(record, stack);
 }
 
-void Process::MemoryRecordPreprocess(const ClientId &clientId, const RecordBase &record)
-{
-    auto type = record.type;
-    auto it = preprocessTypeList_.find(type);
-    if (it == preprocessTypeList_.end()) {
-        return;
-    }
-
-    auto memoryStateRecord = DeviceManager::GetInstance(config_).GetMemoryStateRecord(clientId);
-    if (memoryStateRecord != nullptr) {
-        memoryStateRecord->RecordMemoryState(record);
-    }
-}
-
 void Process::RecordHandler(const ClientId &clientId, const Record &record)
 {
     CallStackString stack{};
@@ -130,22 +116,6 @@ void Process::RecordHandler(const ClientId &clientId, const Record &record)
     return;
 }
 
-void Process::RecordHandler(const ClientId &clientId, const RecordBuffer& buffer)
-{
-    RecordBase* record = buffer.Cast<RecordBase>();
-    MemoryRecordPreprocess(clientId, *record);
-    DumpRecord::GetInstance(config_).DumpData(clientId, *record);
-    TraceRecord::GetInstance().TraceHandler(*record);
-
-    switch (record->type) {
-        case RecordType::MEMORY_RECORD:
-            HalAnalyzer::GetInstance(config_).Record(clientId, *record);
-            break;
-        default:
-            break;
-    }
-}
-
 void Process::MsgHandle(size_t &clientId, std::string &msg)
 {
     if (protocolList_.find(clientId) == protocolList_.end()) {
@@ -159,39 +129,23 @@ void Process::MsgHandle(size_t &clientId, std::string &msg)
     Protocol protocol = protocolList_[clientId];
     protocol.Feed(msg);
 
-    PacketHead head;
     while (true) {
-        if (!protocol.View(head)) {
-            return;
-        }
-        if (protocol.Size() < sizeof(head) + head.length) {
-            return;
-        }
-
-        switch (head.type) {
-            case PacketType::RECORD: {
-                auto packet = protocol.GetPacket();
+        auto packet = protocol.GetPacket();
+        switch (packet.GetPacketHead().type) {
+            case PacketType::RECORD:
                 RecordHandler(clientId, packet.GetPacketBody().record);
                 break;
-            }
             case PacketType::LOG: {
-                auto packet = protocol.GetPacket();
                 auto log = packet.GetPacketBody().log;
                 LOG_RECV("%s", std::string(log.buf, log.buf + log.len).c_str());
                 break;
             }
-            case PacketType::RECORD_NEW: {
-                std::string data;
-                protocol.Read(head);
-                protocol.GetStringData(data, head.length);
-                RecordBuffer buffer(std::move(data));
-                RecordHandler(clientId, buffer);
-                break;
-            }
+            case PacketType::INVALID:
             default:
                 return;
         }
     }
+
     return;
 }
 

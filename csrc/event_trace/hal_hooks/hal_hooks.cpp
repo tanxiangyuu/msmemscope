@@ -17,15 +17,15 @@ drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long fl
     if (ret != DRV_ERROR_NONE) {
         return ret;
     }
-
-    CallStackString stack;
+    std::string cStack;
+    std::string pyStack;
     if (config.enableCStack) {
-        Utility::GetCCallstack(config.cStackDepth, stack.cStack, SKIP_DEPTH);
+        Utility::GetCCallstack(config.cStackDepth, cStack, SKIP_DEPTH);
     }
     if (config.enablePyStack) {
-        Utility::GetPythonCallstack(config.pyStackDepth, stack.pyStack);
+        Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
     }
-
+    CallStackString stack{cStack, pyStack};
     // report to leaks here
     uintptr_t addr = reinterpret_cast<uintptr_t>(*pp);
     if (!EventReport::Instance(CommType::SOCKET)

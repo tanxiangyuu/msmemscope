@@ -121,8 +121,6 @@ TEST(Process, process_setpreloadenv_with_atb_abi_1_expect_success)
  
 TEST(Process, process_postprocess_exit_signal_expect_success)
 {
-    std::vector<std::string> eEmptyParams;
-    ExecCmd cmdEmpty(eEmptyParams);
     std::vector<std::string> execParams = {"ls"};
     ExecCmd cmd(execParams);
     ::pid_t pid = ::fork();
@@ -210,11 +208,6 @@ TEST(Process, do_record_handler_except_success)
     auto aclItfRecord = AclItfRecord {};
     record4.eventRecord.record.aclItfRecord = aclItfRecord;
 
-    auto buffer = RecordBuffer::CreateRecordBuffer<MemOpRecord>();
-    MemOpRecord* record5 = buffer.Cast<MemOpRecord>();
-    record5->type = RecordType::MEMORY_RECORD;
-    record5->subtype = RecordSubType::MALLOC;
-
     Config config;
     setConfig(config);
     Process process(config);
@@ -222,7 +215,6 @@ TEST(Process, do_record_handler_except_success)
     process.RecordHandler(clientId, record2);
     process.RecordHandler(clientId, record3);
     process.RecordHandler(clientId, record4);
-    process.RecordHandler(clientId, buffer);
 }
 
 TEST(Process, do_msg_handler_record_packet_type_except_success)
@@ -232,6 +224,8 @@ TEST(Process, do_msg_handler_record_packet_type_except_success)
     Process process(config);
 
     size_t clientId = 0;
+
+    PacketHead recordHead {PacketType::RECORD};
     auto record = EventRecord {};
     auto memRecord = MemOpRecord {};
     memRecord.recordIndex = 123;
@@ -240,33 +234,26 @@ TEST(Process, do_msg_handler_record_packet_type_except_success)
     memRecord.pid = 123;
     memRecord.tid = 321;
     memRecord.devId = 9;
-    memRecord.subtype = RecordSubType::MALLOC;
+    memRecord.memType = MemOpType::MALLOC;
     memRecord.space = MemOpSpace::HOST;
     memRecord.modid = 234;
     memRecord.addr = 0x758;
     memRecord.memSize = 10240;
-    memRecord.timestamp = 1234567;
+    memRecord.timeStamp = 1234567;
     record.type = RecordType::MEMORY_RECORD;
     record.record.memoryRecord = memRecord;
     std::string testMsg = "test";
     record.pyStackLen = testMsg.size();
     record.cStackLen = testMsg.size();
-    PacketHead recordHead {PacketType::RECORD, sizeof(MemOpRecord) + record.pyStackLen + record.cStackLen};
     std::string str = Serialize(recordHead, record);
     str += testMsg + testMsg;
     process.MsgHandle(clientId, str);
 
     std::string logMsg = "test";
-    PacketHead logHead {PacketType::LOG, logMsg.size()};
-    std::string buffer = Serialize<PacketHead>(logHead);
+    PacketHead logHead {PacketType::LOG};
+    std::string buffer = Serialize<PacketHead, uint64_t>(logHead, logMsg.size());
     buffer += logMsg;
     process.MsgHandle(clientId, buffer);
-
-    RecordBuffer rb = RecordBuffer::CreateRecordBuffer<MemOpRecord>(TLVBlockType::CALL_STACK_C, testMsg,
-                                                                    TLVBlockType::CALL_STACK_PYTHON, testMsg);
-    PacketHead newHead {PacketType::RECORD_NEW, rb.Size()};
-    std::string buffer2 = Serialize<PacketHead>(newHead) + rb.Get();
-    process.MsgHandle(clientId, buffer2);
 }
 
 TEST(Process, server_process_notify_test)
