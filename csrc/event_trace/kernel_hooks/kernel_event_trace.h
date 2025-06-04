@@ -16,7 +16,7 @@ using TaskKey = std::tuple<int16_t, int16_t, int16_t>; // <deviceId, streamId, t
 using ThreadId = uint64_t;
 
 struct AclnnKernelMapInfo {
-    uint64_t timestamp;
+    uint64_t timeStamp;
     TaskKey taskKey;
     std::string kernelName;
 };

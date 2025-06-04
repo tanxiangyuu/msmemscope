@@ -229,7 +229,7 @@ TEST(EventReportTest, ReportKernelLaunchTest) {
     auto taskKey = std::make_tuple(devId, streamId, taskId);
     AclnnKernelMapInfo kernelLaunchInfo {};
     kernelLaunchInfo.taskKey = taskKey;
-    kernelLaunchInfo.timestamp = 123;
+    kernelLaunchInfo.timeStamp = 123;
     kernelLaunchInfo.kernelName = "add";
     EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchInfo));
 }
@@ -421,7 +421,7 @@ TEST(EventReportTest, ReportTestWithNoReceiveServerInfo) {
     auto taskKey = std::make_tuple(devId, streamId, taskId);
     AclnnKernelMapInfo kernelLaunchInfo {};
     kernelLaunchInfo.taskKey = taskKey;
-    kernelLaunchInfo.timestamp = 123;
+    kernelLaunchInfo.timeStamp = 123;
     kernelLaunchInfo.kernelName = "add";
     EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchInfo));
 
@@ -543,10 +543,24 @@ TEST(GetMemOpSpaceFuncTest, GetMemOpSpaceIfOverType1)
     EXPECT_EQ(result, Leaks::MemOpSpace::INVALID);
 }
 
+MemOpRecord CreateMemRecord(MemOpType type, unsigned long long flag, MemOpSpace space, uint64_t addr, uint64_t size)
+{
+    MemOpRecord record;
+    record.timeStamp = Utility::GetTimeNanoseconds();
+    record.flag = flag;
+    record.memType = type;
+    record.space = space;
+    record.addr = addr;
+    record.memSize = size;
+    record.pid = Utility::GetPid();
+    record.tid = Utility::GetTid();
+    return record;
+}
+
 AclItfRecord CreateAclItfRecord(AclOpType type)
 {
     auto record = AclItfRecord {};
-    record.timestamp = Utility::GetTimeNanoseconds();
+    record.timeStamp = Utility::GetTimeNanoseconds();
     record.type = type;
     record.pid = Utility::GetPid();
     record.tid = Utility::GetTid();
@@ -557,10 +571,85 @@ KernelLaunchRecord CreateKernelLaunchRecord(KernelLaunchRecord kernelLaunchRecor
 {
     auto record = KernelLaunchRecord {};
     record = kernelLaunchRecord;
-    record.timestamp = Utility::GetTimeNanoseconds();
+    record.timeStamp = Utility::GetTimeNanoseconds();
     record.pid = Utility::GetPid();
     record.tid = Utility::GetTid();
     return record;
+}
+
+TEST(CreateMemRecordFuncTest, CreateMemRecordtestMalloc)
+{
+    Leaks::MemOpType type = Leaks::MemOpType::MALLOC;
+    unsigned long long flag = 2377900603261207558;
+    Leaks::MemOpSpace space = Leaks::MemOpSpace::SVM;
+    uint64_t addr = 0x12345678;
+    uint64_t size = 1024;
+    Leaks::MemOpRecord record = CreateMemRecord(type, flag, space, addr, size);
+    EXPECT_EQ(type, record.memType);
+    EXPECT_EQ(flag, record.flag);
+    EXPECT_EQ(space, record.space);
+    EXPECT_EQ(addr, record.addr);
+    EXPECT_EQ(size, record.memSize);
+}
+
+TEST(CreateMemRecordFuncTest, CreateMemRecordtestFree)
+{
+    Leaks::MemOpType type = Leaks::MemOpType::FREE;
+    unsigned long long flag = 2377900603261207558;
+    Leaks::MemOpSpace space = Leaks::MemOpSpace::SVM;
+    uint64_t addr = 0x12345678;
+    uint64_t size = 1024;
+    Leaks::MemOpRecord record = CreateMemRecord(type, flag, space, addr, size);
+    EXPECT_EQ(type, record.memType);
+    EXPECT_EQ(flag, record.flag);
+    EXPECT_EQ(space, record.space);
+    EXPECT_EQ(addr, record.addr);
+    EXPECT_EQ(size, record.memSize);
+}
+
+TEST(CreateMemRecordFuncTest, CreateMemRecordtestDevice)
+{
+    Leaks::MemOpType type = Leaks::MemOpType::FREE;
+    unsigned long long flag = 2377900603261207558;
+    Leaks::MemOpSpace space = Leaks::MemOpSpace::DEVICE;
+    uint64_t addr = 0x12345678;
+    uint64_t size = 1024;
+    Leaks::MemOpRecord record = CreateMemRecord(type, flag, space, addr, size);
+    EXPECT_EQ(type, record.memType);
+    EXPECT_EQ(flag, record.flag);
+    EXPECT_EQ(space, record.space);
+    EXPECT_EQ(addr, record.addr);
+    EXPECT_EQ(size, record.memSize);
+}
+
+TEST(CreateMemRecordFuncTest, CreateMemRecordtestHost)
+{
+    Leaks::MemOpType type = Leaks::MemOpType::FREE;
+    unsigned long long flag = 2377900603261207558;
+    Leaks::MemOpSpace space = Leaks::MemOpSpace::HOST;
+    uint64_t addr = 0x12345678;
+    uint64_t size = 1024;
+    Leaks::MemOpRecord record = CreateMemRecord(type, flag, space, addr, size);
+    EXPECT_EQ(type, record.memType);
+    EXPECT_EQ(flag, record.flag);
+    EXPECT_EQ(space, record.space);
+    EXPECT_EQ(addr, record.addr);
+    EXPECT_EQ(size, record.memSize);
+}
+
+TEST(CreateMemRecordFuncTest, CreateMemRecordtestDVPP)
+{
+    Leaks::MemOpType type = Leaks::MemOpType::FREE;
+    unsigned long long flag = 2377900603261207558;
+    Leaks::MemOpSpace space = Leaks::MemOpSpace::DVPP;
+    uint64_t addr = 0x12345678;
+    uint64_t size = 1024;
+    Leaks::MemOpRecord record = CreateMemRecord(type, flag, space, addr, size);
+    EXPECT_EQ(type, record.memType);
+    EXPECT_EQ(flag, record.flag);
+    EXPECT_EQ(space, record.space);
+    EXPECT_EQ(addr, record.addr);
+    EXPECT_EQ(size, record.memSize);
 }
 
 TEST(CreateAclItfRecordFuncTest, CreateAclItfRecordtestFinalize)

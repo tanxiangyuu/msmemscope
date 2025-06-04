@@ -10,8 +10,9 @@ using namespace Leaks;
 
 TEST(MemoryStateRecordTest, state_cpu_memory_record_expect_success)
 {
+    auto record = Record{};
+    record.eventRecord.type = RecordType::MEMORY_RECORD;
     auto memRecordMalloc = MemOpRecord{};
-    memRecordMalloc.type = RecordType::MEMORY_RECORD;
     memRecordMalloc.devType = DeviceType::CPU;
     memRecordMalloc.tid = 10;
     memRecordMalloc.pid = 10;
@@ -23,18 +24,20 @@ TEST(MemoryStateRecordTest, state_cpu_memory_record_expect_success)
     memRecordMalloc.space = MemOpSpace::HOST;
     memRecordMalloc.addr = 0x1234;
     memRecordMalloc.memSize = 128;
-    memRecordMalloc.timestamp = 789;
-    memRecordMalloc.subtype = RecordSubType::MALLOC;
+    memRecordMalloc.timeStamp = 789;
+    memRecordMalloc.memType = MemOpType::MALLOC;
+    record.eventRecord.record.memoryRecord = memRecordMalloc;
 
+    CallStackString stack{};
     Config config;
     MemoryStateRecord memoryStateRecord{config};
-    memoryStateRecord.MemoryInfoProcess(memRecordMalloc);
+    memoryStateRecord.MemoryInfoProcess(record, stack);
     auto key = std::make_pair("common", memRecordMalloc.addr);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 1);
 
-    memRecordMalloc.subtype = RecordSubType::FREE;
-    memoryStateRecord.MemoryInfoProcess(memRecordMalloc);
+    record.eventRecord.record.memoryRecord.memType = MemOpType::FREE;
+    memoryStateRecord.MemoryInfoProcess(record, stack);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 2);
 }
@@ -47,7 +50,7 @@ TEST(MemoryStateRecordTest, state_ATB_memory_pool_record_expect_success)
     atbPoolRecord.recordIndex = 1;
     atbPoolRecord.pid = 1234;
     atbPoolRecord.tid = 1234;
-    atbPoolRecord.timestamp = 1000;
+    atbPoolRecord.timeStamp = 1000;
     atbPoolRecord.devId = 1;
     auto atbMemUsage = MemoryUsage{};
     atbMemUsage.ptr = 1234;
@@ -80,7 +83,7 @@ TEST(MemoryStateRecordTest, state_PTA_memory_pool_record_with_decompose_expect_s
     ptaPoolRecord.recordIndex = 1;
     ptaPoolRecord.pid = 1234;
     ptaPoolRecord.tid = 1234;
-    ptaPoolRecord.timestamp = 1000;
+    ptaPoolRecord.timeStamp = 1000;
     ptaPoolRecord.devId = 1;
     auto ptaMemUsage = MemoryUsage{};
     ptaMemUsage.ptr = 1234;
@@ -113,7 +116,7 @@ TEST(MemoryStateRecordTest, state_mindspore_memory_pool_record_with_decompose_ex
     msPoolRecord.recordIndex = 1;
     msPoolRecord.pid = 1234;
     msPoolRecord.tid = 1234;
-    msPoolRecord.timestamp = 1000;
+    msPoolRecord.timeStamp = 1000;
     msPoolRecord.devId = 1;
     auto msMemUsage = MemoryUsage{};
     msMemUsage.ptr = 1234;
@@ -168,7 +171,7 @@ TEST(MemoryStateRecordTest, state_addr_info_record_expect_success)
     memPoolRecord.recordIndex = 1;
     memPoolRecord.pid = 1234;
     memPoolRecord.tid = 1234;
-    memPoolRecord.timestamp = 1000;
+    memPoolRecord.timeStamp = 1000;
     memPoolRecord.devId = 1;
     auto ptaMemUsage = MemoryUsage{};
     ptaMemUsage.ptr = 123;
@@ -208,7 +211,7 @@ TEST(MemoryStateRecordTest, state_addr_info_record_set_config)
     memPoolRecord.recordIndex = 1;
     memPoolRecord.pid = 1234;
     memPoolRecord.tid = 1234;
-    memPoolRecord.timestamp = 1000;
+    memPoolRecord.timeStamp = 1000;
     memPoolRecord.devId = 1;
     auto ptaMemUsage = MemoryUsage{};
     ptaMemUsage.ptr = 123;
@@ -250,7 +253,7 @@ TEST(MemoryStateRecordTest, state_addr_info_record_for_malloc)
     memPoolRecord.recordIndex = 1;
     memPoolRecord.pid = 1234;
     memPoolRecord.tid = 1234;
-    memPoolRecord.timestamp = 1000;
+    memPoolRecord.timeStamp = 1000;
     memPoolRecord.devId = 1;
     auto ptaMemUsage = MemoryUsage{};
     ptaMemUsage.ptr = 123;
@@ -289,7 +292,7 @@ TEST(MemoryStateRecordTest, state_addr_info_record_for_free)
     memPoolRecord.recordIndex = 1;
     memPoolRecord.pid = 1234;
     memPoolRecord.tid = 1234;
-    memPoolRecord.timestamp = 1000;
+    memPoolRecord.timeStamp = 1000;
     memPoolRecord.devId = 1;
     auto ptaMemUsage = MemoryUsage{};
     ptaMemUsage.ptr = 123;
@@ -358,7 +361,7 @@ TEST(MemoryStateRecordTest, hal_memory_process_expect_success)
     Config config;
     MemoryStateRecord memoryStateRecord{config};
     auto record = MemOpRecord{};
-    record.subtype = RecordSubType::FREE;
+    record.memType = MemOpType::FREE;
     uint64_t siz = 0;
     std::string type = "test";
     memoryStateRecord.HalMemProcess(record, siz, type);
@@ -370,7 +373,7 @@ TEST(MemoryStateRecordTest, get_halattr_hccl_expect_success)
     memRecordMalloc.devType = DeviceType::NPU;
     memRecordMalloc.modid = 3;
     memRecordMalloc.addr = 1234;
-    memRecordMalloc.subtype = RecordSubType::MALLOC;
+    memRecordMalloc.memType = MemOpType::MALLOC;
  
     Config config;
     BitField<decltype(config.analysisType)> analysisTypeBit;
@@ -388,7 +391,7 @@ TEST(MemoryStateRecordTest, pack_malloc_and_free_container_info)
     memPoolRecord.recordIndex = 1;
     memPoolRecord.pid = 1234;
     memPoolRecord.tid = 1234;
-    memPoolRecord.timestamp = 1000;
+    memPoolRecord.timeStamp = 1000;
     memPoolRecord.devId = 1;
     auto ptaMemUsage = MemoryUsage{};
     ptaMemUsage.ptr = 123;

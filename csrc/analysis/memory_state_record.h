@@ -15,7 +15,6 @@
 namespace Leaks {
 
 using HandlerFunc = std::function<void(const Record&, CallStackString&)>;
-using HandlerFuncV2 = std::function<void(const RecordBase&)>;
 
 class MemRecordAttr {
 public:
@@ -38,8 +37,7 @@ public:
 class MemoryStateRecord {
 public:
     void RecordMemoryState(const Record& record, CallStackString& stack);
-    void RecordMemoryState(const RecordBase& record);
-    void MemoryInfoProcess(const RecordBase& record);
+    void MemoryInfoProcess(const Record& record, CallStackString& stack);
     void MemoryPoolInfoProcess(const Record& record, CallStackString& stack);
     void MemoryAccessInfoProcess(const Record& record, CallStackString& stack);
     void MemoryAddrInfoProcess(const Record& record, CallStackString& stack);
@@ -49,8 +47,8 @@ public:
     explicit MemoryStateRecord(Config config);
 private:
     void HostMemProcess(const MemOpRecord& memRecord, uint64_t& currentSize);
-    void HalMemProcess(const MemOpRecord& memRecord, uint64_t& currentSize, std::string& deviceType);
-    MemRecordAttr GetMemInfoAttr(const MemOpRecord& memRecord, uint64_t currentSize);
+    void HalMemProcess(MemOpRecord& memRecord, uint64_t& currentSize, std::string& deviceType);
+    MemRecordAttr GetMemInfoAttr(MemOpRecord& memRecord, uint64_t currentSize);
     void PackDumpContainer(
         DumpContainer &container, const MemPoolRecord &memPool, const std::string& memPoolType, MemRecordAttr &attr);
     void PackDumpContainer(DumpContainer& container,
@@ -61,6 +59,8 @@ private:
     std::unordered_map<uint64_t, uint64_t> hostMemSizeMap_;
     std::unordered_map<uint64_t, uint64_t> memSizeMap_;
     std::map<RecordType, HandlerFunc> memInfoProcessFuncMap_ = {
+        {RecordType::MEMORY_RECORD,
+            std::bind(&MemoryStateRecord::MemoryInfoProcess, this, std::placeholders::_1, std::placeholders::_2)},
         {RecordType::ATB_MEMORY_POOL_RECORD,
             std::bind(&MemoryStateRecord::MemoryPoolInfoProcess, this, std::placeholders::_1, std::placeholders::_2)},
         {RecordType::TORCH_NPU_RECORD,
@@ -71,10 +71,6 @@ private:
             std::bind(&MemoryStateRecord::MemoryAccessInfoProcess, this, std::placeholders::_1, std::placeholders::_2)},
         {RecordType::ADDR_INFO_RECORD,
             std::bind(&MemoryStateRecord::MemoryAddrInfoProcess, this, std::placeholders::_1, std::placeholders::_2)},
-    };
-    std::map<RecordType, HandlerFuncV2> memInfoProcessFuncMapV2_ = {
-        {RecordType::MEMORY_RECORD,
-            std::bind(&MemoryStateRecord::MemoryInfoProcess, this, std::placeholders::_1)},
     };
     std::mutex recordMutex_;
     Config config_;
