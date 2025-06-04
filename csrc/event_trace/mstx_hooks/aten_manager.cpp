@@ -6,6 +6,8 @@
 #include "ustring.h"
 #include "log.h"
 
+#include <iostream>
+
 
 namespace Leaks {
     
@@ -31,6 +33,54 @@ bool AtenManager::ExtractTensorInfo(const char* msg, const std::string &key, std
     return true;
 }
 
+bool AtenManager::IsAtenLaunchEnable()
+{
+    // 命令行判断是否包含launch事件
+    Config userConfig =  EventReport::Instance(CommType::SOCKET).GetConfig();
+    BitField<decltype(userConfig.eventType)> eventType(userConfig.eventType);
+    if (eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
+        return true;
+    }
+    return false;
+}
+
+bool AtenManager::IsAtenAccessEnable()
+{
+    // 命令行判断是否包含Access事件
+    Config userConfig =  EventReport::Instance(CommType::SOCKET).GetConfig();
+    BitField<decltype(userConfig.eventType)> eventType(userConfig.eventType);
+    if (eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT))) {
+        return true;
+    }
+    return false;
+}
+
+bool AtenManager::IsWatchEnable()
+{
+    Config userConfig =  EventReport::Instance(CommType::SOCKET).GetConfig();
+    return userConfig.watchConfig.isWatched;
+}
+
+void AtenManager::ProcessMsg(const char* msg, int32_t streamId)
+{
+    // 根据标识判断是否为aten算子下发或者tensor信息
+    bool isAtenBegin;
+    if (strncmp(msg, ATEN_BEGIN_MSG, strlen(ATEN_BEGIN_MSG)) == 0) {
+        isAtenBegin = true;
+        ReportAtenLaunch(msg, streamId, isAtenBegin);
+        return;
+    }
+    if (strncmp(msg, ATEN_END_MSG, strlen(ATEN_END_MSG)) == 0) {
+        isAtenBegin = false;
+        ReportAtenLaunch(msg, streamId, isAtenBegin);
+        return;
+    }
+    if (strncmp(msg, ACCESS_MSG, strlen(ACCESS_MSG)) == 0) {
+        ReportAtenAccess(msg, streamId);
+        return;
+    }
+}
+
 void AtenManager::ReportAtenLaunch(const char* msg, int32_t streamId, bool isAtenBegin)
 {
     AtenOpLaunchRecord record;
@@ -49,6 +99,18 @@ void AtenManager::ReportAtenLaunch(const char* msg, int32_t streamId, bool isAte
     }
     strncpy_s(record.name, sizeof(record.name), eventName, sizeof(record.name) - 1);
 
+    if (IsWatchEnable() && isAtenBegin) {
+        OpExcuteWatch::GetInstance().OpExcuteBegin(std::string(eventName), OpType::ATEN);
+    }
+    if (IsWatchEnable() && !isAtenBegin) {
+        OpExcuteWatch::GetInstance().OpExcuteEnd(std::string(eventName), outputTensors_, OpType::ATEN);
+        outputTensors_.clear();
+    }
+
+    if (!IsAtenLaunchEnable()) {
+        return ;
+    }
+
     auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
     std::string cStack;
     std::string pyStack;
@@ -62,13 +124,10 @@ void AtenManager::ReportAtenLaunch(const char* msg, int32_t streamId, bool isAte
     return;
 }
 
-void AtenManager::ReportAtenAccess(const char* msg, int32_t streamId)
+void AtenManager::ParseAtenAccessMsg(const char* msg, MemAccessRecord &record, std::string &dtype,
+    std::string &shape, std::string &isOutput)
 {
-    MemAccessRecord record;
-
     std::string addr;
-    std::string dtype;
-    std::string shape;
     std::string size;
     std::string name;
     std::string isRead;
@@ -80,6 +139,7 @@ void AtenManager::ReportAtenAccess(const char* msg, int32_t streamId)
     ExtractTensorInfo(msg, "name=", name);
     ExtractTensorInfo(msg, "is_write=", isWrite);
     ExtractTensorInfo(msg, "is_read=", isRead);
+    ExtractTensorInfo(msg, "is_output=", isOutput);
 
     if (isWrite == "False" && isRead == "False") {
         record.eventType = AccessType::UNKNOWN;
@@ -88,7 +148,7 @@ void AtenManager::ReportAtenAccess(const char* msg, int32_t streamId)
     } else {
         record.eventType = AccessType::READ;
     }
-    record.memType = AccessMemType::ATEN;
+    record.memType = OpType::ATEN;
 
     if (!Utility::StrToUint64(record.addr, addr)) {
         CLIENT_ERROR_LOG("Aten Tensor's addr StrToUint64 failed");
@@ -96,15 +156,36 @@ void AtenManager::ReportAtenAccess(const char* msg, int32_t streamId)
     if (!Utility::StrToUint64(record.memSize, size)) {
         CLIENT_ERROR_LOG("Aten Tensor's memSize StrToUint64 failed");
     }
+    if (strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1) != EOK) {
+        CLIENT_ERROR_LOG("strncpy_s FAILED");
+        record.name[0] = '\0';
+    }
+}
+
+void AtenManager::ReportAtenAccess(const char* msg, int32_t streamId)
+{
+    MemAccessRecord record;
+    std::string dtype;
+    std::string shape;
+    std::string isOutput;
+    ParseAtenAccessMsg(msg, record, dtype, shape, isOutput);
+
+    if (isOutput == "True" && IsWatchEnable()) {
+        MonitoredTensor tensorInfo{};
+        tensorInfo.data =  reinterpret_cast<void*>(reinterpret_cast<std::uintptr_t>(record.addr));
+        tensorInfo.dataSize = record.memSize;
+        outputTensors_.push_back(tensorInfo);
+    }
+
+    if (!IsAtenAccessEnable()) {
+        return ;
+    }
+
     // 组装attr属性
     std::ostringstream oss;
     oss << "dtype:" << dtype << ",shape:" << shape;
     std::string attr = oss.str();
     strncpy_s(record.attr, sizeof(record.attr), attr.c_str(), sizeof(record.attr) - 1);
-    if (strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1) != EOK) {
-        CLIENT_ERROR_LOG("strncpy_s FAILED");
-        record.name[0] = '\0';
-    }
 
     auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
     std::string cStack;

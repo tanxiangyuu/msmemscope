@@ -240,7 +240,7 @@ void MemoryStateRecord::MemoryAccessInfoProcess(const Record& record, CallStackS
     DumpContainer container;
     PackDumpContainer(container, memAccessRecord, eventType, attr);
 
-    auto key = memAccessRecord.memType == AccessMemType::ATEN?
+    auto key = memAccessRecord.memType == OpType::ATEN?
         std::make_pair("PTA", ptr) : std::make_pair("ATB", ptr);
     auto it = ptrMemoryInfoMap_.find(key);
     if (it == ptrMemoryInfoMap_.end()) {
@@ -251,7 +251,7 @@ void MemoryStateRecord::MemoryAccessInfoProcess(const Record& record, CallStackS
     memInfo.stack = stack;
     ptrMemoryInfoMap_[key].push_back(memInfo);
 
-    if (memAccessRecord.memType == AccessMemType::ATEN && ptrMemoryInfoMap_[key][0].container.event == "MALLOC") {
+    if (memAccessRecord.memType == OpType::ATEN && ptrMemoryInfoMap_[key][0].container.event == "MALLOC") {
         UpdateLeaksDefinedOwner(ptrMemoryInfoMap_[key][0].attr.leaksDefinedOwner, "@ops@aten");
     }
 }

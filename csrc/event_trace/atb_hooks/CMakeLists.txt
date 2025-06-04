@@ -3,8 +3,9 @@ add_library(atb_abi_0_hook SHARED atb_abi_0_hooks.cpp)
 target_sources(atb_abi_0_hook PRIVATE
   atb_hooks.cpp
   enum2string.cpp
-  ${EVENT_TRACE_INC_DIR}/atb_op_watch/atb_op_excute_watch.cpp
-  ${EVENT_TRACE_INC_DIR}/atb_op_watch/atb_tensor_dump.cpp
+  ${EVENT_TRACE_INC_DIR}/op_watch/op_excute_watch.cpp
+  ${EVENT_TRACE_INC_DIR}/op_watch/tensor_dumper.cpp
+  ${EVENT_TRACE_INC_DIR}/op_watch/tensor_monitor.cpp
   ${UTILITY_INC_DIR}/log.cpp
   ${UTILITY_INC_DIR}/file.cpp
   ${UTILITY_INC_DIR}/calculate_md5.cpp
@@ -33,8 +34,8 @@ target_compile_definitions(atb_abi_1_hook PRIVATE -D_GLIBCXX_USE_CXX11_ABI=1)
 target_sources(atb_abi_1_hook PRIVATE
   atb_hooks.cpp
   enum2string.cpp
-  ${EVENT_TRACE_INC_DIR}/atb_op_watch/atb_op_excute_watch.cpp
-  ${EVENT_TRACE_INC_DIR}/atb_op_watch/atb_tensor_dump.cpp
+  ${EVENT_TRACE_INC_DIR}/op_watch/op_excute_watch.cpp
+  ${EVENT_TRACE_INC_DIR}/op_watch/tensor_dumper.cpp
   ${UTILITY_INC_DIR}/log.cpp
   ${UTILITY_INC_DIR}/file.cpp
   ${UTILITY_INC_DIR}/calculate_md5.cpp
