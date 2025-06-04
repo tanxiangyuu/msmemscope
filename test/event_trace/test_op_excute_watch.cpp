@@ -2,9 +2,10 @@
 
 #include <gtest/gtest.h>
 #define private public
-#include "event_trace/atb_op_watch/atb_op_excute_watch.h"
+#include "event_trace/op_watch/op_excute_watch.h"
 #undef private
-#include "event_trace/atb_op_watch/atb_tensor_dump.h"
+#include "event_trace/op_watch/tensor_dumper.h"
+#include "event_trace/op_watch/tensor_monitor.h"
 #include "securec.h"
 
 using namespace Leaks;
@@ -24,31 +25,31 @@ constexpr uint64_t DATA_VALUE_6 = 65432100;
 
 void ATBOpExcuteWatchNormalCheckOpA()
 {
-    auto &instance = ATBOpExcuteWatch::GetInstance();
-    auto watchedTensors = instance.GetWatchedTensors();
+    auto &instance = OpExcuteWatch::GetInstance();
+    auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
     EXPECT_EQ(instance.IsInMonitoring(), false);
 
-    instance.AtbOpExcuteBegin("A");
+    instance.OpExcuteBegin("A", OpType::ATB);
 
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
     EXPECT_EQ(instance.IsInMonitoring(), false);
 
-    atb::Tensor tesor1 = {};
-    tesor1.deviceData = reinterpret_cast<void *>(DATA_VALUE_1);
+    MonitoredTensor tesor1 = {};
+    tesor1.data = reinterpret_cast<void *>(DATA_VALUE_1);
     tesor1.dataSize = DATA_SIZE_1;
 
-    atb::Tensor tesor2 = {};
-    tesor2.deviceData = reinterpret_cast<void *>(DATA_VALUE_2);
+    MonitoredTensor tesor2 = {};
+    tesor2.data = reinterpret_cast<void *>(DATA_VALUE_2);
     tesor2.dataSize = DATA_SIZE_2;
 
-    atb::SVector<atb::Tensor> tensors = {};
+    std::vector<MonitoredTensor> tensors = {};
     tensors.push_back(tesor1);
     tensors.push_back(tesor2);
 
-    instance.AtbOpExcuteEnd("A", tensors);
+    instance.OpExcuteEnd("A", tensors, OpType::ATB);
 
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
@@ -57,121 +58,121 @@ void ATBOpExcuteWatchNormalCheckOpA()
 
 void ATBOpExcuteWatchNormalCheckOpB()
 {
-    auto &instance = ATBOpExcuteWatch::GetInstance();
-    auto watchedTensors = instance.GetWatchedTensors();
+    auto &instance = OpExcuteWatch::GetInstance();
+    auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
     EXPECT_EQ(instance.IsInMonitoring(), false);
 
-    instance.AtbOpExcuteBegin("first");
+    instance.OpExcuteBegin("first", OpType::ATB);
 
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
     EXPECT_EQ(instance.IsInMonitoring(), false);
 
-    atb::Tensor tesor1 = {};
-    tesor1.deviceData = reinterpret_cast<void *>(DATA_VALUE_1);
+    MonitoredTensor tesor1 = {};
+    tesor1.data = reinterpret_cast<void *>(DATA_VALUE_1);
     tesor1.dataSize = DATA_SIZE_1;
 
-    atb::Tensor tesor2 = {};
-    tesor2.deviceData = reinterpret_cast<void *>(DATA_VALUE_2);
+    MonitoredTensor tesor2 = {};
+    tesor2.data = reinterpret_cast<void *>(DATA_VALUE_2);
     tesor2.dataSize = DATA_SIZE_2;
 
-    atb::SVector<atb::Tensor> tensors = {};
+    std::vector<MonitoredTensor> tensors = {};
     tensors.push_back(tesor1);
     tensors.push_back(tesor2);
 
-    instance.AtbOpExcuteEnd("first", tensors);
+    instance.OpExcuteEnd("first", tensors, OpType::ATB);
 
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
-    watchedTensors = instance.GetWatchedTensors();
-    EXPECT_EQ(watchedTensors[0].dataSize, DATA_SIZE_1);
-    EXPECT_EQ(watchedTensors[0].data, reinterpret_cast<void *>(DATA_VALUE_1));
-    EXPECT_EQ(watchedTensors[1].dataSize, DATA_SIZE_2);
-    EXPECT_EQ(watchedTensors[1].data, reinterpret_cast<void *>(DATA_VALUE_2));
+    watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
     EXPECT_EQ(instance.IsInMonitoring(), true);
 }
 
 void ATBOpExcuteWatchNormalCheckOpC()
 {
-    auto &instance = ATBOpExcuteWatch::GetInstance();
-    auto watchedTensors = instance.GetWatchedTensors();
-    EXPECT_EQ(watchedTensors[0].dataSize, DATA_SIZE_1);
-    EXPECT_EQ(watchedTensors[0].data, reinterpret_cast<void *>(DATA_VALUE_1));
-    EXPECT_EQ(watchedTensors[1].dataSize, DATA_SIZE_2);
-    EXPECT_EQ(watchedTensors[1].data, reinterpret_cast<void *>(DATA_VALUE_2));
+    auto &instance = OpExcuteWatch::GetInstance();
+    auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
     EXPECT_EQ(instance.IsInMonitoring(), true);
 
-    instance.AtbOpExcuteBegin("C");
+    instance.OpExcuteBegin("C", OpType::ATB);
 
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
-    watchedTensors = instance.GetWatchedTensors();
-    EXPECT_EQ(watchedTensors[0].dataSize, DATA_SIZE_1);
-    EXPECT_EQ(watchedTensors[0].data, reinterpret_cast<void *>(DATA_VALUE_1));
-    EXPECT_EQ(watchedTensors[1].dataSize, DATA_SIZE_2);
-    EXPECT_EQ(watchedTensors[1].data, reinterpret_cast<void *>(DATA_VALUE_2));
+    watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
     EXPECT_EQ(instance.IsInMonitoring(), true);
 
-    atb::Tensor tesor1 = {};
-    tesor1.deviceData = reinterpret_cast<void *>(DATA_VALUE_3);
-    tesor1.dataSize = DATA_SIZE_3;
+    MonitoredTensor tesor1 = {};
+    tesor1.data = reinterpret_cast<void *>(DATA_VALUE_1);
+    tesor1.dataSize = DATA_SIZE_1;
 
-    atb::Tensor tesor2 = {};
-    tesor2.deviceData = reinterpret_cast<void *>(DATA_VALUE_4);
-    tesor2.dataSize = DATA_SIZE_4;
+    MonitoredTensor tesor2 = {};
+    tesor2.data = reinterpret_cast<void *>(DATA_VALUE_2);
+    tesor2.dataSize = DATA_SIZE_2;
 
-    atb::SVector<atb::Tensor> tensors = {};
+    std::vector<MonitoredTensor> tensors = {};
     tensors.push_back(tesor1);
     tensors.push_back(tesor2);
 
-    instance.AtbOpExcuteEnd("C", tensors);
+    instance.OpExcuteEnd("C", tensors, OpType::ATB);
 
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
-    watchedTensors = instance.GetWatchedTensors();
-    EXPECT_EQ(watchedTensors[0].dataSize, DATA_SIZE_1);
-    EXPECT_EQ(watchedTensors[0].data, reinterpret_cast<void *>(DATA_VALUE_1));
-    EXPECT_EQ(watchedTensors[1].dataSize, DATA_SIZE_2);
-    EXPECT_EQ(watchedTensors[1].data, reinterpret_cast<void *>(DATA_VALUE_2));
+    watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
     EXPECT_EQ(instance.IsInMonitoring(), true);
 }
 
 void ATBOpExcuteWatchNormalCheckOpD()
 {
-    auto &instance = ATBOpExcuteWatch::GetInstance();
+    auto &instance = OpExcuteWatch::GetInstance();
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
-    auto watchedTensors = instance.GetWatchedTensors();
-    EXPECT_EQ(watchedTensors[0].dataSize, DATA_SIZE_1);
-    EXPECT_EQ(watchedTensors[0].data, reinterpret_cast<void *>(DATA_VALUE_1));
-    EXPECT_EQ(watchedTensors[1].dataSize, DATA_SIZE_2);
-    EXPECT_EQ(watchedTensors[1].data, reinterpret_cast<void *>(DATA_VALUE_2));
+    auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
     EXPECT_EQ(instance.IsInMonitoring(), true);
 
-    instance.AtbOpExcuteBegin("last");
+    instance.OpExcuteBegin("last", OpType::ATB);
 
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
-    watchedTensors = instance.GetWatchedTensors();
-    EXPECT_EQ(watchedTensors[0].dataSize, DATA_SIZE_1);
-    EXPECT_EQ(watchedTensors[0].data, reinterpret_cast<void *>(DATA_VALUE_1));
-    EXPECT_EQ(watchedTensors[1].dataSize, DATA_SIZE_2);
-    EXPECT_EQ(watchedTensors[1].data, reinterpret_cast<void *>(DATA_VALUE_2));
+    watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
     EXPECT_EQ(instance.IsInMonitoring(), true);
 
-    atb::Tensor tesor1 = {};
-    tesor1.deviceData = reinterpret_cast<void *>(DATA_VALUE_5);
-    tesor1.dataSize = DATA_SIZE_5;
+    MonitoredTensor tesor1 = {};
+    tesor1.data = reinterpret_cast<void *>(DATA_VALUE_1);
+    tesor1.dataSize = DATA_SIZE_1;
 
-    atb::Tensor tesor2 = {};
-    tesor2.deviceData = reinterpret_cast<void *>(DATA_VALUE_6);
-    tesor2.dataSize = DATA_SIZE_6;
+    MonitoredTensor tesor2 = {};
+    tesor2.data = reinterpret_cast<void *>(DATA_VALUE_2);
+    tesor2.dataSize = DATA_SIZE_2;
 
-    atb::SVector<atb::Tensor> tensors = {};
+    std::vector<MonitoredTensor> tensors = {};
     tensors.push_back(tesor1);
     tensors.push_back(tesor2);
 
-    instance.AtbOpExcuteEnd("last", tensors);
+    instance.OpExcuteEnd("last", tensors, OpType::ATB);
 
-    watchedTensors = instance.GetWatchedTensors();
+    watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
     EXPECT_EQ(instance.IsInMonitoring(), false);
@@ -179,31 +180,31 @@ void ATBOpExcuteWatchNormalCheckOpD()
 
 void ATBOpExcuteWatchNormalCheckOpE()
 {
-    auto &instance = ATBOpExcuteWatch::GetInstance();
-    auto watchedTensors = instance.GetWatchedTensors();
+    auto &instance = OpExcuteWatch::GetInstance();
+    auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
     EXPECT_EQ(instance.IsInMonitoring(), false);
 
-    instance.AtbOpExcuteBegin("E");
+    instance.OpExcuteBegin("E", OpType::ATB);
 
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
     EXPECT_EQ(instance.IsInMonitoring(), false);
 
-    atb::Tensor tesor1 = {};
-    tesor1.deviceData = reinterpret_cast<void *>(DATA_VALUE_1);
+    MonitoredTensor tesor1 = {};
+    tesor1.data = reinterpret_cast<void *>(DATA_VALUE_1);
     tesor1.dataSize = DATA_SIZE_1;
 
-    atb::Tensor tesor2 = {};
-    tesor2.deviceData = reinterpret_cast<void *>(DATA_VALUE_2);
+    MonitoredTensor tesor2 = {};
+    tesor2.data = reinterpret_cast<void *>(DATA_VALUE_2);
     tesor2.dataSize = DATA_SIZE_2;
 
-    atb::SVector<atb::Tensor> tensors = {};
+    std::vector<MonitoredTensor> tensors = {};
     tensors.push_back(tesor1);
     tensors.push_back(tesor2);
 
-    instance.AtbOpExcuteEnd("E", tensors);
+    instance.OpExcuteEnd("E", tensors, OpType::ATB);
 
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
@@ -213,7 +214,7 @@ void ATBOpExcuteWatchNormalCheckOpE()
 // 分别执行ABCDE五个OP，其中B和D为start和end算子，校验整个过程中系统的状态是否符合预期
 TEST(ATBOpExcuteWatch, ATBOpExcuteWatchNormalCase)
 {
-    auto &instance = ATBOpExcuteWatch::GetInstance();
+    auto &instance = OpExcuteWatch::GetInstance();
     instance.fistWatchOp_ = "first";
     instance.lastWatchOp_ = "last";
     instance.outputId_ = UINT32_MAX;
@@ -227,8 +228,8 @@ TEST(ATBOpExcuteWatch, ATBOpExcuteWatchNormalCase)
 
 void ATBKernelExcuteWatchNormalCheckOpA()
 {
-    auto &instance = ATBOpExcuteWatch::GetInstance();
-    auto watchedTensors = instance.GetWatchedTensors();
+    auto &instance = OpExcuteWatch::GetInstance();
+    auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
     EXPECT_EQ(instance.IsInMonitoring(), false);
@@ -246,14 +247,14 @@ void ATBKernelExcuteWatchNormalCheckOpA()
     tensors.push_back(tensor1);
     tensors.push_back(tensor2);
 
-    instance.AtbKernelExcute(name, tensors);
+    instance.KernelExcute(name, tensors, OpType::ATB);
 
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
     EXPECT_EQ(instance.IsInMonitoring(), false);
 
     name = "/A/after";
-    instance.AtbKernelExcute(name, tensors);
+    instance.KernelExcute(name, tensors, OpType::ATB);
 
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
@@ -262,8 +263,8 @@ void ATBKernelExcuteWatchNormalCheckOpA()
 
 void ATBKernelExcuteWatchNormalCheckOpB()
 {
-    auto &instance = ATBOpExcuteWatch::GetInstance();
-    auto watchedTensors = instance.GetWatchedTensors();
+    auto &instance = OpExcuteWatch::GetInstance();
+    auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
     EXPECT_EQ(instance.IsInMonitoring(), false);
@@ -281,32 +282,32 @@ void ATBKernelExcuteWatchNormalCheckOpB()
     tensors.push_back(tensor1);
     tensors.push_back(tensor2);
 
-    instance.AtbKernelExcute(name, tensors);
+    instance.KernelExcute(name, tensors, OpType::ATB);
 
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
     EXPECT_EQ(instance.IsInMonitoring(), false);
 
     name = "/first/after";
-    instance.AtbKernelExcute(name, tensors);
+    instance.KernelExcute(name, tensors, OpType::ATB);
 
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
-    watchedTensors = instance.GetWatchedTensors();
-    EXPECT_EQ(watchedTensors[0].dataSize, DATA_SIZE_1);
-    EXPECT_EQ(watchedTensors[0].data, reinterpret_cast<void *>(DATA_VALUE_1));
-    EXPECT_EQ(watchedTensors[1].dataSize, DATA_SIZE_2);
-    EXPECT_EQ(watchedTensors[1].data, reinterpret_cast<void *>(DATA_VALUE_2));
+    watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
     EXPECT_EQ(instance.IsInMonitoring(), true);
 }
 
 void ATBKernelExcuteWatchNormalCheckOpC()
 {
-    auto &instance = ATBOpExcuteWatch::GetInstance();
-    auto watchedTensors = instance.GetWatchedTensors();
-    EXPECT_EQ(watchedTensors[0].dataSize, DATA_SIZE_1);
-    EXPECT_EQ(watchedTensors[0].data, reinterpret_cast<void *>(DATA_VALUE_1));
-    EXPECT_EQ(watchedTensors[1].dataSize, DATA_SIZE_2);
-    EXPECT_EQ(watchedTensors[1].data, reinterpret_cast<void *>(DATA_VALUE_2));
+    auto &instance = OpExcuteWatch::GetInstance();
+    auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
     EXPECT_EQ(instance.IsInMonitoring(), true);
 
@@ -323,37 +324,37 @@ void ATBKernelExcuteWatchNormalCheckOpC()
     tensors.push_back(tensor1);
     tensors.push_back(tensor2);
 
-    instance.AtbKernelExcute(name, tensors);
+    instance.KernelExcute(name, tensors, OpType::ATB);
 
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
-    watchedTensors = instance.GetWatchedTensors();
-    EXPECT_EQ(watchedTensors[0].dataSize, DATA_SIZE_1);
-    EXPECT_EQ(watchedTensors[0].data, reinterpret_cast<void *>(DATA_VALUE_1));
-    EXPECT_EQ(watchedTensors[1].dataSize, DATA_SIZE_2);
-    EXPECT_EQ(watchedTensors[1].data, reinterpret_cast<void *>(DATA_VALUE_2));
+    watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
     EXPECT_EQ(instance.IsInMonitoring(), true);
 
     name = "/C/after";
-    instance.AtbKernelExcute(name, tensors);
+    instance.KernelExcute(name, tensors, OpType::ATB);
 
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
-    watchedTensors = instance.GetWatchedTensors();
-    EXPECT_EQ(watchedTensors[0].dataSize, DATA_SIZE_1);
-    EXPECT_EQ(watchedTensors[0].data, reinterpret_cast<void *>(DATA_VALUE_1));
-    EXPECT_EQ(watchedTensors[1].dataSize, DATA_SIZE_2);
-    EXPECT_EQ(watchedTensors[1].data, reinterpret_cast<void *>(DATA_VALUE_2));
+    watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
     EXPECT_EQ(instance.IsInMonitoring(), true);
 }
 
 void ATBKernelExcuteWatchNormalCheckOpD()
 {
-    auto &instance = ATBOpExcuteWatch::GetInstance();
+    auto &instance = OpExcuteWatch::GetInstance();
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
-    auto watchedTensors = instance.GetWatchedTensors();
-    EXPECT_EQ(watchedTensors[0].dataSize, DATA_SIZE_1);
-    EXPECT_EQ(watchedTensors[0].data, reinterpret_cast<void *>(DATA_VALUE_1));
-    EXPECT_EQ(watchedTensors[1].dataSize, DATA_SIZE_2);
-    EXPECT_EQ(watchedTensors[1].data, reinterpret_cast<void *>(DATA_VALUE_2));
+    auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
     EXPECT_EQ(instance.IsInMonitoring(), true);
 
     std::string name = "/last/before";
@@ -369,20 +370,20 @@ void ATBKernelExcuteWatchNormalCheckOpD()
     tensors.push_back(tensor1);
     tensors.push_back(tensor2);
 
-    instance.AtbKernelExcute(name, tensors);
+    instance.KernelExcute(name, tensors, OpType::ATB);
 
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
-    watchedTensors = instance.GetWatchedTensors();
-    EXPECT_EQ(watchedTensors[0].dataSize, DATA_SIZE_1);
-    EXPECT_EQ(watchedTensors[0].data, reinterpret_cast<void *>(DATA_VALUE_1));
-    EXPECT_EQ(watchedTensors[1].dataSize, DATA_SIZE_2);
-    EXPECT_EQ(watchedTensors[1].data, reinterpret_cast<void *>(DATA_VALUE_2));
+    watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
     EXPECT_EQ(instance.IsInMonitoring(), true);
 
     name = "/last/after";
-    instance.AtbKernelExcute(name, tensors);
+    instance.KernelExcute(name, tensors, OpType::ATB);
 
-    watchedTensors = instance.GetWatchedTensors();
+    watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
     EXPECT_EQ(instance.IsInMonitoring(), false);
@@ -390,8 +391,8 @@ void ATBKernelExcuteWatchNormalCheckOpD()
 
 void ATBKernelExcuteWatchNormalCheckOpE()
 {
-    auto &instance = ATBOpExcuteWatch::GetInstance();
-    auto watchedTensors = instance.GetWatchedTensors();
+    auto &instance = OpExcuteWatch::GetInstance();
+    auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
     EXPECT_EQ(instance.IsInMonitoring(), false);
@@ -409,14 +410,14 @@ void ATBKernelExcuteWatchNormalCheckOpE()
     tensors.push_back(tensor1);
     tensors.push_back(tensor2);
 
-    instance.AtbKernelExcute(name, tensors);
+    instance.KernelExcute(name, tensors, OpType::ATB);
 
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
     EXPECT_EQ(instance.IsInMonitoring(), false);
 
     name = "/E/after";
-    instance.AtbKernelExcute(name, tensors);
+    instance.KernelExcute(name, tensors, OpType::ATB);
 
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
@@ -426,7 +427,7 @@ void ATBKernelExcuteWatchNormalCheckOpE()
 // 分别执行ABCDE五个kernel，其中B和D为start和end算子，校验整个过程中系统的状态是否符合预期
 TEST(ATBOpExcuteWatch, ATBKernelExcuteWatchNormalCase)
 {
-    auto &instance = ATBOpExcuteWatch::GetInstance();
+    auto &instance = OpExcuteWatch::GetInstance();
     instance.fistWatchOp_ = "first";
     instance.lastWatchOp_ = "last";
     instance.outputId_ = UINT32_MAX;
@@ -442,7 +443,7 @@ TEST(ATBOpExcuteWatch, ATBKernelExcuteWatchNormalCase)
 // 校验整个过程中系统的状态是否符合预期
 TEST(ATBOpExcuteWatch, ATBOpKernelMixExcuteWatchNormalCase)
 {
-    auto &instance = ATBOpExcuteWatch::GetInstance();
+    auto &instance = OpExcuteWatch::GetInstance();
     instance.fistWatchOp_ = "first";
     instance.lastWatchOp_ = "last";
     instance.outputId_ = UINT32_MAX;
@@ -456,115 +457,115 @@ TEST(ATBOpExcuteWatch, ATBOpKernelMixExcuteWatchNormalCase)
 
 void ATBOpExcuteWatchNormalCheckOpBWithOutputId()
 {
-    auto &instance = ATBOpExcuteWatch::GetInstance();
-    auto watchedTensors = instance.GetWatchedTensors();
+    auto &instance = OpExcuteWatch::GetInstance();
+    auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
     EXPECT_EQ(instance.IsInMonitoring(), false);
 
-    instance.AtbOpExcuteBegin("first");
+    instance.OpExcuteBegin("first", OpType::ATB);
 
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
     EXPECT_EQ(instance.IsInMonitoring(), false);
 
-    atb::Tensor tesor1 = {};
-    tesor1.deviceData = reinterpret_cast<void *>(DATA_VALUE_1);
+    MonitoredTensor tesor1 = {};
+    tesor1.data = reinterpret_cast<void *>(DATA_VALUE_1);
     tesor1.dataSize = DATA_SIZE_1;
 
-    atb::Tensor tesor2 = {};
-    tesor2.deviceData = reinterpret_cast<void *>(DATA_VALUE_2);
+    MonitoredTensor tesor2 = {};
+    tesor2.data = reinterpret_cast<void *>(DATA_VALUE_2);
     tesor2.dataSize = DATA_SIZE_2;
 
-    atb::SVector<atb::Tensor> tensors = {};
+    std::vector<MonitoredTensor> tensors = {};
     tensors.push_back(tesor1);
     tensors.push_back(tesor2);
 
-    instance.AtbOpExcuteEnd("first", tensors);
+    instance.OpExcuteEnd("first", tensors, OpType::ATB);
 
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
-    watchedTensors = instance.GetWatchedTensors();
+    watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 1);
-    EXPECT_EQ(watchedTensors[0].dataSize, DATA_SIZE_2);
-    EXPECT_EQ(watchedTensors[0].data, reinterpret_cast<void *>(DATA_VALUE_2));
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
     EXPECT_EQ(instance.IsInMonitoring(), true);
 }
 
 void ATBOpExcuteWatchNormalCheckOpCWithOutputId()
 {
-    auto &instance = ATBOpExcuteWatch::GetInstance();
-    auto watchedTensors = instance.GetWatchedTensors();
+    auto &instance = OpExcuteWatch::GetInstance();
+    auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 1);
-    EXPECT_EQ(watchedTensors[0].dataSize, DATA_SIZE_2);
-    EXPECT_EQ(watchedTensors[0].data, reinterpret_cast<void *>(DATA_VALUE_2));
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
     EXPECT_EQ(instance.IsInMonitoring(), true);
 
-    instance.AtbOpExcuteBegin("C");
+    instance.OpExcuteBegin("C", OpType::ATB);
 
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
-    watchedTensors = instance.GetWatchedTensors();
+    watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 1);
-    EXPECT_EQ(watchedTensors[0].dataSize, DATA_SIZE_2);
-    EXPECT_EQ(watchedTensors[0].data, reinterpret_cast<void *>(DATA_VALUE_2));
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
     EXPECT_EQ(instance.IsInMonitoring(), true);
 
-    atb::Tensor tesor1 = {};
-    tesor1.deviceData = reinterpret_cast<void *>(DATA_VALUE_3);
+    MonitoredTensor tesor1 = {};
+    tesor1.data = reinterpret_cast<void *>(DATA_VALUE_3);
     tesor1.dataSize = DATA_SIZE_3;
 
-    atb::Tensor tesor2 = {};
-    tesor2.deviceData = reinterpret_cast<void *>(DATA_VALUE_4);
+    MonitoredTensor tesor2 = {};
+    tesor2.data = reinterpret_cast<void *>(DATA_VALUE_4);
     tesor2.dataSize = DATA_SIZE_4;
 
-    atb::SVector<atb::Tensor> tensors = {};
+    std::vector<MonitoredTensor> tensors = {};
     tensors.push_back(tesor1);
     tensors.push_back(tesor2);
 
-    instance.AtbOpExcuteEnd("C", tensors);
+    instance.OpExcuteEnd("C", tensors, OpType::ATB);
 
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
-    watchedTensors = instance.GetWatchedTensors();
+    watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 1);
-    EXPECT_EQ(watchedTensors[0].dataSize, DATA_SIZE_2);
-    EXPECT_EQ(watchedTensors[0].data, reinterpret_cast<void *>(DATA_VALUE_2));
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
     EXPECT_EQ(instance.IsInMonitoring(), true);
 }
 
 void ATBOpExcuteWatchNormalCheckOpDWithOutputId()
 {
-    auto &instance = ATBOpExcuteWatch::GetInstance();
+    auto &instance = OpExcuteWatch::GetInstance();
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
-    auto watchedTensors = instance.GetWatchedTensors();
+    auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 1);
-    EXPECT_EQ(watchedTensors[0].dataSize, DATA_SIZE_2);
-    EXPECT_EQ(watchedTensors[0].data, reinterpret_cast<void *>(DATA_VALUE_2));
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
     EXPECT_EQ(instance.IsInMonitoring(), true);
 
-    instance.AtbOpExcuteBegin("last");
+    instance.OpExcuteBegin("last", OpType::ATB);
 
     EXPECT_EQ(instance.GetWatchedOpName(), "first");
-    watchedTensors = instance.GetWatchedTensors();
+    watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 1);
-    EXPECT_EQ(watchedTensors[0].dataSize, DATA_SIZE_2);
-    EXPECT_EQ(watchedTensors[0].data, reinterpret_cast<void *>(DATA_VALUE_2));
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
+    EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
     EXPECT_EQ(instance.IsInMonitoring(), true);
 
-    atb::Tensor tesor1 = {};
-    tesor1.deviceData = reinterpret_cast<void *>(DATA_VALUE_5);
+    MonitoredTensor tesor1 = {};
+    tesor1.data = reinterpret_cast<void *>(DATA_VALUE_5);
     tesor1.dataSize = DATA_SIZE_5;
 
-    atb::Tensor tesor2 = {};
-    tesor2.deviceData = reinterpret_cast<void *>(DATA_VALUE_6);
+    MonitoredTensor tesor2 = {};
+    tesor2.data = reinterpret_cast<void *>(DATA_VALUE_6);
     tesor2.dataSize = DATA_SIZE_6;
 
-    atb::SVector<atb::Tensor> tensors = {};
+    std::vector<MonitoredTensor> tensors = {};
     tensors.push_back(tesor1);
     tensors.push_back(tesor2);
 
-    instance.AtbOpExcuteEnd("last", tensors);
+    instance.OpExcuteEnd("last", tensors, OpType::ATB);
 
-    watchedTensors = instance.GetWatchedTensors();
+    watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 0);
     EXPECT_EQ(instance.GetWatchedOpName(), "");
     EXPECT_EQ(instance.IsInMonitoring(), false);
@@ -573,7 +574,7 @@ void ATBOpExcuteWatchNormalCheckOpDWithOutputId()
 // 分别执行ABCDE五个OP，其中B和D为start和end算子，校验整个过程中系统的状态是否符合预期（设置outputId）
 TEST(ATBOpExcuteWatch, ATBOpExcuteWatchSetOutputIdCase)
 {
-    auto &instance = ATBOpExcuteWatch::GetInstance();
+    auto &instance = OpExcuteWatch::GetInstance();
     instance.fistWatchOp_ = "first";
     instance.lastWatchOp_ = "last";
     instance.outputId_ = 1; // 只取下标为1的tensor
@@ -587,7 +588,7 @@ TEST(ATBOpExcuteWatch, ATBOpExcuteWatchSetOutputIdCase)
 
 TEST(ATBOpExcuteWatch, ATBKernelExcuteWatchCheckAtbKernelExcuteFuc)
 {
-    auto &instance = ATBOpExcuteWatch::GetInstance();
+    auto &instance = OpExcuteWatch::GetInstance();
     instance.fistWatchOp_ = "first";
     instance.lastWatchOp_ = "last";
     instance.outputId_ = UINT32_MAX;
@@ -598,38 +599,38 @@ TEST(ATBOpExcuteWatch, ATBKernelExcuteWatchCheckAtbKernelExcuteFuc)
 
     Mki::SVector<Mki::Tensor> tensors = {};
     tensors.push_back(tensor);
-    instance.AtbKernelExcute(name, tensors);
+    instance.KernelExcute(name, tensors, OpType::ATB);
 
     std::string firstName = "/first/after";
-    instance.AtbKernelExcute(firstName, tensors);
+    instance.KernelExcute(firstName, tensors, OpType::ATB);
 
     tensors.push_back(tensor);
     instance.outputId_ = 0;
-    instance.AtbKernelExcute(firstName, tensors);
+    instance.KernelExcute(firstName, tensors, OpType::ATB);
 }
 
 TEST(ATBOpExcuteWatch, ATBKernelExcuteWatchCheckAtbOpExcuteBeginFuc)
 {
-    auto &instance = ATBOpExcuteWatch::GetInstance();
+    auto &instance = OpExcuteWatch::GetInstance();
     instance.fistWatchOp_ = "first";
     instance.lastWatchOp_ = "last";
     instance.outputId_ = 0;
 
     std::string name = "first";
 
-    atb::Tensor tesor1 = {};
-    tesor1.deviceData = reinterpret_cast<void *>(DATA_VALUE_5);
+    MonitoredTensor tesor1 = {};
+    tesor1.data = reinterpret_cast<void *>(DATA_VALUE_5);
     tesor1.dataSize = DATA_SIZE_5;
 
-    atb::Tensor tesor2 = {};
-    tesor2.deviceData = reinterpret_cast<void *>(DATA_VALUE_6);
+    MonitoredTensor tesor2 = {};
+    tesor2.data = reinterpret_cast<void *>(DATA_VALUE_6);
     tesor2.dataSize = DATA_SIZE_6;
 
-    atb::SVector<atb::Tensor> tensors = {};
+    std::vector<MonitoredTensor> tensors = {};
     tensors.push_back(tesor1);
     tensors.push_back(tesor2);
 
-    instance.AtbOpExcuteEnd(name, tensors);
+    instance.OpExcuteEnd(name, tensors, OpType::ATB);
 }
 
 TEST(ATBOpExcuteWatch, ATBWatchCheckCleanFileNameFunc)

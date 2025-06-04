@@ -2,6 +2,7 @@
 #pragma once
 
 #include <Python.h>
+#include "cpython.h"
 
 namespace Leaks {
 
