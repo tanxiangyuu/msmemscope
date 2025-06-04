@@ -11,6 +11,7 @@
 #include "framework/config_info.h"
 #include "host_injection/core/Communication.h"
 #include "device_manager.h"
+#include "data_handler.h"
 
 namespace Leaks {
 
@@ -23,8 +24,7 @@ public:
     void SetAllocAttr(MemStateInfo& memInfo);
 private:
     explicit DumpRecord(Config config);
-    ~DumpRecord();
-    void SetDirPath();
+    ~DumpRecord() = default;
     DumpRecord(const DumpRecord&) = delete;
     DumpRecord& operator=(const DumpRecord&) = delete;
     DumpRecord(DumpRecord&& other) = delete;
@@ -40,12 +40,9 @@ private:
     bool DumpAtbKernelData(const ClientId &clientId, const AtbKernelRecord &atbKernelRecord);
     bool DumpAtenOpLaunchData(const ClientId &clientId, const AtenOpLaunchRecord &atenOpLaunchRecord,
     const CallStackString &stack);
-    FILE *leaksDataFile_ = nullptr;
-    std::string dirPath_;
     std::mutex fileMutex_;
-    std::string fileNamePrefix_ = "leaks_dump_";
-    std::string csvHeader_;
     Config config_;
+    std::unique_ptr<DataHandler> handler_;
 };
 
 } // namespace Leaks

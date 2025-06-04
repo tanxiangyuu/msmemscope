@@ -10,6 +10,7 @@
 #include "config_info.h"
 #include "securec.h"
 #include "file.h"
+#include "data_handler.h"
 
 using namespace Leaks;
 
@@ -33,6 +34,7 @@ TEST(DumpRecord, dump_cpu_memory_record_expect_success)
     memRecordMalloc.memType = MemOpType::MALLOC;
     record.eventRecord.record.memoryRecord = memRecordMalloc;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
     CallStackString stack{};
     std::shared_ptr<MemoryStateRecord> memoryStateRecord = std::make_shared<MemoryStateRecord>(config);
@@ -75,6 +77,7 @@ TEST(DumpRecord, dump_memory_record_expect_success)
     record.eventRecord.record.memoryRecord = memRecordMalloc;
     Config config;
     ClientId clientId = 0;
+    config.dataFormat = 0;
     CallStackString stack{};
     std::shared_ptr<MemoryStateRecord> memoryStateRecord = std::make_shared<MemoryStateRecord>(config);
     std::vector<MemStateInfo> meminfoList = {};
@@ -110,6 +113,7 @@ TEST(DumpRecord, dump_kernelLaunch_record_expect_success)
     record.eventRecord.record.kernelLaunchRecord = kernelLaunchRecord;
     Config config;
     ClientId clientId = 0;
+    config.dataFormat = 0;
     std::string testName = "123";
     CallStackString stack{};
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
@@ -131,6 +135,7 @@ TEST(DumpRecord, dump_aclItf_record_expect_success)
     record.eventRecord.record.aclItfRecord = aclItfRecord;
     Config config;
     ClientId clientId = 0;
+    config.dataFormat = 0;
     CallStackString stack{};
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
@@ -155,6 +160,7 @@ TEST(DumpRecord, dump_torchnpu_record_expect_success)
     record.eventRecord.record.memPoolRecord = memPoolRecord;
     Config config;
     ClientId clientId = 0;
+    config.dataFormat = 0;
     CallStackString stack{};
     std::shared_ptr<MemoryStateRecord> memoryStateRecord = std::make_shared<MemoryStateRecord>(config);
     std::vector<MemStateInfo> meminfoList = {};
@@ -178,6 +184,7 @@ TEST(DumpRecord, dump_empty_torchnpu_record)
     memPoolRecord.memoryUsage = memoryUsage;
     record.eventRecord.record.memPoolRecord = memPoolRecord;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
     CallStackString stack{};
     std::shared_ptr<MemoryStateRecord> memoryStateRecord = std::make_shared<MemoryStateRecord>(config);
@@ -208,6 +215,7 @@ TEST(DumpRecord, dump_mindsporenpu_record_expect_success)
     memPoolRecord.memoryUsage = memoryUsage;
     record.eventRecord.record.memPoolRecord = memPoolRecord;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
     CallStackString stack{};
     std::shared_ptr<MemoryStateRecord> memoryStateRecord = std::make_shared<MemoryStateRecord>(config);
@@ -231,6 +239,7 @@ TEST(DumpRecord, dump_empty_mindsporenpu_record)
     memPoolRecord.memoryUsage = memoryUsage;
     record.eventRecord.record.memPoolRecord = memPoolRecord;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
     CallStackString stack{};
     std::shared_ptr<MemoryStateRecord> memoryStateRecord = std::make_shared<MemoryStateRecord>(config);
@@ -261,6 +270,7 @@ TEST(DumpRecord, dump_invalid_memory_record)
     memRecordMalloc.memType = MemOpType::MALLOC;
     record.eventRecord.record.memoryRecord = memRecordMalloc;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
     CallStackString stack{};
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
@@ -287,6 +297,7 @@ TEST(DumpRecord, dump_mstx_mark_expect_success)
     mstxRecord.recordIndex = 1;
     record.eventRecord.record.mstxRecord = mstxRecord;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
     CallStackString stack{};
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
@@ -310,6 +321,7 @@ TEST(DumpRecord, dump_aten_launch_start_expect_success)
     record.eventRecord.record.atenOpLaunchRecord = atenOpLaunchRecord;
 
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
     CallStackString stack{};
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
@@ -331,6 +343,7 @@ TEST(DumpRecord, dump_aten_launch_end_expect_success)
     record.eventRecord.record.atenOpLaunchRecord = atenOpLaunchRecord;
 
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
     CallStackString stack{};
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
@@ -354,6 +367,7 @@ TEST(DumpRecord, dump_aten_launch_expect_success)
     record.eventRecord.record.memAccessRecord = memAccessRecord;
 
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
     CallStackString stack{};
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
@@ -376,6 +390,7 @@ TEST(DumpRecord, dump_mstx_range_start_expect_success)
     mstxRecord.recordIndex = 1;
     record.eventRecord.record.mstxRecord = mstxRecord;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
     CallStackString stack{};
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
@@ -396,6 +411,7 @@ TEST(DumpRecord, dump_mstx_range_end_expect_success)
     mstxRecord.recordIndex = 1;
     record.eventRecord.record.mstxRecord = mstxRecord;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
     CallStackString stack{};
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
@@ -420,6 +436,7 @@ TEST(DumpRecord, dump_atb_op_start_expect_success)
     atbOpExecuteRecord.recordIndex = 1;
     record.eventRecord.record.atbOpExecuteRecord = atbOpExecuteRecord;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
     CallStackString stack{};
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
@@ -444,6 +461,7 @@ TEST(DumpRecord, dump_atb_op_end_expect_success)
     atbOpExecuteRecord.recordIndex = 1;
     record.eventRecord.record.atbOpExecuteRecord = atbOpExecuteRecord;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
     CallStackString stack{};
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
@@ -468,6 +486,7 @@ TEST(DumpRecord, dump_atb_kernel_start_expect_success)
     atbKernelRecord.recordIndex = 1;
     record.eventRecord.record.atbKernelRecord = atbKernelRecord;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
     CallStackString stack{};
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
@@ -492,6 +511,7 @@ TEST(DumpRecord, dump_atb_kernel_end_expect_success)
     atbKernelRecord.recordIndex = 1;
     record.eventRecord.record.atbKernelRecord = atbKernelRecord;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
     CallStackString stack{};
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
@@ -501,16 +521,9 @@ TEST(DumpRecord, dump_kernel_execute_data_expect_success)
 {
     auto kernelExcuteRecord = KernelExcuteRecord{};
     Config config;
+    config.dataFormat = 0;
     kernelExcuteRecord.recordIndex = 1;
     kernelExcuteRecord.devId = 0;
     kernelExcuteRecord.type = KernelEventType::KERNEL_START;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpKernelExcuteData(kernelExcuteRecord));
-}
-
-TEST(DumpRecord, set_dir_path)
-{
-    Config config;
-    Utility::SetDirPath("/MyPath", std::string(OUTPUT_PATH));
-    DumpRecord::GetInstance(config).SetDirPath();
-    EXPECT_EQ(DumpRecord::GetInstance(config).dirPath_, "/MyPath/" + std::string(DUMP_FILE));
 }
