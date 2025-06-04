@@ -17,7 +17,6 @@
 #include "bit_field.h"
 #include "securec.h"
 #include "vallina_symbol.h"
-#include "atb_op_watch/atb_tensor_dump.h"
 #include "calculate_md5.h"
 
 namespace Leaks {

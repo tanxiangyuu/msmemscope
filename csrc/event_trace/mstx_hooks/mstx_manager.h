@@ -24,8 +24,6 @@ public:
     MstxManager(const MstxManager&) = delete;
     MstxManager& operator=(const MstxManager&) = delete;
 
-    bool IsAtenLaunchEnable();
-    bool IsAtenAccessEnable();
     void ReportMarkA(const char* msg, int32_t streamId);
     uint64_t ReportRangeStart(const char* msg, int32_t streamId);
     void ReportRangeEnd(uint64_t id);
