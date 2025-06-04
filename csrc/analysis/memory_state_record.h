@@ -11,6 +11,7 @@
 #include "record_info.h"
 #include "config_info.h"
 #include "bit_field.h"
+#include "data_handler.h"
 
 namespace Leaks {
 

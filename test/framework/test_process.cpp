@@ -32,6 +32,7 @@ void setConfig(Config &config)
     config.enableCStack = true;
     config.enablePyStack = true;
     config.stepList.stepCount = 0;
+    config.dataFormat = 0;
 }
 
 TEST(Process, process_launch_ls_expect_success)

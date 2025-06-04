@@ -31,6 +31,7 @@ enum class OptVal : int32_t {
     DATA_TRACE_LEVEL,
     LOG_LEVEL,
     EVENT_TRACE_TYPE,
+    DATA_FORMAT,
     ANALYSIS,
 };
 constexpr uint16_t INPUT_STR_MAX_LEN = 4096;
@@ -86,7 +87,8 @@ void ShowHelpInfo()
         << std::endl
         << "                                             The input paths need to be separated by, or ，." << std::endl
         << "    --output=path                            The path to store the generated files." << std::endl
-        << "    --log-level                              Set log level to <level> [warn]." << std::endl;
+        << "    --log-level                              Set log level to <level> [warn]." << std::endl
+        << "    --data-format=<db|csv>                   Set data format to <format> (default:csv)." << std::endl;
 }
 
 void ShowVersion()
@@ -133,6 +135,13 @@ void DoUserCommand(UserCommand userCommand)
         std::cout << "strncpy_s FAILED" << std::endl;
     }
     userCommand.config.outputDir[sizeof(userCommand.config.outputDir) - 1] = '\0';
+
+    if (userCommand.config.dataFormat == static_cast<uint8_t>(DataFormat::DB)) {
+        if (!Utility::IsSqliteAvailable() || !Utility::CreateDbPath(userCommand.config, DB_DUMP_FILE)) {
+            return;
+        }
+    }
+
     Command command {userCommand};
     command.Exec();
 }
@@ -158,6 +167,7 @@ std::vector<option> GetLongOptArray()
         {"level", required_argument, nullptr, static_cast<int32_t>(OptVal::DATA_TRACE_LEVEL)},
         {"events", required_argument, nullptr, static_cast<int32_t>(OptVal::EVENT_TRACE_TYPE)},
         {"log-level", required_argument, nullptr, static_cast<int32_t>(OptVal::LOG_LEVEL)},
+        {"data-format", required_argument, nullptr, static_cast<int32_t>(OptVal::DATA_FORMAT)},
         {nullptr, 0, nullptr, 0},
     };
     return longOpts;
@@ -547,6 +557,24 @@ static void ParseLogLv(const std::string &param, UserCommand &userCommand)
     }
 }
 
+static void ParseDataFormat(const std::string &param, UserCommand &userCommand)
+{
+    const std::map<std::string, DataFormat> dataFormatMap = {
+        {"csv", DataFormat::CSV},
+        {"db", DataFormat::DB},
+    };
+    auto it = dataFormatMap.find(param);
+    if (it == dataFormatMap.end()) {
+        std::cout << "[msleaks] ERROR: --data-format param is invalid. "
+                  << "DATA_FORMAT can only be set csv,db." << std::endl;
+        userCommand.printHelpInfo = true;
+    } else {
+        auto dataFormat = it->second;
+        userCommand.config.dataFormat = static_cast<uint8_t>(dataFormat);
+    }
+    return;
+}
+
 void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand &userCommand)
 {
     switch (opt) {
@@ -590,6 +618,9 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
         case static_cast<int32_t>(OptVal::LOG_LEVEL):
             ParseLogLv(param, userCommand);
             break;
+        case static_cast<int32_t>(OptVal::DATA_FORMAT):
+            ParseDataFormat(param, userCommand);
+            break;
         default:
             ;
     }
@@ -606,6 +637,7 @@ void ClientParser::InitialUserCommand(UserCommand &userCommand)
     userCommand.config.cStackDepth = 0;
     userCommand.config.pyStackDepth = 0;
     userCommand.config.levelType = 1;
+    userCommand.config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
 
     BitField<decltype(userCommand.config.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));

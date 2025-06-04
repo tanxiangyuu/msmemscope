@@ -14,21 +14,9 @@
 #include "utils.h"
 #include "file.h"
 #include "event_report.h"
+#include "../csrc/analysis/data_handler.h"
 
 namespace Leaks {
-
-struct TraceEvent {
-    TraceEvent() = default;
-    TraceEvent(const TraceEvent&) = default;
-    TraceEvent& operator=(const TraceEvent&) = default;
-
-    uint64_t startTs;
-    uint64_t endTs;
-    uint64_t tid;
-    uint64_t pid;
-    std::string info;
-    std::string hash;
-};
 
 class PythonTrace {
 public:
@@ -49,25 +37,19 @@ private:
     bool IsIgnore(std::string func);
     PythonTrace()
     {
-        auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
-        prefix_ = "python_trace_" + std::to_string(Utility::GetPid()) + "_";
-        dirPath_ = std::string(config.outputDir) + "/dump";
+        config_ = EventReport::Instance(CommType::SOCKET).GetConfig();
+        handler_ = MakeDataHandler(config_, DumpClass::PYTHON_TRACE);
     }
-    ~PythonTrace()
-    {
-        if (dataFile_ != nullptr) {
-            fclose(dataFile_);
-            dataFile_ = nullptr;
-        }
-    }
+    ~PythonTrace() = default;
     std::unordered_map<uint64_t, std::stack<TraceEvent>> frameStack_;
     std::atomic<bool> active_{false};
     std::unordered_map<uint64_t, bool> throw_;
     std::mutex mutex_;
-    FILE *dataFile_ = nullptr;
     std::string prefix_;
     std::string dirPath_;
     std::vector<std::string> ignorePyFunc_ = {"__torch_dispatch__"};
+    std::unique_ptr<DataHandler> handler_;
+    Config config_;
 };
 void callback(std::string hash, std::string info, PyTraceType what, uint64_t timeStamp);
 }

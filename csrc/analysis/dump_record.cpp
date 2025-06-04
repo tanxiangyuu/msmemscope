@@ -10,6 +10,7 @@
 #include "config_info.h"
 #include "event_report.h"
 #include "bit_field.h"
+#include "data_handler.h"
 
 #include <iostream>
 
@@ -24,16 +25,7 @@ DumpRecord& DumpRecord::GetInstance(Config config)
 DumpRecord::DumpRecord(Config config)
 {
     config_ = config;
-    std::string cStack = config.enableCStack ? ",Call Stack(C)" : "";
-    std::string pyStack = config.enablePyStack ? ",Call Stack(Python)" : "";
-    csvHeader_ = LEAKS_HEADERS + pyStack + cStack + "\n";
-    SetDirPath();
-}
-
-void DumpRecord::SetDirPath()
-{
-    std::lock_guard<std::mutex> lock(fileMutex_);
-    dirPath_ = Utility::g_dirPath + "/" + std::string(DUMP_FILE);
+    handler_ = MakeDataHandler(config_, DumpClass::LEAKS_RECORD);
 }
 
 bool DumpRecord::DumpData(const ClientId &clientId, const Record &record, const CallStackString &stack)
@@ -84,25 +76,10 @@ bool DumpRecord::DumpData(const ClientId &clientId, const Record &record, const 
 
 bool DumpRecord::WriteToFile(DumpContainer &container, const CallStackString &stack)
 {
-    std::string pid = container.pid == INVALID_PROCESSID ? "N/A" : std::to_string(container.pid);
-    std::string tid = container.tid == INVALID_THREADID ? "N/A" : std::to_string(container.tid);
-    if (!Utility::Fprintf(leaksDataFile_, "%lu,%s,%s,%s,%lu,%s,%s,%s,%s,%s",
-        container.id, container.event.c_str(), container.eventType.c_str(), container.name.c_str(),
-        container.timeStamp, pid.c_str(), tid.c_str(), container.deviceId.c_str(),
-        container.addr.c_str(), container.attr.c_str())) {
+    if (!handler_->Init()) {
         return false;
     }
-    if (config_.enablePyStack && !Utility::Fprintf(leaksDataFile_, ",%s", stack.pyStack.c_str())) {
-        return false;
-    }
-    if (config_.enableCStack && !Utility::Fprintf(leaksDataFile_, ",%s", stack.cStack.c_str())) {
-        return false;
-    }
-    if (!Utility::Fprintf(leaksDataFile_, "\n")) {
-        return false;
-    }
-
-    return true;
+    return handler_->Write(&container, stack);
 }
 
 void DumpRecord::SetAllocAttr(MemStateInfo& memInfo)
@@ -129,6 +106,9 @@ bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRec
     if (memRecord.memType == MemOpType::MALLOC) {
         return true;
     }
+    if (!handler_->Init()) {
+        return false;
+    }
 
     // free事件，落盘记录的全部内存状态数据
     auto ptr = memRecord.addr;
@@ -137,14 +117,14 @@ bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRec
     auto memInfoLists = memoryStateRecord->GetPtrMemInfoList(key);
     {
         std::lock_guard<std::mutex> lock(fileMutex_);
-        if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+        if (!handler_->Init()) {
             return false;
         }
         for (auto& memInfo : memInfoLists) {
             if (memInfo.container.event == "MALLOC") {
                 SetAllocAttr(memInfo);
             }
-            if (!WriteToFile(memInfo.container, memInfo.stack)) return false;
+            if (!handler_->Write(&memInfo.container, memInfo.stack)) return false;
         }
     }
     memoryStateRecord->DeleteMemStateInfo(key);
@@ -155,7 +135,7 @@ bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRec
 bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchRecord &kernelLaunchRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+    if (!handler_->Init()) {
         return false;
     }
     std::string name;
@@ -183,14 +163,14 @@ bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchReco
     container.attr = attr;
 
     CallStackString emptyStack {};
-    bool isWriteSuccess = WriteToFile(container, emptyStack);
+    bool isWriteSuccess = handler_->Write(&container, emptyStack);
     return isWriteSuccess;
 }
 
 bool DumpRecord::DumpKernelExcuteData(const KernelExcuteRecord &record)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+    if (!handler_->Init()) {
         return false;
     }
 
@@ -212,14 +192,14 @@ bool DumpRecord::DumpKernelExcuteData(const KernelExcuteRecord &record)
     container.attr = attr;
 
     CallStackString emptyStack {};
-    bool isWriteSuccess = WriteToFile(container, emptyStack);
+    bool isWriteSuccess = handler_->Write(&container, emptyStack);
     return isWriteSuccess;
 }
 
 bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRecord, const CallStackString &stack)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+    if (!handler_->Init()) {
         return false;
     }
 
@@ -256,7 +236,7 @@ bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRe
     container.deviceId = std::to_string(mstxRecord.devId);
     container.addr = "N/A";
 
-    bool isWriteSuccess = WriteToFile(container, stack);
+    bool isWriteSuccess = handler_->Write(&container, stack);
     return isWriteSuccess;
 }
 
@@ -264,7 +244,7 @@ bool DumpRecord::DumpAtenOpLaunchData(const ClientId &clientId, const AtenOpLaun
     const CallStackString &stack)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+    if (!handler_->Init()) {
         return false;
     }
     std::string eventType;
@@ -293,14 +273,15 @@ bool DumpRecord::DumpAtenOpLaunchData(const ClientId &clientId, const AtenOpLaun
     container.tid = atenOpLaunchRecord.tid;
     container.deviceId = std::to_string(atenOpLaunchRecord.devId);
     container.addr = "N/A";
-
-    return WriteToFile(container, stack);
+    
+    bool isWriteSuccess = handler_->Write(&container, stack);
+    return isWriteSuccess;
 }
 
 bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+    if (!handler_->Init()) {
         return false;
     }
     std::string aclType;
@@ -328,7 +309,7 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
     container.addr = "N/A";
 
     CallStackString emptyStack {};
-    bool isWriteSuccess = WriteToFile(container, emptyStack);
+    bool isWriteSuccess = handler_->Write(&container, emptyStack);
     return isWriteSuccess;
 }
 
@@ -354,14 +335,14 @@ bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &ev
     auto memInfoLists = memoryStateRecord->GetPtrMemInfoList(key);
     {
         std::lock_guard<std::mutex> lock(fileMutex_);
-        if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+        if (!handler_->Init()) {
             return false;
         }
         for (auto memInfo : memInfoLists) {
             if (memInfo.container.event == "MALLOC") {
                 SetAllocAttr(memInfo);
             }
-            if (!WriteToFile(memInfo.container, memInfo.stack)) return false;
+            if (!handler_->Write(&memInfo.container, memInfo.stack)) return false;
         }
     }
     memoryStateRecord->DeleteMemStateInfo(key);
@@ -372,7 +353,7 @@ bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &ev
 bool DumpRecord::DumpAtbOpData(const ClientId &clientId, const AtbOpExecuteRecord &atbOpExecuteRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+    if (!handler_->Init()) {
         return false;
     }
     std::string eventType;
@@ -408,13 +389,13 @@ bool DumpRecord::DumpAtbOpData(const ClientId &clientId, const AtbOpExecuteRecor
     container.attr = attr;
 
     CallStackString emptyStack {};
-    return WriteToFile(container, emptyStack);
+    return handler_->Write(&container, emptyStack);
 }
 
 bool DumpRecord::DumpAtbKernelData(const ClientId &clientId, const AtbKernelRecord &atbKernelRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+    if (!handler_->Init()) {
         return false;
     }
     std::string eventType;
@@ -450,14 +431,6 @@ bool DumpRecord::DumpAtbKernelData(const ClientId &clientId, const AtbKernelReco
     container.attr = attr;
 
     CallStackString emptyStack {};
-    return WriteToFile(container, emptyStack);
-}
-
-DumpRecord::~DumpRecord()
-{
-    if (leaksDataFile_ != nullptr) {
-        fclose(leaksDataFile_);
-        leaksDataFile_ = nullptr;
-    }
+    return handler_->Write(&container, emptyStack);
 }
 }
