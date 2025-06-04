@@ -23,6 +23,8 @@ constexpr const char *TRACE_FILE = "trace";
 constexpr const char *DUMP_FILE = "dump";
 constexpr const char *COMPARE_FILE = "compare";
 constexpr uint16_t WATCH_OP_DIR_MAX_LENGTH = 255;
+constexpr const char *DB_DUMP_FILE = "leaks_dump";
+constexpr int SQLITE_TIME_OUT = 5000;
 
 // level type可以多选，每一种type占一个bit位
 enum class LevelType : uint8_t {
@@ -38,6 +40,15 @@ enum class EventType : uint8_t {
     ACCESS_EVENT = 3,
 };
 
+enum class DataFormat : uint8_t {
+    CSV = 0,
+    DB = 1,
+};
+
+enum class DumpClass : uint8_t {
+    LEAKS_RECORD = 0,
+    PYTHON_TRACE = 1,
+};
 // analysis type可以多选，每一种type占一个bit位
 enum class AnalysisType : uint8_t {
     LEAKS_ANALYSIS = 0,
@@ -48,22 +59,6 @@ enum class AnalysisType : uint8_t {
 struct SelectedStepList {
     uint32_t stepIdList[SELECTED_STEP_MAX_NUM];
     uint8_t stepCount;
-};
-
-// dump数据结构
-struct DumpContainer {
-    uint64_t id;
-    std::string event;
-    std::string eventType;
-    std::string name;
-    uint64_t timeStamp;
-    uint64_t pid;
-    uint64_t tid;
-    std::string deviceId;
-    std::string addr;
-    std::string owner = "";
-    std::string callStack = "";
-    std::string attr = "";
 };
 
 struct WatchConfig {
@@ -89,6 +84,8 @@ struct Config {
     uint8_t eventType;
     uint8_t analysisType;
     char outputDir[128];
+    uint8_t dataFormat;
+    char dbFileDir[128];
 };
 
 // 用于承载用户命令行参数的解析结果

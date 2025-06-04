@@ -40,14 +40,11 @@ void PythonTrace::RecordPyCall(std::string funcHash, std::string funcInfo, uint6
 bool PythonTrace::DumpTraceEvent(TraceEvent &event)
 {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!Utility::CreateCsvFile(&dataFile_, dirPath_, prefix_, TRACE_HEADERS)) {
+    if (!handler_->Init()) {
         return false;
     }
-    std::string startTime = event.startTs ? std::to_string(event.startTs) : "N/A";
-    std::string endTime = event.endTs ? std::to_string(event.endTs) : "N/A";
-    fprintf(dataFile_, "%s,%s,%s,%lu,%lu\n",
-        event.info.c_str(), startTime.c_str(), endTime.c_str(), event.tid, event.pid);
-    return true;
+    CallStackString emptyStack {};
+    return handler_->Write(&event, emptyStack);
 }
 
 void PythonTrace::RecordCCall(std::string funcHash, std::string funcInfo)
