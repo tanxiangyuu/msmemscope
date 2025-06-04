@@ -2,6 +2,7 @@
 #include "protocol.h"
 #include <limits>
 #include <iostream>
+#include "serializer.h"
 
 namespace Leaks {
 
@@ -9,6 +10,16 @@ void Protocol::Extractor::Feed(const std::string &msg)
 {
     std::lock_guard<std::mutex> guard(mutex_);
     bytes_ += msg;
+}
+
+template <typename T>
+bool Protocol::Extractor::Read(T &val)
+{
+    std::string buffer;
+    if (!Read(sizeof(T), buffer)) {
+        return false;
+    }
+    return Deserialize<T>(buffer, val);
 }
 
 bool Protocol::Extractor::Read(uint64_t size, std::string &buffer)
@@ -26,18 +37,6 @@ bool Protocol::Extractor::Read(uint64_t size, std::string &buffer)
     }
     return true;
 }
-
-bool Protocol::Extractor::View(uint64_t size, std::string &buffer)
-{
-    std::lock_guard<std::mutex> guard(mutex_);
-    uint64_t maxValue = std::numeric_limits<uint64_t>::max();
-    if (maxValue - offset_ <= size || offset_ + size > bytes_.size()) {
-        return false;
-    }
-    buffer = bytes_.substr(offset_, size);
-    return true;
-}
-
 uint64_t Protocol::Extractor::Size(void) const
 {
     return bytes_.size() - offset_;
@@ -66,7 +65,7 @@ void Protocol::Feed(std::string const &msg)
 
 Packet Protocol::GetPacket(void)
 {
-    thread_local static PacketHead head{PacketType::INVALID, 0};
+    thread_local static PacketHead head{PacketType::INVALID};
     if (head.type == PacketType::INVALID) {
         if (!extractor_->Read(head)) {
             return Packet {};
@@ -87,17 +86,20 @@ Packet Protocol::GetPayLoad(PacketHead head)
         case PacketType::RECORD:
             return GetRecord();
         case PacketType::LOG:
-            return GetLog(head.length);
+            return GetLog();
         case PacketType::INVALID:
         default:
             return Packet{};
     }
 }
 
-bool Protocol::GetStringData(std::string &data, uint64_t size)
+bool Protocol::GetStringData(std::string &data)
 {
+    thread_local static uint64_t size{};
     if (size == 0UL) {
-        return true;
+        if (!extractor_->Read(size)) {
+            return false;
+        }
     }
     if (extractor_->Size() < size) {
         return false;
@@ -105,6 +107,7 @@ bool Protocol::GetStringData(std::string &data, uint64_t size)
     if (!extractor_->Read(size, data)) {
         return false;
     }
+    size = 0UL;
     return true;
 }
 
@@ -127,10 +130,10 @@ Packet Protocol::GetRecord(void)
     return packet;
 }
 
-Packet Protocol::GetLog(uint64_t len)
+Packet Protocol::GetLog(void)
 {
     std::string buffer;
-    return GetStringData(buffer, len) ? Packet(buffer) : Packet();
+    return GetStringData(buffer) ? Packet(buffer) : Packet();
 }
 
 }

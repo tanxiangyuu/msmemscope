@@ -62,7 +62,6 @@ bool Compare(const std::unordered_map<std::string, std::string> &a,
 {
     uint64_t compareA;
     uint64_t compareB;
-
     if (!Utility::StrToUint64(compareA, a.at("Timestamp(ns)"))) {
         LOG_WARN("StrToUint64 failed, the str is %s.", a.at("Timestamp(ns)").c_str());
         compareA = UINT64_MAX;
@@ -127,7 +126,7 @@ void StepInterAnalyzer::ReadCsvFile(std::string &path, std::unordered_map<DEVICE
 
     for (const auto& pair : data) {
         uint64_t deviceId = pair.first;
-        // kernelName解析使用多线程，需要根据timestamp排序保证顺序
+        // kernelName解析使用多线程，需要根据timeStamp排序保证顺序
         sort(data[deviceId].begin(), data[deviceId].end(), Compare);
     }
     csvFile.close();

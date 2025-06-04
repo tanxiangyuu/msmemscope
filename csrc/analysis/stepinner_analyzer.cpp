@@ -267,7 +267,7 @@ void StepInnerAnalyzer::RecordNpuMalloc(const ClientId &clientId, const DeviceId
             "[npu%d malloc][client %u]:!!! ------double malloc------!!!, ptr: %lld", deviceId, clientId, npumemptr);
     }
     NpuMemInfo npuMemInfo = {
-    memPoolRecord.type, memoryusage.allocSize, memPoolRecord.timestamp, 0, npuMemUsages_[deviceId].mstxStep,
+    memPoolRecord.type, memoryusage.allocSize, memPoolRecord.timeStamp, 0, npuMemUsages_[deviceId].mstxStep,
     memPoolRecord.kernelIndex};
     npuMemUsages_[deviceId].mempooltable.emplace(npumemptr, npuMemInfo);
     UpdateAllocated(deviceId, memoryusage.totalAllocated);
