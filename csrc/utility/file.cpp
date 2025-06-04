@@ -1,7 +1,10 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
-#include "file.h"
+#include <sqlite3.h>
+#include <dlfcn.h>
+#include <securec.h>
 #include "utils.h"
+#include "file.h"
 
 namespace Utility {
 
@@ -85,6 +88,89 @@ namespace Utility {
                 std::cout << "[msleaks] Error: open file " << filePath << " failed." << std::endl;
                 return false;
             }
+        }
+        return true;
+    }
+
+    bool IsSqliteAvailable()
+    {
+        void* handle = dlopen("libsqlite3.so", RTLD_LAZY);
+        if (!handle) {
+            std::cout << "[msleaks] ERROR: sqlite3 is not available please installed." << std::endl;
+            return false;
+        }
+        dlclose(handle);
+        return true;
+    }
+
+    bool CreateDbPath(Leaks::Config &config, const std::string &fileName)
+    {
+        std::string name = fileName + "_" + Utility::GetDateStr() + ".db";
+        std::string path = std::string(config.outputDir) + "/" + Leaks::DUMP_FILE + "/" + name;
+        if (strncpy_s(config.dbFileDir, sizeof(config.dbFileDir), path.c_str(), sizeof(config.dbFileDir) - 1) != EOK) {
+            std::cout << "strncpy_s FAILED DB" << std::endl;
+        }
+        config.dbFileDir[sizeof(config.dbFileDir) - 1] = '\0';
+        if (std::string(config.dbFileDir).length() > PATH_MAX) {
+            std::cout << "[msleaks] Error: Path " << std::string(config.dbFileDir)
+                        << " length exceeds the maximum length:" << PATH_MAX << "." << std::endl;
+            return false;
+        }
+        return true;
+    }
+
+    bool TableExists(sqlite3 *filefp, std::string tableName)
+    {
+        std::string sql = "SELECT name FROM sqlite_master WHERE type='table' AND name=?";
+        sqlite3_stmt* stmt;
+        int rc = sqlite3_prepare_v2(filefp, sql.c_str(), -1, &stmt, nullptr);
+        if (rc != SQLITE_OK) {
+            return false;
+        }
+        rc = sqlite3_bind_text(stmt, 1, tableName.c_str(), -1, SQLITE_STATIC);
+        if (rc != SQLITE_OK) {
+            sqlite3_finalize(stmt);
+            return false;
+        }
+        sqlite3_busy_timeout(filefp, Leaks::SQLITE_TIME_OUT);
+        rc = sqlite3_step(stmt);
+        bool exists = (rc == SQLITE_ROW);
+        sqlite3_finalize(stmt);
+        return exists;
+    }
+    
+    bool CreateDbTable(sqlite3 *filefp, std::string tableCreateSql)
+    {
+        sqlite3_busy_timeout(filefp, Leaks::SQLITE_TIME_OUT);
+        int rc = sqlite3_exec(filefp, tableCreateSql.c_str(), nullptr, nullptr, nullptr);
+        if (rc != SQLITE_OK) {
+            std::cerr << "SQL error: " << sqlite3_errmsg(filefp) << std::endl;
+            return false;
+        }
+        return true;
+    }
+
+    bool CreateDbFile(sqlite3 **filefp, std::string filePath, std::string tableName, std::string tableCreateSql)
+    {
+        if (*filefp == nullptr) {
+            sqlite3* db = nullptr;
+            int rc = sqlite3_open(filePath.c_str(), &db);
+            if (rc != SQLITE_OK) {
+                std::cerr << "Cannot open database: " << sqlite3_errmsg(db) << std::endl;
+                if (db != nullptr) {
+                    sqlite3_close(db);
+                }
+                return false;
+            }
+            if (CreateDbTable(db, tableCreateSql)) {
+                std::cout << "[msleaks] Info: create dbfile " << filePath << "." << std::endl;
+                *filefp = db;
+            } else {
+                sqlite3_close(db);
+                return false;
+            }
+        } else if (!TableExists(*filefp, tableName) && !CreateDbTable(*filefp, tableCreateSql)) {
+            return false;
         }
         return true;
     }

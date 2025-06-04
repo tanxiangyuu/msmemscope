@@ -5,6 +5,7 @@
 #include "utility/log.h"
 #include "bit_field.h"
 #include "module_info.h"
+#include "data_handler.h"
 
 namespace Leaks {
 
