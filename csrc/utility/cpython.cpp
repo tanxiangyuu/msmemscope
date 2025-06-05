@@ -398,9 +398,8 @@ std::vector<PyThreadState*> getInterpreterThreads(PyInterpreterState* interprete
     return threads;
 }
 
-void GetTraceCallStack(std::string type)
+void GetTraceCallStack(std::string type, uint64_t time)
 {
-    uint64_t time = GetTimeNanoseconds();
     const size_t stackMaxDepth = 128;
     auto frame = PyEval_GetFrame();
     if (frame != nullptr) {
@@ -438,9 +437,10 @@ void RegisterTraceCb(TraceCbFunc call)
         return;
     }
     std::vector<PyThreadState *> thread_states = getInterpreterThreads(interpreter);
+    uint64_t time = GetTimeNanoseconds();
     for (const auto thread_state : thread_states) {
         PyThreadState_Swap(thread_state);
-        GetTraceCallStack("start: ");
+        GetTraceCallStack("start: ", time);
         PyEval_SetProfile(pyProfileFn, nullptr);
     }
     PyThreadState_Swap(init);
@@ -448,9 +448,10 @@ void RegisterTraceCb(TraceCbFunc call)
 
 void UnRegisterTraceCb()
 {
+    uint64_t time = GetTimeNanoseconds();
     for (const auto thread_state : getInterpreterThreads(interpreter)) {
         PyThreadState_Swap(thread_state);
-        GetTraceCallStack("stop: ");
+        GetTraceCallStack("stop: ", time);
         PyEval_SetProfile(nullptr, nullptr);
     }
     callFunc = nullptr;
