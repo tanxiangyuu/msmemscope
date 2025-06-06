@@ -21,7 +21,7 @@ TEST(TesnorDumperTest, dump_tensor_MD5_expect_success)
 {
     std::string fileName = "test";
     std::vector<char> hostData(fileName.begin(), fileName.end());
-    auto ret = TensorDumper::GetInstance().DumpTensorMD5(hostData, fileName);
+    auto ret = TensorDumper::GetInstance().DumpTensorHashValue(hostData, fileName);
     ASSERT_TRUE(ret);
 }
 
