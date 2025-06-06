@@ -27,13 +27,6 @@ inline void *LibLoad(std::string libName)
     return dlopen(libPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
 }
 
-struct OpenSSLLibLoader {
-    static void *Load(void)
-    {
-        return dlopen("libcrypto.so", RTLD_NOW | RTLD_GLOBAL);
-    }
-};
-
 /* VallinaSymbol 类用于从指定的动态库句柄中获取函数符号
  * @tparam LibLoader 动态库加载器，需要实现 Load 方法
  */
