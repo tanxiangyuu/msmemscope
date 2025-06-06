@@ -8,7 +8,7 @@ target_sources(atb_abi_0_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/op_watch/tensor_monitor.cpp
   ${UTILITY_INC_DIR}/log.cpp
   ${UTILITY_INC_DIR}/file.cpp
-  ${UTILITY_INC_DIR}/calculate_md5.cpp
+  ${UTILITY_INC_DIR}/calculate_data_check_sum.cpp
   ${UTILITY_INC_DIR}/path.cpp
   ${FRAMEWORK_INC_DIR}/client_process.cpp
 )
@@ -38,7 +38,7 @@ target_sources(atb_abi_1_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/op_watch/tensor_dumper.cpp
   ${UTILITY_INC_DIR}/log.cpp
   ${UTILITY_INC_DIR}/file.cpp
-  ${UTILITY_INC_DIR}/calculate_md5.cpp
+  ${UTILITY_INC_DIR}/calculate_data_check_sum.cpp
   ${UTILITY_INC_DIR}/path.cpp
   ${FRAMEWORK_INC_DIR}/client_process.cpp
 )

@@ -8,7 +8,7 @@
 #include "kernel_hooks/acl_hooks.h"
 #include "file.h"
 #include "event_report.h"
-#include "calculate_md5.h"
+#include "calculate_data_check_sum.h"
 #include "tensor_monitor.h"
 #include "op_excute_watch.h"
 
@@ -35,7 +35,7 @@ TensorDumper::TensorDumper()
         if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
             CLIENT_ERROR_LOG("Get device id failed, " + std::to_string(devId));
         }
-        fileName_ = "watch_dump_md5_" + std::to_string(devId) + "_";
+        fileName_ = "watch_dump_data_check_sum_" + std::to_string(devId) + "_";
     }
 }
 
@@ -73,15 +73,15 @@ bool TensorDumper::DumpTensorBinary(const std::vector<char> &hostData, std::stri
     return true;
 }
 
-bool TensorDumper::DumpTensorMD5(const std::vector<char> &hostData, std::string& fileName)
+bool TensorDumper::DumpTensorHashValue(const std::vector<char> &hostData, std::string& fileName)
 {
-    auto MD5Value = GetTensorMD5(hostData);
+    auto hashValue = CalculateDataCheckSum64(hostData);
     std::lock_guard<std::mutex> lock(mutex_);
     if (!Utility::CreateCsvFile(&csvFile_, dumpDir_, fileName_, WATCH_HASH_HEADERS)) {
         CLIENT_ERROR_LOG("Create csv file failed.");
     }
-    if (!Utility::Fprintf(csvFile_, "%s,%s\n", fileName.c_str(), MD5Value.c_str())) {
-        CLIENT_ERROR_LOG("Write tensor md5 info failed.");
+    if (!Utility::Fprintf(csvFile_, "%s,%s\n", fileName.c_str(), hashValue.c_str())) {
+        CLIENT_ERROR_LOG("Write tensor data check sum info failed.");
         return false;
     }
     return true;
@@ -108,7 +108,7 @@ bool TensorDumper::DumpOneTensor(const MonitoredTensor& tensor, std::string& fil
         return DumpTensorBinary(hostData, fileName);
     }
 
-    return DumpTensorMD5(hostData, fileName);
+    return DumpTensorHashValue(hostData, fileName);
 }
 
 std::string GetFileName(const std::string &op, OpEventType eventType, std::string wathcedOpName, uint64_t index)
