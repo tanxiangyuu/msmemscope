@@ -38,7 +38,7 @@ private:
     bool IsDumpFullContent();
 
     bool DumpTensorBinary(const std::vector<char> &hostData, std::string& fileName);
-    bool DumpTensorMD5(const std::vector<char> &hostData, std::string& fileName);
+    bool DumpTensorHashValue(const std::vector<char> &hostData, std::string& fileName);
 
 private:
     bool fullContent_;
