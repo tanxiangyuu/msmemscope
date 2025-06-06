@@ -11,6 +11,7 @@
 #include "securec.h"
 #include "file.h"
 #include "data_handler.h"
+#include "memory_state_record.h"
 
 using namespace Leaks;
 
@@ -132,11 +133,15 @@ TEST(DumpRecord, dump_aclItf_record_expect_success)
     aclItfRecord.recordIndex = 101;
     aclItfRecord.aclItfRecordIndex = 102;
     aclItfRecord.timeStamp = 123;
+    aclItfRecord.type = AclOpType::INIT;
     record.eventRecord.record.aclItfRecord = aclItfRecord;
     Config config;
     ClientId clientId = 0;
     config.dataFormat = 0;
     CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+
+    aclItfRecord.type = AclOpType::FINALIZE;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_torchnpu_record_expect_success)
@@ -526,4 +531,24 @@ TEST(DumpRecord, dump_kernel_execute_data_expect_success)
     kernelExcuteRecord.devId = 0;
     kernelExcuteRecord.type = KernelEventType::KERNEL_START;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpKernelExcuteData(kernelExcuteRecord));
+}
+
+TEST(DumpRecord, set_alloc_attr_expect_success)
+{
+    Config config;
+    MemStateInfo memInfo = {};
+    memInfo.attr.addr = 1000;
+    memInfo.attr.size = 1234;
+    memInfo.attr.modid = 3;
+    memInfo.attr.leaksDefinedOwner = "HCCL";
+    memInfo.container.eventType = "HAL";
+    DumpRecord::GetInstance(config).SetAllocAttr(memInfo);
+    ASSERT_EQ(memInfo.container.attr, "\"{addr:1000,size:1234,MID:3,owner:HCCL}\"");
+
+    memInfo.container.eventType = "PTA";
+    memInfo.attr.totalAllocated = 100;
+    memInfo.attr.totalReserved = 100;
+    memInfo.attr.leaksDefinedOwner = "PTA";
+    DumpRecord::GetInstance(config).SetAllocAttr(memInfo);
+    ASSERT_EQ(memInfo.container.attr, "\"{addr:1000,size:1234,total:100,used:100,owner:PTA}\"");
 }

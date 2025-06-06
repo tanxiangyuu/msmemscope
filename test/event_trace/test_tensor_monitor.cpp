@@ -24,6 +24,7 @@ TEST(TensorMonitorTEST, delete_watch_tensor_expect_success)
     uint64_t ptr = 6666;
     tensor.data = reinterpret_cast<void *>(ptr);
     tensor.dataSize = 100;
+    TensorMonitor::GetInstance().DeleteWatchTensor(tensor);
     TensorMonitor::GetInstance().AddWatchTensor(tensor);
     EXPECT_EQ(TensorMonitor::GetInstance().GetPythonWatchedTensorsMap().size(), 1);
     TensorMonitor::GetInstance().DeleteWatchTensor(tensor);

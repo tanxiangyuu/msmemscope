@@ -47,6 +47,43 @@ TEST(MemPoolTraceTest, MemPoolTraceTestATBHeapRegisterAndRegionRegister)
     EXPECT_EQ(ATBMemoryPoolTrace::GetInstance().memUsageMp_[deviceId].totalReserved, 0);
 }
 
+TEST(MemPoolTraceTest, MemPoolTraceTestAllocateGetNullPtr)
+{
+    mstxDomainHandle_t domain = nullptr;
+    mstxMemHeapDesc_t const *desc;
+    EXPECT_EQ(ATBMemoryPoolTrace::GetInstance().Allocate(domain, desc), nullptr);
+    EXPECT_EQ(MindsporeMemoryPoolTrace::GetInstance().Allocate(domain, desc), nullptr);
+}
+
+TEST(MemPoolTraceTest, MemPoolTraceTestDeallocateGetNullPtr)
+{
+    mstxDomainHandle_t domain = nullptr;
+    mstxMemHeapHandle_t desc;
+    ATBMemoryPoolTrace::GetInstance().Deallocate(domain, desc);
+    MindsporeMemoryPoolTrace::GetInstance().Deallocate(domain, desc);
+}
+
+TEST(MemPoolTraceTest, MemPoolTraceTestReallocateGetNullPtr)
+{
+    mstxDomainHandle_t domain = nullptr;
+    mstxMemRegionsRegisterBatch_t const *desc;
+    ATBMemoryPoolTrace::GetInstance().Reallocate(domain, desc);
+    MindsporeMemoryPoolTrace::GetInstance().Reallocate(domain, desc);
+}
+
+TEST(MemPoolTraceTest, MemPoolTraceTestReleaseGetNullPtr)
+{
+    mstxDomainHandle_t domain = nullptr;
+    mstxMemRegionsUnregisterBatch_t const *desc;
+    ATBMemoryPoolTrace::GetInstance().Release(domain, desc);
+    MindsporeMemoryPoolTrace::GetInstance().Release(domain, desc);
+}
+
+TEST(MemPoolTraceTest, ATBMemoryPoolTraceCreateDomainReturnNull)
+{
+    EXPECT_EQ(ATBMemoryPoolTrace::GetInstance().CreateDomain("test"), nullptr);
+}
+
 TEST(MemPoolTraceTest, MemPoolTraceTestMindsporeHeapRegisterAndRegionRegister)
 {
     auto domainHandle = MstxDomainCreateAFunc("mindsporeMemPool");
