@@ -321,6 +321,7 @@ TEST(Path, check_invalid_path_expect_return_false)
 {
     std::string pathStr;
     ASSERT_FALSE(Utility::CheckIsValidInputPath(pathStr));
+    ASSERT_FALSE(Utility::CheckIsValidOutputPath(pathStr));
 }
 
 TEST(Path, check_valid_path_expect_return_true)
@@ -330,5 +331,28 @@ TEST(Path, check_valid_path_expect_return_true)
     FILE *fp = fopen(pathStr.c_str(), "w");
     fclose(fp);
     ASSERT_TRUE(Utility::CheckIsValidInputPath(pathStr));
+    ASSERT_TRUE(Utility::CheckIsValidOutputPath(pathStr));
+    remove(pathStr.c_str());
+}
+
+TEST(Path, check_read_permission_invalid_path_expect_return_false)
+{
+    Utility::UmaskGuard umaskGuard(333);
+    std::string pathStr = "test.txt";
+    FILE *fp = fopen(pathStr.c_str(), "w");
+    fclose(fp);
+    ASSERT_FALSE(Utility::CheckIsValidInputPath(pathStr));
+    ASSERT_FALSE(Utility::CheckIsValidOutputPath(pathStr));
+    remove(pathStr.c_str());
+}
+
+TEST(Path, check_write_permission_invalid_path_expect_return_false)
+{
+    Utility::UmaskGuard umaskGuard(555);
+    std::string pathStr = "test.txt";
+    FILE *fp = fopen(pathStr.c_str(), "w");
+    fclose(fp);
+    ASSERT_FALSE(Utility::CheckIsValidInputPath(pathStr));
+    ASSERT_FALSE(Utility::CheckIsValidOutputPath(pathStr));
     remove(pathStr.c_str());
 }
