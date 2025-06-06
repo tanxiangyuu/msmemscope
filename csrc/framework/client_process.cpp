@@ -102,7 +102,7 @@ int ClientProcess::Wait(std::string& msg, uint32_t timeOut)
             continue;
         }
         // 读取成功不占用超时时间，读取失败则增加超时计数
-        if (timeOut > 0 && count >= timeOut) {
+        if (count >= timeOut) {
             return static_cast<int>(msg.size());
         }
         count++;
