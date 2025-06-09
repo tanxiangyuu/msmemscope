@@ -4,7 +4,6 @@
 #include "log.h"
 #include "mstx_manager.h"
 #include "event_report.h"
-#include "kernel_hooks/runtime_hooks.h"
 
 namespace Leaks {
 void MstxMarkAFunc(const char* msg, aclrtStream stream)

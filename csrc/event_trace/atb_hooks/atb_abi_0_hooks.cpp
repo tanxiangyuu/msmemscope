@@ -15,7 +15,7 @@ extern "C" void _ZN3atb9StoreUtil15SaveLaunchParamEPvRKN3Mki11LaunchParamERKSs(
     const Mki::LaunchParam &launchParam,
     const std::string &dirPath)
 {
-    atb::LeaksSaveLaunchParam(launchParam, dirPath);
+    atb::LeaksSaveLaunchParam(stream, launchParam, dirPath);
 }
 
 // 劫持判断函数，保证SaveLaunchParam函数可被调用

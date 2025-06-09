@@ -17,7 +17,7 @@ constexpr const char *LEAKS_HEADERS = "ID,Event,Event Type,Name,Timestamp(ns),Pr
 constexpr const char *STEP_INTER_HEADERS = ",,Base,Compare\nName,Device Id,Allocated Memory(byte),"
         "Allocated Memory(byte),Diff Memory(byte)\n";
 constexpr const char *TRACE_HEADERS = "FuncInfo,StartTime(ns),EndTime(ns),Thread Id,Process Id\n";
-constexpr const char *WATCH_HASH_HEADERS = "Tensor info,Check date sum\n";
+constexpr const char *WATCH_HASH_HEADERS = "Tensor info,Check data sum\n";
 constexpr const char *OUTPUT_PATH = "leaksDumpResults";
 constexpr const char *TRACE_FILE = "trace";
 constexpr const char *DUMP_FILE = "dump";
