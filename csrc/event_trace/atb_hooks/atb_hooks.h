@@ -5,11 +5,13 @@
 #include <string>
 #include "enum2string.h"
 #include "vallina_symbol.h"
+#include "kernel_hooks/acl_hooks.h"
 
 namespace atb {
 using LeaksOriginalRunnerExecuteFunc = atb::Status (*)(atb::Runner*, atb::RunnerVariantPack&);
 using LeaksOriginalGetOperationName = std::string (*)(atb::Runner*);
 using LeaksOriginalGetSaveTensorDir = std::string (*)(atb::Runner*);
+using LeaksOriginalGetExecuteStream = aclrtStream (*)(atb::Runner*, atb::Context *context);
 std::string LeaksGetTensorInfo(const atb::Tensor& tensor);
 std::string LeaksGetTensorInfo(const Mki::Tensor& tensor);
 void LeaksReportTensors(atb::RunnerVariantPack& runnerVariantPack, const std::string& name);
@@ -17,7 +19,7 @@ void LeaksReportTensors(Mki::LeaksOriginalGetInTensors &getInTensors, Mki::Leaks
     const Mki::LaunchParam &launchParam, const std::string& name);
 void LeaksReportOp(const std::string& name, const std::string& params, bool isStart);
 atb::Status LeaksRunnerExecute(atb::Runner* thisPtr, atb::RunnerVariantPack& runnerVariantPack);
-void LeaksSaveLaunchParam(const Mki::LaunchParam &launchParam, const std::string &dirPath);
+void LeaksSaveLaunchParam(aclrtStream stream, const Mki::LaunchParam &launchParam, const std::string &dirPath);
 }
 
 namespace Leaks {
