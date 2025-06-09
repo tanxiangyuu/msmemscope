@@ -5,9 +5,8 @@
 #include <cstdint>
 #include <cstddef>
 #include "mstx_info.h"
+#include "kernel_hooks/acl_hooks.h"
 
-
-using aclrtStream = void*;
 using MstxFuncPointer = void (*)(void);
 using MstxFuncTable = MstxFuncPointer**;
 using MstxGetModuleFuncTableFunc = int (*)(mstxFuncModule module, MstxFuncTable *outTable, unsigned int *outSize);

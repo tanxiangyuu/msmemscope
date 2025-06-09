@@ -148,7 +148,7 @@ namespace atb {
         }
     }
 
-    void GetOpNameAndDir(atb::Runner* thisPtr, std::string& name, std::string& dir)
+    bool GetOpNameAndDir(atb::Runner* thisPtr, std::string& name, std::string& dir)
     {
 #if defined(_GLIBCXX_USE_CXX11_ABI) && (_GLIBCXX_USE_CXX11_ABI == 0)
     static auto funcGetOperationName = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetOperationName>(
@@ -163,17 +163,35 @@ namespace atb {
 #endif
         if (funcGetOperationName == nullptr || funcGetSaveTensorDir == nullptr) {
             CLIENT_ERROR_LOG("Cannot find origin function of atb.\n");
-            return ;
+            return false;
         }
         name = funcGetOperationName(thisPtr);
         dir = funcGetSaveTensorDir(thisPtr);
+        return true;
+    }
+
+    static bool GetAclrtStream(atb::Runner* thisPtr, atb::RunnerVariantPack& runnerVariantPack,
+        aclrtStream &stream)
+    {
+        static auto funcGetExecuteStream = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetExecuteStream>(
+            "_ZNK3atb6Runner16GetExecuteStreamEPNS_7ContextE");
+        if (funcGetExecuteStream == nullptr) {
+            CLIENT_ERROR_LOG("Cannot find origin function of atb.\n");
+            return false;
+        }
+        stream = funcGetExecuteStream(thisPtr, runnerVariantPack.context);
+        return true;
     }
 
     atb::Status LeaksRunnerExecute(atb::Runner* thisPtr, atb::RunnerVariantPack& runnerVariantPack)
     {
         std::string name;
         std::string dir;
-        GetOpNameAndDir(thisPtr, name, dir);
+        aclrtStream stream;
+        if (!GetOpNameAndDir(thisPtr, name, dir) || !GetAclrtStream(thisPtr, runnerVariantPack, stream)) {
+            return 0;
+        }
+
         static auto funcExecute = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalRunnerExecuteFunc>(
             "_ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE");
         if (funcExecute == nullptr) {
@@ -199,7 +217,7 @@ namespace atb {
             atb::LeaksReportTensors(runnerVariantPack, name);
         }
         if (config.watchConfig.isWatched) {
-            Leaks::OpExcuteWatch::GetInstance().OpExcuteBegin(dir, OpType::ATB);
+            Leaks::OpExcuteWatch::GetInstance().OpExcuteBegin(stream, dir, OpType::ATB);
         }
         atb::Status st = funcExecute(thisPtr, runnerVariantPack);
         if (config.watchConfig.isWatched) {
@@ -210,7 +228,7 @@ namespace atb {
                 tensor.dataSize = item.dataSize;
                 outputTensors.emplace_back(tensor);
             }
-            Leaks::OpExcuteWatch::GetInstance().OpExcuteEnd(dir, outputTensors, OpType::ATB);
+            Leaks::OpExcuteWatch::GetInstance().OpExcuteEnd(stream, dir, outputTensors, OpType::ATB);
         }
         if (eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
             atb::LeaksReportOp(name, params, false);
@@ -260,8 +278,8 @@ namespace atb {
         }
         return true;
     }
-    
-    void LeaksSaveLaunchParam(const Mki::LaunchParam &launchParam, const std::string &dirPath)
+
+    void LeaksSaveLaunchParam(aclrtStream stream, const Mki::LaunchParam &launchParam, const std::string &dirPath)
     {
         Config config = EventReport::Instance(CommType::SOCKET).GetConfig();
         BitField<decltype(config.levelType)> levelType(config.levelType);
@@ -279,7 +297,7 @@ namespace atb {
         }
 
         if (config.watchConfig.isWatched) {
-            Leaks::OpExcuteWatch::GetInstance().KernelExcute(dirPath,
+            Leaks::OpExcuteWatch::GetInstance().KernelExcute(stream, dirPath,
                 getOutTensors(const_cast<Mki::LaunchParam*>(&launchParam)), OpType::ATB);
         }
         std::string name;

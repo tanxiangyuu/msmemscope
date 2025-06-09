@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include "tensor_monitor.h"
 #include "record_info.h"
+#include "kernel_hooks/acl_hooks.h"
 
 namespace Leaks {
 
@@ -23,7 +24,7 @@ public:
     }
 
     bool DumpOneTensor(const MonitoredTensor& tensor, std::string& fileName);
-    void Dump(const std::string &op, OpEventType eventType);
+    void Dump(aclrtStream stream, const std::string &op, OpEventType eventType);
     void SetDumpNums(uint64_t ptr, int32_t dumpNums);
     int32_t GetDumpNums(uint64_t ptr);
     void DeleteDumpNums(uint64_t ptr);
@@ -39,6 +40,7 @@ private:
 
     bool DumpTensorBinary(const std::vector<char> &hostData, std::string& fileName);
     bool DumpTensorHashValue(const std::vector<char> &hostData, std::string& fileName);
+    void SynchronizeStream(aclrtStream stream);
 
 private:
     bool fullContent_;
