@@ -5,7 +5,7 @@
 
 namespace Leaks {
 
-void OpExcuteWatch::BeginExcute(const std::string &rawItem, OpType type)
+void OpExcuteWatch::BeginExcute(aclrtStream stream, const std::string &rawItem, OpType type)
 {
     OpEventType opEventType;
     if (type == OpType::ATB) {
@@ -17,14 +17,14 @@ void OpExcuteWatch::BeginExcute(const std::string &rawItem, OpType type)
         return ;
     }
     if (IsInMonitoring()) {
-        TensorDumper::GetInstance().Dump(rawItem, opEventType);
+        TensorDumper::GetInstance().Dump(stream, rawItem, opEventType);
         return;
     }
     return;
 }
 
-void OpExcuteWatch::EndExcute(const std::string &excuteItem, const std::string &rawItem, OpType type,
-    const std::vector<MonitoredTensor> &outputTensors)
+void OpExcuteWatch::EndExcute(aclrtStream stream, const std::string &excuteItem, const std::string &rawItem,
+    OpType type, const std::vector<MonitoredTensor> &outputTensors)
 {
     OpEventType opEventType;
     if (type == OpType::ATB) {
@@ -38,12 +38,12 @@ void OpExcuteWatch::EndExcute(const std::string &excuteItem, const std::string &
     if (IsFirstWatchOp(excuteItem)) {
         SetWatchedOpName(excuteItem);
         TensorMonitor::GetInstance().AddWatchTensor(outputTensors);
-        TensorDumper::GetInstance().Dump(rawItem, opEventType);
+        TensorDumper::GetInstance().Dump(stream, rawItem, opEventType);
 
         return;
     }
     if (IsLastWatchOp(excuteItem)) {
-        TensorDumper::GetInstance().Dump(rawItem, opEventType);
+        TensorDumper::GetInstance().Dump(stream, rawItem, opEventType);
         
         ClearWatchedOpName();
         TensorMonitor::GetInstance().ClearCmdWatchTensor();
@@ -51,46 +51,48 @@ void OpExcuteWatch::EndExcute(const std::string &excuteItem, const std::string &
         return;
     }
     if (IsInMonitoring()) {
-        TensorDumper::GetInstance().Dump(rawItem, opEventType);
+        TensorDumper::GetInstance().Dump(stream, rawItem, opEventType);
         return;
     }
 
     return;
 }
 
-void OpExcuteWatch::OpExcuteBegin(const std::string &rawOp, OpType type)
+void OpExcuteWatch::OpExcuteBegin(aclrtStream stream, const std::string &rawOp, OpType type)
 {
     std::lock_guard<std::mutex> guard(mutex_);
-    return BeginExcute(rawOp, type);
+    return BeginExcute(stream, rawOp, type);
 }
 
-void OpExcuteWatch::OpExcuteEnd(const std::string &rawOp, const std::vector<MonitoredTensor>& tensors, OpType type)
+void OpExcuteWatch::OpExcuteEnd(aclrtStream stream,
+    const std::string &rawOp, const std::vector<MonitoredTensor>& tensors, OpType type)
 {
     std::lock_guard<std::mutex> guard(mutex_);
     auto op = rawOp.substr(rawOp.find("/") + 1);
     if (!IsFirstWatchOp(op)) {
-        return EndExcute(op, rawOp, type);
+        return EndExcute(stream, op, rawOp, type);
     }
     if (outputId_ < tensors.size()) {
         std::vector<MonitoredTensor> dumpTensors;
         MonitoredTensor tensor = tensors[outputId_];
         dumpTensors.emplace_back(tensor);
-        return EndExcute(op, rawOp, type, dumpTensors);
+        return EndExcute(stream, op, rawOp, type, dumpTensors);
     }
-    return EndExcute(op, rawOp, type, tensors);
+    return EndExcute(stream, op, rawOp, type, tensors);
 }
 
-void OpExcuteWatch::KernelExcute(const std::string &rawKernel, const Mki::SVector<Mki::Tensor>& tensors, OpType type)
+void OpExcuteWatch::KernelExcute(aclrtStream stream,
+    const std::string &rawKernel, const Mki::SVector<Mki::Tensor>& tensors, OpType type)
 {
     std::lock_guard<std::mutex> guard(mutex_);
     auto beforPos = rawKernel.find("/before");
     auto afterPos = rawKernel.find("/after");
     if (beforPos != std::string::npos) {
-        return BeginExcute(rawKernel.substr(0, beforPos), type);
+        return BeginExcute(stream, rawKernel.substr(0, beforPos), type);
     } else if (afterPos != std::string::npos) {
         std::string kernelDir = rawKernel.substr(0, afterPos).substr(rawKernel.find("/") + 1);
         if (!IsFirstWatchOp(kernelDir)) {
-            return EndExcute(kernelDir, rawKernel.substr(0, afterPos), type);
+            return EndExcute(stream, kernelDir, rawKernel.substr(0, afterPos), type);
         }
         std::vector<MonitoredTensor> dumpTensors;
         if (outputId_ < tensors.size()) {
@@ -98,7 +100,7 @@ void OpExcuteWatch::KernelExcute(const std::string &rawKernel, const Mki::SVecto
             tensor.data = tensors[outputId_].data;
             tensor.dataSize = static_cast<uint64_t>(tensors[outputId_].dataSize);
             dumpTensors.emplace_back(tensor);
-            return EndExcute(kernelDir, rawKernel.substr(0, afterPos), type, dumpTensors);
+            return EndExcute(stream, kernelDir, rawKernel.substr(0, afterPos), type, dumpTensors);
         }
         for (auto &item : tensors) {
             MonitoredTensor tensor {};
@@ -106,7 +108,7 @@ void OpExcuteWatch::KernelExcute(const std::string &rawKernel, const Mki::SVecto
             tensor.dataSize = static_cast<uint64_t>(item.dataSize);
             dumpTensors.emplace_back(tensor);
         }
-        return EndExcute(kernelDir, rawKernel.substr(0, afterPos), type, dumpTensors);
+        return EndExcute(stream, kernelDir, rawKernel.substr(0, afterPos), type, dumpTensors);
     } else {
         CLIENT_ERROR_LOG("Invalid kernel info.\n");
         return;

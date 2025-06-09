@@ -11,8 +11,6 @@
 extern "C" {
 #endif
 
-typedef void *aclrtStream;
-
 typedef enum {
     ACL_DT_UNDEFINED = -1,
     ACL_FLOAT = 0,
@@ -168,7 +166,8 @@ struct Tensor {
     uint64_t dataSize = 0;
 };
 
-class ContextBase {};
+class Context {};
+class ContextBase : public Context {};
 
 struct RunnerVariantPack {
     SVector<Tensor> inTensors;

@@ -100,10 +100,10 @@ void AtenManager::ReportAtenLaunch(const char* msg, int32_t streamId, bool isAte
     strncpy_s(record.name, sizeof(record.name), eventName, sizeof(record.name) - 1);
 
     if (IsWatchEnable() && isAtenBegin) {
-        OpExcuteWatch::GetInstance().OpExcuteBegin(std::string(eventName), OpType::ATEN);
+        OpExcuteWatch::GetInstance().OpExcuteBegin(nullptr, std::string(eventName), OpType::ATEN);
     }
     if (IsWatchEnable() && !isAtenBegin) {
-        OpExcuteWatch::GetInstance().OpExcuteEnd(std::string(eventName), outputTensors_, OpType::ATEN);
+        OpExcuteWatch::GetInstance().OpExcuteEnd(nullptr, std::string(eventName), outputTensors_, OpType::ATEN);
         outputTensors_.clear();
     }
 

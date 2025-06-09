@@ -26,9 +26,11 @@ public:
         return instance;
     }
 
-    void OpExcuteBegin(const std::string &rawOp, OpType type);
-    void OpExcuteEnd(const std::string &rawOp, const std::vector<MonitoredTensor>& tensors, OpType type);
-    void KernelExcute(const std::string &rawKernel, const Mki::SVector<Mki::Tensor>& tensors, OpType type);
+    void OpExcuteBegin(aclrtStream stream, const std::string &rawOp, OpType type);
+    void OpExcuteEnd(aclrtStream stream, const std::string &rawOp, const std::vector<MonitoredTensor>& tensors,
+        OpType type);
+    void KernelExcute(aclrtStream stream, const std::string &rawKernel, const Mki::SVector<Mki::Tensor>& tensors,
+        OpType type);
 
     std::string GetWatchedOpName();
 
@@ -43,8 +45,8 @@ private:
     ~OpExcuteWatch() = default;
 
     // 落盘时需要用完整的opName，包含卡号和线程号。
-    void BeginExcute(const std::string &rawItem, OpType type);
-    void EndExcute(const std::string &excuteItem, const std::string &rawItem, OpType type,
+    void BeginExcute(aclrtStream stream, const std::string &rawItem, OpType type);
+    void EndExcute(aclrtStream stream, const std::string &excuteItem, const std::string &rawItem, OpType type,
         const std::vector<MonitoredTensor> &outputTensors = {});
 
     bool IsFirstWatchOp(const std::string &op);

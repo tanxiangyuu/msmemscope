@@ -5,7 +5,6 @@
 #include <fstream>
 #include <vector>
 #include "utils.h"
-#include "kernel_hooks/acl_hooks.h"
 #include "file.h"
 #include "event_report.h"
 #include "calculate_data_check_sum.h"
@@ -76,7 +75,6 @@ bool TensorDumper::DumpTensorBinary(const std::vector<char> &hostData, std::stri
 bool TensorDumper::DumpTensorHashValue(const std::vector<char> &hostData, std::string& fileName)
 {
     auto hashValue = CalculateDataCheckSum64(hostData);
-    std::lock_guard<std::mutex> lock(mutex_);
     if (!Utility::CreateCsvFile(&csvFile_, dumpDir_, fileName_, WATCH_HASH_HEADERS)) {
         CLIENT_ERROR_LOG("Create csv file failed.");
     }
@@ -91,6 +89,7 @@ bool TensorDumper::DumpOneTensor(const MonitoredTensor& tensor, std::string& fil
 {
     if (!Utility::MakeDir(dumpDir_)) {
         CLIENT_ERROR_LOG("Make dir failed.");
+        return false;
     }
     using AclrtMemcpy = decltype(&aclrtMemcpy);
     auto vallina = VallinaSymbol<AclLibLoader>::Instance().Get<AclrtMemcpy>("aclrtMemcpy");
@@ -103,7 +102,8 @@ bool TensorDumper::DumpOneTensor(const MonitoredTensor& tensor, std::string& fil
     if (ret != ACL_SUCCESS) {
         return false;
     }
-
+    
+    std::lock_guard<std::mutex> lock(mutex_);
     if (IsDumpFullContent()) {
         return DumpTensorBinary(hostData, fileName);
     }
@@ -124,8 +124,26 @@ std::string GetFileName(const std::string &op, OpEventType eventType, std::strin
     return name;
 }
 
-void TensorDumper::Dump(const std::string &op, OpEventType eventType)
+void TensorDumper::SynchronizeStream(aclrtStream stream)
 {
+    using AclrtSynchronizeStream = decltype(&aclrtSynchronizeStream);
+    static auto vallina = VallinaSymbol<AclLibLoader>::Instance().Get<AclrtSynchronizeStream>("aclrtSynchronizeStream");
+    if (vallina == nullptr) {
+        CLIENT_ERROR_LOG("Gey aclrtSynchronizeStream func ptr failed");
+        return;
+    }
+ 
+    int ret = vallina(stream);
+    if (ret != ACL_SUCCESS) {
+        CLIENT_ERROR_LOG("Dump tensor synchronize stream failed, ret is" + std::to_string(ret));
+        return;
+    }
+    return;
+}
+
+void TensorDumper::Dump(aclrtStream stream, const std::string &op, OpEventType eventType)
+{
+    SynchronizeStream(stream);
     std::unordered_map<uint64_t, MonitoredTensor> &tensorsMap = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     uint64_t index = 0;
     for (const auto& tensorPair : tensorsMap) {

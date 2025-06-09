@@ -36,11 +36,11 @@ TEST(TesnorDumperTest, dump_expect_success)
     TensorDumper::GetInstance().SetDumpName(ptr, "test_op");
     TensorDumper::GetInstance().SetDumpNums(ptr, 2);
     TensorMonitor::GetInstance().pythonWatchedTensorsMap_.insert({ptr, tensor});
-    TensorDumper::GetInstance().Dump(fileName, type);
+    TensorDumper::GetInstance().Dump(nullptr, fileName, type);
     EXPECT_EQ(TensorDumper::GetInstance().GetDumpNums(ptr), 1);
 
     TensorDumper::GetInstance().SetDumpNums(ptr, 0);
-    TensorDumper::GetInstance().Dump(fileName, type);
+    TensorDumper::GetInstance().Dump(nullptr, fileName, type);
 }
 
 TEST(TesnorDumperTest, set_dump_name_expect_success)
