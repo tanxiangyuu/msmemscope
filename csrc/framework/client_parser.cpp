@@ -530,10 +530,10 @@ static void ParseWatchConfig(const std::string param, UserCommand &userCommand)
 
 static void ParseLogLv(const std::string &param, UserCommand &userCommand)
 {
-    const std::map<std::string, Utility::LogLv> logLevelMap = {
-        {"info", Utility::LogLv::INFO},
-        {"warn", Utility::LogLv::WARN},
-        {"error", Utility::LogLv::ERROR},
+    const std::map<std::string, LogLv> logLevelMap = {
+        {"info", LogLv::INFO},
+        {"warn", LogLv::WARN},
+        {"error", LogLv::ERROR},
     };
     auto it = logLevelMap.find(param);
     if (it == logLevelMap.end()) {
@@ -543,6 +543,7 @@ static void ParseLogLv(const std::string &param, UserCommand &userCommand)
     } else {
         auto logLevel = it->second;
         Utility::SetLogLevel(logLevel);
+        userCommand.config.logLevel = static_cast<uint8_t>(logLevel);
     }
 }
 
@@ -627,6 +628,7 @@ void ClientParser::InitialUserCommand(UserCommand &userCommand)
     userCommand.config.pyStackDepth = 0;
     userCommand.config.levelType = 1;
     userCommand.config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
+    userCommand.config.logLevel = static_cast<uint8_t>(LogLv::WARN);
 
     BitField<decltype(userCommand.config.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));

@@ -1,7 +1,7 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 
 #include "tensor_monitor.h"
-#include "log.h"
+#include "client_process.h"
 
 namespace Leaks {
 
@@ -49,7 +49,7 @@ void TensorMonitor::DeleteWatchTensor(MonitoredTensor& tensorInfo)
     if (it != pythonWatchedTensorsMap_.end()) {
         pythonWatchedTensorsMap_.erase(ptr);
     } else {
-        LOG_WARN("Failed to delete the tensor. The tensor ptr of %llu is not watched.", ptr);
+        CLIENT_WARN_LOG("Failed to delete the tensor. The tensor ptr of " + std::to_string(ptr) + " is not watched.");
     }
 }
 
