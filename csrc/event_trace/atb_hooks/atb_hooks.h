@@ -12,14 +12,6 @@ using LeaksOriginalRunnerExecuteFunc = atb::Status (*)(atb::Runner*, atb::Runner
 using LeaksOriginalGetOperationName = std::string (*)(atb::Runner*);
 using LeaksOriginalGetSaveTensorDir = std::string (*)(atb::Runner*);
 using LeaksOriginalGetExecuteStream = aclrtStream (*)(atb::Runner*, atb::Context *context);
-std::string LeaksGetTensorInfo(const atb::Tensor& tensor);
-std::string LeaksGetTensorInfo(const Mki::Tensor& tensor);
-void LeaksReportTensors(atb::RunnerVariantPack& runnerVariantPack, const std::string& name);
-void LeaksReportTensors(Mki::LeaksOriginalGetInTensors &getInTensors, Mki::LeaksOriginalGetInTensors &getOutTensors,
-    const Mki::LaunchParam &launchParam, const std::string& name);
-void LeaksReportOp(const std::string& name, const std::string& params, bool isStart);
-atb::Status LeaksRunnerExecute(atb::Runner* thisPtr, atb::RunnerVariantPack& runnerVariantPack);
-void LeaksSaveLaunchParam(aclrtStream stream, const Mki::LaunchParam &launchParam, const std::string &dirPath);
 }
 
 namespace Leaks {
