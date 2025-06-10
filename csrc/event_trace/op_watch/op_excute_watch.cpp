@@ -1,7 +1,7 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 
 #include "op_excute_watch.h"
-#include "log.h"
+#include "client_process.h"
 
 namespace Leaks {
 
@@ -13,7 +13,7 @@ void OpExcuteWatch::BeginExcute(aclrtStream stream, const std::string &rawItem, 
     } else if (type == OpType::ATEN) {
         opEventType = OpEventType::ATEN_START;
     } else {
-        LOG_WARN("Get unknown type!");
+        CLIENT_WARN_LOG("Get unknown type!");
         return ;
     }
     if (IsInMonitoring()) {
@@ -32,7 +32,7 @@ void OpExcuteWatch::EndExcute(aclrtStream stream, const std::string &excuteItem,
     } else if (type == OpType::ATEN) {
         opEventType = OpEventType::ATEN_END;
     } else {
-        LOG_WARN("Get unknown type!");
+        CLIENT_WARN_LOG("Get unknown type!");
         return ;
     }
     if (IsFirstWatchOp(excuteItem)) {

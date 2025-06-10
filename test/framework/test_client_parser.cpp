@@ -784,7 +784,7 @@ TEST(ClientParser, test_input_valid_log_level_expect_valid_loglv)
     /// Reset getopt states
     ClientParser cliParser;
     UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
-    ASSERT_EQ(Utility::Log::GetLog().lv_, Utility::LogLv::WARN);
+    ASSERT_EQ(Utility::Log::GetLog().lv_, LogLv::WARN);
 
     argv = {
         "msleaks",
@@ -792,7 +792,7 @@ TEST(ClientParser, test_input_valid_log_level_expect_valid_loglv)
     };
  
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
-    ASSERT_EQ(Utility::Log::GetLog().lv_, Utility::LogLv::INFO);
+    ASSERT_EQ(Utility::Log::GetLog().lv_, LogLv::INFO);
 
     argv = {
         "msleaks",
@@ -800,7 +800,7 @@ TEST(ClientParser, test_input_valid_log_level_expect_valid_loglv)
     };
  
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
-    ASSERT_EQ(Utility::Log::GetLog().lv_, Utility::LogLv::ERROR);
+    ASSERT_EQ(Utility::Log::GetLog().lv_, LogLv::ERROR);
 }
 
 TEST(ClientParser, test_input_invalid_log_level_expect_invalid_loglv)

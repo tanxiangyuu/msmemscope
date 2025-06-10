@@ -46,14 +46,18 @@ ClientProcess::~ClientProcess()
 {
 }
 
-void ClientProcess::Log(ClientLogLevel level, std::string msg, const std::string fileName, const uint32_t line)
+void ClientProcess::Log(LogLv level, std::string msg, const std::string fileName, const uint32_t line)
 {
-    static std::map<ClientLogLevel, std::string> levelStrMap = {
-        {ClientLogLevel::DEBUG, "[DEBUG]"},
-        {ClientLogLevel::INFO, "[INFO] "},
-        {ClientLogLevel::WARN, "[WARN] "},
-        {ClientLogLevel::ERROR, "[ERROR]"}
+    static std::map<LogLv, std::string> levelStrMap = {
+        {LogLv::DEBUG, "[DEBUG]"},
+        {LogLv::INFO, "[INFO] "},
+        {LogLv::WARN, "[WARN] "},
+        {LogLv::ERROR, "[ERROR]"}
     };
+
+    if (level < logLevel_) {
+        return ;
+    }
 
     std::string logMsg = levelStrMap[level] + " [" + fileName + ":" + std::to_string(line) + "] " + msg;
     Leaks::PacketHead head {Leaks::PacketType::LOG};
@@ -64,6 +68,11 @@ void ClientProcess::Log(ClientLogLevel level, std::string msg, const std::string
         std::cout << "log report failed" << std::endl;
     }
     return;
+}
+
+void ClientProcess::SetLogLevel(LogLv level)
+{
+    logLevel_ = level;
 }
 
 // 通过工具侧配合wait实现阻塞功能

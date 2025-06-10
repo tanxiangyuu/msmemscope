@@ -143,6 +143,7 @@ EventReport::EventReport(CommType type)
     uint32_t reTryTimes = 5; // 当前系统设置（setsockopt）的read超时时长是1s，默认至多尝试5次
     isReceiveServerInfo_ = (ClientProcess::GetInstance(type).Wait(msg, reTryTimes) > 0) ? true : false;
     Deserialize(msg, config_);
+    ClientProcess::GetInstance(type).SetLogLevel(static_cast<LogLv>(config_.logLevel));
 
     BitField<decltype(config_.levelType)> levelType(config_.levelType);
     if (levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_KERNEL))) {
