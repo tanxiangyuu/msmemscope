@@ -33,7 +33,6 @@ bool DescribeTrace::IsRepeat(uint64_t threadId, std::string owner)
 
 void DescribeTrace::DescribeAddr(uint64_t addr, std::string owner)
 {
-    auto tid = Utility::GetTid();
     owner = "@" + owner;
     AddrInfo info;
     info.type = AddrInfoType::USER_DEFINED;
