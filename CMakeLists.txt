@@ -6,7 +6,6 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
  
 # 安全规范编译命令
 add_compile_options("-fPIE")
-add_compile_options("-std=c++11")
 add_compile_options("-fPIC")
 add_compile_options("-fstack-protector-all")
 add_compile_options("-Wall")
@@ -24,6 +23,7 @@ add_link_options("-Wl,-z,noexecstack")
 add_link_options("-pie")
 add_link_options("-s") #strip
 set(CMAKE_SKIP_RPATH TRUE)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 option(BUILD_TESTS "build unit tests" OFF)
 
