@@ -1,4 +1,4 @@
-add_library(atb_abi_0_hook SHARED atb_abi_0_hooks.cpp)
+add_library(atb_abi_0_hook SHARED atb_hooks.cpp)
 
 target_sources(atb_abi_0_hook PRIVATE
   atb_hooks.cpp
@@ -27,7 +27,7 @@ target_include_directories(atb_abi_0_hook PUBLIC
 target_link_libraries(atb_abi_0_hook dl)
 
 
-add_library(atb_abi_1_hook SHARED atb_abi_1_hooks.cpp)
+add_library(atb_abi_1_hook SHARED atb_hooks.cpp)
 
 target_compile_options(atb_abi_1_hook PRIVATE
   -U_GLIBCXX_USE_CXX11_ABI
