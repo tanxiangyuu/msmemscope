@@ -73,7 +73,8 @@ private:
         {RecordType::ADDR_INFO_RECORD,
             std::bind(&MemoryStateRecord::MemoryAddrInfoProcess, this, std::placeholders::_1, std::placeholders::_2)},
     };
-    std::mutex recordMutex_;
+    std::mutex memSizeMutex_;
+    std::mutex memInfoMutex_;
     Config config_;
 };
 

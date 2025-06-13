@@ -10,6 +10,7 @@
 #include "calculate_data_check_sum.h"
 #include "tensor_monitor.h"
 #include "op_excute_watch.h"
+#include "client_process.h"
 
 namespace Leaks {
 void CleanFileName(std::string& fileName)
@@ -151,7 +152,7 @@ void TensorDumper::Dump(aclrtStream stream, const std::string &op, OpEventType e
         auto fileName = GetFileName(op, eventType, watchedOpName, index);
         auto result = DumpOneTensor(tensorPair.second, fileName);
         if (!result) {
-            LOG_WARN("Dump tensor failed, current op: %s, watched op: %s", op, watchedOpName);
+            CLIENT_ERROR_LOG("Dump tensor failed, current op: " + op + ", watched op: " + watchedOpName);
         }
         ++index;
     }
@@ -167,7 +168,7 @@ void TensorDumper::Dump(aclrtStream stream, const std::string &op, OpEventType e
         }
         auto result = DumpOneTensor(tensorPair.second, fileName);
         if (!result) {
-            LOG_WARN("Dump tensor failed, current op: %s, watched op: %s", op, watchedOpName);
+            CLIENT_ERROR_LOG("Dump tensor failed, current op: " + op + ", watched op: " + watchedOpName);
         }
         if (dumpNums > 0) {
             SetDumpNums(ptr, dumpNums-1);

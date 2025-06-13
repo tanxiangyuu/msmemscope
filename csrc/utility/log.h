@@ -8,6 +8,7 @@
 #include "utils.h"
 #include "umask_guard.h"
 #include "cstring"
+#include "config_info.h"
 
 namespace Utility {
 
@@ -15,11 +16,9 @@ constexpr uint16_t LOG_BUF_SIZE = 32;
 constexpr uint32_t DEFAULT_UMASK_FOR_LOG_FILE = 0177;
 constexpr int16_t DOUBLE = 2;
 
-enum class LogLv { DEBUG = 0, INFO, WARN, ERROR, COUNT };
-
-inline bool operator<(LogLv a, LogLv b)
+inline bool operator<(Leaks::LogLv a, Leaks::LogLv b)
 {
-    using underlying = typename std::underlying_type<LogLv>::type;
+    using underlying = typename std::underlying_type<Leaks::LogLv>::type;
     return static_cast<underlying>(a) < static_cast<underlying>(b);
 }
 
@@ -28,21 +27,21 @@ public:
     static Log &GetLog(void);
 
     template <typename... Args>
-    inline void Printf(const std::string &format, LogLv lv, const std::string fileName, const uint32_t line,
+    inline void Printf(const std::string &format, Leaks::LogLv lv, const std::string fileName, const uint32_t line,
         const Args& ...args);
     template <typename... Args>
-    inline void Printtest(const std::string &format, LogLv lv, const std::string fileName, const uint32_t line,
+    inline void Printtest(const std::string &format, Leaks::LogLv lv, const std::string fileName, const uint32_t line,
         const Args& ...args);
     template <typename... Args>
     inline void PrintClientLog(std::string const &format, const Args &...args);
-    void SetLogLevel(const LogLv &logLevel);
+    void SetLogLevel(const Leaks::LogLv &logLevel);
     bool CreateLogFile();
 private:
     Log(void) = default;
     ~Log(void);
     Log(Log const &) = delete;
     Log &operator=(Log const &) = delete;
-    std::string AddPrefixInfo(std::string const &format, LogLv lv, const std::string fileName,
+    std::string AddPrefixInfo(std::string const &format, Leaks::LogLv lv, const std::string fileName,
         const uint32_t line) const;
     inline int64_t LogSize() const
     {
@@ -58,7 +57,7 @@ private:
     }
 
 private:
-    LogLv lv_{LogLv::WARN};
+    Leaks::LogLv lv_{Leaks::LogLv::WARN};
     FILE *fp_{nullptr};
     mutable std::mutex mtx_;
     int64_t maxLogSize_ = 100L * 1024L * 1024L; // 100M
@@ -66,7 +65,7 @@ private:
 };
 
 template <typename... Args>
-void Log::Printf(const std::string &format, LogLv lv, const std::string fileName, const uint32_t line,
+void Log::Printf(const std::string &format, Leaks::LogLv lv, const std::string fileName, const uint32_t line,
     const Args& ...args)
 {
     std::lock_guard<std::mutex> lock(mtx_);
@@ -126,29 +125,29 @@ inline std::string GetLogSourceFileName(const std::string &path)
 
 #define LOG_DEBUG(format, ...)                                                                                         \
     do {                                                                                                               \
-        Utility::Log::GetLog().Printf(format, Utility::LogLv::DEBUG, Utility::GetLogSourceFileName(__FILE__),          \
+        Utility::Log::GetLog().Printf(format, Leaks::LogLv::DEBUG, Utility::GetLogSourceFileName(__FILE__),            \
         __LINE__, ##__VA_ARGS__);                                                                                      \
     } while (0)
 
 #define LOG_INFO(format, ...)                                                                                          \
     do {                                                                                                               \
-        Utility::Log::GetLog().Printf(format, Utility::LogLv::INFO, Utility::GetLogSourceFileName(__FILE__),           \
+        Utility::Log::GetLog().Printf(format, Leaks::LogLv::INFO, Utility::GetLogSourceFileName(__FILE__),             \
         __LINE__, ##__VA_ARGS__);                                                                                      \
     } while (0)
 
 #define LOG_WARN(format, ...)                                                                                          \
     do {                                                                                                               \
-        Utility::Log::GetLog().Printf(format, Utility::LogLv::WARN, Utility::GetLogSourceFileName(__FILE__),           \
+        Utility::Log::GetLog().Printf(format, Leaks::LogLv::WARN, Utility::GetLogSourceFileName(__FILE__),             \
         __LINE__, ##__VA_ARGS__);                                                                                      \
     } while (0)
 
 #define LOG_ERROR(format, ...)                                                                                         \
     do {                                                                                                               \
-        Utility::Log::GetLog().Printf(format, Utility::LogLv::ERROR, Utility::GetLogSourceFileName(__FILE__),          \
+        Utility::Log::GetLog().Printf(format, Leaks::LogLv::ERROR, Utility::GetLogSourceFileName(__FILE__),            \
         __LINE__, ##__VA_ARGS__);                                                                                      \
     } while (0)
 
-inline void SetLogLevel(const LogLv &logLevel)
+inline void SetLogLevel(const Leaks::LogLv &logLevel)
 {
     Log::GetLog().SetLogLevel(logLevel);
 }
