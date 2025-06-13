@@ -56,6 +56,14 @@ enum class AnalysisType : uint8_t {
     INEFFICIENT_ANALYSIS = 2,
 };
 
+enum class LogLv : uint8_t {
+    DEBUG = 0,
+    INFO,
+    WARN,
+    ERROR,
+    COUNT,
+};
+
 struct SelectedStepList {
     uint32_t stepIdList[SELECTED_STEP_MAX_NUM];
     uint8_t stepCount;
@@ -83,6 +91,7 @@ struct Config {
     uint8_t levelType;
     uint8_t eventType;
     uint8_t analysisType;
+    uint8_t logLevel;
     char outputDir[128];
     uint8_t dataFormat;
     char dbFileDir[128];

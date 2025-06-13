@@ -16,7 +16,6 @@ MemoryStateRecord::MemoryStateRecord(Config config)
 
 void MemoryStateRecord::RecordMemoryState(const Record& record, CallStackString& stack)
 {
-    std::lock_guard<std::mutex> lock(recordMutex_);
     auto type = record.eventRecord.type;
     auto it = memInfoProcessFuncMap_.find(type);
     if (it == memInfoProcessFuncMap_.end()) {
@@ -27,6 +26,7 @@ void MemoryStateRecord::RecordMemoryState(const Record& record, CallStackString&
 
 void MemoryStateRecord::HostMemProcess(const MemOpRecord& memRecord, uint64_t& currentSize)
 {
+    std::lock_guard<std::mutex> lock(memSizeMutex_);
     if (memRecord.memType == MemOpType::MALLOC) {
         hostMemSizeMap_[memRecord.addr] = memRecord.memSize;
         currentSize = memRecord.memSize;
@@ -41,6 +41,7 @@ void MemoryStateRecord::HostMemProcess(const MemOpRecord& memRecord, uint64_t& c
 
 void MemoryStateRecord::HalMemProcess(MemOpRecord& memRecord, uint64_t& currentSize, std::string& deviceType)
 {
+    std::lock_guard<std::mutex> lock(memSizeMutex_);
     if (memRecord.memType == MemOpType::MALLOC) {
         memSizeMap_[memRecord.addr] = memRecord.memSize;
         currentSize = memRecord.memSize;
@@ -49,8 +50,7 @@ void MemoryStateRecord::HalMemProcess(MemOpRecord& memRecord, uint64_t& currentS
         memSizeMap_[memRecord.addr] = 0;
         // halfree目前device Id为N/A，需要和其他数据匹配
         auto key = std::make_pair("common", memRecord.addr);
-        auto it = ptrMemoryInfoMap_.find(key);
-        if (it == ptrMemoryInfoMap_.end() || ptrMemoryInfoMap_[key].size() == 0) {
+        if (ptrMemoryInfoMap_.find(key) == ptrMemoryInfoMap_.end() || ptrMemoryInfoMap_[key].size() == 0) {
             return ;
         }
         deviceType = ptrMemoryInfoMap_[key][0].container.deviceId;
@@ -123,8 +123,8 @@ void MemoryStateRecord::MemoryInfoProcess(const Record& record, CallStackString&
     }
 
     auto key = std::make_pair("common", ptr);
-    auto it = ptrMemoryInfoMap_.find(key);
-    if (it == ptrMemoryInfoMap_.end()) {
+    std::lock_guard<std::mutex> lock(memInfoMutex_);
+    if (ptrMemoryInfoMap_.find(key) == ptrMemoryInfoMap_.end()) {
         ptrMemoryInfoMap_.insert({key, {}});
     }
     MemStateInfo memInfo {};
@@ -176,8 +176,8 @@ void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackStr
         container.attr = freeAttr;
     }
     auto key = std::make_pair(memPoolType, memoryUsage.ptr);
-    auto it = ptrMemoryInfoMap_.find(key);
-    if (it == ptrMemoryInfoMap_.end()) {
+    std::lock_guard<std::mutex> lock(memInfoMutex_);
+    if (ptrMemoryInfoMap_.find(key) == ptrMemoryInfoMap_.end()) {
         ptrMemoryInfoMap_.insert({key, {}});
     }
     MemStateInfo memInfo {};
@@ -243,14 +243,16 @@ void MemoryStateRecord::MemoryAccessInfoProcess(const Record& record, CallStackS
 
     auto key = memAccessRecord.memType == OpType::ATEN?
         std::make_pair("PTA", ptr) : std::make_pair("ATB", ptr);
-    auto it = ptrMemoryInfoMap_.find(key);
-    if (it == ptrMemoryInfoMap_.end()) {
-        ptrMemoryInfoMap_.insert({key, {}});
+    {
+        std::lock_guard<std::mutex> lock(memInfoMutex_);
+        if (ptrMemoryInfoMap_.find(key) == ptrMemoryInfoMap_.end()) {
+            ptrMemoryInfoMap_.insert({key, {}});
+        }
+        MemStateInfo memInfo {};
+        memInfo.container = container;
+        memInfo.stack = stack;
+        ptrMemoryInfoMap_[key].push_back(memInfo);
     }
-    MemStateInfo memInfo {};
-    memInfo.container = container;
-    memInfo.stack = stack;
-    ptrMemoryInfoMap_[key].push_back(memInfo);
 
     if (memAccessRecord.memType == OpType::ATEN && ptrMemoryInfoMap_[key][0].container.event == "MALLOC") {
         UpdateLeaksDefinedOwner(ptrMemoryInfoMap_[key][0].attr.leaksDefinedOwner, "@ops@aten");
@@ -259,8 +261,8 @@ void MemoryStateRecord::MemoryAccessInfoProcess(const Record& record, CallStackS
 
 const std::vector<MemStateInfo>& MemoryStateRecord::GetPtrMemInfoList(std::pair<std::string, int64_t> key)
 {
-    auto it = ptrMemoryInfoMap_.find(key);
-    if (it == ptrMemoryInfoMap_.end()) {
+    std::lock_guard<std::mutex> lock(memInfoMutex_);
+    if (ptrMemoryInfoMap_.find(key) == ptrMemoryInfoMap_.end()) {
         ptrMemoryInfoMap_.insert({key, {}});
     }
     return ptrMemoryInfoMap_[key];
@@ -273,8 +275,8 @@ std::map<std::pair<std::string, uint64_t>, std::vector<MemStateInfo>>& MemorySta
 
 void MemoryStateRecord::DeleteMemStateInfo(std::pair<std::string, uint64_t> key)
 {
-    auto it = ptrMemoryInfoMap_.find(key);
-    if (it != ptrMemoryInfoMap_.end()) {
+    std::lock_guard<std::mutex> lock(memInfoMutex_);
+    if (ptrMemoryInfoMap_.find(key) != ptrMemoryInfoMap_.end()) {
         ptrMemoryInfoMap_.erase(key);
     }
 }
