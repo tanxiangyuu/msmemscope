@@ -1,0 +1,184 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+
+#ifndef RUNTIME_PROF_API_H
+#define RUNTIME_PROF_API_H
+
+#include "vallina_symbol.h"
+
+namespace Leaks {
+// 和获取驱动上报信息接口配套使用
+struct RtProfApiLoader {
+    static void *Load(void)
+    {
+        return Leaks::LibLoad("libprofapi.so");
+    }
+};
+
+enum ProfilerCallbackType {
+    PROFILE_CTRL_CALLBACK = 0,
+    PROFILE_DEVICE_STATE_CALLBACK,
+    PROFILE_REPORT_API_CALLBACK,
+    PROFILE_REPORT_EVENT_CALLBACK,
+    PROFILE_REPORT_COMPACT_CALLBACK,
+    PROFILE_REPORT_ADDITIONAL_CALLBACK,
+    PROFILE_REPORT_REG_TYPE_INFO_CALLBACK,
+    PROFILE_REPORT_GET_HASH_ID_CALLBACK,
+    PROFILE_HOST_FREQ_IS_ENABLE_CALLBACK,
+    PROFILE_REPORT_API_C_CALLBACK,
+    PROFILE_REPORT_EVENT_C_CALLBACK,
+    PROFILE_REPORT_REG_TYPE_INFO_C_CALLBACK,
+    PROFILE_REPORT_GET_HASH_ID_C_CALLBACK,
+    PROFILE_HOST_FREQ_IS_ENABLE_C_CALLBACK,
+};
+
+constexpr uint16_t MSPROF_DATA_HEAD_MAGIC_NUM = 0x5a5a;
+constexpr uint64_t MSPROF_EVENT_FLAG = 0xFFFFFFFFFFFFFFFFULL;
+constexpr uint32_t PROF_INVALID_MODE_ID = 0xFFFFFFFFUL;
+constexpr size_t MAX_DEV_NUM = 64;
+
+constexpr uint64_t PROF_ACL_API = 0x00000001ULL;
+constexpr uint64_t PROF_TASK_TIME = 0x00000800ULL;
+constexpr uint64_t PROF_RUNTIME_TRACE = 0x0000004000000ULL;
+
+constexpr uint16_t MSPROF_REPORT_RUNTIME_LEVEL = 5000U;
+constexpr uint16_t MSPROF_REPORT_NNOPBASE_LEVEL = 10000U;
+constexpr uint16_t MSPROF_REPORT_ACL_LEVEL = 20000U;
+
+struct MsprofApi { // for MsprofReportApi
+    uint16_t magicNumber = MSPROF_DATA_HEAD_MAGIC_NUM;
+    uint16_t level;
+    uint32_t type;
+    uint32_t threadId;
+    uint32_t reserve;
+    uint64_t beginTime;
+    uint64_t endTime;
+    uint64_t itemId;
+};
+
+struct MsprofEvent {  // for MsprofReportEvent
+    uint16_t magicNumber = MSPROF_DATA_HEAD_MAGIC_NUM;
+    uint16_t level;
+    uint32_t type;
+    uint32_t threadId;
+    uint32_t requestId; // 0xFFFF means single event
+    uint64_t timeStamp;
+    uint64_t reserve = MSPROF_EVENT_FLAG;
+    uint64_t itemId;
+};
+
+struct MsprofRuntimeTrack {
+    uint16_t deviceId;
+    uint16_t streamId;
+    uint32_t taskInfo;
+    uint64_t taskType;
+    uint64_t kernelName;
+};
+
+struct MsprofNodeBasicInfo {
+    uint64_t opName;
+    uint32_t taskType;
+    uint64_t opType;
+    uint32_t blockDim;
+    uint32_t opFlag;
+    uint8_t opState;
+};
+
+struct MsprofAttrInfo {
+    uint64_t opName;
+    uint32_t attrType;
+    uint64_t hashId;
+};
+
+#pragma pack(1)
+struct MsprofHcclOPInfo {  // for MsprofReportCompactInfo buffer data
+    uint8_t relay : 1;
+    uint8_t retry : 1;
+    uint8_t dataType;
+    uint64_t algType;     // 通信算子使用的算法,hash的key,其值是以"-"分隔的字符串
+    uint64_t count;
+    uint64_t groupName;
+};
+#pragma pack()
+
+enum TsTaskType {
+    TS_TASK_TYPE_KERNEL_AICORE = 0,
+    TS_TASK_TYPE_KERNEL_AICPU = 1,
+    TS_TASK_TYPE_KERNEL_AIVEC = 66,
+    TS_TASK_TYPE_FLIP = 98,
+    TS_TASK_TYPE_KERNEL_MIX_AIC = 108,
+    TS_TASK_TYPE_KERNEL_MIX_AIV = 109,
+    TS_TASK_TYPE_RESERVED,
+};
+
+enum RtProfileDataType {
+    RT_PROFILE_TYPE_TASK_BEGIN = 0,
+    RT_PROFILE_TYPE_TASK_END = 800,
+    RT_PROFILE_TYPE_MEMCPY_INFO = 801,
+    RT_PROFILE_TYPE_TASK_TRACK = 802,
+    RT_PROFILE_TYPE_API_BEGIN = 1000,
+    RT_PROFILE_TYPE_API_END = 2000,
+    RT_PROFILE_TYPE_MAX
+};
+
+const uint16_t MSPROF_COMPACT_INFO_DATA_LENGTH = 40;
+struct MsprofCompactInfo {
+    uint16_t magicNumber = MSPROF_DATA_HEAD_MAGIC_NUM;
+    uint16_t level;
+    uint32_t type;
+    uint32_t threadId;
+    uint32_t dataLen;
+    uint64_t timeStamp;
+    union {
+        uint8_t info[MSPROF_COMPACT_INFO_DATA_LENGTH];
+        MsprofRuntimeTrack runtimeTrack;
+        MsprofNodeBasicInfo nodeBasicInfo;
+        MsprofAttrInfo nodeAttrInfo;
+        MsprofHcclOPInfo hcclopInfo;
+    } data;
+};
+
+constexpr size_t PATH_LEN_MAX = 1023;
+constexpr size_t PARAM_LEN_MAX = 4095;
+
+struct CommandHandleParams {
+    uint32_t pathLen;
+    uint32_t storageLimit;  // MB
+    uint32_t profDataLen;
+    char path[PATH_LEN_MAX + 1];
+    char profData[PARAM_LEN_MAX + 1];
+};
+
+struct CommandHandle {
+    uint64_t profSwitch;
+    uint64_t profSwitchHi;
+    uint32_t devNums;
+    uint32_t devIdList[MAX_DEV_NUM];
+    uint32_t modelId;
+    uint32_t type;
+    uint32_t cacheFlag;
+    struct CommandHandleParams params;
+};
+
+enum CommandHandleType {
+    PROF_COMMANDHANDLE_TYPE_INIT = 0,
+    PROF_COMMANDHANDLE_TYPE_START,
+    PROF_COMMANDHANDLE_TYPE_STOP,
+    PROF_COMMANDHANDLE_TYPE_FINALIZE,
+};
+
+enum ProfApiErrorCode {
+    PROFAPI_ERROR_NONE = 0,
+    PROFAPI_ERROR_MEM_NOT_ENOUGH,
+    PROFAPI_ERROR_GET_ENV,
+    PROFAPI_ERROR_CONFIG_INVALID,
+    PROFAPI_ERROR_ACL_JSON_OFF,
+    PROFAPI_ERROR,
+    PROFAPI_ERROR_UNINITIALIZE,
+};
+
+void RegisterRtProfileCallback();
+int32_t CompactInfoReporterCallbackImpl(uint32_t agingFlag, const void *data, uint32_t length);
+uint64_t GetHashIdCallBackImply(const char* hashInfo, size_t len);
+void SetProfCommand(uint32_t devId);
+}
+#endif

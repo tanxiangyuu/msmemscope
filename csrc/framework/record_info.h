@@ -13,8 +13,28 @@ namespace Leaks {
 constexpr int32_t GD_INVALID_NUM = 9999;
 const size_t KERNELNAME_MAX_SIZE = 128;
 const size_t ATB_NAME_MAX_SIZE = 64;
+const size_t ATEN_NAME_MAX_SIZE = 128;
+const size_t OP_NAME_MAX_SIZE = 128;
 const size_t ATB_PARAMS_MAX_SIZE = 128;
 const size_t MEM_ATTR_MAX_SIZE = 128;
+const size_t ADDR_OWNER_SIZE = 64;
+
+enum class RecordType {
+    MEMORY_RECORD = 0,
+    ACL_ITF_RECORD,
+    KERNEL_LAUNCH_RECORD,
+    KERNEL_EXCUTE_RECORD,
+    MSTX_MARK_RECORD,
+    TORCH_NPU_RECORD,
+    ATB_MEMORY_POOL_RECORD,
+    MINDSPORE_NPU_RECORD,
+    ATB_OP_EXECUTE_RECORD,
+    ATB_KERNEL_RECORD,
+    ATEN_OP_LAUNCH_RECORD,
+    MEM_ACCESS_RECORD,
+    ADDR_INFO_RECORD,
+    INVALID_RECORD,
+};
 
 enum class MemoryDataType {
     MEMORY_MALLOC = 0,
@@ -42,7 +62,8 @@ struct MemoryUsage {
     int64_t streamPtr;
 };
 
-struct TorchNpuRecord {
+struct MemPoolRecord {
+    RecordType type;
     uint64_t recordIndex;
     uint64_t kernelIndex;       // 当前所属kernellaunch索引
     uint64_t pid;
@@ -50,9 +71,19 @@ struct TorchNpuRecord {
     uint64_t timeStamp;
     int32_t devId;
     MemoryUsage memoryUsage;
+    char owner[ADDR_OWNER_SIZE];
 };
 
-using AtbMemPoolRecord = TorchNpuRecord;
+enum class AddrInfoType : uint8_t {
+    USER_DEFINED = 0U,
+    PTA_OPTIMIZER_STEP,
+};
+
+struct AddrInfo {
+    AddrInfoType type;
+    uint64_t addr;
+    char owner[ADDR_OWNER_SIZE];
+};
 
 enum class MemOpType : uint8_t {
     MALLOC = 0U,
@@ -99,6 +130,18 @@ enum class PyTraceType : uint8_t {
     PYOPCODE,
 };
 
+enum class OpEventType : uint8_t {
+    ATEN_START = 0,
+    ATEN_END,
+    ATB_START,
+    ATB_END,
+};
+
+enum class KernelEventType : uint8_t {
+    KERNEL_START = 0,
+    KERNEL_END,
+};
+
 struct MemOpRecord {
     uint64_t recordIndex;       // 记录索引
     uint64_t kernelIndex;       // 当前所属kernellaunch索引
@@ -113,6 +156,7 @@ struct MemOpRecord {
     uint64_t addr;              // 地址
     uint64_t memSize;           // 操作大小
     uint64_t timeStamp;
+    char owner[ADDR_OWNER_SIZE];
 };
 
 struct AclItfRecord {
@@ -130,12 +174,23 @@ struct KernelLaunchRecord {
     uint64_t pid;
     uint64_t tid;
     int32_t devId;              // 所属device id
+    int16_t streamId;           // streamId
+    int16_t taskId;
     uint64_t kernelLaunchIndex; // kernelLaunch索引
     uint64_t recordIndex;       // 记录索引
     KernelLaunchType type;      // KernelLaunch类型
     uint64_t timeStamp;
-    int32_t streamId;           // streamId
     uint32_t blockDim;          // 算子核函数运行所需核数
+    char kernelName[KERNELNAME_MAX_SIZE];  // kernel名称
+};
+
+struct KernelExcuteRecord {
+    uint64_t recordIndex;       // 记录索引
+    int16_t devId;              // 所属device id
+    int16_t streamId;
+    int16_t taskId;
+    KernelEventType type;       // KernelLaunch类型
+    uint64_t timeStamp;
     char kernelName[KERNELNAME_MAX_SIZE];  // kernel名称
 };
 
@@ -157,18 +212,6 @@ struct MstxRecord {
     char markMessage[256U];
     uint64_t recordIndex;       // 记录索引
     uint64_t kernelIndex;       // 当前所属kernellaunch索引
-};
-
-enum class OpEventType : uint8_t {
-    ATEN_START = 0,
-    ATEN_END,
-    ATB_START,
-    ATB_END,
-};
-
-enum class KernelEventType : uint8_t {
-    KERNEL_START = 0,
-    KERNEL_END,
 };
 
 struct AtbOpExecuteRecord {
@@ -193,14 +236,30 @@ struct AtbKernelRecord {
     char params[ATB_PARAMS_MAX_SIZE];
 };
 
+struct AtenOpLaunchRecord {
+    OpEventType eventType;
+    int32_t devId;
+    uint64_t timestamp;
+    uint64_t pid;
+    uint64_t tid;
+    uint64_t recordIndex;
+    char name[ATEN_NAME_MAX_SIZE];
+};
+
 enum class AccessType : uint8_t {
     READ = 0,
     WRITE,
     UNKNOWN,
 };
 
+enum class OpType : uint8_t {
+    ATEN = 0,
+    ATB,
+};
+
 struct MemAccessRecord {
     AccessType eventType;
+    OpType memType;     // 所属的mem类型
     int32_t devId;
     uint64_t timestamp;
     uint64_t pid;
@@ -209,35 +268,25 @@ struct MemAccessRecord {
     DeviceType devType;         // 所属device类型，0为npu，1为cpu
     uint64_t addr;              // 地址
     uint64_t memSize;           // 操作大小
+    char name[OP_NAME_MAX_SIZE];
     char attr[MEM_ATTR_MAX_SIZE];
-};
-
-enum class RecordType {
-    MEMORY_RECORD = 0,
-    ACL_ITF_RECORD,
-    KERNEL_LAUNCH_RECORD,
-    MSTX_MARK_RECORD,
-    TORCH_NPU_RECORD,
-    ATB_MEMORY_POOL_RECORD,
-    ATB_OP_EXECUTE_RECORD,
-    ATB_KERNEL_RECORD,
-    MEM_ACCESS_RECORD,
-    INVALID_RECORD,
 };
 
 // 事件记录载体
 struct EventRecord {
     RecordType type;
     union {
-        TorchNpuRecord torchNpuRecord;
+        MemPoolRecord memPoolRecord;
         MemOpRecord memoryRecord;
         AclItfRecord aclItfRecord;
         KernelLaunchRecord kernelLaunchRecord;
+        KernelExcuteRecord kernelExcuteRecord;
         MstxRecord mstxRecord;
-        AtbMemPoolRecord atbMemPoolRecord;
         AtbOpExecuteRecord atbOpExecuteRecord;
         AtbKernelRecord atbKernelRecord;
+        AtenOpLaunchRecord atenOpLaunchRecord;
         MemAccessRecord memAccessRecord;
+        AddrInfo addrInfo;
     } record;
     uint64_t pyStackLen;
     uint64_t cStackLen;

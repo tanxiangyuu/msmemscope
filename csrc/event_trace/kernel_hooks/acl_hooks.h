@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <dlfcn.h>
 #include "vallina_symbol.h"
+#include "atb_hooks/atb_stub.h"
 
 namespace Leaks {
 constexpr int ACL_SUCCESS = 0;
@@ -39,6 +40,7 @@ extern "C" {
 #endif
 
 typedef int aclError;
+typedef void *aclrtStream;
 
 typedef enum aclrtMemcpyKind {
     ACL_MEMCPY_HOST_TO_HOST,
@@ -51,6 +53,7 @@ ACL_FUNC_VISIBILITY aclError aclInit(const char *configPath);
 ACL_FUNC_VISIBILITY aclError aclFinalize();
 
 aclError aclrtMemcpy(void *dst, size_t destMax, const void *src, size_t count, aclrtMemcpyKind kind);
+aclError aclrtSynchronizeStream(aclrtStream stream);
 
 #ifdef __cplusplus
 }

@@ -323,6 +323,22 @@ void GetPyFuncInfo(PyFrameObject *frame, std::string &info, std::string &hash)
     Py_DecRef(reinterpret_cast<PyObject*>(code));
 }
 
+bool IsIgnoreCFunc(std::string hash)
+{
+    static std::string ignoreCFunc = "__exit__";
+    static std::string ignoreCFile = "contextlib.py";
+    size_t pos = hash.find(":");
+    std::string funcName(hash.c_str() + pos + 1);
+    if (funcName != ignoreCFunc) {
+        return false;
+    }
+    std::string fileName(hash.c_str(), pos);
+    size_t fileNameSize = fileName.size();
+    size_t ignoreCFileSize = ignoreCFile.size();
+    return fileNameSize >= ignoreCFileSize &&
+           strncmp(fileName.c_str() + fileNameSize - ignoreCFileSize, ignoreCFile.c_str(), ignoreCFileSize) == 0;
+}
+
 int pyProfileFn(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg)
 {
     if (callFunc == nullptr) {
@@ -346,8 +362,11 @@ int pyProfileFn(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg)
             std::string pyInfo;
             info = PythonObject(arg).Cast<std::string>();
             GetPyFuncInfo(frame, pyInfo, pyHash);
-            callFunc(pyHash, pyInfo, Leaks::PyTraceType::CCALL, 0);
-            callFunc(pyHash, info, Leaks::PyTraceType::CCALL, 0);
+            if (IsIgnoreCFunc(pyHash)) {
+                break;
+            }
+            callFunc(info, pyInfo, Leaks::PyTraceType::CCALL, 0);
+            callFunc(info, info, Leaks::PyTraceType::CCALL, 0);
             break;
         }
         case PyTrace_C_RETURN: {
@@ -355,8 +374,8 @@ int pyProfileFn(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg)
             std::string pyInfo;
             GetPyFuncInfo(frame, pyInfo, pyHash);
             info = PythonObject(arg).Cast<std::string>();
-            callFunc(pyHash, info, Leaks::PyTraceType::CRETURN, 0);
-            callFunc(pyHash, pyInfo, Leaks::PyTraceType::CRETURN, 0);
+            callFunc(info, info, Leaks::PyTraceType::CRETURN, 0);
+            callFunc(info, pyInfo, Leaks::PyTraceType::CRETURN, 0);
             break;
         }
         default:
@@ -379,9 +398,8 @@ std::vector<PyThreadState*> getInterpreterThreads(PyInterpreterState* interprete
     return threads;
 }
 
-void GetTraceCallStack(std::string type)
+void GetTraceCallStack(std::string type, uint64_t time)
 {
-    uint64_t time = GetTimeMicroseconds();
     const size_t stackMaxDepth = 128;
     auto frame = PyEval_GetFrame();
     if (frame != nullptr) {
@@ -419,9 +437,10 @@ void RegisterTraceCb(TraceCbFunc call)
         return;
     }
     std::vector<PyThreadState *> thread_states = getInterpreterThreads(interpreter);
+    uint64_t time = GetTimeNanoseconds();
     for (const auto thread_state : thread_states) {
         PyThreadState_Swap(thread_state);
-        GetTraceCallStack("start: ");
+        GetTraceCallStack("start: ", time);
         PyEval_SetProfile(pyProfileFn, nullptr);
     }
     PyThreadState_Swap(init);
@@ -429,9 +448,10 @@ void RegisterTraceCb(TraceCbFunc call)
 
 void UnRegisterTraceCb()
 {
+    uint64_t time = GetTimeNanoseconds();
     for (const auto thread_state : getInterpreterThreads(interpreter)) {
         PyThreadState_Swap(thread_state);
-        GetTraceCallStack("stop: ");
+        GetTraceCallStack("stop: ", time);
         PyEval_SetProfile(nullptr, nullptr);
     }
     callFunc = nullptr;

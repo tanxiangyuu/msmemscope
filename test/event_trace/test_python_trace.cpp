@@ -16,12 +16,25 @@ TEST(PythonTrace, RecordCCallTest)
 {
     PythonTrace::GetInstance().RecordCCall("123", "123");
     PythonTrace::GetInstance().RecordReturn("123:__torch_dispatch__", "123");
-    PythonTrace::GetInstance().RecordCCall("1contextlib.py:__exit__", "123");
 }
 
 TEST(PythonTrace, RecordReturnTest)
 {
+    PythonTrace::GetInstance().Start();
     PythonTrace::GetInstance().RecordReturn("123", "123");
     PythonTrace::GetInstance().RecordPyCall("123", "123", 0);
     PythonTrace::GetInstance().RecordReturn("123", "123");
+
+    std::string hash;
+    std::string info;
+    uint64_t timeStamp = 0;
+    PyTraceType what = PyTraceType::PYCALL;
+    callback(hash, info, what, timeStamp);
+    what = PyTraceType::PYRETURN;
+    callback(hash, info, what, timeStamp);
+    what = PyTraceType::CCALL;
+    callback(hash, info, what, timeStamp);
+    what = PyTraceType::CRETURN;
+    callback(hash, info, what, timeStamp);
+    PythonTrace::GetInstance().Stop();
 }

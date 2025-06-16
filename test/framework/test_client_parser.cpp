@@ -57,6 +57,89 @@ TEST(ClientParser, pass_help_parameter_expect_show_help_info)
     ASSERT_NE(capture.find("Usage"), std::string::npos);
 }
 
+TEST(ClientParser, pass_valid_analysis_type_case_not_set)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.analysisType, 1);
+}
+
+TEST(ClientParser, pass_valid_analysis_type_case_leaks)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--analysis=leaks"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.analysisType, 1);
+}
+
+TEST(ClientParser, pass_valid_analysis_type_case_decompose)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--analysis=decompose"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.analysisType, 2);
+}
+
+TEST(ClientParser, pass_valid_analysis_type_case_inefficient)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--analysis=inefficient"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.analysisType, 4);
+}
+
+TEST(ClientParser, pass_valid_analysis_type_case_all)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--analysis=leaks,decompose,inefficient"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.eventType, 7);
+}
+
+TEST(ClientParser, pass_invalid_analysis_type_case)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--analysis=lekas"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.printHelpInfo);
+}
+
 TEST(ClientParser, pass_valid_level_value_expect_level0)
 {
     std::vector<const char*> argv = {
@@ -562,6 +645,22 @@ TEST(ClientParser, test_print_version)
     ASSERT_TRUE(cmd.printVersionInfo);
 }
 
+TEST(ClientParser, print_version)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--version"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    testing::internal::CaptureStdout();
+    cliParser.Interpretor(argv.size(), const_cast<char**>(argv.data()));
+    std::string capture = testing::internal::GetCapturedStdout();
+    ASSERT_EQ(capture.find("Usage"), std::string::npos);
+}
+
 TEST(ClientParser, test_not_set_output)
 {
     std::vector<const char*> argv = {
@@ -685,7 +784,7 @@ TEST(ClientParser, test_input_valid_log_level_expect_valid_loglv)
     /// Reset getopt states
     ClientParser cliParser;
     UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
-    ASSERT_EQ(Utility::Log::GetLog().lv_, Utility::LogLv::WARN);
+    ASSERT_EQ(Utility::Log::GetLog().lv_, LogLv::WARN);
 
     argv = {
         "msleaks",
@@ -693,7 +792,7 @@ TEST(ClientParser, test_input_valid_log_level_expect_valid_loglv)
     };
  
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
-    ASSERT_EQ(Utility::Log::GetLog().lv_, Utility::LogLv::INFO);
+    ASSERT_EQ(Utility::Log::GetLog().lv_, LogLv::INFO);
 
     argv = {
         "msleaks",
@@ -701,7 +800,7 @@ TEST(ClientParser, test_input_valid_log_level_expect_valid_loglv)
     };
  
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
-    ASSERT_EQ(Utility::Log::GetLog().lv_, Utility::LogLv::ERROR);
+    ASSERT_EQ(Utility::Log::GetLog().lv_, LogLv::ERROR);
 }
 
 TEST(ClientParser, test_input_invalid_log_level_expect_invalid_loglv)
@@ -758,4 +857,40 @@ TEST(ClientParser, test_parse_call_stack_expect_true)
     };
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_TRUE(cmd.printHelpInfo);
+}
+
+TEST(ClientParser, pass_data_format_case_db)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--data-format=db",
+        "--output=./testmsleaks"
+    };
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.dataFormat, 1);
+}
+
+TEST(ClientParser, usercommand_precheck_false)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--compare"
+    };
+    optind = 1;
+    ClientParser cliParser;
+    testing::internal::CaptureStdout();
+    cliParser.Interpretor(argv.size(), const_cast<char**>(argv.data()));
+    std::string capture = testing::internal::GetCapturedStdout();
+    ASSERT_NE(capture.find("Usage"), std::string::npos);
+
+    argv = {
+        "msleaks",
+        "--output="
+    };
+    testing::internal::CaptureStdout();
+    cliParser.Interpretor(argv.size(), const_cast<char**>(argv.data()));
+    capture = testing::internal::GetCapturedStdout();
+    ASSERT_NE(capture.find("Usage"), std::string::npos);
 }

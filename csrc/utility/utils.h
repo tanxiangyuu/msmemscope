@@ -13,6 +13,9 @@
 #include <iostream>
 #include <unistd.h>
 
+constexpr uint64_t INVALID_PROCESSID = UINT64_MAX;
+constexpr uint64_t INVALID_THREADID = UINT64_MAX;
+
 namespace Utility {
     inline uint64_t GetTid()
     {

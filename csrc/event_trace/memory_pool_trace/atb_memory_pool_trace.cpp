@@ -95,11 +95,12 @@ void ATBMemoryPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegionsReg
         desc->regionHandleArrayOut[i] = handle;
         regionHandleMp_[handle] = rangeDescArray[i];
 
-        AtbMemPoolRecord record;
+        MemPoolRecord record;
+        record.type = RecordType::ATB_MEMORY_POOL_RECORD;
         record.memoryUsage = memUsageMp_[devId];
         record.pid = Utility::GetPid();
         record.tid = Utility::GetTid();
-        if (!EventReport::Instance(CommType::SOCKET).ReportATBMemPoolRecord(record, stack)) {
+        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(record, stack)) {
             CLIENT_ERROR_LOG("Report ATB Data Failed");
         }
     }
@@ -127,7 +128,7 @@ void ATBMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregi
         if (iter == regionHandleMp_.end()) {
             continue;
         }
-        AtbMemPoolRecord record;
+        MemPoolRecord record;
         mstxMemVirtualRangeDesc_t rangeDesc = iter->second;
         memUsageMp_[rangeDesc.deviceId].dataType = 1;
         memUsageMp_[rangeDesc.deviceId].deviceIndex = rangeDesc.deviceId;
@@ -135,6 +136,7 @@ void ATBMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregi
         memUsageMp_[rangeDesc.deviceId].totalAllocated =
             Utility::GetSubResult(memUsageMp_[rangeDesc.deviceId].totalAllocated, rangeDesc.size);
         memUsageMp_[rangeDesc.deviceId].allocSize = -rangeDesc.size;
+        record.type = RecordType::ATB_MEMORY_POOL_RECORD;
         record.memoryUsage = memUsageMp_[rangeDesc.deviceId];
         record.pid = Utility::GetPid();
         record.tid = Utility::GetTid();
@@ -142,7 +144,7 @@ void ATBMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregi
         regionHandleMp_.erase(handle);
         delete handle;
         handle = nullptr;
-        if (!EventReport::Instance(CommType::SOCKET).ReportATBMemPoolRecord(record, stack)) {
+        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(record, stack)) {
             CLIENT_ERROR_LOG("Report ATB Data Failed");
         }
     }

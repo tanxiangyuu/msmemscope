@@ -6,6 +6,7 @@ ${FUNC_INJECTION_CORE_DIR}/Communication.cpp
 ${FUNC_INJECTION_CORE_DIR}/DomainSocket.cpp
 ${FUNC_HOSTINJECTION_DIR}/utils/FileSystem.cpp
 ${FUNC_HOSTINJECTION_DIR}/utils/Ustring.cpp
+${EVENT_TRACE_INC_DIR}/describe_trace.cpp
 )
 
 list(SORT SOURCE)
@@ -19,4 +20,4 @@ add_subdirectory(atb_hooks)
 add_subdirectory(mstx_hooks)
 add_subdirectory(kernel_hooks)
 add_subdirectory(memory_pool_trace)
-add_subdirectory(atb_op_watch)
+add_subdirectory(op_watch)

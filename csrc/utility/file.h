@@ -3,6 +3,7 @@
 #ifndef LEAKS_UTILITY_FILE_H
 #define LEAKS_UTILITY_FILE_H
 
+#include <sqlite3.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <iostream>
@@ -16,6 +17,7 @@
 namespace Utility {
     constexpr uint32_t DIRMOD = 0750;
     constexpr uint32_t DEFAULT_UMASK_FOR_CSV_FILE = 0177;
+    constexpr uint32_t DEFAULT_UMASK_FOR_BIN_FILE = 0177;
     extern std::string g_dirPath;
     constexpr uint64_t MAX_INPUT_FILE_SIZE = 1UL << 33; // 8GB
 
@@ -81,6 +83,7 @@ namespace Utility {
 
     // 多线程情况下调用，需加锁保护
     bool CreateCsvFile(FILE **filefp, std::string dirPath, std::string fileName, std::string headers);
+    bool CreateDbFile(sqlite3 **filefp, std::string filePath, std::string tableName, std::string tableCreateSql);
 
     template <typename... Args>
     inline bool Fprintf(FILE* fp, const std::string &format, const Args& ...args)
@@ -120,7 +123,11 @@ namespace Utility {
 
     /// 输出文件校验
     bool CheckFileBeforeCreate(const std::string &path);
-
+    // 检查数据库环境
+    bool IsSqliteAvailable();
+    bool TableExists(sqlite3 *filefp, std::string tableName);
+    bool CreateDbPath(Leaks::Config &config, const std::string &fileName);
+    bool CreateDbTable(sqlite3 *filefp, std::string tableCreateSql);
     /// 创建文件
     FILE* CreateFileWithUmask(const std::string &path, const std::string &mode, mode_t mask);
     FILE* CreateFile(const std::string &dir, const std::string &name, mode_t mask);

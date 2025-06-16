@@ -14,6 +14,27 @@
 #include "bit_field.h"
 using namespace Leaks;
 
+void setConfig(Config &config)
+{
+    BitField<decltype(config.eventType)> eventBit;
+    BitField<decltype(config.levelType)> levelBit;
+    BitField<decltype(config.analysisType)> analysisBit;
+    analysisBit.setBit(static_cast<size_t>(AnalysisType::LEAKS_ANALYSIS));
+    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_OP));
+    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::ACCESS_EVENT));
+    config.analysisType = analysisBit.getValue();
+    config.eventType = eventBit.getValue();
+    config.levelType = levelBit.getValue();
+    config.enableCStack = true;
+    config.enablePyStack = true;
+    config.stepList.stepCount = 0;
+    config.dataFormat = 0;
+}
+
 TEST(Process, process_launch_ls_expect_success)
 {
     std::vector<std::string> execParams = {"/bin/ls"};
@@ -150,7 +171,8 @@ TEST(Process, do_dump_record_except_success)
     Record record{};
 
     Config config;
-    DumpRecord::GetInstance(config).DumpData(clientId, record);
+    CallStackString stack{};
+    DumpRecord::GetInstance(config).DumpData(clientId, record, stack);
 }
 
 TEST(Process, do_record_handler_except_success)
@@ -158,7 +180,7 @@ TEST(Process, do_record_handler_except_success)
     ClientId clientId = 0;
     auto record1 = Record{};
     record1.eventRecord.type = RecordType::TORCH_NPU_RECORD;
-    auto npuRecordMalloc = TorchNpuRecord {};
+    auto npuRecordMalloc = MemPoolRecord {};
     npuRecordMalloc.recordIndex = 1;
     auto memoryusage1 = MemoryUsage {};
     memoryusage1.dataType = 0;
@@ -166,7 +188,7 @@ TEST(Process, do_record_handler_except_success)
     memoryusage1.allocSize = 512;
     memoryusage1.totalAllocated = 512;
     npuRecordMalloc.memoryUsage = memoryusage1;
-    record1.eventRecord.record.torchNpuRecord = npuRecordMalloc;
+    record1.eventRecord.record.memPoolRecord = npuRecordMalloc;
 
     auto record2 = Record{};
     record2.eventRecord.type = RecordType::MSTX_MARK_RECORD;
@@ -188,6 +210,7 @@ TEST(Process, do_record_handler_except_success)
     record4.eventRecord.record.aclItfRecord = aclItfRecord;
 
     Config config;
+    setConfig(config);
     Process process(config);
     process.RecordHandler(clientId, record1);
     process.RecordHandler(clientId, record2);
@@ -198,18 +221,7 @@ TEST(Process, do_record_handler_except_success)
 TEST(Process, do_msg_handler_record_packet_type_except_success)
 {
     Config config;
-    BitField<decltype(config.eventType)> eventBit;
-    BitField<decltype(config.levelType)> levelBit;
-    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_OP));
-    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
-    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
-    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
-    eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
-    eventBit.setBit(static_cast<size_t>(EventType::ACCESS_EVENT));
-    config.eventType = eventBit.getValue();
-    config.levelType = levelBit.getValue();
-    config.enableCStack = true;
-    config.enablePyStack = true;
+    setConfig(config);
     Process process(config);
 
     size_t clientId = 0;

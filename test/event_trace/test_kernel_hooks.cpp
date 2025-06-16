@@ -2,10 +2,13 @@
 
 #include <gtest/gtest.h>
 #include <unordered_map>
+#define private public
+#include "event_trace/event_report.h"
+#undef private
+#include "bit_field.h"
 #include "kernel_hooks/runtime_hooks.h"
 #include "kernel_hooks/acl_hooks.h"
 #include "vallina_symbol.h"
-#include "handle_mapping.h"
 
 using namespace testing;
 using namespace Leaks;
@@ -30,32 +33,29 @@ RTS_API rtError_t MockRtKernelLaunchWithFlagV2(const void *stubFunc, uint32_t bl
     return RT_ERROR_NONE;
 }
 
+RTS_API rtError_t MockRtAicpuKernelLaunchExWithArgs(const uint32_t kernelType, const char* const opName,
+    const uint32_t blockDim, const RtAicpuArgsExT *argsInfo, RtSmDescT * const smDesc, const RtStreamT stm,
+    const uint32_t flags)
+{
+    std::cout << "Stub Func: " << __func__ << std::endl;
+    return RT_ERROR_NONE;
+}
+
+RTS_API rtError_t MockRtLaunchKernelByFuncHandle(rtFuncHandle funcHandle, uint32_t blockDim,
+    rtLaunchArgsHandle argsHandle, RtStreamT stm)
+{
+    std::cout << "Stub Func: " << __func__ << std::endl;
+    return RT_ERROR_NONE;
+}
+
+RTS_API rtError_t MockRtLaunchKernelByFuncHandleV2(rtFuncHandle funcHandle, uint32_t blockDim,
+    rtLaunchArgsHandle argsHandle, RtStreamT stm, const RtTaskCfgInfoT *cfgInfo)
+{
+    std::cout << "Stub Func: " << __func__ << std::endl;
+    return RT_ERROR_NONE;
+}
+
 RTS_API rtError_t MockRtGetStreamId(rtStream_t stm, int32_t *streamId)
-{
-    std::cout << "Stub Func: " << __func__ << std::endl;
-    return RT_ERROR_NONE;
-}
-
-RTS_API rtError_t MockRtFunctionRegister(
-    void *binHandle, const void *stubFunc, const char *stubName, const void *kernelInfoExt, uint32_t funcMode)
-{
-    std::cout << "Stub Func: " << __func__ << std::endl;
-    return RT_ERROR_NONE;
-}
-
-RTS_API rtError_t MockRtDevBinaryRegister(const rtDevBinary_t *bin, void **hdl)
-{
-    std::cout << "Stub Func: " << __func__ << std::endl;
-    return RT_ERROR_NONE;
-}
-
-RTS_API rtError_t MockRtRegisterAllKernel(const rtDevBinary_t *bin, void **hdl)
-{
-    std::cout << "Stub Func: " << __func__ << std::endl;
-    return RT_ERROR_NONE;
-}
-
-RTS_API rtError_t MockRtDevBinaryUnRegister(void *hdl)
 {
     std::cout << "Stub Func: " << __func__ << std::endl;
     return RT_ERROR_NONE;
@@ -77,11 +77,10 @@ std::unordered_map<std::string, void *> g_funcMocks{
     {"rtKernelLaunch", reinterpret_cast<void *>(&MockRtKernelLaunch)},
     {"rtKernelLaunchWithHandleV2", reinterpret_cast<void *>(&MockRtKernelLaunchWithHandleV2)},
     {"rtKernelLaunchWithFlagV2", reinterpret_cast<void *>(&MockRtKernelLaunchWithFlagV2)},
+    {"rtAicpuKernelLaunchExWithArgs", reinterpret_cast<void *>(&MockRtAicpuKernelLaunchExWithArgs)},
+    {"rtLaunchKernelByFuncHandle", reinterpret_cast<void *>(&MockRtLaunchKernelByFuncHandle)},
+    {"rtLaunchKernelByFuncHandleV2", reinterpret_cast<void *>(&MockRtLaunchKernelByFuncHandleV2)},
     {"rtGetStreamId", reinterpret_cast<void *>(&MockRtGetStreamId)},
-    {"rtFunctionRegister", reinterpret_cast<void *>(&MockRtFunctionRegister)},
-    {"rtDevBinaryRegister", reinterpret_cast<void *>(&MockRtDevBinaryRegister)},
-    {"rtRegisterAllKernel", reinterpret_cast<void *>(&MockRtRegisterAllKernel)},
-    {"rtDevBinaryUnRegister", reinterpret_cast<void *>(&MockRtDevBinaryUnRegister)},
     {"aclInit", reinterpret_cast<void *>(&MockAclInit)},
     {"aclFinalize", reinterpret_cast<void *>(&MockAclFinalize)},
 };
@@ -105,6 +104,19 @@ void *dlsym(void *handle, const char *symbol)
 
 TEST(AclHooks, do_aclInit_expect_success)
 {
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    BitField<decltype(instance.config_.eventType)> eventBit;
+    BitField<decltype(instance.config_.levelType)> levelBit;
+    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_OP));
+    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::ACCESS_EVENT));
+    instance.config_.eventType = eventBit.getValue();
+    instance.config_.levelType = levelBit.getValue();
+    instance.config_.enableCStack = true;
+    instance.config_.enablePyStack = true;
     g_isDlsymNullptr = false;
     const char *configPath = "test";
     aclInit(configPath);
@@ -168,6 +180,41 @@ TEST(RuntimeHooks, do_rtKernelLaunchWithFlagV2_expect_success)
     EXPECT_EQ(rtKernelLaunchWithFlagV2(stubFunc, blockDim, argsInfo, smDesc, stm, flags, cfgInfo), RT_ERROR_NONE);
 }
 
+TEST(RuntimeHooks, do_rtAicpuKernelLaunchExWithArgs_expect_success)
+{
+    g_isDlsymNullptr = false;
+    uint32_t kernelType = 0;
+    const char* const opName = "add";
+    uint32_t blockDim = 1;
+    const RtAicpuArgsExT *argsInfo = nullptr;
+    RtSmDescT * const smDesc = nullptr;
+    const RtStreamT stm = nullptr;
+    uint32_t flags = 1;
+    const rtTaskCfgInfo_t *cfgInfo = nullptr;
+    EXPECT_EQ(rtAicpuKernelLaunchExWithArgs(kernelType, opName, blockDim, argsInfo, smDesc, stm, flags), RT_ERROR_NONE);
+}
+
+TEST(RuntimeHooks, do_rtLaunchKernelByFuncHandle_expect_success)
+{
+    g_isDlsymNullptr = false;
+    rtFuncHandle funcHandle = nullptr;
+    rtLaunchArgsHandle argsHandle = nullptr;
+    uint32_t blockDim = 1;
+    const RtStreamT stm = nullptr;
+    EXPECT_EQ(rtLaunchKernelByFuncHandle(funcHandle, blockDim, argsHandle, stm), RT_ERROR_NONE);
+}
+
+TEST(RuntimeHooks, do_rtLaunchKernelByFuncHandleV2_expect_success)
+{
+    g_isDlsymNullptr = false;
+    rtFuncHandle funcHandle = nullptr;
+    rtLaunchArgsHandle argsHandle = nullptr;
+    uint32_t blockDim = 1;
+    const RtStreamT stm = nullptr;
+    RtTaskCfgInfoT *cfgInfo = nullptr;
+    EXPECT_EQ(rtLaunchKernelByFuncHandleV2(funcHandle, blockDim, argsHandle, stm, cfgInfo), RT_ERROR_NONE);
+}
+
 TEST(RuntimeHooks, do_rtKernelLaunch_expect_error)
 {
     g_isDlsymNullptr = true;
@@ -206,6 +253,42 @@ TEST(RuntimeHooks, do_rtKernelLaunchWithFlagV2_expect_error)
     EXPECT_EQ(rtKernelLaunchWithFlagV2(stubFunc, blockDim, argsInfo, smDesc, stm, flags, cfgInfo), RT_ERROR_RESERVED);
 }
 
+TEST(RuntimeHooks, do_rtAicpuKernelLaunchExWithArgs_expect_error)
+{
+    g_isDlsymNullptr = true;
+    uint32_t kernelType = 0;
+    const char* const opName = "add";
+    uint32_t blockDim = 1;
+    const RtAicpuArgsExT *argsInfo = nullptr;
+    RtSmDescT * const smDesc = nullptr;
+    const RtStreamT stm = nullptr;
+    uint32_t flags = 1;
+    const rtTaskCfgInfo_t *cfgInfo = nullptr;
+    EXPECT_EQ(rtAicpuKernelLaunchExWithArgs(kernelType, opName, blockDim, argsInfo, smDesc, stm, flags),
+        RT_ERROR_RESERVED);
+}
+
+TEST(RuntimeHooks, do_rtLaunchKernelByFuncHandle_expect_error)
+{
+    g_isDlsymNullptr = true;
+    rtFuncHandle funcHandle = nullptr;
+    rtLaunchArgsHandle argsHandle = nullptr;
+    uint32_t blockDim = 1;
+    const RtStreamT stm = nullptr;
+    EXPECT_EQ(rtLaunchKernelByFuncHandle(funcHandle, blockDim, argsHandle, stm), RT_ERROR_RESERVED);
+}
+
+TEST(RuntimeHooks, do_rtLaunchKernelByFuncHandleV2_expect_error)
+{
+    g_isDlsymNullptr = true;
+    rtFuncHandle funcHandle = nullptr;
+    rtLaunchArgsHandle argsHandle = nullptr;
+    uint32_t blockDim = 1;
+    const RtStreamT stm = nullptr;
+    RtTaskCfgInfoT *cfgInfo = nullptr;
+    EXPECT_EQ(rtLaunchKernelByFuncHandleV2(funcHandle, blockDim, argsHandle, stm, cfgInfo), RT_ERROR_RESERVED);
+}
+
 TEST(RuntimeHooks, do_rtGetStreamId_expect_success)
 {
     g_isDlsymNullptr = false;
@@ -220,118 +303,4 @@ TEST(RuntimeHooks, do_rtGetStreamId_expect_error)
     rtStream_t stm = nullptr;
     int32_t *streamId = nullptr;
     EXPECT_EQ(rtGetStreamId(stm, streamId), RT_ERROR_RESERVED);
-}
-
-TEST(RuntimeHooks, do_rtFunctionRegister_expect_success)
-{
-    g_isDlsymNullptr = false;
-    void *binHandle = nullptr;
-    const void *stubFunc = nullptr;
-    const char *stubName = nullptr;
-    const void *kernelInfoExt = nullptr;
-    uint32_t funcMode = 1;
-    EXPECT_EQ(rtFunctionRegister(binHandle, stubFunc, stubName, kernelInfoExt, funcMode), RT_ERROR_NONE);
-}
-
-TEST(RuntimeHooks, do_rtFunctionRegister_expect_error)
-{
-    g_isDlsymNullptr = true;
-    void *binHandle = nullptr;
-    const void *stubFunc = nullptr;
-    const char *stubName = nullptr;
-    const void *kernelInfoExt = nullptr;
-    uint32_t funcMode = 1;
-    EXPECT_EQ(rtFunctionRegister(binHandle, stubFunc, stubName, kernelInfoExt, funcMode), RT_ERROR_RESERVED);
-}
-
-TEST(RuntimeHooks, do_rtDevBinaryRegister_expect_success)
-{
-    g_isDlsymNullptr = false;
-    std::string mockData = ("SYMBOL TABLE:\n"
-    "000 g F .text test_000_mix_aic"
-    "000 g O .data g_opSystemRunCfg\n");
-    rtDevBinary_t bin;
-    bin.data = mockData.data();
-    bin.length = mockData.length();
-    std::vector<uint8_t> handleData{1, 2, 3};
-    void *hdl = handleData.data();
-    EXPECT_EQ(rtDevBinaryRegister(&bin, &hdl), RT_ERROR_NONE);
-}
-
-TEST(RuntimeHooks, do_rtDevBinaryRegister_expect_error)
-{
-    g_isDlsymNullptr = true;
-    const rtDevBinary_t *bin = nullptr;
-    void **hdl = nullptr;
-    EXPECT_EQ(rtDevBinaryRegister(bin, hdl), RT_ERROR_RESERVED);
-}
-
-TEST(RuntimeHooks, do_rtDevBinaryRegister_exceeds_binary_size_expect_error)
-{
-    g_isDlsymNullptr = false;
-    std::string mockData = ("SYMBOL TABLE:\n"
-    "000 g F .text test_000_mix_aic"
-    "000 g O .data g_opSystemRunCfg\n");
-    rtDevBinary_t bin;
-    bin.data = mockData.data();
-    bin.length = 32ULL * 1024 * 1024 * 1024 + 1;
-    std::vector<uint8_t> handleData{1, 2, 3};
-    void *hdl = handleData.data();
-    EXPECT_EQ(rtDevBinaryRegister(&bin, &hdl), RT_ERROR_MEMORY_ALLOCATION);
-}
-
-TEST(RuntimeHooks, do_rtRegisterAllKernel_expect_success)
-{
-    g_isDlsymNullptr = false;
-    std::string mockData = ("SYMBOL TABLE:\n"
-    "000 g F .text test_000_mix_aic"
-    "000 g O .data g_opSystemRunCfg\n");
-    rtDevBinary_t bin;
-    bin.data = mockData.data();
-    bin.length = mockData.length();
-    std::vector<uint8_t> handleData{1, 2, 3};
-    void *hdl = handleData.data();
-    EXPECT_EQ(rtRegisterAllKernel(&bin, &hdl), RT_ERROR_NONE);
-}
-
-TEST(RuntimeHooks, do_rtRegisterAllKernel_expect_error)
-{
-    g_isDlsymNullptr = true;
-    const rtDevBinary_t *bin = nullptr;
-    void **hdl = nullptr;
-    EXPECT_EQ(rtRegisterAllKernel(bin, hdl), RT_ERROR_RESERVED);
-}
-
-TEST(RuntimeHooks, do_rtRegisterAllKernel_exceeds_binary_size_expect_error)
-{
-    g_isDlsymNullptr = false;
-    std::string mockData = ("SYMBOL TABLE:\n"
-    "000 g F .text test_000_mix_aic"
-    "000 g O .data g_opSystemRunCfg\n");
-    rtDevBinary_t bin;
-    bin.data = mockData.data();
-    bin.length = 32ULL * 1024 * 1024 * 1024 + 1;
-    std::vector<uint8_t> handleData{1, 2, 3};
-    void *hdl = handleData.data();
-    EXPECT_EQ(rtRegisterAllKernel(&bin, &hdl), RT_ERROR_MEMORY_ALLOCATION);
-}
-
-TEST(RuntimeHooks, do_rtDevBinaryUnRegister_expect_success)
-{
-    g_isDlsymNullptr = false;
-    std::vector<uint8_t> handleData{1, 2, 3};
-    void *hdl = handleData.data();
-    void *stubFunc = handleData.data();
-    Leaks::BinKernel binkernel {};
-    binkernel.bin = {0x01, 0x02, 0x03, 0x04};
-    Leaks::HandleMapping::GetInstance().handleBinKernelMap_.insert({hdl, binkernel});
-    Leaks::HandleMapping::GetInstance().stubHandleMap_.insert({stubFunc, hdl});
-    EXPECT_EQ(rtDevBinaryUnRegister(hdl), RT_ERROR_NONE);
-}
-
-TEST(RuntimeHooks, do_rtDevBinaryUnRegister_expect_error)
-{
-    g_isDlsymNullptr = true;
-    void *hdl = nullptr;
-    EXPECT_EQ(rtDevBinaryUnRegister(hdl), RT_ERROR_RESERVED);
 }

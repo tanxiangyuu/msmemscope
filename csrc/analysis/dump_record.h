@@ -10,6 +10,8 @@
 #include "framework/record_info.h"
 #include "framework/config_info.h"
 #include "host_injection/core/Communication.h"
+#include "device_manager.h"
+#include "data_handler.h"
 
 namespace Leaks {
 
@@ -17,40 +19,32 @@ namespace Leaks {
 class DumpRecord {
 public:
     static DumpRecord& GetInstance(Config config);
-    bool DumpData(const ClientId &clientId, const Record &record);
+    bool DumpData(const ClientId &clientId, const Record &record, const CallStackString &stack);
+    bool WriteToFile(DumpContainer &container, const CallStackString &stack);
+    void SetAllocAttr(MemStateInfo& memInfo);
 private:
     explicit DumpRecord(Config config);
-    ~DumpRecord();
-    void SetDirPath();
+    ~DumpRecord() = default;
     DumpRecord(const DumpRecord&) = delete;
     DumpRecord& operator=(const DumpRecord&) = delete;
     DumpRecord(DumpRecord&& other) = delete;
     DumpRecord& operator=(DumpRecord&& other) = delete;
 
-    bool ExtractTensorInfo(const char* msg, const char* key, std::string &value);
-    bool WriteToFile(const DumpContainer &container, const CallStackString &stack);
-    bool DumpMemData(const ClientId &clientId, const MemOpRecord &memrecord, const CallStackString &stack);
+    bool DumpMemData(const ClientId &clientId, const MemOpRecord &memrecord);
     bool DumpKernelData(const ClientId &clientId, const KernelLaunchRecord &kernelLaunchRecord);
+    bool DumpKernelExcuteData(const KernelExcuteRecord &record);
     bool DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord);
     bool DumpMstxData(const ClientId &clientId, const MstxRecord &msxtRecord, const CallStackString &stack);
-    bool DumpOpLaunchData(const ClientId &clientId, const MstxRecord &mstxRecord, const bool &isFuncStart,
-    const CallStackString &stack);
-    bool DumpTensorData(const ClientId &clientId, const MstxRecord &mstxRecord, const CallStackString &stack);
-    bool DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord, const CallStackString &stack);
+    bool DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord);
     bool DumpAtbOpData(const ClientId &clientId, const AtbOpExecuteRecord &atbOpExecuteRecord);
     bool DumpAtbKernelData(const ClientId &clientId, const AtbKernelRecord &atbKernelRecord);
-    bool DumpMemAccessData(const ClientId &clientId, const MemAccessRecord &memAccessRecord);
-    FILE *leaksDataFile_ = nullptr;
-    std::unordered_map<ClientId, std::unordered_map<uint64_t, uint64_t>> hostMemSizeMap_;
-    std::unordered_map<ClientId, std::unordered_map<uint64_t, uint64_t>> memSizeMap_;
-    std::unordered_map<ClientId, std::unordered_map<uint64_t, MemOpSpace>> memOpMap_;
-    std::unordered_map<ClientId, uint64_t> memHost_;
-    std::unordered_map<ClientId, uint64_t> memDevice_;
-    std::string dirPath_;
+    bool DumpAtenOpLaunchData(const ClientId &clientId, const AtenOpLaunchRecord &atenOpLaunchRecord,
+    const CallStackString &stack);
     std::mutex fileMutex_;
-    std::string fileNamePrefix_ = "leaks_dump_";
-    std::string csvHeader_;
     Config config_;
+    std::unique_ptr<DataHandler> handler_;
 };
-}
+
+} // namespace Leaks
+
 #endif

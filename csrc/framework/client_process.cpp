@@ -46,14 +46,18 @@ ClientProcess::~ClientProcess()
 {
 }
 
-void ClientProcess::Log(ClientLogLevel level, std::string msg, const std::string fileName, const uint32_t line)
+void ClientProcess::Log(LogLv level, std::string msg, const std::string fileName, const uint32_t line)
 {
-    static std::map<ClientLogLevel, std::string> levelStrMap = {
-        {ClientLogLevel::DEBUG, "[DEBUG]"},
-        {ClientLogLevel::INFO, "[INFO] "},
-        {ClientLogLevel::WARN, "[WARN] "},
-        {ClientLogLevel::ERROR, "[ERROR]"}
+    static std::map<LogLv, std::string> levelStrMap = {
+        {LogLv::DEBUG, "[DEBUG]"},
+        {LogLv::INFO, "[INFO] "},
+        {LogLv::WARN, "[WARN] "},
+        {LogLv::ERROR, "[ERROR]"}
     };
+
+    if (level < logLevel_) {
+        return ;
+    }
 
     std::string logMsg = levelStrMap[level] + " [" + fileName + ":" + std::to_string(line) + "] " + msg;
     Leaks::PacketHead head {Leaks::PacketType::LOG};
@@ -64,6 +68,11 @@ void ClientProcess::Log(ClientLogLevel level, std::string msg, const std::string
         std::cout << "log report failed" << std::endl;
     }
     return;
+}
+
+void ClientProcess::SetLogLevel(LogLv level)
+{
+    logLevel_ = level;
 }
 
 // 通过工具侧配合wait实现阻塞功能
@@ -85,6 +94,10 @@ int ClientProcess::Notify(std::string const &msg)
 
 int ClientProcess::Wait(std::string& msg, uint32_t timeOut)
 {
+    if (client_ == nullptr) {
+        std::cout << "Client doesn't exist! ClientProcess wait failed!" << std::endl;
+        return static_cast<int>(msg.size());
+    }
     std::string recvMsg;
     msg.clear();
     int len = 0;
@@ -98,7 +111,7 @@ int ClientProcess::Wait(std::string& msg, uint32_t timeOut)
             continue;
         }
         // 读取成功不占用超时时间，读取失败则增加超时计数
-        if (timeOut > 0 && count >= timeOut) {
+        if (count >= timeOut) {
             return static_cast<int>(msg.size());
         }
         count++;

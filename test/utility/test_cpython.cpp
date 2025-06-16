@@ -152,6 +152,7 @@ TEST_F(TestCpython, PythonObjectCall)
     
     PythonObject intObj1(1);
     PythonTupleObject args(std::vector<PyObject*>({intObj1}));
+    args.Size();
     PythonObject intObj2 = intClass.Call(args);
     EXPECT_EQ(intObj2.Type(), "int");
     EXPECT_EQ(intObj2.Cast<int32_t>(), 1);

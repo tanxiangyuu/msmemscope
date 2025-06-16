@@ -10,9 +10,12 @@
 #include "config_info.h"
 #include "event_report.h"
 #include "bit_field.h"
+#include "data_handler.h"
+
+#include <iostream>
 
 namespace Leaks {
-
+constexpr uint8_t OWNER_POS = 2;
 DumpRecord& DumpRecord::GetInstance(Config config)
 {
     static DumpRecord instance(config);
@@ -22,56 +25,32 @@ DumpRecord& DumpRecord::GetInstance(Config config)
 DumpRecord::DumpRecord(Config config)
 {
     config_ = config;
-    std::string cStack = config.enableCStack ? ",Call Stack(C)" : "";
-    std::string pyStack = config.enablePyStack ? ",Call Stack(Python)" : "";
-    csvHeader_ = LEAKS_HEADERS + pyStack + cStack + "\n";
-    SetDirPath();
+    handler_ = MakeDataHandler(config_, DumpClass::LEAKS_RECORD);
 }
 
-void DumpRecord::SetDirPath()
+bool DumpRecord::DumpData(const ClientId &clientId, const Record &record, const CallStackString &stack)
 {
-    std::lock_guard<std::mutex> lock(fileMutex_);
-    dirPath_ = Utility::g_dirPath + "/" + std::string(DUMP_FILE);
-}
-
-bool DumpRecord::ExtractTensorInfo(const char* msg, const char* key, std::string &value)
-{
-    const char* keyPos = strstr(msg, key);
-    if (keyPos == nullptr) {
-        return false;
-    }
-    keyPos += strlen(key);
-    const char* commaPos = strchr(keyPos, ';');
-    if (commaPos != nullptr) {
-        value = Utility::Trim(keyPos);
-        value = value.substr(0, commaPos - keyPos);
-    } else {
-        value = Utility::Trim(keyPos);
-    }
-    return true;
-}
-
-bool DumpRecord::DumpData(const ClientId &clientId, const Record &record)
-{
-    std::string pyStack(record.callStackInfo.pyStack, record.callStackInfo.pyStack + record.callStackInfo.pyLen);
-    std::string cStack(record.callStackInfo.cStack, record.callStackInfo.cStack + record.callStackInfo.cLen);
-    CallStackString stack{cStack, pyStack};
     switch (record.eventRecord.type) {
         case RecordType::MEMORY_RECORD: {
             auto memRecord = record.eventRecord.record.memoryRecord;
-            return DumpMemData(clientId, memRecord, stack);
+            return DumpMemData(clientId, memRecord);
         }
         case RecordType::KERNEL_LAUNCH_RECORD: {
             auto kernelLaunchRecord = record.eventRecord.record.kernelLaunchRecord;
             return DumpKernelData(clientId, kernelLaunchRecord);
+        }
+        case RecordType::KERNEL_EXCUTE_RECORD: {
+            auto kernelExcuteRecord = record.eventRecord.record.kernelExcuteRecord;
+            return DumpKernelExcuteData(kernelExcuteRecord);
         }
         case RecordType::ACL_ITF_RECORD: {
             auto aclItfRecord = record.eventRecord.record.aclItfRecord;
             return DumpAclItfData(clientId, aclItfRecord);
         }
         case RecordType::ATB_MEMORY_POOL_RECORD:
-        case RecordType::TORCH_NPU_RECORD: {
-            return DumpMemPoolData(clientId, record.eventRecord, stack);
+        case RecordType::TORCH_NPU_RECORD:
+        case RecordType::MINDSPORE_NPU_RECORD: {
+            return DumpMemPoolData(clientId, record.eventRecord);
         }
         case RecordType::MSTX_MARK_RECORD: {
             auto mstxRecord = record.eventRecord.record.mstxRecord;
@@ -85,9 +64,9 @@ bool DumpRecord::DumpData(const ClientId &clientId, const Record &record)
             auto atbKernelRecord = record.eventRecord.record.atbKernelRecord;
             return DumpAtbKernelData(clientId, atbKernelRecord);
         }
-        case RecordType::MEM_ACCESS_RECORD: {
-            auto memAccessRecord = record.eventRecord.record.memAccessRecord;
-            return DumpMemAccessData(clientId, memAccessRecord);
+        case RecordType::ATEN_OP_LAUNCH_RECORD:{
+            auto atenOpLaunchRecord = record.eventRecord.record.atenOpLaunchRecord;
+            return DumpAtenOpLaunchData(clientId, atenOpLaunchRecord, stack);
         }
         default:
             break;
@@ -95,87 +74,68 @@ bool DumpRecord::DumpData(const ClientId &clientId, const Record &record)
     return true;
 }
 
-bool DumpRecord::WriteToFile(const DumpContainer &container, const CallStackString &stack)
+bool DumpRecord::WriteToFile(DumpContainer &container, const CallStackString &stack)
 {
-    if (!Utility::Fprintf(leaksDataFile_, "%lu,%s,%s,%s,%lu,%lu,%lu,%s,%s,%s",
-        container.id, container.event.c_str(), container.eventType.c_str(), container.name.c_str(),
-        container.timeStamp, container.pid, container.tid, container.deviceId.c_str(),
-        container.addr.c_str(), container.attr.c_str())) {
+    if (!handler_->Init()) {
         return false;
     }
-    if (config_.enablePyStack && !Utility::Fprintf(leaksDataFile_, ",%s", stack.pyStack.c_str())) {
-        return false;
-    }
-    if (config_.enableCStack && !Utility::Fprintf(leaksDataFile_, ",%s", stack.cStack.c_str())) {
-        return false;
-    }
-    if (!Utility::Fprintf(leaksDataFile_, "\n")) {
-        return false;
-    }
-
-    return true;
+    return handler_->Write(&container, stack);
 }
 
-bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRecord, const CallStackString &stack)
+void DumpRecord::SetAllocAttr(MemStateInfo& memInfo)
 {
-    std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+    std::ostringstream oss;
+    oss << "{addr:" << memInfo.attr.addr << ",size:" << memInfo.attr.size;
+    if (memInfo.container.eventType == "HAL") {
+        oss << ",MID:" << memInfo.attr.modid;
+    } else if (memInfo.container.eventType == "PTA" || memInfo.container.eventType == "MINDSPORE"
+        || memInfo.container.eventType == "ATB") {
+        oss << ",total:" << memInfo.attr.totalReserved << ",used:" << memInfo.attr.totalAllocated;
+    }
+
+    if (!memInfo.attr.leaksDefinedOwner.empty() || !memInfo.attr.userDefinedOwner.empty()) {
+        oss << ",owner:" << memInfo.attr.leaksDefinedOwner << memInfo.attr.userDefinedOwner;
+    }
+    oss << "}";
+    std::string attr = "\"" + oss.str() + "\"";
+    memInfo.container.attr = attr;
+}
+
+bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRecord)
+{
+    if (memRecord.memType == MemOpType::MALLOC) {
+        return true;
+    }
+    if (!handler_->Init()) {
         return false;
     }
-    uint64_t currentSize;
-    if (memRecord.devType == DeviceType::CPU) {
-        if (memRecord.memType == MemOpType::MALLOC) {
-            hostMemSizeMap_[clientId][memRecord.addr] = memRecord.memSize;
-            currentSize = memRecord.memSize;
-        } else if (hostMemSizeMap_[clientId].find(memRecord.addr) != hostMemSizeMap_[clientId].end()) {
-            currentSize = hostMemSizeMap_[clientId][memRecord.addr];
-            hostMemSizeMap_[clientId].erase(memRecord.addr);
-        } else {
+
+    // free事件，落盘记录的全部内存状态数据
+    auto ptr = memRecord.addr;
+    auto key = std::make_pair("common", ptr);
+    auto memoryStateRecord = DeviceManager::GetInstance(config_).GetMemoryStateRecord(clientId);
+    auto memInfoLists = memoryStateRecord->GetPtrMemInfoList(key);
+    {
+        std::lock_guard<std::mutex> lock(fileMutex_);
+        if (!handler_->Init()) {
             return false;
         }
-    } else {
-        if (memRecord.memType == MemOpType::MALLOC) {
-            memSizeMap_[clientId][memRecord.addr] = memRecord.memSize;
-            currentSize = memRecord.memSize;
-        } else {
-            currentSize = memSizeMap_[clientId][memRecord.addr];
-            memSizeMap_[clientId][memRecord.addr] = 0;
+        for (auto& memInfo : memInfoLists) {
+            if (memInfo.container.event == "MALLOC") {
+                SetAllocAttr(memInfo);
+            }
+            if (!handler_->Write(&memInfo.container, memInfo.stack)) return false;
         }
     }
-    std::string memOp = memRecord.memType == MemOpType::MALLOC ? "MALLOC" : "FREE";
-    std::string deviceType;
-    if (memRecord.devId == GD_INVALID_NUM) {
-        deviceType = "N/A";
-    } else {
-        deviceType = memRecord.space == MemOpSpace::HOST || memRecord.devType == DeviceType::CPU ?
-                "host" : std::to_string(memRecord.devId);
-    }
+    memoryStateRecord->DeleteMemStateInfo(key);
 
-    // 组装attr属性
-    std::ostringstream oss;
-    oss << "{addr:" << memRecord.addr << ",size:" << currentSize << ",owner:" << ",MID:" << memRecord.modid << "}";
-    std::string attr = "\"" + oss.str() + "\"";
-
-    DumpContainer container;
-    container.id = memRecord.recordIndex;
-    container.event = memOp;
-    container.eventType = "HAL";
-    container.name = "N/A";
-    container.timeStamp = memRecord.timeStamp;
-    container.pid = memRecord.pid;
-    container.tid = memRecord.tid;
-    container.deviceId = deviceType;
-    container.addr = std::to_string(memRecord.addr);
-    container.attr = attr;
-
-    bool isWriteSuccess = WriteToFile(container, stack);
-    return isWriteSuccess;
+    return true;
 }
 
 bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchRecord &kernelLaunchRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+    if (!handler_->Init()) {
         return false;
     }
     std::string name;
@@ -196,30 +156,51 @@ bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchReco
     container.deviceId = std::to_string(kernelLaunchRecord.devId);
     container.addr = "N/A";
 
+    // 组装attr属性
+    std::ostringstream oss;
+    oss << "{steamId:" << kernelLaunchRecord.streamId << ",taskId:" << kernelLaunchRecord.taskId << "}";
+    std::string attr = "\"" + oss.str() + "\"";
+    container.attr = attr;
+
     CallStackString emptyStack {};
-    bool isWriteSuccess = WriteToFile(container, emptyStack);
+    bool isWriteSuccess = handler_->Write(&container, emptyStack);
+    return isWriteSuccess;
+}
+
+bool DumpRecord::DumpKernelExcuteData(const KernelExcuteRecord &record)
+{
+    std::lock_guard<std::mutex> lock(fileMutex_);
+    if (!handler_->Init()) {
+        return false;
+    }
+
+    DumpContainer container;
+    container.id = record.recordIndex;
+    container.event = "KERNEL_LAUNCH";
+    container.eventType = record.type == KernelEventType::KERNEL_START ? "KERNEL_EXCUTE_START" : "KERNEL_EXCUTE_END";
+    container.name = record.kernelName;
+    container.timeStamp = record.timeStamp;
+    container.pid = INVALID_PROCESSID;
+    container.tid = INVALID_THREADID;
+    container.deviceId = std::to_string(record.devId);
+    container.addr = "N/A";
+
+    // 组装attr属性
+    std::ostringstream oss;
+    oss << "{steamId:" << record.streamId << ",taskId:" << record.taskId << "}";
+    std::string attr = "\"" + oss.str() + "\"";
+    container.attr = attr;
+
+    CallStackString emptyStack {};
+    bool isWriteSuccess = handler_->Write(&container, emptyStack);
     return isWriteSuccess;
 }
 
 bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRecord, const CallStackString &stack)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+    if (!handler_->Init()) {
         return false;
-    }
-
-    // 根据标识判断是否为算子下发或者tensor信息
-    if (strncmp(mstxRecord.markMessage, ATEN_BEGIN_MSG, strlen(ATEN_BEGIN_MSG)) == 0) {
-        DumpOpLaunchData(clientId, mstxRecord, true, stack);
-        return true;
-    }
-    if (strncmp(mstxRecord.markMessage, ATEN_END_MSG, strlen(ATEN_END_MSG)) == 0) {
-        DumpOpLaunchData(clientId, mstxRecord, false, stack);
-        return true;
-    }
-    if (strncmp(mstxRecord.markMessage, ACCESS_MSG, strlen(ACCESS_MSG)) == 0) {
-        DumpTensorData(clientId, mstxRecord, stack);
-        return true;
     }
 
     std::string markType;
@@ -258,93 +239,52 @@ bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRe
     container.deviceId = std::to_string(mstxRecord.devId);
     container.addr = "N/A";
 
-    bool isWriteSuccess = WriteToFile(container, stack);
+    bool isWriteSuccess = handler_->Write(&container, stack);
     return isWriteSuccess;
 }
 
-bool DumpRecord::DumpOpLaunchData(const ClientId &clientId, const MstxRecord &mstxRecord, const bool &isFuncStart,
+bool DumpRecord::DumpAtenOpLaunchData(const ClientId &clientId, const AtenOpLaunchRecord &atenOpLaunchRecord,
     const CallStackString &stack)
 {
-    std::string eventType;
-    if (isFuncStart) {
-        eventType = "ATEN_START";
-    } else {
-        eventType = "ATEN_END";
+    std::lock_guard<std::mutex> lock(fileMutex_);
+    if (!handler_->Init()) {
+        return false;
     }
-    const char* eventName;
-    const char* lastSpace = strrchr(mstxRecord.markMessage, ' ');
-    if (lastSpace != nullptr) {
-        eventName = lastSpace + 1;
-    } else {
-        eventName = "N/A";
+    std::string eventType;
+    switch (atenOpLaunchRecord.eventType) {
+        case Leaks::OpEventType::ATEN_START: {
+            eventType = "ATEN_START";
+            break;
+        }
+        case Leaks::OpEventType::ATEN_END: {
+            eventType = "ATEN_END";
+            break;
+        }
+        default: {
+            eventType = "N/A";
+            break;
+        }
     }
 
     DumpContainer container;
-    container.id = mstxRecord.recordIndex;
+    container.id = atenOpLaunchRecord.recordIndex;
     container.event = "OP_LAUNCH";
     container.eventType = eventType;
-    container.name = eventName;
-    container.timeStamp = mstxRecord.timeStamp;
-    container.pid = mstxRecord.pid;
-    container.tid = mstxRecord.tid;
-    container.deviceId = std::to_string(mstxRecord.devId);
+    container.name = atenOpLaunchRecord.name;
+    container.timeStamp = atenOpLaunchRecord.timestamp;
+    container.pid = atenOpLaunchRecord.pid;
+    container.tid = atenOpLaunchRecord.tid;
+    container.deviceId = std::to_string(atenOpLaunchRecord.devId);
     container.addr = "N/A";
-
-    bool isWriteSuccess = WriteToFile(container, stack);
-    return isWriteSuccess;
-}
- 
-bool DumpRecord::DumpTensorData(const ClientId &clientId, const MstxRecord &mstxRecord, const CallStackString &stack)
-{
-    std::string ptr;
-    std::string dtype;
-    std::string shape;
-    std::string size;
-    std::string name;
-    std::string isRead;
-    std::string isWrite;
-    ExtractTensorInfo(mstxRecord.markMessage, "ptr=", ptr);
-    ExtractTensorInfo(mstxRecord.markMessage, "dtype=", dtype);
-    ExtractTensorInfo(mstxRecord.markMessage, "shape=", shape);
-    ExtractTensorInfo(mstxRecord.markMessage, "tensor_size=", size);
-    ExtractTensorInfo(mstxRecord.markMessage, "name=", name);
-    ExtractTensorInfo(mstxRecord.markMessage, "is_write=", isWrite);
-    ExtractTensorInfo(mstxRecord.markMessage, "is_read=", isRead);
-
-    std::string eventType;
-    if (isWrite == "False" && isRead == "False") {
-        eventType = "UNKNOWN";
-    } else if (isWrite == "True") {
-        eventType = "WRITE";
-    } else {
-        eventType = "READ";
-    }
-
-    // 组装attr属性
-    std::ostringstream oss;
-    oss << "{dtype:" << dtype << ",shape:" << shape << ",size:" << size << "}";
-    std::string attr = "\"" + oss.str() + "\"";
-
-    DumpContainer container;
-    container.id = mstxRecord.recordIndex;
-    container.event = "ACCESS";
-    container.eventType = eventType;
-    container.name = name;
-    container.timeStamp = mstxRecord.timeStamp;
-    container.pid = mstxRecord.pid;
-    container.tid = mstxRecord.tid;
-    container.deviceId = std::to_string(mstxRecord.devId);
-    container.addr = ptr;
-    container.attr = attr;
-
-    bool isWriteSuccess = WriteToFile(container, stack);
+    
+    bool isWriteSuccess = handler_->Write(&container, stack);
     return isWriteSuccess;
 }
 
 bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+    if (!handler_->Init()) {
         return false;
     }
     std::string aclType;
@@ -372,66 +312,61 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
     container.addr = "N/A";
 
     CallStackString emptyStack {};
-    bool isWriteSuccess = WriteToFile(container, emptyStack);
+    bool isWriteSuccess = handler_->Write(&container, emptyStack);
     return isWriteSuccess;
 }
 
-bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord, const CallStackString &stack)
+bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord)
 {
-    std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
-        return false;
+    if (eventRecord.record.memPoolRecord.memoryUsage.allocSize >= 0) {
+        return true;
     }
+    static auto getMemPoolName = [](RecordType type) -> std::string {
+        if (type == RecordType::TORCH_NPU_RECORD) {
+            return "PTA";
+        } else if (type == RecordType::MINDSPORE_NPU_RECORD) {
+            return "MINDSPORE";
+        } else {
+            return "ATB";
+        }
+    };
 
-    MemoryUsage memoryUsage { };
-    std::string memPoolType { };
-    if (eventRecord.type == RecordType::TORCH_NPU_RECORD) {
-        memoryUsage = eventRecord.record.torchNpuRecord.memoryUsage;
-        memPoolType = "PTA";
-    } else {
-        memoryUsage = eventRecord.record.atbMemPoolRecord.memoryUsage;
-        memPoolType = "ATB";
+    // free事件，落盘记录的全部内存状态数据
+    auto ptr = eventRecord.record.memPoolRecord.memoryUsage.ptr;
+    auto key = std::make_pair(getMemPoolName(eventRecord.type), ptr);
+    auto memoryStateRecord = DeviceManager::GetInstance(config_).GetMemoryStateRecord(clientId);
+    auto memInfoLists = memoryStateRecord->GetPtrMemInfoList(key);
+    {
+        std::lock_guard<std::mutex> lock(fileMutex_);
+        if (!handler_->Init()) {
+            return false;
+        }
+        for (auto memInfo : memInfoLists) {
+            if (memInfo.container.event == "MALLOC") {
+                SetAllocAttr(memInfo);
+            }
+            if (!handler_->Write(&memInfo.container, memInfo.stack)) return false;
+        }
     }
-    auto record = eventRecord.type == RecordType::TORCH_NPU_RECORD ?
-        eventRecord.record.torchNpuRecord : eventRecord.record.atbMemPoolRecord;
-    std::string eventType = memoryUsage.allocSize >= 0 ? "MALLOC" : "FREE";
+    memoryStateRecord->DeleteMemStateInfo(key);
 
-    // 组装attr属性
-    std::ostringstream oss;
-    oss << "{addr:" << memoryUsage.ptr << ",size:" << memoryUsage.allocSize << ",owner:" << ",total:" <<
-        memoryUsage.totalReserved << ",used:" << memoryUsage.totalAllocated << "}";
-    std::string attr = "\"" + oss.str() + "\"";
-
-    DumpContainer container;
-    container.id = record.recordIndex;
-    container.event = eventType;
-    container.eventType = memPoolType;
-    container.name = "N/A";
-    container.timeStamp = record.timeStamp;
-    container.pid = record.pid;
-    container.tid = record.tid;
-    container.deviceId = std::to_string(record.devId);
-    container.addr = std::to_string(memoryUsage.ptr);
-    container.attr = attr;
-
-    bool isWriteSuccess = WriteToFile(container, stack);
-    return isWriteSuccess;
+    return true;
 }
 
 bool DumpRecord::DumpAtbOpData(const ClientId &clientId, const AtbOpExecuteRecord &atbOpExecuteRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+    if (!handler_->Init()) {
         return false;
     }
     std::string eventType;
     switch (atbOpExecuteRecord.eventType) {
         case Leaks::OpEventType::ATB_START: {
-            eventType = "ATB_OP_START";
+            eventType = "ATB_START";
             break;
         }
         case Leaks::OpEventType::ATB_END: {
-            eventType = "ATB_OP_END";
+            eventType = "ATB_END";
             break;
         }
         default: {
@@ -457,23 +392,23 @@ bool DumpRecord::DumpAtbOpData(const ClientId &clientId, const AtbOpExecuteRecor
     container.attr = attr;
 
     CallStackString emptyStack {};
-    return WriteToFile(container, emptyStack);
+    return handler_->Write(&container, emptyStack);
 }
 
 bool DumpRecord::DumpAtbKernelData(const ClientId &clientId, const AtbKernelRecord &atbKernelRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
+    if (!handler_->Init()) {
         return false;
     }
     std::string eventType;
     switch (atbKernelRecord.eventType) {
         case Leaks::KernelEventType::KERNEL_START: {
-            eventType = "ATB_KERNEL_START";
+            eventType = "KERNEL_START";
             break;
         }
         case Leaks::KernelEventType::KERNEL_END: {
-            eventType = "ATB_KERNEL_END";
+            eventType = "KERNEL_END";
             break;
         }
         default: {
@@ -499,57 +434,6 @@ bool DumpRecord::DumpAtbKernelData(const ClientId &clientId, const AtbKernelReco
     container.attr = attr;
 
     CallStackString emptyStack {};
-    return WriteToFile(container, emptyStack);
-}
-
-bool DumpRecord::DumpMemAccessData(const ClientId &clientId, const MemAccessRecord &memAccessRecord)
-{
-    std::lock_guard<std::mutex> lock(fileMutex_);
-    if (!Utility::CreateCsvFile(&leaksDataFile_, dirPath_, fileNamePrefix_, csvHeader_)) {
-        return false;
-    }
-    std::string eventType;
-    switch (memAccessRecord.eventType) {
-        case Leaks::AccessType::READ: {
-            eventType = "READ";
-            break;
-        }
-        case Leaks::AccessType::WRITE: {
-            eventType = "WRITE";
-            break;
-        }
-        default: {
-            eventType = "UNKNOWN";
-            break;
-        }
-    }
-
-    std::ostringstream oss;
-    oss << "\"{addr:" << memAccessRecord.addr << ",size:"
-        << memAccessRecord.memSize << "," << memAccessRecord.attr << "}\"";
-    std::string attr = oss.str();
-
-    DumpContainer container;
-    container.id = memAccessRecord.recordIndex;
-    container.event = "ACCESS";
-    container.eventType = eventType;
-    container.name = "N/A";
-    container.timeStamp = memAccessRecord.timestamp;
-    container.pid = memAccessRecord.pid;
-    container.tid = memAccessRecord.tid;
-    container.deviceId = std::to_string(memAccessRecord.devId);
-    container.addr = std::to_string(memAccessRecord.addr);
-    container.attr = attr;
-
-    CallStackString emptyStack {};
-    return WriteToFile(container, emptyStack);
-}
-
-DumpRecord::~DumpRecord()
-{
-    if (leaksDataFile_ != nullptr) {
-        fclose(leaksDataFile_);
-        leaksDataFile_ = nullptr;
-    }
+    return handler_->Write(&container, emptyStack);
 }
 }

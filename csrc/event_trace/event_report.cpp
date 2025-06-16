@@ -11,10 +11,11 @@
 #include "utils.h"
 #include "vallina_symbol.h"
 #include "ustring.h"
-#include "handle_mapping.h"
 #include "umask_guard.h"
 #include "securec.h"
 #include "bit_field.h"
+#include "kernel_hooks/runtime_prof_api.h"
+#include "describe_trace.h"
 
 namespace Leaks {
 thread_local bool g_isReportHostMem = false;
@@ -77,7 +78,7 @@ RTS_API rtError_t GetDevice(int32_t *devId)
 MemOpRecord CreateMemRecord(MemOpType type, unsigned long long flag, MemOpSpace space, uint64_t addr, uint64_t size)
 {
     MemOpRecord record;
-    record.timeStamp = Utility::GetTimeMicroseconds();
+    record.timeStamp = Utility::GetTimeNanoseconds();
     record.flag = flag;
     record.memType = type;
     record.space = space;
@@ -91,18 +92,8 @@ MemOpRecord CreateMemRecord(MemOpType type, unsigned long long flag, MemOpSpace 
 AclItfRecord CreateAclItfRecord(AclOpType type)
 {
     auto record = AclItfRecord {};
-    record.timeStamp = Utility::GetTimeMicroseconds();
+    record.timeStamp = Utility::GetTimeNanoseconds();
     record.type = type;
-    record.pid = Utility::GetPid();
-    record.tid = Utility::GetTid();
-    return record;
-}
-
-KernelLaunchRecord CreateKernelLaunchRecord(KernelLaunchRecord kernelLaunchRecord)
-{
-    auto record = KernelLaunchRecord {};
-    record = kernelLaunchRecord;
-    record.timeStamp = Utility::GetTimeMicroseconds();
     record.pid = Utility::GetPid();
     record.tid = Utility::GetTid();
     return record;
@@ -116,6 +107,14 @@ int EventReport::ReportRecordEvent(EventRecord &record, PacketHead &head, CallSt
     auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(buffer);
     return sendNums;
 }
+
+int EventReport::ReportRecordEvent(EventRecord &record, PacketHead &head)
+{
+    std::string buffer = Serialize<PacketHead, EventRecord>(head, record);
+    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(buffer);
+    return sendNums;
+}
+
 EventReport& EventReport::Instance(CommType type)
 {
     static EventReport instance(type);
@@ -127,7 +126,6 @@ void EventReport::Init()
     recordIndex_.store(0);
     kernelLaunchRecordIndex_.store(0);
     aclItfRecordIndex_.store(0);
-    runningThreads_.store(0);
     isReceiveServerInfo_.store(false);
 }
 
@@ -135,6 +133,7 @@ Config EventReport::GetConfig()
 {
     return config_;
 }
+
 EventReport::EventReport(CommType type)
 {
     Init();
@@ -144,6 +143,12 @@ EventReport::EventReport(CommType type)
     uint32_t reTryTimes = 5; // 当前系统设置（setsockopt）的read超时时长是1s，默认至多尝试5次
     isReceiveServerInfo_ = (ClientProcess::GetInstance(type).Wait(msg, reTryTimes) > 0) ? true : false;
     Deserialize(msg, config_);
+    ClientProcess::GetInstance(type).SetLogLevel(static_cast<LogLv>(config_.logLevel));
+
+    BitField<decltype(config_.levelType)> levelType(config_.levelType);
+    if (levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_KERNEL))) {
+        RegisterRtProfileCallback();
+    }
     return;
 }
 
@@ -169,16 +174,31 @@ bool EventReport::IsConnectToServer()
     return isReceiveServerInfo_;
 }
 
-EventReport::~EventReport()
+void GetOwner(char *res, uint32_t size)
 {
-    for (std::thread &t : parseThreads_) {
-        if (t.joinable()) {
-            t.join();
-        }
+    std::string owner = DescribeTrace::GetInstance().GetDescribe();
+    if (strncpy_s(res, size, owner.c_str(), size - 1) != EOK) {
+        CLIENT_ERROR_LOG("strncpy_s FAILED");
     }
 }
 
-bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord, CallStackString& stack)
+bool EventReport::ReportAddrInfo(AddrInfo &info)
+{
+    g_isInReportFunction = true;
+    if (!IsConnectToServer()) {
+        return true;
+    }
+    PacketHead head = {PacketType::RECORD};
+    EventRecord eventRecord;
+    eventRecord.type = RecordType::ADDR_INFO_RECORD;
+    eventRecord.record.addrInfo = info;
+    CallStackString stack;
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+    g_isInReportFunction = false;
+    return (sendNums >= 0);
+}
+
+bool EventReport::ReportMemPoolRecord(MemPoolRecord &memPoolRecord, CallStackString& stack)
 {
     g_isInReportFunction = true;
 
@@ -192,7 +212,7 @@ bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord, CallStackString
 
     BitField<decltype(config_.eventType)> eventType(config_.eventType);
     // 根据命令行参数判断malloc和free是否上报, 0为malloc，剩下的为free
-    if (torchNpuRecord.memoryUsage.dataType == 0) {
+    if (memPoolRecord.memoryUsage.dataType == 0) {
         if (!eventType.checkBit(static_cast<size_t>(EventType::ALLOC_EVENT))) {
             return true;
         }
@@ -204,57 +224,25 @@ bool EventReport::ReportTorchNpu(TorchNpuRecord &torchNpuRecord, CallStackString
 
     PacketHead head = {PacketType::RECORD};
     EventRecord eventRecord;
-    eventRecord.type = RecordType::TORCH_NPU_RECORD;
-    eventRecord.record.torchNpuRecord = torchNpuRecord;
-    eventRecord.record.torchNpuRecord.timeStamp = Utility::GetTimeMicroseconds();
-    eventRecord.record.torchNpuRecord.kernelIndex = kernelLaunchRecordIndex_;
-    eventRecord.record.torchNpuRecord.devId = static_cast<int32_t>(torchNpuRecord.memoryUsage.deviceIndex);
-    eventRecord.record.torchNpuRecord.recordIndex = ++recordIndex_;
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
-
-    g_isInReportFunction = false;
-    return (sendNums >= 0);
-}
-
-bool EventReport::ReportATBMemPoolRecord(AtbMemPoolRecord &record, CallStackString& stack)
-{
-    g_isInReportFunction = true;
-
-    if (!IsConnectToServer()) {
-        return true;
-    }
-
-    if (IsNeedSkip()) {
-        return true;
-    }
-
-    BitField<decltype(config_.eventType)> eventType(config_.eventType);
-    // 根据命令行参数判断malloc和free是否上报, 0为malloc，剩下的为free
-    if (record.memoryUsage.dataType == 0) {
-        if (!eventType.checkBit(static_cast<size_t>(EventType::ALLOC_EVENT))) {
-            return true;
-        }
+    eventRecord.type = memPoolRecord.type;
+    eventRecord.record.memPoolRecord = memPoolRecord;
+    eventRecord.record.memPoolRecord.timeStamp = Utility::GetTimeNanoseconds();
+    eventRecord.record.memPoolRecord.kernelIndex = kernelLaunchRecordIndex_;
+    eventRecord.record.memPoolRecord.devId = static_cast<int32_t>(memPoolRecord.memoryUsage.deviceIndex);
+    if (eventRecord.record.memPoolRecord.memoryUsage.dataType) {
+        eventRecord.record.memPoolRecord.owner[0] = '\0';
     } else {
-        if (!eventType.checkBit(static_cast<size_t>(EventType::FREE_EVENT))) {
-            return true;
-        }
+        GetOwner(eventRecord.record.memPoolRecord.owner, sizeof(eventRecord.record.memPoolRecord.owner));
     }
-
-    PacketHead head = {PacketType::RECORD};
-    EventRecord eventRecord;
-    eventRecord.type = RecordType::ATB_MEMORY_POOL_RECORD;
-    eventRecord.record.atbMemPoolRecord = record;
-    eventRecord.record.atbMemPoolRecord.timeStamp = Utility::GetTimeMicroseconds();
-    eventRecord.record.atbMemPoolRecord.kernelIndex = kernelLaunchRecordIndex_;
-    eventRecord.record.atbMemPoolRecord.devId = static_cast<int32_t>(record.memoryUsage.deviceIndex);
-    eventRecord.record.atbMemPoolRecord.recordIndex = ++recordIndex_;
+    eventRecord.record.memPoolRecord.recordIndex = ++recordIndex_;
     auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+
     g_isInReportFunction = false;
+
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportMalloc(
-    uint64_t addr, uint64_t size, unsigned long long flag, CallStackString& stack)
+bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag, CallStackString& stack)
 {
     g_isInReportFunction = true;
 
@@ -284,7 +272,7 @@ bool EventReport::ReportMalloc(
     eventRecord.record.memoryRecord.modid = moduleId;
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
-
+    GetOwner(eventRecord.record.memoryRecord.owner, sizeof(eventRecord.record.memoryRecord.owner));
     auto sendNums = ReportRecordEvent(eventRecord, head, stack);
 
     g_isInReportFunction = false;
@@ -317,13 +305,14 @@ bool EventReport::ReportFree(uint64_t addr, CallStackString& stack)
     eventRecord.record.memoryRecord.modid = INVALID_MODID;
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
+    eventRecord.record.memoryRecord.owner[0] = '\0';
     auto sendNums = ReportRecordEvent(eventRecord, head, stack);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size, CallStackString& stack)
+bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size)
 {
     g_isInReportFunction = true;
 
@@ -346,14 +335,14 @@ bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size, CallStackString
     eventRecord.record.memoryRecord.modid = INVALID_MODID;
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
-
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+    GetOwner(eventRecord.record.memoryRecord.owner, sizeof(eventRecord.record.memoryRecord.owner));
+    auto sendNums = ReportRecordEvent(eventRecord, head);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
 }
  
-bool EventReport::ReportHostFree(uint64_t addr, CallStackString& stack)
+bool EventReport::ReportHostFree(uint64_t addr)
 {
     g_isInReportFunction = true;
 
@@ -375,8 +364,8 @@ bool EventReport::ReportHostFree(uint64_t addr, CallStackString& stack)
     eventRecord.record.memoryRecord.modid = INVALID_MODID;
     eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
     eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
-
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+    eventRecord.record.memoryRecord.owner[0] = '\0';
+    auto sendNums = ReportRecordEvent(eventRecord, head);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
@@ -420,22 +409,6 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord, CallStackString& stack)
         return true;
     }
 
-    // 命令行判断是否包含Launch事件
-    Config userConfig =  EventReport::Instance(CommType::SOCKET).GetConfig();
-    BitField<decltype(userConfig.eventType)> eventType(userConfig.eventType);
-    // 根据标识判断是否为算子下发或者tensor信息
-    if (strncmp(mstxRecord.markMessage, ATEN_BEGIN_MSG, strlen(ATEN_BEGIN_MSG)) == 0 ||
-        strncmp(mstxRecord.markMessage, ATEN_END_MSG, strlen(ATEN_END_MSG)) == 0) {
-        if (!eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
-            return true;
-        }
-    }
-    if (strncmp(mstxRecord.markMessage, ACCESS_MSG, strlen(ACCESS_MSG)) == 0) {
-        if (!eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT))) {
-            return true;
-        }
-    }
-
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
@@ -448,7 +421,7 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord, CallStackString& stack)
     eventRecord.record.mstxRecord = mstxRecord;
     eventRecord.record.mstxRecord.pid = Utility::GetPid();
     eventRecord.record.mstxRecord.tid = Utility::GetTid();
-    eventRecord.record.mstxRecord.timeStamp = Utility::GetTimeMicroseconds();
+    eventRecord.record.mstxRecord.timeStamp = Utility::GetTimeNanoseconds();
     eventRecord.record.mstxRecord.kernelIndex = kernelLaunchRecordIndex_;
     eventRecord.record.mstxRecord.recordIndex = ++recordIndex_;
 
@@ -480,7 +453,74 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord, CallStackString& stack)
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, const void *hdl)
+bool EventReport::ReportAtenLaunch(AtenOpLaunchRecord &atenOpLaunchRecord, CallStackString& stack)
+{
+    g_isInReportFunction = true;
+
+    if (!IsConnectToServer()) {
+        return true;
+    }
+
+    if (IsNeedSkip()) {
+        return true;
+    }
+
+    int32_t devId = GD_INVALID_NUM;
+    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+        CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+    }
+
+    PacketHead head = {PacketType::RECORD};
+    auto eventRecord = EventRecord{};
+    eventRecord.type = RecordType::ATEN_OP_LAUNCH_RECORD;
+    atenOpLaunchRecord.devId = devId;
+    atenOpLaunchRecord.pid = Utility::GetPid();
+    atenOpLaunchRecord.tid = Utility::GetTid();
+    atenOpLaunchRecord.timestamp = Utility::GetTimeNanoseconds();
+    atenOpLaunchRecord.recordIndex = ++recordIndex_;
+    eventRecord.record.atenOpLaunchRecord = atenOpLaunchRecord;
+
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+
+    g_isInReportFunction = false;
+    return (sendNums >= 0);
+}
+
+bool EventReport::ReportAtenAccess(MemAccessRecord &memAccessRecord, CallStackString& stack)
+{
+    g_isInReportFunction = true;
+
+    if (!IsConnectToServer()) {
+        return true;
+    }
+
+    if (IsNeedSkip()) {
+        return true;
+    }
+
+    int32_t devId = GD_INVALID_NUM;
+    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+        CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+    }
+
+    PacketHead head = {PacketType::RECORD};
+    auto eventRecord = EventRecord{};
+    eventRecord.type = RecordType::MEM_ACCESS_RECORD;
+    memAccessRecord.pid = Utility::GetPid();
+    memAccessRecord.tid = Utility::GetTid();
+    memAccessRecord.timestamp = Utility::GetTimeNanoseconds();
+    memAccessRecord.devId = devId;
+    memAccessRecord.devType = DeviceType::NPU;
+    memAccessRecord.recordIndex = ++recordIndex_;
+    eventRecord.record.memAccessRecord = memAccessRecord;
+
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+
+    g_isInReportFunction = false;
+    return (sendNums >= 0);
+}
+
+bool EventReport::ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
 {
     g_isInReportFunction = true;
 
@@ -493,83 +533,78 @@ bool EventReport::ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, con
     }
 
     BitField<decltype(config_.eventType)> eventType(config_.eventType);
-    if (!eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
+    BitField<decltype(config_.levelType)> levelType(config_.levelType);
+    if (!eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT)) ||
+        !levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_KERNEL))) {
         return true;
     }
 
-    int32_t devId = GD_INVALID_NUM;
-    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
-        CLIENT_ERROR_LOG("[kernellaunch] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+    int32_t devId = std::get<0>(kernelLaunchInfo.taskKey);
+    if (devId < 0) {
+        if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+            CLIENT_ERROR_LOG("RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+        }
     }
 
     auto eventRecord = EventRecord{};
     eventRecord.type = RecordType::KERNEL_LAUNCH_RECORD;
-    eventRecord.record.kernelLaunchRecord = CreateKernelLaunchRecord(kernelLaunchRecord);
+    eventRecord.record.kernelLaunchRecord.timeStamp = kernelLaunchInfo.timeStamp;
+    eventRecord.record.kernelLaunchRecord.pid = Utility::GetPid();
+    eventRecord.record.kernelLaunchRecord.tid = Utility::GetTid();
     eventRecord.record.kernelLaunchRecord.devId = devId;
+    eventRecord.record.kernelLaunchRecord.streamId = std::get<1>(kernelLaunchInfo.taskKey);
+    eventRecord.record.kernelLaunchRecord.taskId = std::get<2>(kernelLaunchInfo.taskKey);
     eventRecord.record.kernelLaunchRecord.kernelLaunchIndex = ++kernelLaunchRecordIndex_;
     eventRecord.record.kernelLaunchRecord.recordIndex = ++recordIndex_;
+    auto ret = strncpy_s(eventRecord.record.kernelLaunchRecord.kernelName,
+        KERNELNAME_MAX_SIZE, kernelLaunchInfo.kernelName.c_str(), KERNELNAME_MAX_SIZE - 1);
+    if (ret != EOK) {
+        CLIENT_WARN_LOG("strncpy_s FAILED");
+    }
     CallStackString stack;
-    BitField<decltype(config_.levelType)> levelType(config_.levelType);
-    if (levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_KERNEL))) {
-        std::string kernelName;
-        {
-            std::lock_guard<std::mutex> lock(threadMutex_);
-            auto it = hdlKernelNameMap_.find(hdl);
-            if (it != hdlKernelNameMap_.end()) {
-                kernelName = it->second;
-            }
-        }
-        if (!kernelName.empty()) {
-            auto ret = strncpy_s(eventRecord.record.kernelLaunchRecord.kernelName,
-                KERNELNAME_MAX_SIZE, kernelName.c_str(), KERNELNAME_MAX_SIZE - 1);
-            if (ret != EOK) {
-                CLIENT_WARN_LOG("strncpy_s FAILED");
-            }
-            PacketHead head = {PacketType::RECORD};
-            auto sendNums = ReportRecordEvent(eventRecord, head, stack);
-            if (sendNums < 0) {
-                CLIENT_ERROR_LOG("rtKernelLaunch report FAILED");
-                return false;
-            }
-            return true;
-        }
-        std::thread th = std::thread([eventRecord, hdl, this]()mutable {
-            while (runningThreads_ >= MAX_THREAD_NUM) { // 达到最大线程数，等待直到有可用的线程
-                std::this_thread::sleep_for(std::chrono::milliseconds(100)); // 等待100ms
-            }
-            ++runningThreads_;
-            std::string tempName = GetNameFromBinary(hdl);
-            auto ret = strncpy_s(eventRecord.record.kernelLaunchRecord.kernelName,
-                KERNELNAME_MAX_SIZE, tempName.c_str(), KERNELNAME_MAX_SIZE - 1);
-            if (ret != EOK) {
-                CLIENT_WARN_LOG("strncpy_s FAILED");
-            }
-            {
-                std::lock_guard<std::mutex> lock(threadMutex_);
-                hdlKernelNameMap_.insert({hdl, tempName});
-            }
-            PacketHead head = {PacketType::RECORD};
-            CallStackString stack;
-            auto sendNums = ReportRecordEvent(eventRecord, head, stack);
-            if (sendNums < 0) {
-                CLIENT_ERROR_LOG("rtKernelLaunch report FAILED");
-                return;
-            }
-            --runningThreads_;
-        });
-        parseThreads_.emplace_back(std::move(th));
-    } else {
-        PacketHead head = {PacketType::RECORD};
-        auto sendNums = ReportRecordEvent(eventRecord, head, stack);
-        if (sendNums < 0) {
-            return false;
-        }
+
+    PacketHead head = {PacketType::RECORD};
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+    if (sendNums < 0) {
+        return false;
     }
 
     g_isInReportFunction = false;
     return true;
 }
 
+bool EventReport::ReportKernelExcute(const TaskKey &key, std::string &name, uint64_t time, KernelEventType type)
+{
+    g_isInReportFunction = true;
+
+    if (!IsConnectToServer()) {
+        return true;
+    }
+    
+    if (IsNeedSkip()) {
+        return true;
+    }
+
+    PacketHead head = {PacketType::RECORD};
+    auto eventRecord = EventRecord{};
+    eventRecord.type = RecordType::KERNEL_EXCUTE_RECORD;
+    eventRecord.record.kernelExcuteRecord.type = type;
+    eventRecord.record.kernelExcuteRecord.devId = std::get<0>(key);
+    eventRecord.record.kernelExcuteRecord.streamId = std::get<1>(key);
+    eventRecord.record.kernelExcuteRecord.taskId = std::get<2>(key);
+    eventRecord.record.kernelExcuteRecord.timeStamp = time;
+    eventRecord.record.kernelExcuteRecord.recordIndex = ++recordIndex_;
+    auto ret = strncpy_s(eventRecord.record.kernelExcuteRecord.kernelName,
+        KERNELNAME_MAX_SIZE, name.c_str(), KERNELNAME_MAX_SIZE - 1);
+    if (ret != EOK) {
+        CLIENT_WARN_LOG("strncpy_s FAILED");
+    }
+    CallStackString stack;
+    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+
+    g_isInReportFunction = false;
+    return (sendNums >= 0);
+}
 bool EventReport::ReportAclItf(AclOpType aclOpType)
 {
     g_isInReportFunction = true;
@@ -582,6 +617,9 @@ bool EventReport::ReportAclItf(AclOpType aclOpType)
         return true;
     }
 
+    if (aclOpType == AclOpType::FINALIZE) {
+        KernelEventTrace::GetInstance().EndKernelEventTrace();
+    }
     int32_t devId = GD_INVALID_NUM;
     PacketHead head = {PacketType::RECORD};
     auto eventRecord = EventRecord{};
@@ -621,7 +659,7 @@ bool EventReport::ReportAtbOpExecute(AtbOpExecuteRecord& atbOpExecuteRecord)
     atbOpExecuteRecord.devId = devId;
     atbOpExecuteRecord.pid = Utility::GetPid();
     atbOpExecuteRecord.tid = Utility::GetTid();
-    atbOpExecuteRecord.timestamp = Utility::GetTimeMicroseconds();
+    atbOpExecuteRecord.timestamp = Utility::GetTimeNanoseconds();
     atbOpExecuteRecord.recordIndex = ++recordIndex_;
     eventRecord.record.atbOpExecuteRecord = atbOpExecuteRecord;
 
@@ -655,7 +693,7 @@ bool EventReport::ReportAtbKernel(AtbKernelRecord& atbKernelRecord)
     atbKernelRecord.devId = devId;
     atbKernelRecord.pid = Utility::GetPid();
     atbKernelRecord.tid = Utility::GetTid();
-    atbKernelRecord.timestamp = Utility::GetTimeMicroseconds();
+    atbKernelRecord.timestamp = Utility::GetTimeNanoseconds();
     atbKernelRecord.recordIndex = ++recordIndex_;
     eventRecord.record.atbKernelRecord = atbKernelRecord;
 
@@ -685,7 +723,7 @@ bool EventReport::ReportAtbAccessMemory(std::vector<MemAccessRecord>& memAccessR
 
     uint64_t pid = Utility::GetPid();
     uint64_t tid = Utility::GetTid();
-    uint64_t timestamp = Utility::GetTimeMicroseconds();
+    uint64_t timestamp = Utility::GetTimeNanoseconds();
 
     for (auto& record : memAccessRecords) {
         PacketHead head = {PacketType::RECORD};
@@ -707,140 +745,6 @@ bool EventReport::ReportAtbAccessMemory(std::vector<MemAccessRecord>& memAccessR
 
     g_isInReportFunction = false;
     return true;
-}
-
-std::vector<char *> ToRawCArgv(std::vector<std::string> const &argv)
-{
-    std::vector<char *> rawArgv;
-    for (auto const &arg: argv) {
-        rawArgv.emplace_back(const_cast<char *>(arg.data()));
-    }
-    rawArgv.emplace_back(nullptr);
-    return rawArgv;
-}
-
-bool PipeCall(std::vector<std::string> const &cmd, std::string &output)
-{
-    int pipeStdout[2];
-    if (pipe(pipeStdout) != 0) {
-        CLIENT_ERROR_LOG("PipeCall: get pipe failed");
-        return false;
-    }
-
-    pid_t pid = fork();
-    if (pid < 0) {
-        CLIENT_ERROR_LOG("PipeCall: create subprocess failed");
-        return false;
-    } else if (pid == 0) {
-        dup2(pipeStdout[1], STDOUT_FILENO);
-        close(pipeStdout[0]);
-        close(pipeStdout[1]);
-        // llvm-objdump解析kernel.o文件中的二进制数据
-        execvp(cmd[0].c_str(), ToRawCArgv(cmd).data());
-        _exit(EXIT_FAILURE);
-    } else {
-        close(pipeStdout[1]);
-        static constexpr std::size_t bufLen = 256UL;
-        char buf[bufLen] = {'\0'};
-        ssize_t nBytes = 0L;
-        for (; (nBytes = read(pipeStdout[0], buf, bufLen)) > 0L;) {
-            output.append(buf, static_cast<std::size_t>(nBytes));
-        }
-        close(pipeStdout[0]);
-        int status;
-        waitpid(pid, &status, 0);
-        return WIFEXITED(status) && WEXITSTATUS(status) == 0;
-    }
-    return true;
-}
-
-std::string ParseLine(std::string const &line)
-{
-    std::vector<std::string> items;
-    Utility::Split(line, std::back_inserter(items), " ");
-    if (items.size() < 5UL) {
-        return "";
-    }
-    constexpr std::size_t scopeIdx = 1UL;
-    constexpr std::size_t symbolKindIdx = 2UL;
-    if (items[scopeIdx] != "g" || items[symbolKindIdx] != "F") {
-        return "";
-    }
-    constexpr std::size_t kernelNameIdx = 4UL;
-    std::string kernelName = items[kernelNameIdx];
-    if (Utility::EndWith(kernelName, "_mix_aic") ||
-        Utility::EndWith(kernelName, "_mix_aiv")) {
-        kernelName = kernelName.substr(0UL, kernelName.length() - 8UL);
-    }
-
-    items.clear();
-    Utility::Split(kernelName, std::back_inserter(items), "_");
-    if (items.size() < 2UL) {
-        return "";
-    }
-    std::string kernelNamePrefix = items[0] + "_" + items[1];
-    return kernelNamePrefix;
-}
-
-std::string ParseNameFromOutput(std::string output)
-{
-    std::string kernelName;
-    std::vector<std::string> lines;
-    Utility::Split(output, std::back_inserter(lines), "\n");
-
-    // skip headers
-    auto it = lines.cbegin();
-    for (; it != lines.cend(); ++it) {
-        if (it->find("SYMBOL TABLE:") != std::string::npos) {
-            break;
-        }
-    }
-
-    if (it == lines.cend()) {
-        return kernelName;
-    }
-    ++it;
-
-    for (; it != lines.cend(); ++it) {
-        // 解析每一行符号表数据，取出kernelname
-        kernelName = ParseLine(*it);
-        if (!kernelName.empty()) {
-            return kernelName;
-        }
-    }
-    return kernelName;
-}
-
-std::string GetNameFromBinary(const void *hdl)
-{
-    std::string kernelName;
-    std::vector<char> binary = HandleMapping::GetInstance().BinKernelMapFind(hdl);
-    if (binary.empty()) {
-        return kernelName;
-    }
-    auto time = Utility::GetTimeNanoseconds();
-    std::string kernelPath = "./kernel.o." + std::to_string(time);
-    {
-        Utility::UmaskGuard umaskGuard(REGULAR_MODE_MASK);
-        if (!WriteBinary(kernelPath, binary.data(), binary.size())) {
-            return kernelName;
-        }
-    }
-    std::vector<std::string> cmd = {
-        "llvm-objdump",
-        "-t",
-        kernelPath
-    };
-
-    std::string output;
-    bool ret = PipeCall(cmd, output);
-    if (!ret) {
-        CLIENT_ERROR_LOG("pipe call failed!");
-        return kernelName;
-    }
-    kernelName = ParseNameFromOutput(output);
-    remove(kernelPath.c_str());
-    return kernelName;
 }
 
 }
