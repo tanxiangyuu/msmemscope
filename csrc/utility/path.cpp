@@ -287,7 +287,7 @@ bool CheckIsValidOutputPath(const std::string &path)
         return false;
     }
     std::string temp = realPath.ToString();
-    if (!CheckStrIsStartsWithInvalidChar(temp.c_str())) {
+    if (CheckStrIsStartsWithInvalidChar(temp.c_str())) {
         std::cout << "[msleaks] Error: The path " << temp << " is invalid." << std::endl;
         return false;
     }

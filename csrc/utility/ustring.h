@@ -82,9 +82,9 @@ inline bool CheckStrIsStartsWithInvalidChar(const char *const &str)
 {
     const std::set<char> invalidCharList = {'=', '+', '-', '@'};
     if (invalidCharList.count(*str)) {
-        return false;
+        return true;
     }
-    return true;
+    return false;
 }
 
 std::string ExtractAttrValueByKey(const std::string& str, const std::string& key);
