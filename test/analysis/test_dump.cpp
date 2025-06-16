@@ -4,11 +4,14 @@
 #include <string>
 #define private public
 #include "dump_record.h"
+#include "device_manager.h"
 #undef private
 #include "record_info.h"
 #include "config_info.h"
 #include "securec.h"
 #include "file.h"
+#include "data_handler.h"
+#include "memory_state_record.h"
 
 using namespace Leaks;
 
@@ -26,25 +29,33 @@ TEST(DumpRecord, dump_cpu_memory_record_expect_success)
     memRecordMalloc.recordIndex = 102;
     memRecordMalloc.kernelIndex = 101;
     memRecordMalloc.space = MemOpSpace::DEVICE;
-    memRecordMalloc.addr = 0x1234;
+    memRecordMalloc.addr = 1234;
     memRecordMalloc.memSize = 128;
     memRecordMalloc.timeStamp = 789;
     memRecordMalloc.memType = MemOpType::MALLOC;
     record.eventRecord.record.memoryRecord = memRecordMalloc;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    std::shared_ptr<MemoryStateRecord> memoryStateRecord = std::make_shared<MemoryStateRecord>(config);
+    std::vector<MemStateInfo> meminfoList = {};
+    MemStateInfo info;
+    meminfoList.push_back(info);
+    memoryStateRecord->ptrMemoryInfoMap_.insert({{"common", 1234}, meminfoList});
+    DeviceManager::GetInstance(config).memoryStateRecordMap_[clientId] = memoryStateRecord;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 
     record.eventRecord.record.memoryRecord.memType = MemOpType::FREE;
     
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     
     record.eventRecord.record.memoryRecord.memType = MemOpType::MALLOC;
     memRecordMalloc.space = MemOpSpace::HOST;
     
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     record.eventRecord.record.memoryRecord.memType = MemOpType::FREE;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_memory_record_expect_success)
 {
@@ -60,25 +71,33 @@ TEST(DumpRecord, dump_memory_record_expect_success)
     memRecordMalloc.recordIndex = 102;
     memRecordMalloc.kernelIndex = 101;
     memRecordMalloc.space = MemOpSpace::DEVICE;
-    memRecordMalloc.addr = 0x1234;
+    memRecordMalloc.addr = 1234;
     memRecordMalloc.memSize = 128;
     memRecordMalloc.timeStamp = 789;
     memRecordMalloc.memType = MemOpType::MALLOC;
     record.eventRecord.record.memoryRecord = memRecordMalloc;
     Config config;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    config.dataFormat = 0;
+    CallStackString stack{};
+    std::shared_ptr<MemoryStateRecord> memoryStateRecord = std::make_shared<MemoryStateRecord>(config);
+    std::vector<MemStateInfo> meminfoList = {};
+    MemStateInfo info;
+    meminfoList.push_back(info);
+    memoryStateRecord->ptrMemoryInfoMap_.insert({{"common", 1234}, meminfoList});
+    DeviceManager::GetInstance(config).memoryStateRecordMap_[clientId] = memoryStateRecord;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     config.enableCStack = true;
     config.enablePyStack = true;
     record.eventRecord.record.memoryRecord.memType = MemOpType::FREE;
     
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     record.eventRecord.record.memoryRecord.memType = MemOpType::MALLOC;
     memRecordMalloc.space = MemOpSpace::HOST;
     
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     record.eventRecord.record.memoryRecord.memType = MemOpType::FREE;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_kernelLaunch_record_expect_success)
 {
@@ -95,11 +114,13 @@ TEST(DumpRecord, dump_kernelLaunch_record_expect_success)
     record.eventRecord.record.kernelLaunchRecord = kernelLaunchRecord;
     Config config;
     ClientId clientId = 0;
+    config.dataFormat = 0;
     std::string testName = "123";
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     strncpy_s(record.eventRecord.record.kernelLaunchRecord.kernelName,
                 KERNELNAME_MAX_SIZE, testName.c_str(), KERNELNAME_MAX_SIZE - 1);
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_aclItf_record_expect_success)
 {
@@ -112,17 +133,23 @@ TEST(DumpRecord, dump_aclItf_record_expect_success)
     aclItfRecord.recordIndex = 101;
     aclItfRecord.aclItfRecordIndex = 102;
     aclItfRecord.timeStamp = 123;
+    aclItfRecord.type = AclOpType::INIT;
     record.eventRecord.record.aclItfRecord = aclItfRecord;
     Config config;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    config.dataFormat = 0;
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+
+    aclItfRecord.type = AclOpType::FINALIZE;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_torchnpu_record_expect_success)
 {
     auto record = Record{};
     record.eventRecord.type = RecordType::TORCH_NPU_RECORD;
-    auto torchNpuRecord = TorchNpuRecord{};
-    torchNpuRecord.recordIndex = 101;
+    auto memPoolRecord = MemPoolRecord{};
+    memPoolRecord.recordIndex = 101;
     
     MemoryUsage memoryUsage;
     memoryUsage.allocSize = 128;
@@ -134,27 +161,99 @@ TEST(DumpRecord, dump_torchnpu_record_expect_success)
     memoryUsage.deviceIndex = 10;
     memoryUsage.allocatorType = 0;
     memoryUsage.dataType = 0;
-    torchNpuRecord.memoryUsage = memoryUsage;
-    record.eventRecord.record.torchNpuRecord = torchNpuRecord;
+    memPoolRecord.memoryUsage = memoryUsage;
+    record.eventRecord.record.memPoolRecord = memPoolRecord;
     Config config;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    config.dataFormat = 0;
+    CallStackString stack{};
+    std::shared_ptr<MemoryStateRecord> memoryStateRecord = std::make_shared<MemoryStateRecord>(config);
+    std::vector<MemStateInfo> meminfoList = {};
+    MemStateInfo info;
+    meminfoList.push_back(info);
+    memoryStateRecord->ptrMemoryInfoMap_.insert({{"PTA", 123}, meminfoList});
+    DeviceManager::GetInstance(config).memoryStateRecordMap_[clientId] = memoryStateRecord;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     config.enableCStack = true;
     config.enablePyStack = true;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    memoryUsage.allocSize = -128;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_empty_torchnpu_record)
 {
     auto record = Record{};
     record.eventRecord.type = RecordType::TORCH_NPU_RECORD;
-    auto torchNpuRecord = TorchNpuRecord{};
+    auto memPoolRecord = MemPoolRecord{};
 
     MemoryUsage memoryUsage;
-    torchNpuRecord.memoryUsage = memoryUsage;
-    record.eventRecord.record.torchNpuRecord = torchNpuRecord;
+    memPoolRecord.memoryUsage = memoryUsage;
+    record.eventRecord.record.memPoolRecord = memPoolRecord;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    std::shared_ptr<MemoryStateRecord> memoryStateRecord = std::make_shared<MemoryStateRecord>(config);
+    std::vector<MemStateInfo> meminfoList = {};
+    MemStateInfo info;
+    meminfoList.push_back(info);
+    memoryStateRecord->ptrMemoryInfoMap_.insert({{"PTA", 123}, meminfoList});
+    DeviceManager::GetInstance(config).memoryStateRecordMap_[clientId] = memoryStateRecord;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+}
+TEST(DumpRecord, dump_mindsporenpu_record_expect_success)
+{
+    auto record = Record{};
+    record.eventRecord.type = RecordType::MINDSPORE_NPU_RECORD;
+    auto memPoolRecord = MemPoolRecord{};
+    memPoolRecord.recordIndex = 101;
+    
+    MemoryUsage memoryUsage;
+    memoryUsage.allocSize = 128;
+    memoryUsage.totalActive = 128;
+    memoryUsage.totalReserved = 128;
+    memoryUsage.totalAllocated = 128;
+    memoryUsage.ptr = 123;
+    memoryUsage.streamPtr = 123;
+    memoryUsage.deviceIndex = 10;
+    memoryUsage.allocatorType = 0;
+    memoryUsage.dataType = 0;
+    memPoolRecord.memoryUsage = memoryUsage;
+    record.eventRecord.record.memPoolRecord = memPoolRecord;
+    Config config;
+    config.dataFormat = 0;
+    ClientId clientId = 0;
+    CallStackString stack{};
+    std::shared_ptr<MemoryStateRecord> memoryStateRecord = std::make_shared<MemoryStateRecord>(config);
+    std::vector<MemStateInfo> meminfoList = {};
+    MemStateInfo info;
+    meminfoList.push_back(info);
+    memoryStateRecord->ptrMemoryInfoMap_.insert({{"MINDSPORE", 123}, meminfoList});
+    DeviceManager::GetInstance(config).memoryStateRecordMap_[clientId] = memoryStateRecord;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+    config.enableCStack = true;
+    config.enablePyStack = true;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
+}
+TEST(DumpRecord, dump_empty_mindsporenpu_record)
+{
+    auto record = Record{};
+    record.eventRecord.type = RecordType::MINDSPORE_NPU_RECORD;
+    auto memPoolRecord = MemPoolRecord{};
+
+    MemoryUsage memoryUsage;
+    memPoolRecord.memoryUsage = memoryUsage;
+    record.eventRecord.record.memPoolRecord = memPoolRecord;
+    Config config;
+    config.dataFormat = 0;
+    ClientId clientId = 0;
+    CallStackString stack{};
+    std::shared_ptr<MemoryStateRecord> memoryStateRecord = std::make_shared<MemoryStateRecord>(config);
+    std::vector<MemStateInfo> meminfoList = {};
+    MemStateInfo info;
+    meminfoList.push_back(info);
+    memoryStateRecord->ptrMemoryInfoMap_.insert({{"MINDSPORE", 123}, meminfoList});
+    DeviceManager::GetInstance(config).memoryStateRecordMap_[clientId] = memoryStateRecord;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_invalid_memory_record)
 {
@@ -176,12 +275,14 @@ TEST(DumpRecord, dump_invalid_memory_record)
     memRecordMalloc.memType = MemOpType::MALLOC;
     record.eventRecord.record.memoryRecord = memRecordMalloc;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 
     record.eventRecord.record.memoryRecord.memType = MemOpType::FREE;
     record.eventRecord.record.memoryRecord.devId = GD_INVALID_NUM;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_mstx_mark_expect_success)
 {
@@ -201,77 +302,80 @@ TEST(DumpRecord, dump_mstx_mark_expect_success)
     mstxRecord.recordIndex = 1;
     record.eventRecord.record.mstxRecord = mstxRecord;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     config.enablePyStack = true;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
-TEST(DumpRecord, dump_operator_launch_start_expect_success)
+TEST(DumpRecord, dump_aten_launch_start_expect_success)
 {
     auto record = Record{};
-    record.eventRecord.type = RecordType::MSTX_MARK_RECORD;
-    auto mstxRecord = MstxRecord{};
+    record.eventRecord.type = RecordType::ATEN_OP_LAUNCH_RECORD;
+    auto atenOpLaunchRecord = AtenOpLaunchRecord{};
     
-    mstxRecord.markType = MarkType::MARK_A;
-    mstxRecord.timeStamp = 1234;
-    mstxRecord.pid = 10;
-    mstxRecord.tid = 10;
-    mstxRecord.devId = 1;
-    mstxRecord.stepId = 10;
-    mstxRecord.streamId = 1;
-    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage), "leaks-aten-b: {func.__module__}.{func.__name__}",
-        sizeof(mstxRecord.markMessage) - 1);
-    mstxRecord.recordIndex = 1;
-    record.eventRecord.record.mstxRecord = mstxRecord;
+    atenOpLaunchRecord.eventType = Leaks::OpEventType::ATEN_START;
+    atenOpLaunchRecord.timestamp = 1234;
+    atenOpLaunchRecord.pid = 10;
+    atenOpLaunchRecord.tid = 10;
+    atenOpLaunchRecord.devId = 1;
+    strncpy_s(atenOpLaunchRecord.name, sizeof(atenOpLaunchRecord.name),
+        "leaks-aten-b: {func.__module__}.{func.__name__}", sizeof(atenOpLaunchRecord.name) - 1);
+    atenOpLaunchRecord.recordIndex = 1;
+    record.eventRecord.record.atenOpLaunchRecord = atenOpLaunchRecord;
 
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
-TEST(DumpRecord, dump_operator_launch_end_expect_success)
+TEST(DumpRecord, dump_aten_launch_end_expect_success)
 {
     auto record = Record{};
-    record.eventRecord.type = RecordType::MSTX_MARK_RECORD;
-    auto mstxRecord = MstxRecord{};
+    record.eventRecord.type = RecordType::ATEN_OP_LAUNCH_RECORD;
+    auto atenOpLaunchRecord = AtenOpLaunchRecord{};
     
-    mstxRecord.markType = MarkType::MARK_A;
-    mstxRecord.timeStamp = 1234;
-    mstxRecord.pid = 10;
-    mstxRecord.tid = 10;
-    mstxRecord.devId = 1;
-    mstxRecord.stepId = 10;
-    mstxRecord.streamId = 1;
-    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage), "leaks-aten-e: {func.__module__}.{func.__name__}",
-        sizeof(mstxRecord.markMessage) - 1);
-    mstxRecord.recordIndex = 1;
-    record.eventRecord.record.mstxRecord = mstxRecord;
+    atenOpLaunchRecord.eventType = Leaks::OpEventType::ATEN_END;
+    atenOpLaunchRecord.timestamp = 1234;
+    atenOpLaunchRecord.pid = 10;
+    atenOpLaunchRecord.tid = 10;
+    atenOpLaunchRecord.devId = 1;
+    strncpy_s(atenOpLaunchRecord.name, sizeof(atenOpLaunchRecord.name),
+        "{func.__module__}.{func.__name__}", sizeof(atenOpLaunchRecord.name) - 1);
+    atenOpLaunchRecord.recordIndex = 1;
+    record.eventRecord.record.atenOpLaunchRecord = atenOpLaunchRecord;
 
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
-TEST(DumpRecord, dump_tensor_launch_expect_success)
+TEST(DumpRecord, dump_aten_launch_expect_success)
 {
     auto record = Record{};
-    record.eventRecord.type = RecordType::MSTX_MARK_RECORD;
-    auto mstxRecord = MstxRecord{};
+    record.eventRecord.type = RecordType::MEM_ACCESS_RECORD;
+    auto memAccessRecord = MemAccessRecord{};
     
-    mstxRecord.markType = MarkType::MARK_A;
-    mstxRecord.timeStamp = 1234;
-    mstxRecord.pid = 10;
-    mstxRecord.tid = 10;
-    mstxRecord.devId = 1;
-    mstxRecord.stepId = 10;
-    mstxRecord.streamId = 1;
-    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage),
-        "leaks-ac:ptr={data_ptr};shape={value.shape};dtype={value.dtype};device={value.device}",
-        sizeof(mstxRecord.markMessage) - 1);
-    mstxRecord.recordIndex = 1;
-    record.eventRecord.record.mstxRecord = mstxRecord;
+    memAccessRecord.eventType = Leaks::AccessType::READ;
+    memAccessRecord.timestamp = 1234;
+    memAccessRecord.pid = 10;
+    memAccessRecord.tid = 10;
+    memAccessRecord.devId = 1;
+    strncpy_s(memAccessRecord.name, sizeof(memAccessRecord.name),
+        "{func.__module__}.{func.__name__}", sizeof(memAccessRecord.name) - 1);
+    strncpy_s(memAccessRecord.name, sizeof(memAccessRecord.name),
+        "{size:100,shape:([3.3])", sizeof(memAccessRecord.name) - 1);
+    memAccessRecord.recordIndex = 1;
+    record.eventRecord.record.memAccessRecord = memAccessRecord;
 
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_mstx_range_start_expect_success)
 {
@@ -291,8 +395,10 @@ TEST(DumpRecord, dump_mstx_range_start_expect_success)
     mstxRecord.recordIndex = 1;
     record.eventRecord.record.mstxRecord = mstxRecord;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_mstx_range_end_expect_success)
 {
@@ -310,8 +416,10 @@ TEST(DumpRecord, dump_mstx_range_end_expect_success)
     mstxRecord.recordIndex = 1;
     record.eventRecord.record.mstxRecord = mstxRecord;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 
 TEST(DumpRecord, dump_atb_op_start_expect_success)
@@ -333,8 +441,10 @@ TEST(DumpRecord, dump_atb_op_start_expect_success)
     atbOpExecuteRecord.recordIndex = 1;
     record.eventRecord.record.atbOpExecuteRecord = atbOpExecuteRecord;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 
 TEST(DumpRecord, dump_atb_op_end_expect_success)
@@ -356,8 +466,10 @@ TEST(DumpRecord, dump_atb_op_end_expect_success)
     atbOpExecuteRecord.recordIndex = 1;
     record.eventRecord.record.atbOpExecuteRecord = atbOpExecuteRecord;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 
 TEST(DumpRecord, dump_atb_kernel_start_expect_success)
@@ -379,8 +491,10 @@ TEST(DumpRecord, dump_atb_kernel_start_expect_success)
     atbKernelRecord.recordIndex = 1;
     record.eventRecord.record.atbKernelRecord = atbKernelRecord;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 
 TEST(DumpRecord, dump_atb_kernel_end_expect_success)
@@ -402,34 +516,39 @@ TEST(DumpRecord, dump_atb_kernel_end_expect_success)
     atbKernelRecord.recordIndex = 1;
     record.eventRecord.record.atbKernelRecord = atbKernelRecord;
     Config config;
+    config.dataFormat = 0;
     ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    CallStackString stack{};
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 
-TEST(DumpRecord, dump_mem_access_expect_success)
+TEST(DumpRecord, dump_kernel_execute_data_expect_success)
 {
-    auto record = Record{};
-    record.eventRecord.type = RecordType::MEM_ACCESS_RECORD;
-    auto memAccessRecord = MemAccessRecord{};
-    
-    memAccessRecord.eventType = AccessType::UNKNOWN;
-    strncpy_s(memAccessRecord.attr, sizeof(memAccessRecord.attr),
-              "{dtype:FLOAT,format:ACL_ND,shape:1 2 }", sizeof(memAccessRecord.attr) - 1);
-    memAccessRecord.timestamp = 7890;
-    memAccessRecord.pid = 10;
-    memAccessRecord.tid = 11;
-    memAccessRecord.devId = 3;
-    memAccessRecord.recordIndex = 1;
-    record.eventRecord.record.memAccessRecord = memAccessRecord;
+    auto kernelExcuteRecord = KernelExcuteRecord{};
     Config config;
-    ClientId clientId = 0;
-    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record));
+    config.dataFormat = 0;
+    kernelExcuteRecord.recordIndex = 1;
+    kernelExcuteRecord.devId = 0;
+    kernelExcuteRecord.type = KernelEventType::KERNEL_START;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpKernelExcuteData(kernelExcuteRecord));
 }
 
-TEST(DumpRecord, set_dir_path)
+TEST(DumpRecord, set_alloc_attr_expect_success)
 {
     Config config;
-    Utility::SetDirPath("/MyPath", std::string(OUTPUT_PATH));
-    DumpRecord::GetInstance(config).SetDirPath();
-    EXPECT_EQ(DumpRecord::GetInstance(config).dirPath_, "/MyPath/" + std::string(DUMP_FILE));
+    MemStateInfo memInfo = {};
+    memInfo.attr.addr = 1000;
+    memInfo.attr.size = 1234;
+    memInfo.attr.modid = 3;
+    memInfo.attr.leaksDefinedOwner = "HCCL";
+    memInfo.container.eventType = "HAL";
+    DumpRecord::GetInstance(config).SetAllocAttr(memInfo);
+    ASSERT_EQ(memInfo.container.attr, "\"{addr:1000,size:1234,MID:3,owner:HCCL}\"");
+
+    memInfo.container.eventType = "PTA";
+    memInfo.attr.totalAllocated = 100;
+    memInfo.attr.totalReserved = 100;
+    memInfo.attr.leaksDefinedOwner = "PTA";
+    DumpRecord::GetInstance(config).SetAllocAttr(memInfo);
+    ASSERT_EQ(memInfo.container.attr, "\"{addr:1000,size:1234,total:100,used:100,owner:PTA}\"");
 }

@@ -29,6 +29,8 @@ enum class OptVal : int32_t {
     DATA_TRACE_LEVEL,
     LOG_LEVEL,
     EVENT_TRACE_TYPE,
+    DATA_FORMAT,
+    ANALYSIS,
 };
 constexpr uint16_t INPUT_STR_MAX_LEN = 4096;
 
@@ -60,12 +62,21 @@ void ShowHelpInfo()
         << "                                             The maximum number of steps is 5." << std::endl
         << "    --call-stack=<c/python>[:<Depth>],...    Enable C,Python call stack collection for memory event."
         << std::endl
-        << "                                             Select the maximum depth of the collected call stack."
+        << "                                             Select the maximum depth of the collected call stack([0,1000])"
         << std::endl
         << "                                             If no depth is specified, use default depth(50)." << std::endl
         << "                                             e.g. --call-stack=c:20,python:10" << std::endl
         << "                                                  --call-stack=python" << std::endl
         << "                                             The input params need to be separated by, or ，." << std::endl
+        << "    --analysis                               Specify the analysis method to enable (optional)."
+        << std::endl
+        << "                                             Available options:" << std::endl
+        << "                                               - leaks : Enables memory leak detection (default)"
+        << std::endl
+        << "                                               - decompose : Enables memory categorization" << std::endl
+        << "                                               - inefficient : Enables memory inefficiencies detection"
+        << std::endl
+        << "                                             Leave empty to disable all analysis features." << std::endl
         << "    --compare                                Enable memory data comparison." << std::endl
         << "    --watch                                  Enable watch ability." << std::endl
         << "                                             e.g. [start[:outid]],end[,full-content]" << std::endl
@@ -74,7 +85,8 @@ void ShowHelpInfo()
         << std::endl
         << "                                             The input paths need to be separated by, or ，." << std::endl
         << "    --output=path                            The path to store the generated files." << std::endl
-        << "    --log-level                              Set log level to <level> [warn]." << std::endl;
+        << "    --log-level                              Set log level to <level> [warn]." << std::endl
+        << "    --data-format=<db|csv>                   Set data format to <format> (default:csv)." << std::endl;
 }
 
 void ShowVersion()
@@ -121,6 +133,13 @@ void DoUserCommand(UserCommand userCommand)
         std::cout << "strncpy_s FAILED" << std::endl;
     }
     userCommand.config.outputDir[sizeof(userCommand.config.outputDir) - 1] = '\0';
+
+    if (userCommand.config.dataFormat == static_cast<uint8_t>(DataFormat::DB)) {
+        if (!Utility::IsSqliteAvailable() || !Utility::CreateDbPath(userCommand.config, DB_DUMP_FILE)) {
+            return;
+        }
+    }
+
     Command command {userCommand};
     command.Exec();
 }
@@ -138,6 +157,7 @@ std::vector<option> GetLongOptArray()
         {"version", no_argument, nullptr, 'v'},
         {"steps", required_argument, nullptr, static_cast<int32_t>(OptVal::SELECT_STEPS)},
         {"call-stack", required_argument, nullptr, static_cast<int32_t>(OptVal::CALL_STACK)},
+        {"analysis", required_argument, nullptr, static_cast<int32_t>(OptVal::ANALYSIS)},
         {"compare", no_argument, nullptr, static_cast<int32_t>(OptVal::COMPARE)},
         {"watch", required_argument, nullptr, static_cast<int32_t>(OptVal::WATCH)},
         {"input", required_argument, nullptr, static_cast<int32_t>(OptVal::INPUT)},
@@ -145,6 +165,7 @@ std::vector<option> GetLongOptArray()
         {"level", required_argument, nullptr, static_cast<int32_t>(OptVal::DATA_TRACE_LEVEL)},
         {"events", required_argument, nullptr, static_cast<int32_t>(OptVal::EVENT_TRACE_TYPE)},
         {"log-level", required_argument, nullptr, static_cast<int32_t>(OptVal::LOG_LEVEL)},
+        {"data-format", required_argument, nullptr, static_cast<int32_t>(OptVal::DATA_FORMAT)},
         {nullptr, 0, nullptr, 0},
     };
     return longOpts;
@@ -202,11 +223,45 @@ static void ParseSelectSteps(const std::string &param, UserCommand &userCommand)
     return;
 }
 
+static void ParseAnalysis(const std::string &param, UserCommand &userCommand)
+{
+    std::regex dividePattern(R"([，,])");
+    std::sregex_token_iterator it(param.begin(), param.end(), dividePattern, -1);
+    std::sregex_token_iterator end;
+
+    auto parseFailed = [&userCommand](void) {
+        std::cout << "[msleaks] ERROR: invalid analysis type input." << std::endl;
+        userCommand.printHelpInfo = true;
+    };
+
+    BitField<decltype(userCommand.config.analysisType)> analysisTypeBit;
+
+    std::unordered_map<std::string, AnalysisType> analysisMp = {
+        {"leaks", AnalysisType::LEAKS_ANALYSIS},
+        {"decompose", AnalysisType::DECOMPOSE_ANALYSIS},
+        {"inefficient", AnalysisType::INEFFICIENT_ANALYSIS},
+    };
+    while (it != end) {
+        std::string analysisMethod = it->str();
+        if (!analysisMethod.empty()) {
+            if (analysisMp.count(analysisMethod)) {
+                analysisTypeBit.setBit(static_cast<size_t>(analysisMp[analysisMethod]));
+            } else {
+                return parseFailed();
+            }
+        }
+        it++;
+    }
+
+    userCommand.config.analysisType = analysisTypeBit.getValue();
+    return;
+}
+
 static bool CheckIsValidDepthInfo(const std::string &param, UserCommand &userCommand)
 {
     size_t pos = param.find(':');
     std::string callType = param.substr(0, pos);
-    std::regex numberPattern(R"(^(0|[1-9]\d*)$)");
+    std::regex numberPattern(R"(^(0|1000|[1-9]\d{0,2})$)");
     uint32_t depth = DEFAULT_CALL_STACK_DEPTH;
 
     if (pos != std::string::npos) {
@@ -243,7 +298,7 @@ static void ParseCallstack(const std::string &param, UserCommand &userCommand)
 
     while (it != end) {
         std::string depthStr = it->str();
-        if (!CheckIsValidDepthInfo(depthStr, userCommand)) {
+        if (!depthStr.empty() && !CheckIsValidDepthInfo(depthStr, userCommand)) {
             return parseFailed();
         }
         it++;
@@ -389,7 +444,10 @@ static bool ParseWatchStartConfig(const std::string param, UserCommand &userComm
     if (colon != std::string::npos) {
         std::string start = startPart.substr(0, colon);
         std::string outidStr = startPart.substr(colon + 1);
-        if (start.empty() || outidStr.empty() || outidStr[0] == '0') { // 出现冒号必须有start和outid，且outidStr不能出现前导0
+        if (start.empty() || outidStr.empty()) { // 出现冒号必须有start和outid
+            return false;
+        }
+        if (outidStr[0] == '0' && outidStr.size() > 1) { // outidStr不能出现前导0
             return false;
         }
         auto ret = strncpy_s(userCommand.config.watchConfig.start,
@@ -466,15 +524,16 @@ static void ParseWatchConfig(const std::string param, UserCommand &userCommand)
     }
 
     userCommand.config.watchConfig.isWatched = true;
+
     return;
 }
 
 static void ParseLogLv(const std::string &param, UserCommand &userCommand)
 {
-    const std::map<std::string, Utility::LogLv> logLevelMap = {
-        {"info", Utility::LogLv::INFO},
-        {"warn", Utility::LogLv::WARN},
-        {"error", Utility::LogLv::ERROR},
+    const std::map<std::string, LogLv> logLevelMap = {
+        {"info", LogLv::INFO},
+        {"warn", LogLv::WARN},
+        {"error", LogLv::ERROR},
     };
     auto it = logLevelMap.find(param);
     if (it == logLevelMap.end()) {
@@ -484,7 +543,26 @@ static void ParseLogLv(const std::string &param, UserCommand &userCommand)
     } else {
         auto logLevel = it->second;
         Utility::SetLogLevel(logLevel);
+        userCommand.config.logLevel = static_cast<uint8_t>(logLevel);
     }
+}
+
+static void ParseDataFormat(const std::string &param, UserCommand &userCommand)
+{
+    const std::map<std::string, DataFormat> dataFormatMap = {
+        {"csv", DataFormat::CSV},
+        {"db", DataFormat::DB},
+    };
+    auto it = dataFormatMap.find(param);
+    if (it == dataFormatMap.end()) {
+        std::cout << "[msleaks] ERROR: --data-format param is invalid. "
+                  << "DATA_FORMAT can only be set csv,db." << std::endl;
+        userCommand.printHelpInfo = true;
+    } else {
+        auto dataFormat = it->second;
+        userCommand.config.dataFormat = static_cast<uint8_t>(dataFormat);
+    }
+    return;
 }
 
 void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand &userCommand)
@@ -502,6 +580,9 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
             break;
         case static_cast<int32_t>(OptVal::SELECT_STEPS):
             ParseSelectSteps(param, userCommand);
+            break;
+        case static_cast<int32_t>(OptVal::ANALYSIS):
+            ParseAnalysis(param, userCommand);
             break;
         case static_cast<int32_t>(OptVal::CALL_STACK):
             ParseCallstack(param, userCommand);
@@ -527,6 +608,9 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
         case static_cast<int32_t>(OptVal::LOG_LEVEL):
             ParseLogLv(param, userCommand);
             break;
+        case static_cast<int32_t>(OptVal::DATA_FORMAT):
+            ParseDataFormat(param, userCommand);
+            break;
         default:
             ;
     }
@@ -543,12 +627,18 @@ void ClientParser::InitialUserCommand(UserCommand &userCommand)
     userCommand.config.cStackDepth = 0;
     userCommand.config.pyStackDepth = 0;
     userCommand.config.levelType = 1;
+    userCommand.config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
+    userCommand.config.logLevel = static_cast<uint8_t>(LogLv::WARN);
 
     BitField<decltype(userCommand.config.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
     userCommand.config.eventType = eventBit.getValue();
+
+    BitField<decltype(userCommand.config.analysisType)> analysisBit;
+    analysisBit.setBit(static_cast<size_t>(AnalysisType::LEAKS_ANALYSIS));
+    userCommand.config.analysisType = analysisBit.getValue();
 
     userCommand.config.watchConfig.isWatched = false;
     (void)memset_s(userCommand.config.watchConfig.start, WATCH_OP_DIR_MAX_LENGTH, 0, WATCH_OP_DIR_MAX_LENGTH);

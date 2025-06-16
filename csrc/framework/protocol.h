@@ -11,6 +11,8 @@
 
 namespace Leaks {
 
+constexpr size_t MAX_STRING_LEN = 65536;
+
 enum class PacketType : uint8_t {
     RECORD = 0,
     LOG,
@@ -33,15 +35,36 @@ union PacketBody {
 
 class Packet {
 public:
-    Packet(void) : head_{PacketType::INVALID}, body_{} {}
+    Packet(void) : head_{PacketType::INVALID}, body_{}
+    {}
+
+    Packet(Packet &&rhs) : head_{rhs.head_}, body_{rhs.body_}
+    {
+        if (rhs.head_.type == PacketType::LOG) {
+            body_.log.buf = rhs.body_.log.buf;
+            rhs.body_.log.buf = nullptr;
+        } else if (rhs.head_.type == PacketType::RECORD) {
+            body_.record.callStackInfo.cStack = rhs.body_.record.callStackInfo.cStack;
+            rhs.body_.record.callStackInfo.cStack = nullptr;
+            body_.record.callStackInfo.pyStack = rhs.body_.record.callStackInfo.pyStack;
+            rhs.body_.record.callStackInfo.pyStack = nullptr;
+        }
+    }
+
     ~Packet(void)
     {
+        if (head_.type == PacketType::RECORD) {
+            delete[] body_.record.callStackInfo.cStack;
+            delete[] body_.record.callStackInfo.pyStack;
+        } else if (head_.type == PacketType::LOG) {
+            delete[] body_.log.buf;
+        }
     }
     explicit Packet(EventRecord const &record, std::string &pyStack, std::string &cStack)
     {
         head_.type = PacketType::RECORD;
-        uint64_t cLen = cStack.size();
-        uint64_t pyLen = pyStack.size();
+        uint64_t cLen = std::min(cStack.size(), MAX_STRING_LEN);
+        uint64_t pyLen = std::min(pyStack.size(), MAX_STRING_LEN);
         body_.record.eventRecord = record;
         body_.record.callStackInfo.cStack = new char[cLen];
         body_.record.callStackInfo.cLen = cLen;
@@ -52,7 +75,7 @@ public:
     }
     explicit Packet(std::string log)
     {
-        uint64_t len = log.size();
+        uint64_t len = std::min(log.size(), MAX_STRING_LEN);
         head_.type = PacketType::LOG;
         body_.log.len = len;
         body_.log.buf = new char[len];

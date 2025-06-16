@@ -13,6 +13,7 @@
 #include "analysis/mstx_analyzer.h"
 #include "analysis/hal_analyzer.h"
 #include "analysis/stepinner_analyzer.h"
+#include "analysis/device_manager.h"
 
 namespace Leaks {
 
@@ -67,9 +68,33 @@ Process::Process(const Config &config)
     server_->Start();
 }
 
+void Process::MemoryRecordPreprocess(const ClientId &clientId, const Record &record, CallStackString& stack)
+{
+    auto type = record.eventRecord.type;
+    auto it = preprocessTypeList_.find(type);
+    if (it == preprocessTypeList_.end()) {
+        return;
+    }
+
+    auto memoryStateRecord = DeviceManager::GetInstance(config_).GetMemoryStateRecord(clientId);
+    std::string pyStack = "";
+    std::string cStack = "";
+    if (config_.enablePyStack) {
+        pyStack.assign(record.callStackInfo.pyStack, record.callStackInfo.pyStack + record.callStackInfo.pyLen);
+    }
+    if (config_.enableCStack) {
+        cStack.assign(record.callStackInfo.cStack, record.callStackInfo.cStack + record.callStackInfo.cLen);
+    }
+    stack.cStack = cStack;
+    stack.pyStack = pyStack;
+    memoryStateRecord->RecordMemoryState(record, stack);
+}
+
 void Process::RecordHandler(const ClientId &clientId, const Record &record)
 {
-    DumpRecord::GetInstance(config_).DumpData(clientId, record);
+    CallStackString stack{};
+    MemoryRecordPreprocess(clientId, record, stack);
+    DumpRecord::GetInstance(config_).DumpData(clientId, record, stack);
     TraceRecord::GetInstance().TraceHandler(record.eventRecord);
 
     switch (record.eventRecord.type) {
@@ -80,6 +105,8 @@ void Process::RecordHandler(const ClientId &clientId, const Record &record)
             HalAnalyzer::GetInstance(config_).Record(clientId, record.eventRecord);
             break;
         case RecordType::TORCH_NPU_RECORD:
+        case RecordType::ATB_MEMORY_POOL_RECORD:
+        case RecordType::MINDSPORE_NPU_RECORD:
             StepInnerAnalyzer::GetInstance(config_).Record(clientId, record.eventRecord);
             break;
         default:

@@ -62,12 +62,12 @@ bool Compare(const std::unordered_map<std::string, std::string> &a,
 {
     uint64_t compareA;
     uint64_t compareB;
-    if (!Utility::StrToUint64(compareA, a.at("Timestamp(us)"))) {
-        LOG_WARN("StrToUint64 failed, the str is %s.", a.at("Timestamp(us)").c_str());
+    if (!Utility::StrToUint64(compareA, a.at("Timestamp(ns)"))) {
+        LOG_WARN("StrToUint64 failed, the str is %s.", a.at("Timestamp(ns)").c_str());
         compareA = UINT64_MAX;
     }
-    if (!Utility::StrToUint64(compareB, b.at("Timestamp(us)"))) {
-        LOG_WARN("StrToUint64 failed, the str is %s.", b.at("Timestamp(us)").c_str());
+    if (!Utility::StrToUint64(compareB, b.at("Timestamp(ns)"))) {
+        LOG_WARN("StrToUint64 failed, the str is %s.", b.at("Timestamp(ns)").c_str());
         compareB = UINT64_MAX;
     }
 

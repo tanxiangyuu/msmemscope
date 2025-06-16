@@ -1,0 +1,104 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+#include "runtime_prof_api.h"
+#include "client_process.h"
+#include "kernel_event_trace.h"
+#include "securec.h"
+#include "kernel_hooks/kernel_event_trace.h"
+
+#include <iostream>
+namespace Leaks {
+int32_t CompactInfoReporterCallbackImpl(uint32_t agingFlag, const void *data, uint32_t length)
+{
+    if (data == nullptr || length != sizeof(struct MsprofCompactInfo)) {
+        CLIENT_ERROR_LOG("Report Compact Info failed with nullptr.");
+        return PROFAPI_ERROR;
+    }
+    const MsprofCompactInfo* compact = reinterpret_cast<const MsprofCompactInfo*>(data);
+    if (compact && compact->level == MSPROF_REPORT_RUNTIME_LEVEL && compact->type == RT_PROFILE_TYPE_TASK_TRACK) {
+        const MsprofRuntimeTrack &runtimeTrack = compact->data.runtimeTrack;
+        auto taskKey = std::make_tuple(runtimeTrack.deviceId, runtimeTrack.streamId,
+            static_cast<uint16_t>(runtimeTrack.taskInfo & 0xffff));
+        RuntimeKernelLinker::GetInstance().RuntimeTaskInfoLaunch(taskKey, runtimeTrack.kernelName);
+    }
+    return PROFAPI_ERROR_NONE;
+}
+
+static uint64_t GetHashIdImple(const std::string &hashInfo)
+{
+    static const uint32_t UINT32_BITS = 32;
+    uint32_t prime[2] = {29, 131};
+    uint32_t hash[2] = {0};
+    for (char d : hashInfo) {
+        hash[0] = hash[0] * prime[0] + static_cast<uint32_t>(d);
+        hash[1] = hash[1] * prime[1] + static_cast<uint32_t>(d);
+    }
+    return (((static_cast<uint64_t>(hash[0])) << UINT32_BITS) | hash[1]);
+}
+
+uint64_t GetHashIdCallBackImply(const char* hashInfo, size_t len)
+{
+    if (hashInfo == nullptr) {
+        CLIENT_ERROR_LOG("GenHashId failed. hashInfo is nullptr.");
+        return 0;
+    }
+
+    uint64_t hashId = GetHashIdImple(hashInfo);
+    RuntimeKernelLinker::GetInstance().SetHashInfo(hashId, std::string(hashInfo, len));
+    return hashId;
+}
+
+void RegisterRtProfileCallback()
+{
+    static const std::vector<std::pair<int, void *>> CALLBACK_FUNC_LIST = {
+        {PROFILE_REPORT_GET_HASH_ID_C_CALLBACK, reinterpret_cast<void *>(GetHashIdCallBackImply)},
+        {PROFILE_REPORT_COMPACT_CALLBACK, reinterpret_cast<void *>(CompactInfoReporterCallbackImpl)},
+    };
+
+    using RegisterFunc = int32_t(*)(int32_t, void *, uint32_t);
+    auto vallina = VallinaSymbol<RtProfApiLoader>::Instance().Get<RegisterFunc>("MsprofRegisterProfileCallback");
+    if (vallina == nullptr) {
+        CLIENT_ERROR_LOG("Get register func failed");
+        return;
+    }
+
+    int32_t ret;
+    for (auto iter : CALLBACK_FUNC_LIST) {
+        ret = vallina(iter.first, iter.second, sizeof(void *));
+        if (ret != 0) {
+            CLIENT_ERROR_LOG("Register rtProfile callback failed, type = ." + std::to_string(iter.first));
+        }
+    }
+
+    return;
+}
+
+void SetProfCommand(uint32_t devId)
+{
+    CommandHandle command;
+    if (memset_s(&command, sizeof(command), 0, sizeof(command)) != EOK) {
+        return;
+    }
+
+    command.profSwitch = PROF_ACL_API | PROF_TASK_TIME | PROF_RUNTIME_TRACE;
+    command.profSwitchHi = 0;
+    command.devNums = 1;
+    command.devIdList[0] = devId;
+    command.modelId = PROF_INVALID_MODE_ID;
+    command.type = PROF_COMMANDHANDLE_TYPE_START;
+
+    using ProfSetProfCommandFunc = int32_t(*)(void *, uint32_t);
+    auto vallina = VallinaSymbol<RtProfApiLoader>::Instance().Get<ProfSetProfCommandFunc>("profSetProfCommand");
+    if (vallina == nullptr) {
+        CLIENT_ERROR_LOG("Set prof command failed with nullptr.");
+        return;
+    }
+
+    int ret = vallina(static_cast<void *>(&command), sizeof(CommandHandle));
+    if (ret != 0) {
+        CLIENT_ERROR_LOG("Set prof command failed.");
+        return;
+    }
+
+    return;
+}
+}

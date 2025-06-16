@@ -6,15 +6,23 @@
 #include "event_report.h"
 #include "record_info.h"
 #include "log.h"
+#include "bit_field.h"
+#include "aten_manager.h"
 #include "memory_pool_trace/memory_pool_trace_manager.h"
 #include "memory_pool_trace/atb_memory_pool_trace.h"
+#include "memory_pool_trace/mindspore_memory_pool_trace.h"
 
 namespace Leaks {
-
 
 // 组装普通打点信息
 void MstxManager::ReportMarkA(const char* msg, int32_t streamId)
 {
+    // 处理aten算子上报信息
+    if (msg && strncmp(msg, ATEN_MSG, strlen(ATEN_MSG)) == 0) {
+        const char* atenMsg = msg + strlen(ATEN_MSG);
+        AtenManager::GetInstance().ProcessMsg(atenMsg, streamId);
+        return ;
+    }
     MstxRecord record;
     record.markType = MarkType::MARK_A;
     record.rangeId = onlyMarkId_;
@@ -85,7 +93,12 @@ mstxDomainHandle_t MstxManager::ReportDomainCreateA(char const *domainName)
             return MemoryPoolTraceManager::GetInstance().CreateDomain(domainName);
         }
     }
-
+    if (std::string(domainName) == "mindsporeMemPool") {
+        if (MemoryPoolTraceManager::GetInstance().RegisterMemoryPoolTracer("mindsporeMemPool",
+            &MindsporeMemoryPoolTrace::GetInstance())) {
+            return MemoryPoolTraceManager::GetInstance().CreateDomain(domainName);
+        }
+    }
     if (domainName == nullptr || std::string(domainName) != "msleaks") {
         return nullptr;
     }
@@ -153,7 +166,7 @@ void MstxManager::ReportRegionsRegister(mstxDomainHandle_t domain, mstxMemRegion
     }
     CallStackString stack{cStack, pyStack};
     for (size_t i = 0; i < desc->regionCount; i++) {
-        TorchNpuRecord torchNpuRecord;
+        MemPoolRecord memPoolRecord;
         int devId = rangeDescArray[i].deviceId;
         memUsageMp_[devId].dataType = 0;
         memUsageMp_[devId].deviceIndex = devId;
@@ -162,10 +175,11 @@ void MstxManager::ReportRegionsRegister(mstxDomainHandle_t domain, mstxMemRegion
         memUsageMp_[devId].totalAllocated =
             Utility::GetAddResult(memUsageMp_[devId].totalAllocated, memUsageMp_[devId].allocSize);
         regionHandleMp_[rangeDescArray[i].ptr] = rangeDescArray[i];
-        torchNpuRecord.memoryUsage = memUsageMp_[devId];
-        torchNpuRecord.pid = Utility::GetPid();
-        torchNpuRecord.tid = Utility::GetTid();
-        if (!EventReport::Instance(CommType::SOCKET).ReportTorchNpu(torchNpuRecord, stack)) {
+        memPoolRecord.type = RecordType::TORCH_NPU_RECORD;
+        memPoolRecord.memoryUsage = memUsageMp_[devId];
+        memPoolRecord.pid = Utility::GetPid();
+        memPoolRecord.tid = Utility::GetTid();
+        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(memPoolRecord, stack)) {
             CLIENT_ERROR_LOG("Report Npu Data Failed");
         }
     }
@@ -196,7 +210,7 @@ void MstxManager::ReportRegionsUnregister(mstxDomainHandle_t domain, mstxMemRegi
         if (!regionHandleMp_.count(desc->refArray[i].pointer)) {
             continue;
         }
-        TorchNpuRecord torchNpuRecord;
+        MemPoolRecord memPoolRecord;
         mstxMemVirtualRangeDesc_t rangeDesc = regionHandleMp_[desc->refArray[i].pointer];
         memUsageMp_[rangeDesc.deviceId].dataType = 1;
         memUsageMp_[rangeDesc.deviceId].deviceIndex = rangeDesc.deviceId;
@@ -204,10 +218,11 @@ void MstxManager::ReportRegionsUnregister(mstxDomainHandle_t domain, mstxMemRegi
         memUsageMp_[rangeDesc.deviceId].totalAllocated =
             Utility::GetSubResult(memUsageMp_[rangeDesc.deviceId].totalAllocated, rangeDesc.size);
         memUsageMp_[rangeDesc.deviceId].allocSize = -rangeDesc.size;
-        torchNpuRecord.memoryUsage = memUsageMp_[rangeDesc.deviceId];
-        torchNpuRecord.pid = Utility::GetPid();
-        torchNpuRecord.tid = Utility::GetTid();
-        if (!EventReport::Instance(CommType::SOCKET).ReportTorchNpu(torchNpuRecord, stack)) {
+        memPoolRecord.type = RecordType::TORCH_NPU_RECORD;
+        memPoolRecord.memoryUsage = memUsageMp_[rangeDesc.deviceId];
+        memPoolRecord.pid = Utility::GetPid();
+        memPoolRecord.tid = Utility::GetTid();
+        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(memPoolRecord, stack)) {
             CLIENT_ERROR_LOG("Report Npu Data Failed");
         }
     }

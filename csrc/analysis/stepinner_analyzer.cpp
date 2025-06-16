@@ -73,6 +73,11 @@ bool StepInnerAnalyzer::CreateLeakSumTables(const DeviceId &deviceId)
 
 bool StepInnerAnalyzer::IsStepInnerAnalysisEnable()
 {
+    // 确认analysis设置中是否包含泄漏分析
+    BitField<decltype(config_.analysisType)> analysisType(config_.analysisType);
+    if (!(analysisType.checkBit(static_cast<size_t>(AnalysisType::LEAKS_ANALYSIS)))) {
+        return false;
+    }
     // 当开启--steps时，关闭所有分析功能
     if (config_.stepList.stepCount!=0) {
         return false;
@@ -120,9 +125,27 @@ void StepInnerAnalyzer::CheckNpuLeak(const DeviceId &deviceId, const uint64_t st
         if (pair.second.duration < durationThreshold_) {
             continue;
         }
+
+        std::string memoryPoolType = "";
+        switch (pair.second.type) {
+            case RecordType::ATB_MEMORY_POOL_RECORD:
+                memoryPoolType = "ATB memory pool";
+                break;
+            case RecordType::TORCH_NPU_RECORD:
+                memoryPoolType = "Pytorch memory pool";
+                break;
+            case RecordType::MINDSPORE_NPU_RECORD:
+                memoryPoolType = "Mindspore memory pool";
+                break;
+            default:
+                memoryPoolType = "Unknown memory pool";
+                LOG_ERROR("Undefined memorypool type!");
+                break;
+        }
+
         LOG_WARN(
-            "[npu %d][step %lu]: ptr: %llx has last for %lu steps. Please check if there is memory leaks.",
-            deviceId, stepId, pair.first, pair.second.duration);
+            "[npu %d][step %lu]: ptr: %llx has last for %lu steps. Please check if there is leaks in %s.",
+            deviceId, stepId, pair.first, pair.second.duration, memoryPoolType.c_str());
         if (!CreateLeakSumTables(deviceId)) {
             LOG_ERROR("[device %ld]: Create leaksums table failed.", deviceId);
             return;
@@ -137,22 +160,23 @@ void StepInnerAnalyzer::CheckNpuLeak(const DeviceId &deviceId, const uint64_t st
             pair.second.kernelIndex;
         leakMemSums_[deviceId][LeakMemKey(pair.first, pair.second.stepId)].leakSize =
             npuMemUsages_[deviceId].mempooltable[pair.first].memSize;
+        leakMemSums_[deviceId][LeakMemKey(pair.first, pair.second.stepId)].memoryPoolType = memoryPoolType;
     }
     return;
 }
 
-void StepInnerAnalyzer::NotifyTraceRecord(const int32_t &devId, const TorchNpuRecord &torchNpuRecord)
+void StepInnerAnalyzer::NotifyTraceRecord(const int32_t &devId, const MemPoolRecord &memPoolRecord)
 {
-    uint64_t ptr = torchNpuRecord.memoryUsage.ptr;
+    uint64_t ptr = memPoolRecord.memoryUsage.ptr;
     if (npuMemUsages_[devId].mempooltable[ptr].duration >= (durationThreshold_ + 1)
         && npuMemUsages_[devId].mempooltable[ptr].stepId > skipSteps_
     ) {
         TorchMemLeakInfo info{
             devId,
             npuMemUsages_[devId].mempooltable[ptr].kernelIndex,
-            torchNpuRecord.kernelIndex - npuMemUsages_[devId].mempooltable[ptr].kernelIndex,
+            memPoolRecord.kernelIndex - npuMemUsages_[devId].mempooltable[ptr].kernelIndex,
             ptr,
-            -torchNpuRecord.memoryUsage.allocSize
+            -memPoolRecord.memoryUsage.allocSize
         };
         TraceRecord::GetInstance().ProcessTorchMemLeakInfo(info);
     }
@@ -234,16 +258,17 @@ void StepInnerAnalyzer::CheckGap(const DeviceId &deviceId)
 }
 
 void StepInnerAnalyzer::RecordNpuMalloc(const ClientId &clientId, const DeviceId &deviceId,
-    const TorchNpuRecord &torchnpuRecord)
+    const MemPoolRecord &memPoolRecord)
 {
-    MemoryUsage memoryusage = torchnpuRecord.memoryUsage;
+    MemoryUsage memoryusage = memPoolRecord.memoryUsage;
     int64_t npumemptr = memoryusage.ptr;
     if ((npuMemUsages_[deviceId].mempooltable.find(npumemptr) != npuMemUsages_[deviceId].mempooltable.end())) {
         LOG_WARN(
             "[npu%d malloc][client %u]:!!! ------double malloc------!!!, ptr: %lld", deviceId, clientId, npumemptr);
     }
     NpuMemInfo npuMemInfo = {
-    memoryusage.allocSize, torchnpuRecord.timeStamp, 0, npuMemUsages_[deviceId].mstxStep, torchnpuRecord.kernelIndex};
+    memPoolRecord.type, memoryusage.allocSize, memPoolRecord.timeStamp, 0, npuMemUsages_[deviceId].mstxStep,
+    memPoolRecord.kernelIndex};
     npuMemUsages_[deviceId].mempooltable.emplace(npumemptr, npuMemInfo);
     UpdateAllocated(deviceId, memoryusage.totalAllocated);
     npuMemUsages_[deviceId].totalAllocated = memoryusage.totalAllocated;
@@ -253,9 +278,9 @@ void StepInnerAnalyzer::RecordNpuMalloc(const ClientId &clientId, const DeviceId
 }
 
 void  StepInnerAnalyzer::RecordNpuFree(const ClientId &clientId, const DeviceId &deviceId,
-    const TorchNpuRecord &torchnpuRecord)
+    const MemPoolRecord &memPoolRecord)
 {
-    MemoryUsage memoryusage = torchnpuRecord.memoryUsage;
+    MemoryUsage memoryusage = memPoolRecord.memoryUsage;
     int64_t npumemptr = memoryusage.ptr;
     if ((npuMemUsages_[deviceId].mempooltable.find(npumemptr) == npuMemUsages_[deviceId].mempooltable.end())) {
         LOG_WARN(
@@ -263,7 +288,7 @@ void  StepInnerAnalyzer::RecordNpuFree(const ClientId &clientId, const DeviceId 
     }
 
     // 在释放时获取跨多个Step释放内存信息
-    NotifyTraceRecord(deviceId, torchnpuRecord);
+    NotifyTraceRecord(deviceId, memPoolRecord);
 
     npuMemUsages_[deviceId].mempooltable.erase(npumemptr);
     UpdateAllocated(deviceId, memoryusage.totalAllocated);
@@ -300,17 +325,17 @@ bool StepInnerAnalyzer::Record(const ClientId &clientId, const EventRecord &reco
     if (!IsStepInnerAnalysisEnable()) {
         return true;
     }
-    TorchNpuRecord torchnpuRecord = record.record.torchNpuRecord;
-    DeviceId deviceId = torchnpuRecord.memoryUsage.deviceIndex;
+    MemPoolRecord memPoolRecord = record.record.memPoolRecord;
+    DeviceId deviceId = memPoolRecord.memoryUsage.deviceIndex;
     if (!CreateTables(deviceId)) {
         LOG_ERROR("[device %ld]: Create npu Memory table failed.", deviceId);
         return false;
     }
     // 目前不处理BLOCK_FREE操作
-    if (torchnpuRecord.memoryUsage.dataType == static_cast<uint8_t>(MemActionType::MALLOC)) {
-        RecordNpuMalloc(clientId, deviceId, torchnpuRecord);
-    } else if (torchnpuRecord.memoryUsage.dataType == static_cast<uint8_t>(MemActionType::FREE)) {
-        RecordNpuFree(clientId, deviceId, torchnpuRecord);
+    if (memPoolRecord.memoryUsage.dataType == static_cast<uint8_t>(MemActionType::MALLOC)) {
+        RecordNpuMalloc(clientId, deviceId, memPoolRecord);
+    } else if (memPoolRecord.memoryUsage.dataType == static_cast<uint8_t>(MemActionType::FREE)) {
+        RecordNpuFree(clientId, deviceId, memPoolRecord);
     }
     return true;
 }
@@ -383,7 +408,8 @@ void StepInnerAnalyzer::ReceiveMstxMsg(const MstxRecord &mstxRecord)
     uint64_t leakInfoCounts = 0;
     long double leakSizeSums = 0;
     for (const auto& pair :leakVec) {
-        printf("Direct leak of %f Mb(s) at 0x%lx in kernel_%lu at step %lu.\n",
+        printf("Direct %s leak of %f Mb(s) at 0x%lx in kernel_%lu at step %lu.\n",
+            pair.second.memoryPoolType.c_str(),
             (pair.second.leakSize / static_cast<double>(BYTE_TO_MB)),
             pair.first.torchNpuPtr,
             pair.second.kernelIndex,

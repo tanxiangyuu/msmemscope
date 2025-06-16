@@ -2,8 +2,11 @@
 
 #include <Python.h>
 #include <vector>
+#include <string>
 #include "watcherobject.h"
 #include "tracerobject.h"
+#include "describerobject.h"
+#include "report_tensor.h"
 
 namespace Leaks {
 
@@ -41,28 +44,32 @@ PyMODINIT_FUNC PyInit__msleaks(void)
         return nullptr;
     }
 
-    PyObject* watcher = Leaks::PyLeaks_GetWatcher();
-    if (watcher == nullptr) {
-        Py_DECREF(m);
-        return nullptr;
-    }
-    if (PyModule_AddObject(m, "_watcher", watcher) < 0) {
-        PyErr_SetString(PyExc_ImportError, "Failed to bind watcher.");
-        Py_DECREF(watcher);
-        Py_DECREF(m);
-        return nullptr;
-    }
+    size_t functionNum = 4;
+    std::vector<PyObject*> functions{
+        Leaks::PyLeaks_GetWatcher(),
+        Leaks::PyLeaks_GetTracer(),
+        Leaks::PyLeaks_GetDescriber(),
+        Leaks::PyLeaks_GetReportTensor(),
+    };
+    std::vector<std::string> functionNames{
+        "_watcher",
+        "_tracer",
+        "_describer",
+        "_report_tensor",
+    };
 
-    PyObject* tracer = Leaks::PyLeaks_GetTracer();
-    if (tracer == nullptr) {
-        Py_DECREF(m);
-        return nullptr;
-    }
-    if (PyModule_AddObject(m, "_tracer", tracer) < 0) {
-        PyErr_SetString(PyExc_ImportError, "Failed to bind tracer.");
-        Py_DECREF(tracer);
-        Py_DECREF(m);
-        return nullptr;
+    for (size_t i = 0; i < functionNum; i++) {
+        if (functions[i] == nullptr) {
+            Py_DECREF(m);
+            return nullptr;
+        }
+        if (PyModule_AddObject(m, functionNames[i].c_str(), functions[i]) < 0) {
+            std::string errorInfo = "Failed to bind " + functionNames[i];
+            PyErr_SetString(PyExc_ImportError, errorInfo.c_str());
+            Py_DECREF(functions[i]);
+            Py_DECREF(m);
+            return nullptr;
+        }
     }
 
     return m;

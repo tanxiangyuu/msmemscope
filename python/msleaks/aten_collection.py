@@ -27,7 +27,7 @@ def calculate_tensor_size(tensor: torch.Tensor):
     element_size = tensor.itemsize
     size = numel * element_size
 
-    return size
+    return int(size)
 
 
 def zip_by_key(a: dict, b: dict) -> Iterator:
@@ -68,7 +68,7 @@ class ArgumentHandler:
             # 计算tensor大小
             tensor_size = calculate_tensor_size(value)
 
-            mstx.mark(f"leaks-ac:ptr={data_ptr};is_write={is_write};is_read={is_read};is_output={is_output};"\
+            mstx.mark(f"leaks-aten-ac:ptr={data_ptr};is_write={is_write};is_read={is_read};is_output={is_output};"\
                     f"name={func.__module__}.{func.__name__};shape={value.shape};dtype={value.dtype};"\
                     f"tensor_size={tensor_size};device={value.device}", None)
 

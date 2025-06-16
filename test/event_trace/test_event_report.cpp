@@ -4,7 +4,6 @@
 #include "event_trace/event_report.h"
 #undef private
 #include "event_trace/vallina_symbol.h"
-#include "handle_mapping.h"
 #include "securec.h"
 #include "bit_field.h"
 
@@ -12,6 +11,18 @@ using namespace Leaks;
 
 TEST(EventReportTest, EventReportInstanceTest) {
     EventReport& instance1 = EventReport::Instance(CommType::MEMORY);
+    BitField<decltype(instance1.config_.eventType)> eventBit;
+    BitField<decltype(instance1.config_.levelType)> levelBit;
+    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_OP));
+    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::ACCESS_EVENT));
+    instance1.config_.eventType = eventBit.getValue();
+    instance1.config_.levelType = levelBit.getValue();
+    instance1.config_.enableCStack = true;
+    instance1.config_.enablePyStack = true;
     EventReport& instance2 = EventReport::Instance(CommType::MEMORY);
     EXPECT_EQ(&instance1, &instance2);
 }
@@ -37,6 +48,46 @@ TEST(EventReportTest, ReportMallocTestDEVICE) {
     instance.isReceiveServerInfo_ = true;
     CallStackString callStack;
     EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
+}
+
+TEST(EventReportTest, ReportAddrInfoTest) {
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    AddrInfo info;
+    EXPECT_TRUE(instance.ReportAddrInfo(info));
+}
+
+TEST(EventReportTest, ReportTorchNpuMallocTest) {
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+
+    auto npuRecordMalloc = MemPoolRecord {};
+    npuRecordMalloc.recordIndex = 1;
+    auto memoryusage1 = MemoryUsage {};
+    memoryusage1.deviceIndex = 0;
+    memoryusage1.dataType = 0;
+    memoryusage1.ptr = 12345;
+    memoryusage1.allocSize = 512;
+    memoryusage1.totalAllocated = 512;
+    npuRecordMalloc.memoryUsage = memoryusage1;
+    instance.isReceiveServerInfo_ = true;
+    CallStackString callStack;
+    EXPECT_TRUE(instance.ReportMemPoolRecord(npuRecordMalloc, callStack));
+}
+
+TEST(EventReportTest, ReportTorchNpuFreeTest) {
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+
+    auto npuRecordFree = MemPoolRecord {};
+    npuRecordFree.recordIndex = 3;
+    auto memoryusage1 = MemoryUsage {};
+    memoryusage1.deviceIndex = 3;
+    memoryusage1.dataType = 1;
+    memoryusage1.ptr = 12345;
+    memoryusage1.allocSize = 512;
+    memoryusage1.totalAllocated = 512;
+    npuRecordFree.memoryUsage = memoryusage1;
+    instance.isReceiveServerInfo_ = true;
+    CallStackString callStack;
+    EXPECT_TRUE(instance.ReportMemPoolRecord(npuRecordFree, callStack));
 }
 
 TEST(EventReportTest, ReportMallocTestHost) {
@@ -85,7 +136,7 @@ TEST(EventReportTest, ReportHostMallocWithoutMstxTest) {
     uint64_t testSize = 1024;
     instance.isReceiveServerInfo_ = true;
     CallStackString callStack;
-    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize, callStack));
+    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize));
 }
  
 TEST(EventReportTest, ReportHostFreeWithoutMstxTest) {
@@ -98,7 +149,7 @@ TEST(EventReportTest, ReportHostFreeWithoutMstxTest) {
     uint64_t testAddr = 0x12345678;
     instance.isReceiveServerInfo_ = true;
     CallStackString callStack;
-    EXPECT_TRUE(instance.ReportHostFree(testAddr, callStack));
+    EXPECT_TRUE(instance.ReportHostFree(testAddr));
 }
 
 TEST(EventReportTest, ReportHostMallocTest) {
@@ -120,7 +171,7 @@ TEST(EventReportTest, ReportHostMallocTest) {
     uint64_t testAddr = 0x12345678;
     uint64_t testSize = 1024;
     CallStackString callStack;
-    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize, callStack));
+    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize));
 
     auto mstxRecordEnd = MstxRecord {};
     mstxRecordEnd.markType = MarkType::RANGE_END;
@@ -144,7 +195,7 @@ TEST(EventReportTest, ReportHostFreeTest) {
         "report host memory info start", sizeof(mstxRecordStart.markMessage));
     instance.ReportMark(mstxRecordStart, callStack);
     uint64_t testAddr = 0x12345678;
-    EXPECT_TRUE(instance.ReportHostFree(testAddr, callStack));
+    EXPECT_TRUE(instance.ReportHostFree(testAddr));
 
     auto mstxRecordEnd = MstxRecord {};
     mstxRecordEnd.markType = MarkType::RANGE_END;
@@ -172,9 +223,15 @@ TEST(EventReportTest, ReportKernelLaunchTest) {
     instance.config_.eventType = eventBit.getValue();
     instance.config_.levelType = levelBit.getValue();
     instance.isReceiveServerInfo_ = true;
-    KernelLaunchRecord record;
-    void *hdl = nullptr;
-    EXPECT_TRUE(instance.ReportKernelLaunch(record, hdl));
+    int16_t devId = 1;
+    int16_t streamId = 1;
+    int16_t taskId = 1;
+    auto taskKey = std::make_tuple(devId, streamId, taskId);
+    AclnnKernelMapInfo kernelLaunchInfo {};
+    kernelLaunchInfo.taskKey = taskKey;
+    kernelLaunchInfo.timeStamp = 123;
+    kernelLaunchInfo.kernelName = "add";
+    EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchInfo));
 }
 
 TEST(EventReportTest, ReportAclItfTest) {
@@ -355,101 +412,102 @@ TEST(EventReportTest, ReportTestWithNoReceiveServerInfo) {
     EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, flag, callStack));
     EXPECT_TRUE(instance.ReportFree(testAddr, callStack));
 
-    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize, callStack));
-    EXPECT_TRUE(instance.ReportHostFree(testAddr, callStack));
+    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize));
+    EXPECT_TRUE(instance.ReportHostFree(testAddr));
 
-    KernelLaunchRecord kernelLaunchRecord = {};
-    EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchRecord, nullptr));
+    int16_t devId = 1;
+    int16_t streamId = 1;
+    int16_t taskId = 1;
+    auto taskKey = std::make_tuple(devId, streamId, taskId);
+    AclnnKernelMapInfo kernelLaunchInfo {};
+    kernelLaunchInfo.taskKey = taskKey;
+    kernelLaunchInfo.timeStamp = 123;
+    kernelLaunchInfo.kernelName = "add";
+    EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchInfo));
 
     AclOpType aclOpType = {};
     EXPECT_TRUE(instance.ReportAclItf(aclOpType));
 
-    TorchNpuRecord torchNpuRecord = {};
-    EXPECT_TRUE(instance.ReportTorchNpu(torchNpuRecord, callStack));
+    MemPoolRecord memPoolRecord = {};
+    EXPECT_TRUE(instance.ReportMemPoolRecord(memPoolRecord, callStack));
 
     MstxRecord mstxRecord = {};
     EXPECT_TRUE(instance.ReportMark(mstxRecord, callStack));
 }
 
-TEST(KernelNameFuncTest, PipeCallGivenLsCommandReturnFalse)
+TEST(EventReportTest, ReportAtenLaunchTestExpectSuccess)
 {
-    std::vector<std::string> argv = {"/bin/ls", "/tmp"};
-    std::string output;
-    ASSERT_TRUE(PipeCall(argv, output));
-    ASSERT_FALSE(output.empty());
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.config_.stepList.stepCount = 3;
+    instance.config_.stepList.stepIdList[0] = 1;
+    instance.config_.stepList.stepIdList[1] = 2;
+    instance.config_.stepList.stepIdList[2] = 6;
+    instance.isReceiveServerInfo_ = true;
+    AtenOpLaunchRecord atenOpLaunchRecord{};
+    CallStackString stack;
+    EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord, stack));
+    ResetEventReportStepInfo();
 }
 
-TEST(KernelNameFuncTest, PipeCallGivenTestCommandReturnFalse)
+TEST(EventReportTest, ReportAtenAccessTestExpectSuccess)
 {
-    std::vector<std::string> argv = {"test-command"};
-    std::string output;
-    ASSERT_FALSE(PipeCall(argv, output));
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.config_.stepList.stepCount = 3;
+    instance.config_.stepList.stepIdList[0] = 1;
+    instance.config_.stepList.stepIdList[1] = 2;
+    instance.config_.stepList.stepIdList[2] = 6;
+    instance.isReceiveServerInfo_ = true;
+    instance.stepInfo_.currentStepId = 100;
+    MemAccessRecord  memAccessRecord {};
+    CallStackString stack;
+    EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord, stack));
+    ResetEventReportStepInfo();
 }
 
-TEST(KernelNameFuncTest, WriteBinaryGivenValidDataReturnSuccess)
+TEST(EventReportTest, ReportAtenLaunchTestExpextSuccess)
 {
-    std::string fileName = "./test.bin";
-    char wbuf[] = "123456789";
-    ASSERT_TRUE(WriteBinary(fileName, wbuf, sizeof(wbuf)));
-
-    std::ifstream ifs;
-    ifs.open(fileName, std::ios::binary);
-    ASSERT_TRUE(ifs.is_open());
-    char rbuf[sizeof(wbuf)];
-    ifs.read(rbuf, sizeof(rbuf));
-    ifs.close();
-    ASSERT_EQ(std::string(wbuf), std::string(rbuf));
-
-    std::remove(fileName.c_str());
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.config_.stepList.stepCount = 3;
+    instance.config_.stepList.stepIdList[0] = 1;
+    instance.config_.stepList.stepIdList[1] = 2;
+    instance.config_.stepList.stepIdList[2] = 6;
+    instance.isReceiveServerInfo_ = true;
+    AtenOpLaunchRecord atenOpLaunchRecord {};
+    CallStackString stack;
+    EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord, stack));
+    ResetEventReportStepInfo();
 }
 
-TEST(KernelNameFuncTest, ParseLineGivenValidKernelNameLineReturnTrueName)
+TEST(EventReportTest, ReportAtenAccessTestExpextSuccess)
 {
-    std::string line = "0000 g F .text ReduceSum_7a09f_high_performance_123_mix_aiv";
-    std::string kernelName;
-    kernelName = ParseLine(line);
-    ASSERT_EQ(kernelName, "ReduceSum_7a09f");
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.config_.stepList.stepCount = 3;
+    instance.config_.stepList.stepIdList[0] = 1;
+    instance.config_.stepList.stepIdList[1] = 2;
+    instance.config_.stepList.stepIdList[2] = 6;
+    instance.isReceiveServerInfo_ = true;
+    MemAccessRecord  memAccessRecord  {};
+    CallStackString stack;
+    EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord, stack));
+    ResetEventReportStepInfo();
 }
 
-TEST(KernelNameFuncTest, ParseLineGivenInvalidKernelNameLineReturnEmptyName)
+TEST(EventReportTest, ReportKernelExcuteTestExpextSuccess)
 {
-    std::string line = "000 g O .data g_opSystemRunCfg";
-    std::string kernelName;
-    kernelName = ParseLine(line);
-    ASSERT_EQ(kernelName, "");
-}
-
-TEST(KernelNameFuncTest, ParseNameFromOutputGivenValidSymbolTableReturnTrueName)
-{
-    std::string output = ("SYMBOL TABLE:\n"
-    "000 g F .text test_000_mix_aic"
-    "000 g O .data g_opSystemRunCfg\n");
-    std::string kernelName;
-    kernelName = ParseNameFromOutput(output);
-    ASSERT_EQ(kernelName, "test_000");
-}
-
-TEST(KernelNameFuncTest, ParseNameFromOutputGivenInValidSymbolTableReturnEmptyName)
-{
-    std::string output = ("TEST TABLE:\n"
-    "000 g F .text test_000_mix_aic"
-    "000 g O .data g_opSystemRunCfg\n");
-    std::string kernelName;
-    kernelName = ParseNameFromOutput(output);
-    ASSERT_EQ(kernelName, "");
-}
-
-TEST(KernelNameFuncTest, GetNameFromBinaryGivenHdlReturnEmptyName)
-{
-    std::vector<uint8_t> handleData{1, 2, 3};
-    void *hdl = handleData.data();
-    Leaks::BinKernel binData {};
-    binData.bin = {0x01, 0x02, 0x03, 0x04};
-    std::string kernelName;
-    Leaks::HandleMapping::GetInstance().handleBinKernelMap_.insert({hdl, binData});
-    kernelName = GetNameFromBinary(hdl);
-    Leaks::HandleMapping::GetInstance().handleBinKernelMap_.erase(hdl);
-    ASSERT_EQ(kernelName, "");
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.config_.stepList.stepCount = 3;
+    instance.config_.stepList.stepIdList[0] = 1;
+    instance.config_.stepList.stepIdList[1] = 2;
+    instance.config_.stepList.stepIdList[2] = 6;
+    instance.isReceiveServerInfo_ = true;
+    MemAccessRecord  memAccessRecord  {};
+    CallStackString stack;
+    std::string name = "test";
+    uint64_t time = 1234;
+    KernelEventType type = KernelEventType::KERNEL_START;
+    TaskKey key;
+    EXPECT_TRUE(instance.ReportKernelExcute(key, name, time, type));
+    ResetEventReportStepInfo();
 }
 
 constexpr uint64_t MEM_VIRT_BIT = 10;
@@ -511,7 +569,7 @@ TEST(GetMemOpSpaceFuncTest, GetMemOpSpaceIfOverType1)
 MemOpRecord CreateMemRecord(MemOpType type, unsigned long long flag, MemOpSpace space, uint64_t addr, uint64_t size)
 {
     MemOpRecord record;
-    record.timeStamp = Utility::GetTimeMicroseconds();
+    record.timeStamp = Utility::GetTimeNanoseconds();
     record.flag = flag;
     record.memType = type;
     record.space = space;
@@ -525,7 +583,7 @@ MemOpRecord CreateMemRecord(MemOpType type, unsigned long long flag, MemOpSpace 
 AclItfRecord CreateAclItfRecord(AclOpType type)
 {
     auto record = AclItfRecord {};
-    record.timeStamp = Utility::GetTimeMicroseconds();
+    record.timeStamp = Utility::GetTimeNanoseconds();
     record.type = type;
     record.pid = Utility::GetPid();
     record.tid = Utility::GetTid();
@@ -536,7 +594,7 @@ KernelLaunchRecord CreateKernelLaunchRecord(KernelLaunchRecord kernelLaunchRecor
 {
     auto record = KernelLaunchRecord {};
     record = kernelLaunchRecord;
-    record.timeStamp = Utility::GetTimeMicroseconds();
+    record.timeStamp = Utility::GetTimeNanoseconds();
     record.pid = Utility::GetPid();
     record.tid = Utility::GetTid();
     return record;
@@ -639,10 +697,4 @@ TEST(GetSpaceFunc, GetMemOpSpaceExpectSuccess)
     ASSERT_EQ(GetMemOpSpace(flag), MemOpSpace::DVPP);
     flag = 0b11110000000000;
     ASSERT_EQ(GetMemOpSpace(flag), MemOpSpace::INVALID);
-}
-
-TEST(EventReportTest, ToRawCArgvExpectSuccess)
-{
-    std::vector<std::string> argv = {"test"};
-    ToRawCArgv(argv);
 }

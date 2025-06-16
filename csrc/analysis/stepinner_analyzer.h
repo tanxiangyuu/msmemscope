@@ -41,6 +41,7 @@ struct  LeakMemKey  {
 struct LeakInfo {
     int64_t leakSize;
     uint64_t kernelIndex;
+    std::string memoryPoolType;
 };
 
 struct LeakMemKeyHash {
@@ -50,6 +51,7 @@ struct LeakMemKeyHash {
 using LeakSumsTable = std::unordered_map<LeakMemKey, LeakInfo, LeakMemKeyHash>;
 
 struct NpuMemInfo {
+    RecordType type;
     int64_t memSize;
     uint64_t timestamp;
     uint64_t duration;      // 目前经历的duration
@@ -94,12 +96,12 @@ private:
     int64_t GetNowAllocated(const DeviceId &deviceId);
     void CheckGap(const DeviceId &deviceId);
     void CheckNpuLeak(const DeviceId &deviceId, const uint64_t stepId);
-    void NotifyTraceRecord(const int32_t &devId, const TorchNpuRecord &torchnpuRecord);
+    void NotifyTraceRecord(const int32_t &devId, const MemPoolRecord &memPoolRecord);
     bool CreateMstxTables(const DeviceId &deviceId);
     bool CreateTables(const DeviceId &deviceId);
     bool CreateLeakSumTables(const DeviceId &deviceId);
-    void RecordNpuMalloc(const ClientId &clientId, const DeviceId &deviceId, const TorchNpuRecord &torchnpuRecord);
-    void RecordNpuFree(const ClientId &clientId, const DeviceId &deviceId, const TorchNpuRecord &torchnpuRecord);
+    void RecordNpuMalloc(const ClientId &clientId, const DeviceId &deviceId, const MemPoolRecord &memPoolRecord);
+    void RecordNpuFree(const ClientId &clientId, const DeviceId &deviceId, const MemPoolRecord &memPoolRecord);
     bool SkipCheck(const NpuMemInfo &npuMemInfo);
     void ReportLeak(const DeviceId &deviceId);
     void ReportGap(const DeviceId &deviceId);

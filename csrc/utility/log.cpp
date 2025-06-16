@@ -8,12 +8,12 @@
 
 namespace Utility {
 
-inline std::string ToString(LogLv lv)
+inline std::string ToString(Leaks::LogLv lv)
 {
-    using underlying = typename std::underlying_type<LogLv>::type;
-    constexpr char const *lvString[static_cast<underlying>(LogLv::COUNT)] = {
+    using underlying = typename std::underlying_type<Leaks::LogLv>::type;
+    constexpr char const *lvString[static_cast<underlying>(Leaks::LogLv::COUNT)] = {
         "[DEBUG]", "[INFO] ", "[WARN] ", "[ERROR]"};
-    return lv < LogLv::COUNT ? lvString[static_cast<underlying>(lv)] : "N";
+    return lv < Leaks::LogLv::COUNT ? lvString[static_cast<underlying>(lv)] : "N";
 }
 
 Log &Log::GetLog(void)
@@ -28,7 +28,7 @@ Log::~Log()
         fp_ = nullptr;
     }
 }
-std::string Log::AddPrefixInfo(std::string const &format, LogLv lv, const std::string fileName,
+std::string Log::AddPrefixInfo(std::string const &format, Leaks::LogLv lv, const std::string fileName,
     const uint32_t line) const
 {
     char buf[LOG_BUF_SIZE];
@@ -52,7 +52,7 @@ bool Log::CreateLogFile()
     }
     return true;
 }
-void Log::SetLogLevel(const LogLv &logLevel)
+void Log::SetLogLevel(const Leaks::LogLv &logLevel)
 {
     lv_ = logLevel;
 }

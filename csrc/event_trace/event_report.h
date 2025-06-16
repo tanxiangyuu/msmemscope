@@ -14,15 +14,17 @@
 #include "record_info.h"
 #include "config_info.h"
 #include "protocol.h"
+#include "kernel_hooks/kernel_event_trace.h"
 
 namespace Leaks {
 extern thread_local bool g_isReportHostMem;
 extern thread_local bool g_isInReportFunction;
 
 constexpr mode_t REGULAR_MODE_MASK = 0177;
-constexpr char ATEN_BEGIN_MSG[] = "leaks-aten-b:";
-constexpr char ATEN_END_MSG[] = "leaks-aten-e:";
-constexpr char ACCESS_MSG[] = "leaks-ac:";
+constexpr char ATEN_MSG[] = "leaks-aten-";
+constexpr char ATEN_BEGIN_MSG[] = "b:";
+constexpr char ATEN_END_MSG[] = "e:";
+constexpr char ACCESS_MSG[] = "ac:";
 
 struct MstxStepInfo {
     uint64_t currentStepId = 0;
@@ -43,22 +45,26 @@ public:
     static EventReport& Instance(CommType type);
     bool ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag, CallStackString& stack);
     bool ReportFree(uint64_t addr, CallStackString& stack);
-    bool ReportHostMalloc(uint64_t addr, uint64_t size, CallStackString& stack);
-    bool ReportHostFree(uint64_t addr, CallStackString& stack);
-    bool ReportKernelLaunch(KernelLaunchRecord& kernelLaunchRecord, const void *hdl);
+    bool ReportHostMalloc(uint64_t addr, uint64_t size);
+    bool ReportHostFree(uint64_t addr);
+    bool ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo);
+    bool ReportKernelExcute(const TaskKey &key, std::string &name, uint64_t time, KernelEventType type);
     bool ReportAclItf(AclOpType aclOpType);
     bool ReportMark(MstxRecord &mstxRecord, CallStackString& stack);
-    bool ReportTorchNpu(TorchNpuRecord &torchNpuRecord, CallStackString& stack);
     int ReportRecordEvent(EventRecord &record, PacketHead &head, CallStackString& stack);
+    int ReportRecordEvent(EventRecord &record, PacketHead &head);
     Config GetConfig();
-    bool ReportATBMemPoolRecord(AtbMemPoolRecord &record, CallStackString& stack);
+    bool ReportMemPoolRecord(MemPoolRecord &record, CallStackString& stack);
     bool ReportAtbOpExecute(AtbOpExecuteRecord& atbOpExecuteRecord);
     bool ReportAtbKernel(AtbKernelRecord& atbKernelRecord);
     bool ReportAtbAccessMemory(std::vector<MemAccessRecord>& memAccessRecords);
+    bool ReportAtenLaunch(AtenOpLaunchRecord &atenOpLaunchRecord, CallStackString& stack);
+    bool ReportAtenAccess(MemAccessRecord &memAccessRecord, CallStackString &stack);
+    bool ReportAddrInfo(AddrInfo &info);
 private:
     void Init();
     explicit EventReport(CommType type);
-    ~EventReport();
+    ~EventReport() = default;
 
     bool IsNeedSkip(); // 支持采集指定step
     void SetStepInfo(const MstxRecord &mstxRecord);
@@ -77,40 +83,13 @@ private:
     std::mutex rangeIdTableMutex_;
 
     Config config_;
-    std::vector<std::thread> parseThreads_;
-    std::atomic<uint32_t> runningThreads_;  // 同时运行线程数
     std::unordered_map<uint64_t, std::unordered_map<uint64_t, uint64_t>> mstxRangeIdTables_{};
 
     std::atomic<bool> isReceiveServerInfo_;
-    std::map<const void*, std::string> hdlKernelNameMap_;
 };
 
 MemOpSpace GetMemOpSpace(unsigned long long flag);
-
-inline int32_t GetMallocModuleId(unsigned long long flag);
-
-extern "C" {
-#ifndef RTS_API
-#define RTS_API
-#endif
-RTS_API rtError_t GetDeviceID(int32_t *devId);
-}
-
-inline bool WriteBinary(std::string const &filename, char const *data, uint64_t length)
-{
-    if (!data) {
-        return false;
-    }
-    std::ofstream ofs(filename, std::ios::out | std::ios::binary);
-    ofs.write(data, length);
-    return ofs.good();
-}
-
-std::vector<char *> ToRawCArgv(std::vector<std::string> const &argv);
-bool PipeCall(std::vector<std::string> const &cmd, std::string &output);
-std::string ParseLine(std::string const &line);
-std::string ParseNameFromOutput(std::string output);
-std::string GetNameFromBinary(const void *hdl);
+RTS_API rtError_t GetDevice(int32_t *devId);
 
 } // namespace Leaks
 #endif

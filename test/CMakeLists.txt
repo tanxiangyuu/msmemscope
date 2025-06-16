@@ -15,6 +15,12 @@ if (NOT Python3_FOUND)
     message(FATAL_ERROR "Python3 is no found.")
 endif()
 
+find_package(SQLite3 REQUIRED)
+if (NOT SQLite3_FOUND)
+    message(FATAL_ERROR "SQLite3 is not found.")
+endif()
+
+
 set(leaks_header ../csrc
                  ../csrc/analysis
                  ../csrc/framework
@@ -46,8 +52,8 @@ list(SORT TEST_SOURCE)
 target_sources(leaks_test PRIVATE ${TEST_SOURCE})
 target_sources(leaks_test PRIVATE ${TEST_ORIGINAL_SOURCE})
 
-include_directories(leaks_test ${leaks_header} ${gtest_header} ${Python3_INCLUDE_DIRS})
+include_directories(leaks_test ${leaks_header} ${gtest_header} ${Python3_INCLUDE_DIRS} ${SQLite3_INCLUDE_DIRS})
 
-target_link_libraries(leaks_test gtest_main dl pthread stdc++fs ${Python3_LIBRARIES})
+target_link_libraries(leaks_test gtest_main dl pthread stdc++fs ${Python3_LIBRARIES} ${SQLite3_LIBRARIES})
  
 add_test(NAME leaks_test COMMAND leaks_test)
