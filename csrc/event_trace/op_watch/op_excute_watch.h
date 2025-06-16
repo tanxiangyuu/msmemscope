@@ -47,7 +47,7 @@ private:
     // 落盘时需要用完整的opName，包含卡号和线程号。
     void BeginExcute(aclrtStream stream, const std::string &rawItem, OpType type);
     void EndExcute(aclrtStream stream, const std::string &excuteItem, const std::string &rawItem, OpType type,
-        const std::vector<MonitoredTensor> &outputTensors = {}, bool isTensorSpecified = false);
+        const std::vector<MonitoredTensor> &outputTensors = {}, uint32_t outputId = 0);
 
     bool IsFirstWatchOp(const std::string &op);
     bool IsLastWatchOp(const std::string &op);
