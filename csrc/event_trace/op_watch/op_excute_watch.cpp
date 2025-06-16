@@ -24,7 +24,7 @@ void OpExcuteWatch::BeginExcute(aclrtStream stream, const std::string &rawItem, 
 }
 
 void OpExcuteWatch::EndExcute(aclrtStream stream, const std::string &excuteItem, const std::string &rawItem,
-    OpType type, const std::vector<MonitoredTensor> &outputTensors)
+    OpType type, const std::vector<MonitoredTensor> &outputTensors,  uint32_t outputId)
 {
     OpEventType opEventType;
     if (type == OpType::ATB) {
@@ -37,7 +37,7 @@ void OpExcuteWatch::EndExcute(aclrtStream stream, const std::string &excuteItem,
     }
     if (IsFirstWatchOp(excuteItem)) {
         SetWatchedOpName(excuteItem);
-        TensorMonitor::GetInstance().AddWatchTensor(outputTensors);
+        TensorMonitor::GetInstance().AddWatchTensor(outputTensors, outputId);
         TensorDumper::GetInstance().Dump(stream, rawItem, opEventType);
 
         return;
@@ -76,7 +76,7 @@ void OpExcuteWatch::OpExcuteEnd(aclrtStream stream,
         std::vector<MonitoredTensor> dumpTensors;
         MonitoredTensor tensor = tensors[outputId_];
         dumpTensors.emplace_back(tensor);
-        return EndExcute(stream, op, rawOp, type, dumpTensors);
+        return EndExcute(stream, op, rawOp, type, dumpTensors, outputId_);
     }
     return EndExcute(stream, op, rawOp, type, tensors);
 }
@@ -100,7 +100,7 @@ void OpExcuteWatch::KernelExcute(aclrtStream stream,
             tensor.data = tensors[outputId_].data;
             tensor.dataSize = static_cast<uint64_t>(tensors[outputId_].dataSize);
             dumpTensors.emplace_back(tensor);
-            return EndExcute(stream, kernelDir, rawKernel.substr(0, afterPos), type, dumpTensors);
+            return EndExcute(stream, kernelDir, rawKernel.substr(0, afterPos), type, dumpTensors, outputId_);
         }
         for (auto &item : tensors) {
             MonitoredTensor tensor {};
