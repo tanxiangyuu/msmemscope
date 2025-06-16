@@ -149,7 +149,8 @@ void TensorDumper::Dump(aclrtStream stream, const std::string &op, OpEventType e
     uint64_t index = 0;
     for (const auto& tensorPair : tensorsMap) {
         std::string watchedOpName = OpExcuteWatch::GetInstance().GetWatchedOpName();
-        auto fileName = GetFileName(op, eventType, watchedOpName, index);
+        auto outputId = TensorMonitor::GetInstance().GetCmdWatchedOutputId();
+        auto fileName = GetFileName(op, eventType, watchedOpName, outputId > 0 ? outputId : index);
         auto result = DumpOneTensor(tensorPair.second, fileName);
         if (!result) {
             CLIENT_ERROR_LOG("Dump tensor failed, current op: " + op + ", watched op: " + watchedOpName);
