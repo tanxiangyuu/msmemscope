@@ -5,6 +5,17 @@
 
 namespace Leaks {
 
+uint64_t OpExcuteWatch::CountOpName(const std::string& name)
+{
+    std::lock_guard<std::mutex> guard(opNameMutex_);
+    if (opNameCnt_.find(name) == opNameCnt_.end()) {
+        opNameCnt_[name] = 0;
+    } else {
+        opNameCnt_[name] += 1;
+    }
+    return opNameCnt_[name];
+}
+
 void OpExcuteWatch::BeginExcute(aclrtStream stream, const std::string &rawItem, OpType type)
 {
     OpEventType opEventType;
@@ -17,7 +28,8 @@ void OpExcuteWatch::BeginExcute(aclrtStream stream, const std::string &rawItem, 
         return ;
     }
     if (IsInMonitoring()) {
-        TensorDumper::GetInstance().Dump(stream, rawItem, opEventType);
+        std::string opName = rawItem + "_" + std::to_string(CountOpName(rawItem));
+        TensorDumper::GetInstance().Dump(stream, opName, opEventType);
         return;
     }
     return;
@@ -35,15 +47,18 @@ void OpExcuteWatch::EndExcute(aclrtStream stream, const std::string &excuteItem,
         CLIENT_WARN_LOG("Get unknown type!");
         return ;
     }
-    if (IsFirstWatchOp(excuteItem)) {
+    std::string opName = rawItem;
+    if (IsFirstWatchOp(excuteItem) && watchedOpName_.empty()) {
+        opName += "_" + std::to_string(CountOpName(rawItem));
         SetWatchedOpName(excuteItem);
         TensorMonitor::GetInstance().AddWatchTensor(outputTensors, outputId);
-        TensorDumper::GetInstance().Dump(stream, rawItem, opEventType);
+        TensorDumper::GetInstance().Dump(stream, opName, opEventType);
 
         return;
     }
     if (IsLastWatchOp(excuteItem)) {
-        TensorDumper::GetInstance().Dump(stream, rawItem, opEventType);
+        opName += "_" + std::to_string(opNameCnt_[rawItem]);
+        TensorDumper::GetInstance().Dump(stream, opName, opEventType);
         
         ClearWatchedOpName();
         TensorMonitor::GetInstance().ClearCmdWatchTensor();
@@ -51,7 +66,8 @@ void OpExcuteWatch::EndExcute(aclrtStream stream, const std::string &excuteItem,
         return;
     }
     if (IsInMonitoring()) {
-        TensorDumper::GetInstance().Dump(stream, rawItem, opEventType);
+        opName += "_" + std::to_string(opNameCnt_[rawItem]);
+        TensorDumper::GetInstance().Dump(stream, opName, opEventType);
         return;
     }
 

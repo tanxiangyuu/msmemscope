@@ -6,6 +6,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include "atb_hooks/atb_stub.h"
 #include "atb_hooks/mki_stub.h"
 #include "event_report.h"
@@ -56,13 +57,15 @@ private:
     void ClearWatchedOpName();
 
     bool IsInMonitoring();
+    uint64_t CountOpName(const std::string& name);
 
 private:
     std::string watchedOpName_ {};
     std::string fistWatchOp_;
     std::string lastWatchOp_;
+    std::unordered_map<std::string, uint64_t> opNameCnt_;
     uint32_t outputId_;
-
+    std::mutex opNameMutex_;
     std::mutex mutex_;
 };
 
