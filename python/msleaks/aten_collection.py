@@ -69,7 +69,7 @@ class ArgumentHandler:
             tensor_size = calculate_tensor_size(value)
 
             mstx.mark(f"leaks-aten-ac:ptr={data_ptr};is_write={is_write};is_read={is_read};is_output={is_output};"\
-                    f"name={torch.npu.current_device()}.{func.__module__}.{func.__name__};shape={value.shape};"\
+                    f"name={func.__module__}.{func.__name__};shape={value.shape};"\
                     f"dtype={value.dtype};tensor_size={tensor_size};device={value.device}", None)
 
     def parse_inputs(
@@ -127,7 +127,7 @@ class MemoryDispatchMode(TorchDispatchMode):
 
         is_factory = bool(FACTORY_FUNCTION_REGEX.match(func._schema.name))
         # 获取aten算子执行开始事件
-        mstx.mark(f"leaks-aten-b: {torch.npu.current_device()}.{func.__module__}.{func.__name__}", None)
+        mstx.mark(f"leaks-aten-b: name={func.__module__}.{func.__name__};device={torch.npu.current_device()}", None)
 
         argument_handler = ArgumentHandler()
         argument_handler.parse_inputs(func, args, kwargs, is_factory=is_factory)
@@ -136,7 +136,7 @@ class MemoryDispatchMode(TorchDispatchMode):
         
         argument_handler.parse_outputs(func, outputs, is_factory=is_factory)
         # 获取aten算子执行结束事件
-        mstx.mark(f"leaks-aten-e: {torch.npu.current_device()}.{func.__module__}.{func.__name__}", None)
+        mstx.mark(f"leaks-aten-e: name={func.__module__}.{func.__name__};device={torch.npu.current_device()}", None)
 
         return outputs
 

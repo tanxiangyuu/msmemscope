@@ -17,6 +17,23 @@ AtenManager& AtenManager::GetInstance()
     return instance;
 }
 
+AtenManager::AtenManager()
+{
+    Config userConfig =  EventReport::Instance(CommType::SOCKET).GetConfig();
+    BitField<decltype(userConfig.eventType)> eventType(userConfig.eventType);
+    if (eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
+        isAtenLaunchEnable_ = true;
+    }
+    if (eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT))) {
+        isAtenAccessEnable_ = true;
+    }
+    if (userConfig.watchConfig.isWatched) {
+        isWatchEnable_ = true;
+    }
+    firstWatchOp_ = std::string(userConfig.watchConfig.start);
+    lastWatchOp_ = std::string(userConfig.watchConfig.end);
+}
+
 bool AtenManager::ExtractTensorInfo(const char* msg, const std::string &key, std::string &value)
 {
     std::string msgString(msg);
@@ -31,34 +48,6 @@ bool AtenManager::ExtractTensorInfo(const char* msg, const std::string &key, std
     }
     value = msgString.substr(startPos, endPos - startPos);
     return true;
-}
-
-bool AtenManager::IsAtenLaunchEnable()
-{
-    // 命令行判断是否包含launch事件
-    Config userConfig =  EventReport::Instance(CommType::SOCKET).GetConfig();
-    BitField<decltype(userConfig.eventType)> eventType(userConfig.eventType);
-    if (eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
-        return true;
-    }
-    return false;
-}
-
-bool AtenManager::IsAtenAccessEnable()
-{
-    // 命令行判断是否包含Access事件
-    Config userConfig =  EventReport::Instance(CommType::SOCKET).GetConfig();
-    BitField<decltype(userConfig.eventType)> eventType(userConfig.eventType);
-    if (eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT))) {
-        return true;
-    }
-    return false;
-}
-
-bool AtenManager::IsWatchEnable()
-{
-    Config userConfig =  EventReport::Instance(CommType::SOCKET).GetConfig();
-    return userConfig.watchConfig.isWatched;
 }
 
 void AtenManager::ProcessMsg(const char* msg, int32_t streamId)
@@ -90,24 +79,30 @@ void AtenManager::ReportAtenLaunch(const char* msg, int32_t streamId, bool isAte
         record.eventType = OpEventType::ATEN_END;
     }
 
-    const char* eventName;
-    const char* lastSpace = strrchr(msg, ' ');
-    if (lastSpace != nullptr) {
-        eventName = lastSpace + 1;
-    } else {
-        eventName = "N/A";
-    }
-    strncpy_s(record.name, sizeof(record.name), eventName, sizeof(record.name) - 1);
+    std::string name;
+    std::string deviceId;
+    ExtractTensorInfo(msg, "name=", name);
+    ExtractTensorInfo(msg, "device=", deviceId);
+    uint64_t tid = Utility::GetTid();
 
-    if (IsWatchEnable() && isAtenBegin) {
-        OpExcuteWatch::GetInstance().OpExcuteBegin(nullptr, std::string(eventName), OpType::ATEN);
+    strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1);
+
+    std::string opName = deviceId + "_" + std::to_string(tid) + "/" + name;
+    if (isWatchEnable_ && isAtenBegin) {
+        OpExcuteWatch::GetInstance().OpExcuteBegin(nullptr, opName, OpType::ATEN);
     }
-    if (IsWatchEnable() && !isAtenBegin) {
-        OpExcuteWatch::GetInstance().OpExcuteEnd(nullptr, std::string(eventName), outputTensors_, OpType::ATEN);
-        outputTensors_.clear();
+    if (isWatchEnable_ && !isAtenBegin) {
+        OpExcuteWatch::GetInstance().OpExcuteEnd(nullptr, opName, outputTensors_, OpType::ATEN);
+        if (IsFirstWatchedOp(record.name) && !isfirstWatchOpSet_) {
+            isfirstWatchOpSet_ = true;
+        }
+        if (IsLastWatchedOp(record.name)) {
+            outputTensors_.clear();
+            isfirstWatchOpSet_ = false;
+        }
     }
 
-    if (!IsAtenLaunchEnable()) {
+    if (!isAtenLaunchEnable_) {
         return ;
     }
 
@@ -162,6 +157,16 @@ void AtenManager::ParseAtenAccessMsg(const char* msg, MemAccessRecord &record, s
     }
 }
 
+bool AtenManager::IsFirstWatchedOp(const char* name)
+{
+    return firstWatchOp_ == std::string(name);
+}
+
+bool AtenManager::IsLastWatchedOp(const char* name)
+{
+    return lastWatchOp_ == std::string(name);
+}
+
 void AtenManager::ReportAtenAccess(const char* msg, int32_t streamId)
 {
     MemAccessRecord record;
@@ -170,14 +175,14 @@ void AtenManager::ReportAtenAccess(const char* msg, int32_t streamId)
     std::string isOutput;
     ParseAtenAccessMsg(msg, record, dtype, shape, isOutput);
 
-    if (isOutput == "True" && IsWatchEnable()) {
+    if (isOutput == "True" && isWatchEnable_ && IsFirstWatchedOp(record.name) && !isfirstWatchOpSet_) {
         MonitoredTensor tensorInfo{};
         tensorInfo.data =  reinterpret_cast<void*>(reinterpret_cast<std::uintptr_t>(record.addr));
         tensorInfo.dataSize = record.memSize;
         outputTensors_.push_back(tensorInfo);
     }
 
-    if (!IsAtenAccessEnable()) {
+    if (!isAtenAccessEnable_) {
         return ;
     }
 
