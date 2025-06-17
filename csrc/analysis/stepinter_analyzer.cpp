@@ -137,7 +137,7 @@ bool StepInterAnalyzer::ReadKernelLaunchData(const CSV_FIELD_DATA &data, KERNELN
     for (size_t index = 0; index < data.size(); ++index) {
         auto lineData = data[index];
         if (lineData["Event"] == "KERNEL_LAUNCH") {
-            if (!Utility::CheckStrIsStartsWithInvalidChar(lineData["Name"].c_str())) {
+            if (Utility::CheckStrIsStartsWithInvalidChar(lineData["Name"].c_str())) {
                 LOG_ERROR("KenelName %s is invalid!", lineData["Name"].c_str());
                 result.clear();
                 return false;
