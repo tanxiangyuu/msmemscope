@@ -1,8 +1,3 @@
-add_executable(leaks_test)
-add_subdirectory(framework)
-add_subdirectory(utility)
-add_subdirectory(analysis)
-add_subdirectory(event_trace)
 find_package(Python3 REQUIRED COMPONENTS Development)
 if (NOT Python3_FOUND)
     message(FATAL_ERROR "Python3 not found.")
@@ -10,16 +5,19 @@ else()
     message(STATUS "Found Python3: ${Python3_INCLUDE_DIRS}")
 endif()
 
-find_package(Python3 REQUIRED COMPONENTS Development)
-if (NOT Python3_FOUND)
-    message(FATAL_ERROR "Python3 is no found.")
-endif()
-
 find_package(SQLite3 REQUIRED)
 if (NOT SQLite3_FOUND)
     message(FATAL_ERROR "SQLite3 is not found.")
 endif()
 
+add_executable(leaks_test)
+add_subdirectory(framework)
+add_subdirectory(utility)
+add_subdirectory(analysis)
+add_subdirectory(event_trace)
+if (${FUZZ_TESTS})
+    add_subdirectory(fuzz_test)
+endif()
 
 set(leaks_header ../csrc
                  ../csrc/analysis

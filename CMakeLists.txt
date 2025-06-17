@@ -27,6 +27,9 @@ set(CMAKE_SKIP_RPATH TRUE)
 
 option(BUILD_TESTS "build unit tests" OFF)
 
+option(FUZZ_TESTS "build fuzz tests" OFF)
+get_filename_component(ROOT_DIR ./ ABSOLUTE)
+
 # 设置git commit ID
 find_package(Git REQUIRED)
 execute_process(COMMAND "${GIT_EXECUTABLE}" rev-parse HEAD
