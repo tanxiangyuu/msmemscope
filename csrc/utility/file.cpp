@@ -21,7 +21,7 @@ namespace Utility {
             std::cout << "[msleaks] Error: The path " << curPathStr << " do not exist." << std::endl;
             return false;
         }
-        if (!CheckStrIsStartsWithInvalidChar(curPathStr.c_str())) {
+        if (CheckStrIsStartsWithInvalidChar(curPathStr.c_str())) {
             std::cout << "[msleaks] Error: The path " << curPathStr << " is invalid." << std::endl;
             return false;
         }
