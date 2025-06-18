@@ -169,7 +169,9 @@ void MemoryStateRecord::MemoryPoolInfoProcess(const Record& record, CallStackStr
     PackDumpContainer(container, record.eventRecord.record.memPoolRecord, memPoolType, attr);
 
     std::ostringstream oss;
-    if (memoryUsage.allocSize < 0) {
+
+    // 内存事件为free事件
+    if (memoryUsage.dataType == 1) {
         oss << "{addr:" << memoryUsage.ptr << ",size:" << memoryUsage.allocSize <<
             ",total:" << memoryUsage.totalReserved << ",used:" << memoryUsage.totalAllocated << "}";
         std::string freeAttr = "\"" + oss.str() + "\"";
@@ -284,7 +286,7 @@ void MemoryStateRecord::DeleteMemStateInfo(std::pair<std::string, uint64_t> key)
 void MemoryStateRecord::PackDumpContainer(
     DumpContainer& container, const MemPoolRecord& memPool, const std::string& memPoolType, MemRecordAttr& attr)
 {
-    std::string eventType = memPool.memoryUsage.allocSize >= 0 ? "MALLOC" : "FREE";
+    std::string eventType = memPool.memoryUsage.dataType == 0 ? "MALLOC" : "FREE";
     attr.addr = memPool.memoryUsage.ptr;
     attr.size = memPool.memoryUsage.allocSize;
 

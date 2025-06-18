@@ -59,9 +59,9 @@ TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_sucess) {
     npuRecordFree.recordIndex = 2;
     auto memoryusage2 = MemoryUsage {};
     memoryusage2.deviceIndex = 0;
-    memoryusage2.dataType = 2;
+    memoryusage2.dataType = 1;
     memoryusage2.ptr = 12345;
-    memoryusage2.allocSize = -512;
+    memoryusage2.allocSize = 512;
     memoryusage2.totalAllocated = 0;
     npuRecordFree.memoryUsage = memoryusage2;
     record2.record.memPoolRecord = npuRecordFree;
@@ -219,10 +219,10 @@ TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_free_error) {
     auto memoryusage = MemoryUsage {};
     memoryusage.deviceType = 20;
     memoryusage.deviceIndex = 0;
-    memoryusage.dataType = 2;
+    memoryusage.dataType = 1;
     memoryusage.allocatorType = 0;
     memoryusage.ptr = 12345;
-    memoryusage.allocSize = -512;
+    memoryusage.allocSize = 512;
     memoryusage.totalAllocated = 0;
     memoryusage.totalActive = 0;
     memoryusage.totalReserved = 1024;

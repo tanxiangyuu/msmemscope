@@ -217,7 +217,7 @@ void MstxManager::ReportRegionsUnregister(mstxDomainHandle_t domain, mstxMemRegi
         memUsageMp_[rangeDesc.deviceId].ptr = reinterpret_cast<int64_t>(rangeDesc.ptr);
         memUsageMp_[rangeDesc.deviceId].totalAllocated =
             Utility::GetSubResult(memUsageMp_[rangeDesc.deviceId].totalAllocated, rangeDesc.size);
-        memUsageMp_[rangeDesc.deviceId].allocSize = -rangeDesc.size;
+        memUsageMp_[rangeDesc.deviceId].allocSize = rangeDesc.size;
         memPoolRecord.type = RecordType::TORCH_NPU_RECORD;
         memPoolRecord.memoryUsage = memUsageMp_[rangeDesc.deviceId];
         memPoolRecord.pid = Utility::GetPid();

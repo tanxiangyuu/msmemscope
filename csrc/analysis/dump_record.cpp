@@ -318,7 +318,8 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
 
 bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord)
 {
-    if (eventRecord.record.memPoolRecord.memoryUsage.allocSize >= 0) {
+    // 内存事件类型为malloc
+    if (eventRecord.record.memPoolRecord.memoryUsage.dataType == 0) {
         return true;
     }
     static auto getMemPoolName = [](RecordType type) -> std::string {
