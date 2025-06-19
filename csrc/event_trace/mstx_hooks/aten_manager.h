@@ -16,9 +16,8 @@ class AtenManager {
 public:
     static AtenManager& GetInstance();
     void ProcessMsg(const char* msg, int32_t streamId);
-
+    AtenManager();
 private:
-    AtenManager() = default;
     ~AtenManager() = default;
     AtenManager(const AtenManager&) = delete;
     AtenManager& operator=(const AtenManager&) = delete;
@@ -28,13 +27,18 @@ private:
     bool ExtractTensorInfo(const char* msg, const std::string &key, std::string &value);
     void ReportAtenLaunch(const char* msg, int32_t streamId, bool isAtenBegin);
     void ReportAtenAccess(const char* msg, int32_t streamId);
-    bool IsAtenLaunchEnable();
-    bool IsAtenAccessEnable();
-    bool IsWatchEnable();
+    bool IsFirstWatchedOp(const char* name);
+    bool IsLastWatchedOp(const char* name);
     void ParseAtenAccessMsg(const char* msg, MemAccessRecord &record, std::string &dtype,
         std::string &shape, std::string &isOutput);
 private:
     std::vector<MonitoredTensor> outputTensors_ = {};
+    bool isAtenAccessEnable_ = false;
+    bool isAtenLaunchEnable_ = false;
+    bool isWatchEnable_ = false;
+    bool isfirstWatchOpSet_ = false;
+    std::string firstWatchOp_ = {};
+    std::string lastWatchOp_ = {};
 };
 
 }

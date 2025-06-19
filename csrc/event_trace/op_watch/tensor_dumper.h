@@ -24,7 +24,7 @@ public:
     }
 
     bool DumpOneTensor(const MonitoredTensor& tensor, std::string& fileName);
-    void Dump(aclrtStream stream, const std::string &op, OpEventType eventType);
+    void Dump(aclrtStream stream, const std::string &op, OpEventType eventType, bool isFirstOp = false);
     void SetDumpNums(uint64_t ptr, int32_t dumpNums);
     int32_t GetDumpNums(uint64_t ptr);
     void DeleteDumpNums(uint64_t ptr);
@@ -41,6 +41,9 @@ private:
     bool DumpTensorBinary(const std::vector<char> &hostData, std::string& fileName);
     bool DumpTensorHashValue(const std::vector<char> &hostData, std::string& fileName);
     void SynchronizeStream(aclrtStream stream);
+    uint64_t CountOpName(const std::string& name);
+    std::string GetFileName(const std::string &op, OpEventType eventType, std::string wathcedOpName,
+        uint64_t index, bool isFirstOp);
 
 private:
     bool fullContent_;
@@ -50,6 +53,8 @@ private:
     std::mutex mapMutex_;
     std::unordered_map<uint64_t, std::string> dumpNameMap_;
     std::unordered_map<uint64_t, int32_t> dumpNumsMap_;
+    std::unordered_map<std::string, uint64_t> opNameCnt_;
+    std::mutex opNameMutex_;
     std::string fileName_;
 };
 
