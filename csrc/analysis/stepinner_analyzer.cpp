@@ -184,7 +184,7 @@ void StepInnerAnalyzer::NotifyTraceRecord(const int32_t &devId, const MemPoolRec
             memPoolRecord.kernelIndex
                 - npuMemUsages_[devId].poolOpTable[NpuMemKey(ptr, memPoolRecord.type)].kernelIndex,
             ptr,
-            -memPoolRecord.memoryUsage.allocSize
+            memPoolRecord.memoryUsage.allocSize
         };
         TraceRecord::GetInstance().ProcessTorchMemLeakInfo(info);
     }

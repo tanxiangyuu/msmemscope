@@ -54,6 +54,7 @@ TEST(MemoryStateRecordTest, state_ATB_memory_pool_record_expect_success)
     atbPoolRecord.devId = 1;
     auto atbMemUsage = MemoryUsage{};
     atbMemUsage.ptr = 1234;
+    atbMemUsage.dataType = 0;
     atbMemUsage.allocSize = 100;
     atbMemUsage.totalAllocated = 10000;
     atbMemUsage.totalReserved = 30000;
@@ -69,7 +70,8 @@ TEST(MemoryStateRecordTest, state_ATB_memory_pool_record_expect_success)
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 1);
 
-    atbPoolRecord.memoryUsage.allocSize = -100;
+    atbPoolRecord.memoryUsage.dataType = 1;
+    atbPoolRecord.memoryUsage.allocSize = 100;
     memoryStateRecord.MemoryPoolInfoProcess(record, stack);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 2);
@@ -87,6 +89,7 @@ TEST(MemoryStateRecordTest, state_PTA_memory_pool_record_with_decompose_expect_s
     ptaPoolRecord.devId = 1;
     auto ptaMemUsage = MemoryUsage{};
     ptaMemUsage.ptr = 1234;
+    ptaMemUsage.dataType = 0;
     ptaMemUsage.allocSize = 100;
     ptaMemUsage.totalAllocated = 10000;
     ptaMemUsage.totalReserved = 30000;
@@ -102,7 +105,8 @@ TEST(MemoryStateRecordTest, state_PTA_memory_pool_record_with_decompose_expect_s
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 1);
 
-    ptaPoolRecord.memoryUsage.allocSize = -100;
+    ptaPoolRecord.memoryUsage.dataType = 1;
+    ptaPoolRecord.memoryUsage.allocSize = 100;
     memoryStateRecord.MemoryPoolInfoProcess(record, stack);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 2);
@@ -120,6 +124,7 @@ TEST(MemoryStateRecordTest, state_mindspore_memory_pool_record_with_decompose_ex
     msPoolRecord.devId = 1;
     auto msMemUsage = MemoryUsage{};
     msMemUsage.ptr = 1234;
+    msMemUsage.dataType = 0;
     msMemUsage.allocSize = 100;
     msMemUsage.totalAllocated = 10000;
     msMemUsage.totalReserved = 30000;
@@ -135,7 +140,8 @@ TEST(MemoryStateRecordTest, state_mindspore_memory_pool_record_with_decompose_ex
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 1);
 
-    msPoolRecord.memoryUsage.allocSize = -100;
+    msPoolRecord.memoryUsage.dataType = 1;
+    msPoolRecord.memoryUsage.allocSize = 100;
     memoryStateRecord.MemoryPoolInfoProcess(record, stack);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 2);
@@ -175,6 +181,7 @@ TEST(MemoryStateRecordTest, state_addr_info_record_expect_success)
     memPoolRecord.devId = 1;
     auto ptaMemUsage = MemoryUsage{};
     ptaMemUsage.ptr = 123;
+    ptaMemUsage.dataType = 0;
     ptaMemUsage.allocSize = 100;
     ptaMemUsage.totalAllocated = 10000;
     ptaMemUsage.totalReserved = 30000;
@@ -215,6 +222,7 @@ TEST(MemoryStateRecordTest, state_addr_info_record_set_config)
     memPoolRecord.devId = 1;
     auto ptaMemUsage = MemoryUsage{};
     ptaMemUsage.ptr = 123;
+    ptaMemUsage.dataType = 0;
     ptaMemUsage.allocSize = 100;
     ptaMemUsage.totalAllocated = 10000;
     ptaMemUsage.totalReserved = 30000;
@@ -257,6 +265,7 @@ TEST(MemoryStateRecordTest, state_addr_info_record_for_malloc)
     memPoolRecord.devId = 1;
     auto ptaMemUsage = MemoryUsage{};
     ptaMemUsage.ptr = 123;
+    ptaMemUsage.dataType = 0;
     ptaMemUsage.allocSize = 100;
     memPoolRecord.memoryUsage = ptaMemUsage;
     record.eventRecord.record.memPoolRecord = memPoolRecord;
@@ -296,7 +305,8 @@ TEST(MemoryStateRecordTest, state_addr_info_record_for_free)
     memPoolRecord.devId = 1;
     auto ptaMemUsage = MemoryUsage{};
     ptaMemUsage.ptr = 123;
-    ptaMemUsage.allocSize = -100;
+    ptaMemUsage.dataType = 1;
+    ptaMemUsage.allocSize = 100;
     memPoolRecord.memoryUsage = ptaMemUsage;
     record.eventRecord.record.memPoolRecord = memPoolRecord;
 
@@ -397,6 +407,7 @@ TEST(MemoryStateRecordTest, pack_malloc_and_free_container_info)
     memPoolRecord.devId = 1;
     auto ptaMemUsage = MemoryUsage{};
     ptaMemUsage.ptr = 123;
+    ptaMemUsage.dataType = 0;
     ptaMemUsage.allocSize = 100;
     ptaMemUsage.totalAllocated = 10000;
     ptaMemUsage.totalReserved = 30000;
