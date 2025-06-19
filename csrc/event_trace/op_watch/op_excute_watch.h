@@ -62,7 +62,6 @@ private:
     std::string fistWatchOp_;
     std::string lastWatchOp_;
     uint32_t outputId_;
-
     std::mutex mutex_;
 };
 

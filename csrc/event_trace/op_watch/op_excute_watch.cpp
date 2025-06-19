@@ -35,10 +35,11 @@ void OpExcuteWatch::EndExcute(aclrtStream stream, const std::string &excuteItem,
         CLIENT_WARN_LOG("Get unknown type!");
         return ;
     }
-    if (IsFirstWatchOp(excuteItem)) {
+
+    if (IsFirstWatchOp(excuteItem) && watchedOpName_.empty()) {
         SetWatchedOpName(excuteItem);
         TensorMonitor::GetInstance().AddWatchTensor(outputTensors, outputId);
-        TensorDumper::GetInstance().Dump(stream, rawItem, opEventType);
+        TensorDumper::GetInstance().Dump(stream, rawItem, opEventType, true);
 
         return;
     }
