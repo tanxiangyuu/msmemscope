@@ -11,6 +11,14 @@ else
     echo "opensource/googletest already exists. no need to download. exit."
 fi
 
+FUZZ_DIR="${TOP_DIR}/opensource/Secodefuzz"
+if [ ! -d "$FUZZ_DIR" ]; then
+    cd ${TOP_DIR}/opensource
+    git clone https://szv-open.codehub.huawei.com/innersource/Fuzz/secodefuzz.git Secodefuzz -b master
+else
+    echo "opensource/secodefuzz already exists. no need to download. exit."
+fi
+
 SECUREC_DIR="${TOP_DIR}/platform/securec"
 if [ ! -d "$SECUREC_DIR" ]; then
     cd ${TOP_DIR}/platform
