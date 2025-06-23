@@ -29,14 +29,6 @@ TensorDumper::TensorDumper()
     fullContent_ = config.watchConfig.fullContent;
 
     dumpDir_ = std::string(config.outputDir) + "/watch_dump";
-
-    if (!IsDumpFullContent()) {
-        int32_t devId = GD_INVALID_NUM;
-        if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
-            CLIENT_ERROR_LOG("Get device id failed, " + std::to_string(devId));
-        }
-        fileName_ = "watch_dump_data_check_sum_" + std::to_string(devId) + "_";
-    }
 }
 
 TensorDumper::~TensorDumper()
@@ -75,10 +67,19 @@ bool TensorDumper::DumpTensorBinary(const std::vector<char> &hostData, std::stri
 
 bool TensorDumper::DumpTensorHashValue(const std::vector<char> &hostData, std::string& fileName)
 {
-    auto hashValue = CalculateDataCheckSum64(hostData);
-    if (!Utility::CreateCsvFile(&csvFile_, dumpDir_, fileName_, WATCH_HASH_HEADERS)) {
-        CLIENT_ERROR_LOG("Create csv file failed.");
+    if (csvFile_ == nullptr) {
+        int32_t devId = GD_INVALID_NUM;
+        if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+            CLIENT_ERROR_LOG("Get device id failed, " + std::to_string(devId));
+        }
+        fileName_ = "watch_dump_data_check_sum_" + std::to_string(devId) + "_";
+        if (!Utility::CreateCsvFile(&csvFile_, dumpDir_, fileName_, WATCH_HASH_HEADERS)) {
+            CLIENT_ERROR_LOG("Create csv file failed.");
+            return false;
+        }
     }
+
+    auto hashValue = CalculateDataCheckSum64(hostData);
     if (!Utility::Fprintf(csvFile_, "%s,%s\n", fileName.c_str(), hashValue.c_str())) {
         CLIENT_ERROR_LOG("Write tensor data check sum info failed.");
         return false;
@@ -112,16 +113,35 @@ bool TensorDumper::DumpOneTensor(const MonitoredTensor& tensor, std::string& fil
     return DumpTensorHashValue(hostData, fileName);
 }
 
-std::string GetFileName(const std::string &op, OpEventType eventType, std::string wathcedOpName, uint64_t index)
+uint64_t TensorDumper::CountOpName(const std::string& name)
+{
+    std::lock_guard<std::mutex> guard(opNameMutex_);
+    if (opNameCnt_.find(name) == opNameCnt_.end()) {
+        opNameCnt_[name] = 1;
+    } else {
+        opNameCnt_[name] += 1;
+    }
+    return opNameCnt_[name];
+}
+
+std::string TensorDumper::GetFileName(const std::string &op, OpEventType eventType,
+    std::string wathcedOpName, uint64_t index, bool isFirstOp)
 {
     std::string type;
+    std::string opName = op;
     if (eventType == OpEventType::ATB_START || eventType == OpEventType::ATEN_START) {
+        opName += "_" + std::to_string(CountOpName(op));
         type = "before";
     }
     if (eventType == OpEventType::ATB_END || eventType == OpEventType::ATEN_END) {
+        if (isFirstOp) {
+            opName += "_" + std::to_string(CountOpName(op));
+        } else {
+            opName += "_" + std::to_string(opNameCnt_[op]);
+        }
         type = "after";
     }
-    std::string name = op + "-" + wathcedOpName + "_" + std::to_string(index) + "_" + type + ".bin";
+    std::string name = opName + "-" + wathcedOpName + "_" + std::to_string(index) + "_" + type + ".bin";
     return name;
 }
 
@@ -142,14 +162,15 @@ void TensorDumper::SynchronizeStream(aclrtStream stream)
     return;
 }
 
-void TensorDumper::Dump(aclrtStream stream, const std::string &op, OpEventType eventType)
+void TensorDumper::Dump(aclrtStream stream, const std::string &op, OpEventType eventType, bool isFirstOp)
 {
     SynchronizeStream(stream);
     std::unordered_map<uint64_t, MonitoredTensor> &tensorsMap = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     uint64_t index = 0;
     for (const auto& tensorPair : tensorsMap) {
         std::string watchedOpName = OpExcuteWatch::GetInstance().GetWatchedOpName();
-        auto fileName = GetFileName(op, eventType, watchedOpName, index);
+        auto outputId = TensorMonitor::GetInstance().GetCmdWatchedOutputId();
+        auto fileName = GetFileName(op, eventType, watchedOpName, outputId > 0 ? outputId : index, isFirstOp);
         auto result = DumpOneTensor(tensorPair.second, fileName);
         if (!result) {
             CLIENT_ERROR_LOG("Dump tensor failed, current op: " + op + ", watched op: " + watchedOpName);
@@ -161,7 +182,7 @@ void TensorDumper::Dump(aclrtStream stream, const std::string &op, OpEventType e
     for (const auto& tensorPair : tensors) {
         uint64_t ptr = static_cast<uint64_t>((std::uintptr_t)(tensorPair.second.data));
         std::string watchedOpName = GetDumpName(ptr);
-        auto fileName = GetFileName(op, eventType, watchedOpName, index);
+        auto fileName = GetFileName(op, eventType, watchedOpName, index, isFirstOp);
         auto dumpNums = GetDumpNums(ptr);
         if (dumpNums == 0) {
             break;

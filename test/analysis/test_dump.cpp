@@ -176,7 +176,8 @@ TEST(DumpRecord, dump_torchnpu_record_expect_success)
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
     config.enableCStack = true;
     config.enablePyStack = true;
-    memoryUsage.allocSize = -128;
+    memoryUsage.dataType = 1;
+    memoryUsage.allocSize = 128;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, record, stack));
 }
 TEST(DumpRecord, dump_empty_torchnpu_record)
