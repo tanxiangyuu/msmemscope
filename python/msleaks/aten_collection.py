@@ -40,7 +40,7 @@ def zip_arguments(
     schema: torch.FunctionSchema, args: tuple, kwargs: dict
 ) -> Iterator:
     schema_args = schema.arguments[: len(args)]
-    schema_kwargs = {arg.name: arg for arg in schema.arguments[len(args) :]}
+    schema_kwargs = {arg.name : arg for arg in schema.arguments[len(args) :]}
 
     yield from zip(schema_args, args)
 
@@ -55,22 +55,36 @@ class ArgumentHandler:
         func,
         value: Any,
         is_write: bool,
+        is_factory: bool,
         metadata_only: bool,
         is_output: bool = False,
     ) -> None:
-        if isinstance(value, torch.Tensor) and value.is_npu:
-            is_read = False
-            data_ptr = value.data_ptr()
+        if not isinstance(value, torch.Tensor) or not value.is_npu:
+            return
 
-            if not is_write and not metadata_only:
-                is_read = True
+        is_read = False
+        data_ptr = value.data_ptr()
 
-            # 计算tensor大小
-            tensor_size = calculate_tensor_size(value)
+        if not is_write and not metadata_only:
+            is_read = True
+        
+        # 对于metadata_only分俩类处理，FACTORY FUNC和其它VIEW FUNC
+        if metadata_only:
+            if is_factory and is_output:
+                # 对于empty_like方法，为特例，由于其并未初始化，因此未涉及到写内存
+                if "empty_like" in func.__name__:
+                    return
+                is_write = True
+            else:
+                # VIEW FUNC不访问显存
+                return
 
-            mstx.mark(f"leaks-aten-ac:ptr={data_ptr};is_write={is_write};is_read={is_read};is_output={is_output};"\
-                    f"name={func.__module__}.{func.__name__};shape={value.shape};"\
-                    f"dtype={value.dtype};tensor_size={tensor_size};device={value.device}", None)
+        # 计算tensor大小
+        tensor_size = calculate_tensor_size(value)
+
+        mstx.mark(f"leaks-aten-ac:ptr={data_ptr};is_write={is_write};is_read={is_read};is_output={is_output};"\
+                f"name={func.__module__}.{func.__name__};shape={value.shape};"\
+                f"dtype={value.dtype};tensor_size={tensor_size};device={value.device}", None)
 
     def parse_inputs(
         self,
@@ -92,6 +106,7 @@ class ArgumentHandler:
                 functools.partial(
                     self._handle_argument,
                     is_write=is_write,
+                    is_factory=is_factory,
                     is_output=False,
                     metadata_only=metadata_only,
                 ),
@@ -111,6 +126,7 @@ class ArgumentHandler:
                 functools.partial(
                     self._handle_argument,
                     is_write=not metadata_only,
+                    is_factory=is_factory,
                     is_output=True,
                     metadata_only=metadata_only,
                 ),
