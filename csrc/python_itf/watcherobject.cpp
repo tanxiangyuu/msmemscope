@@ -81,7 +81,7 @@ bool ParseInputArgs(PyObject *args, MonitoredTensor& tensorInfo, PyObject *lengt
     // 解析tensor或者addr+size的传入方式
     void* ptr = nullptr;
     PyObject* tensorOrAddrObject = nullptr;
-    uint8_t argsCount = PyTuple_Size(args);
+    int8_t argsCount = PyTuple_Size(args);
     if (argsCount != 1) {
         PyErr_SetString(PyExc_TypeError, "Only one parameter without keywords can be input.");
         return false;
@@ -190,45 +190,45 @@ static PyMethodDef PyLeaksWatcherMethods[] = {
 
 static PyTypeObject PyLeaksWatcherType = {
     PyVarObject_HEAD_INIT(&PyType_Type, 0)
-    "_msleaks._watcher",                        /* tp_name */
-    0,                                          /* tp_basicsize */
-    0,                                          /* tp_itemsize */
+    "_msleaks._watcher",                              /* tp_name */
+    0,                                                /* tp_basicsize */
+    0,                                                /* tp_itemsize */
     /* methods */
-    0,                                          /* tp_dealloc */
-    0,                                          /* tp_vectorcall_offset */
-    0,                                          /* tp_getattr */
-    0,                                          /* tp_setattr */
-    0,                                          /* tp_as_async */
-    0,                                          /* tp_repr */
-    0,                                          /* tp_as_number */
-    0,                                          /* tp_as_sequence */
-    0,                                          /* tp_as_mapping */
-    0,                                          /* tp_hash */
-    0,                                          /* tp_call */
-    0,                                          /* tp_str */
-    0,                                          /* tp_getattro */
-    0,                                          /* tp_setattro */
-    0,                                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT,                         /* tp_flags */
-    0,                                          /* tp_doc */
-    0,                                          /* tp_traverse */
-    0,                                          /* tp_clear */
-    0,                                          /* tp_richcompare */
-    0,                                          /* tp_weaklistoffset */
-    0,                                          /* tp_iter */
-    0,                                          /* tp_iternext */
-    PyLeaksWatcherMethods,                      /* tp_methods */
-    0,                                          /* tp_members */
-    0,                                          /* tp_getset */
-    &PyBaseObject_Type,                         /* tp_base */
-    0,                                          /* tp_dict */
-    0,                                          /* tp_descr_get */
-    0,                                          /* tp_descr_set */
-    0,                                          /* tp_dictoffset */
-    0,                                          /* tp_init */
-    0,                                          /* tp_alloc */
-    PyLeaksNewWatcher,                          /* tp_new */
-    PyObject_Del,                               /* tp_free */
+    nullptr,                                          /* tp_dealloc */
+    0,                                                /* tp_vectorcall_offset */
+    nullptr,                                          /* tp_getattr */
+    nullptr,                                          /* tp_setattr */
+    nullptr,                                          /* tp_as_async */
+    nullptr,                                          /* tp_repr */
+    nullptr,                                          /* tp_as_number */
+    nullptr,                                          /* tp_as_sequence */
+    nullptr,                                          /* tp_as_mapping */
+    nullptr,                                          /* tp_hash */
+    nullptr,                                          /* tp_call */
+    nullptr,                                          /* tp_str */
+    nullptr,                                          /* tp_getattro */
+    nullptr,                                          /* tp_setattro */
+    nullptr,                                          /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT,                               /* tp_flags */
+    nullptr,                                          /* tp_doc */
+    nullptr,                                          /* tp_traverse */
+    nullptr,                                          /* tp_clear */
+    nullptr,                                          /* tp_richcompare */
+    0,                                                /* tp_weaklistoffset */
+    nullptr,                                          /* tp_iter */
+    nullptr,                                          /* tp_iternext */
+    PyLeaksWatcherMethods,                            /* tp_methods */
+    nullptr,                                          /* tp_members */
+    nullptr,                                          /* tp_getset */
+    &PyBaseObject_Type,                               /* tp_base */
+    nullptr,                                          /* tp_dict */
+    nullptr,                                          /* tp_descr_get */
+    nullptr,                                          /* tp_descr_set */
+    0,                                                /* tp_dictoffset */
+    nullptr,                                          /* tp_init */
+    nullptr,                                          /* tp_alloc */
+    PyLeaksNewWatcher,                                /* tp_new */
+    PyObject_Del,                                     /* tp_free */
 };
 
 PyObject* PyLeaks_GetWatcher()

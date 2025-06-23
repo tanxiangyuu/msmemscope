@@ -51,7 +51,7 @@ public:
 
 // dump数据结构
 struct DumpContainer : public DumpDataClass {
-    DumpContainer() : DumpDataClass(DumpClass::LEAKS_RECORD) {}
+    DumpContainer() : DumpDataClass(DumpClass::LEAKS_RECORD), id(0), timeStamp(0), pid(0), tid(0) {}
     uint64_t id;
     std::string event;
     std::string eventType;
@@ -67,7 +67,7 @@ struct DumpContainer : public DumpDataClass {
 };
 
 struct TraceEvent : public DumpDataClass {
-    TraceEvent() : DumpDataClass(DumpClass::PYTHON_TRACE) {}
+    TraceEvent() : DumpDataClass(DumpClass::PYTHON_TRACE), startTs(0), endTs(0), tid(0), pid(0) {}
     TraceEvent(const TraceEvent&) = default;
     TraceEvent& operator=(const TraceEvent&) = default;
     TraceEvent(

@@ -44,7 +44,7 @@ bool TensorDumper::IsDumpFullContent()
     return fullContent_;
 }
 
-bool TensorDumper::DumpTensorBinary(const std::vector<char> &hostData, std::string& fileName)
+bool TensorDumper::DumpTensorBinary(const std::vector<uint8_t> &hostData, std::string& fileName)
 {
     CleanFileName(fileName);
 
@@ -54,7 +54,7 @@ bool TensorDumper::DumpTensorBinary(const std::vector<char> &hostData, std::stri
         return false;
     }
 
-    outFile.write(hostData.data(), hostData.size());
+    outFile.write(reinterpret_cast<const char*>(hostData.data()), hostData.size());
 
     if (!outFile.good()) {
         return false;
@@ -65,7 +65,7 @@ bool TensorDumper::DumpTensorBinary(const std::vector<char> &hostData, std::stri
     return true;
 }
 
-bool TensorDumper::DumpTensorHashValue(const std::vector<char> &hostData, std::string& fileName)
+bool TensorDumper::DumpTensorHashValue(const std::vector<uint8_t> &hostData, std::string& fileName)
 {
     if (csvFile_ == nullptr) {
         int32_t devId = GD_INVALID_NUM;
@@ -99,7 +99,7 @@ bool TensorDumper::DumpOneTensor(const MonitoredTensor& tensor, std::string& fil
         return false;
     }
 
-    std::vector<char> hostData(tensor.dataSize);
+    std::vector<uint8_t> hostData(tensor.dataSize);
     aclError ret = vallina(hostData.data(), tensor.dataSize, tensor.data, tensor.dataSize, ACL_MEMCPY_DEVICE_TO_HOST);
     if (ret != ACL_SUCCESS) {
         return false;
