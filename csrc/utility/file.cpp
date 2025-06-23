@@ -115,6 +115,12 @@ namespace Utility {
         return true;
     }
 
+    bool FileExists(const std::string& filePath)
+    {
+        std::ifstream file(filePath);
+        return file.good();
+    }
+
     bool TableExists(sqlite3 *filefp, std::string tableName)
     {
         std::string sql = "SELECT name FROM sqlite_master WHERE type='table' AND name=?";
@@ -149,6 +155,15 @@ namespace Utility {
     bool CreateDbFile(sqlite3 **filefp, std::string filePath, std::string tableName, std::string tableCreateSql)
     {
         if (*filefp == nullptr) {
+            // 在sqlite3_open前先创建好db文件
+            if (!FileExists(filePath)) {
+                FILE* fp = CreateFileWithUmask(filePath, "a", DEFAULT_UMASK_FOR_DB_FILE);
+                if (fp == nullptr) {
+                    std::cout << "[msleaks] Error: open file " << filePath << " failed." << std::endl;
+                    return false;
+                }
+                std::cout << "[msleaks] Info: create dbfile " << filePath << "." << std::endl;
+            }
             sqlite3* db = nullptr;
             int rc = Sqlite3Open(filePath.c_str(), &db);
             if (rc != SQLITE_OK) {
@@ -159,7 +174,7 @@ namespace Utility {
                 return false;
             }
             if (CreateDbTable(db, tableCreateSql)) {
-                std::cout << "[msleaks] Info: create dbfile " << filePath << "." << std::endl;
+                std::cout << "[msleaks] Info: create dbtable " << tableName << " in " << filePath << "." << std::endl;
                 *filefp = db;
             } else {
                 Sqlite3Close(db);
