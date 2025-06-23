@@ -6,6 +6,8 @@
 #include <fstream>
 #include <sstream>
 #include <dirent.h>
+#include <unistd.h>
+#include <sys/stat.h>
 #define private public
 #include "trace_record.h"
 #undef private
@@ -57,13 +59,26 @@ bool RemoveDir(const std::string& dirPath)
         }
 
         std::string fullPath = dirPath + "/" + entry->d_name;
-        if (entry->d_type == DT_DIR) {
+
+        struct stat statBuf;
+        if (stat(fullPath.c_str(), &statBuf) != 0) {
+            closedir(dir);
             return false;
         }
-        if (remove(fullPath.c_str()) != 0) {
-            return false;
+
+        if (S_ISDIR(statBuf.st_mode)) {
+            if (!RemoveDir(fullPath)) {
+                closedir(dir);
+                return false;
+            }
+        } else {
+            if (unlink(fullPath.c_str()) != 0) {
+                closedir(dir);
+                return false;
+            }
         }
     }
+
     closedir(dir);
 
     // 删除空目录
@@ -76,6 +91,8 @@ bool RemoveDir(const std::string& dirPath)
 
 TEST(TraceRecord, process_mstx_mark_record)
 {
+    Utility::SetDirPath("leaksDumpResults", std::string(OUTPUT_PATH));
+    TraceRecord::GetInstance().SetDirPath();
     auto record = EventRecord{};
     record.type = RecordType::MSTX_MARK_RECORD;
     auto mstxRecord = MstxRecord{};
@@ -99,13 +116,15 @@ TEST(TraceRecord, process_mstx_mark_record)
     std::string fileContent;
     bool hasReadFile = ReadFile(
         TraceRecord::GetInstance().traceFiles_[Device{DeviceType::NPU, mstxRecord.devId}].filePath, fileContent);
-    bool hasRemoveDir = RemoveDir(TraceRecord::GetInstance().dirPath_);
+    bool hasRemoveDir = RemoveDir(Utility::g_dirPath);
     EXPECT_NE(fileContent.find(result), std::string::npos);
     EXPECT_TRUE(hasReadFile && hasRemoveDir);
 }
 
 TEST(TraceRecord, process_mstx_record_with_report_host_memory)
 {
+    Utility::SetDirPath("leaksDumpResults", std::string(OUTPUT_PATH));
+    TraceRecord::GetInstance().SetDirPath();
     auto startRecord = EventRecord{};
     startRecord.type = RecordType::MSTX_MARK_RECORD;
     auto startMstxRecord = MstxRecord{};
@@ -146,13 +165,15 @@ TEST(TraceRecord, process_mstx_record_with_report_host_memory)
     std::string fileContent;
     bool hasReadFile = ReadFile(
         TraceRecord::GetInstance().traceFiles_[Device{DeviceType::NPU, startMstxRecord.devId}].filePath, fileContent);
-    bool hasRemoveDir = RemoveDir(TraceRecord::GetInstance().dirPath_);
+    bool hasRemoveDir = RemoveDir(Utility::g_dirPath);
     EXPECT_NE(fileContent.find(result), std::string::npos);
     EXPECT_TRUE(hasReadFile && hasRemoveDir);
 }
 
 TEST(TraceRecord, process_mstx_record_with_step_info)
 {
+    Utility::SetDirPath("leaksDumpResults", std::string(OUTPUT_PATH));
+    TraceRecord::GetInstance().SetDirPath();
     auto startRecord = EventRecord{};
     startRecord.type = RecordType::MSTX_MARK_RECORD;
     auto startMstxRecord = MstxRecord{};
@@ -166,7 +187,6 @@ TEST(TraceRecord, process_mstx_record_with_step_info)
     strncpy_s(startMstxRecord.markMessage, sizeof(startMstxRecord.markMessage),
         "step start", sizeof(startMstxRecord.markMessage));
     startRecord.record.mstxRecord = startMstxRecord;
-
     auto endRecord = EventRecord{};
     endRecord.type = RecordType::MSTX_MARK_RECORD;
     auto endMstxRecord = MstxRecord{};
@@ -197,13 +217,15 @@ TEST(TraceRecord, process_mstx_record_with_step_info)
     std::string fileContent;
     bool hasReadFile = ReadFile(
         TraceRecord::GetInstance().traceFiles_[Device{DeviceType::NPU, startMstxRecord.devId}].filePath, fileContent);
-    bool hasRemoveDir = RemoveDir(TraceRecord::GetInstance().dirPath_);
+    bool hasRemoveDir = RemoveDir(Utility::g_dirPath);
     EXPECT_NE(fileContent.find(result), std::string::npos);
     EXPECT_TRUE(hasReadFile && hasRemoveDir);
 }
 
 TEST(TraceRecord, process_kernel_launch_record)
 {
+    Utility::SetDirPath("leaksDumpResults", std::string(OUTPUT_PATH));
+    TraceRecord::GetInstance().SetDirPath();
     auto record = EventRecord{};
     record.type = RecordType::KERNEL_LAUNCH_RECORD;
     auto kernelLaunchRecord = KernelLaunchRecord{};
@@ -228,13 +250,15 @@ TEST(TraceRecord, process_kernel_launch_record)
         TraceRecord::GetInstance().traceFiles_[Device{DeviceType::NPU, kernelLaunchRecord.devId}].filePath,
         fileContent
     );
-    bool hasRemoveDir = RemoveDir(TraceRecord::GetInstance().dirPath_);
+    bool hasRemoveDir = RemoveDir(Utility::g_dirPath);
     EXPECT_NE(fileContent.find(result), std::string::npos);
     EXPECT_TRUE(hasReadFile && hasRemoveDir);
 }
 
 TEST(TraceRecord, process_acl_itf_record)
 {
+    Utility::SetDirPath("leaksDumpResults", std::string(OUTPUT_PATH));
+    TraceRecord::GetInstance().SetDirPath();
     auto record = EventRecord{};
     record.type = RecordType::ACL_ITF_RECORD;
     auto aclItfRecord = AclItfRecord{};
@@ -259,13 +283,15 @@ TEST(TraceRecord, process_acl_itf_record)
     std::string fileContent;
     bool hasReadFile = ReadFile(
         TraceRecord::GetInstance().traceFiles_[Device{DeviceType::NPU, aclItfRecord.devId}].filePath, fileContent);
-    bool hasRemoveDir = RemoveDir(TraceRecord::GetInstance().dirPath_);
+    bool hasRemoveDir = RemoveDir(Utility::g_dirPath);
     EXPECT_NE(fileContent.find(result), std::string::npos);
     EXPECT_TRUE(hasReadFile && hasRemoveDir);
 }
 
 TEST(TraceRecord, process_invalid_npu_memory_record)
 {
+    Utility::SetDirPath("leaksDumpResults", std::string(OUTPUT_PATH));
+    TraceRecord::GetInstance().SetDirPath();
     auto freeRecord = EventRecord{};
     freeRecord.type = RecordType::MEMORY_RECORD;
     auto freeMemOpRecord = MemOpRecord{};
@@ -285,13 +311,15 @@ TEST(TraceRecord, process_invalid_npu_memory_record)
     std::string fileContent;
     bool hasReadFile = ReadFile(
         TraceRecord::GetInstance().traceFiles_[Device{DeviceType::NPU, freeMemOpRecord.devId}].filePath, fileContent);
-    bool hasRemoveDir = RemoveDir(TraceRecord::GetInstance().dirPath_);
+    RemoveDir(Utility::g_dirPath);
     EXPECT_EQ(result, fileContent);
     EXPECT_FALSE(hasReadFile);
 }
 
 TEST(TraceRecord, process_invalid_cpu_memory_record)
 {
+    Utility::SetDirPath("leaksDumpResults", std::string(OUTPUT_PATH));
+    TraceRecord::GetInstance().SetDirPath();
     auto freeRecord = EventRecord{};
     freeRecord.type = RecordType::MEMORY_RECORD;
     auto freeMemOpRecord = MemOpRecord{};
@@ -311,13 +339,15 @@ TEST(TraceRecord, process_invalid_cpu_memory_record)
     std::string fileContent;
     bool hasReadFile = ReadFile(
         TraceRecord::GetInstance().traceFiles_[Device{DeviceType::CPU, freeMemOpRecord.devId}].filePath, fileContent);
-    bool hasRemoveDir = RemoveDir(TraceRecord::GetInstance().dirPath_);
+    RemoveDir(Utility::g_dirPath);
     EXPECT_EQ(result, fileContent);
     EXPECT_FALSE(hasReadFile);
 }
 
 TEST(TraceRecord, process_cpu_memory_record)
 {
+    Utility::SetDirPath("leaksDumpResults", std::string(OUTPUT_PATH));
+    TraceRecord::GetInstance().SetDirPath();
     auto mallocRecord = EventRecord{};
     mallocRecord.type = RecordType::MEMORY_RECORD;
     auto mallocMemOpRecord = MemOpRecord{};
@@ -359,13 +389,15 @@ TEST(TraceRecord, process_cpu_memory_record)
     bool hasReadFile = ReadFile(
         TraceRecord::GetInstance().traceFiles_[Device{DeviceType::CPU, mallocMemOpRecord.devId}].filePath,
         fileContent);
-    bool hasRemoveDir = RemoveDir(TraceRecord::GetInstance().dirPath_);
+    bool hasRemoveDir = RemoveDir(Utility::g_dirPath);
     EXPECT_NE(fileContent.find(result), std::string::npos);
     EXPECT_TRUE(hasReadFile && hasRemoveDir);
 }
 
 TEST(TraceRecord, process_hal_host_memory_record)
 {
+    Utility::SetDirPath("leaksDumpResults", std::string(OUTPUT_PATH));
+    TraceRecord::GetInstance().SetDirPath();
     auto mallocRecord = EventRecord{};
     mallocRecord.type = RecordType::MEMORY_RECORD;
     auto mallocMemOpRecord = MemOpRecord{};
@@ -408,13 +440,15 @@ TEST(TraceRecord, process_hal_host_memory_record)
     bool hasReadFile = ReadFile(
         TraceRecord::GetInstance().traceFiles_[Device{DeviceType::CPU, 0}].filePath,
         fileContent);
-    bool hasRemoveDir = RemoveDir(TraceRecord::GetInstance().dirPath_);
+    bool hasRemoveDir = RemoveDir(Utility::g_dirPath);
     EXPECT_NE(fileContent.find(result), std::string::npos);
     EXPECT_TRUE(hasReadFile && hasRemoveDir);
 }
 
 TEST(TraceRecord, process_torch_memory_record)
 {
+    Utility::SetDirPath("leaksDumpResults", std::string(OUTPUT_PATH));
+    TraceRecord::GetInstance().SetDirPath();
     auto record = EventRecord{};
     record.type = RecordType::TORCH_NPU_RECORD;
     auto memPoolRecord = MemPoolRecord{};
@@ -446,13 +480,15 @@ TEST(TraceRecord, process_torch_memory_record)
     std::string fileContent;
     bool hasReadFile = ReadFile(
         TraceRecord::GetInstance().traceFiles_[Device{DeviceType::NPU, memPoolRecord.devId}].filePath, fileContent);
-    bool hasRemoveDir = RemoveDir(TraceRecord::GetInstance().dirPath_);
+    bool hasRemoveDir = RemoveDir(Utility::g_dirPath);
     EXPECT_NE(fileContent.find(result), std::string::npos);
     EXPECT_TRUE(hasReadFile && hasRemoveDir);
 }
 
 TEST(TraceRecord, process_torch_mem_leak_info)
 {
+    Utility::SetDirPath("leaksDumpResults", std::string(OUTPUT_PATH));
+    TraceRecord::GetInstance().SetDirPath();
     auto info = TorchMemLeakInfo{};
     info.devId = 2;
     info.kernelIndex = 123;
@@ -476,13 +512,15 @@ TEST(TraceRecord, process_torch_mem_leak_info)
     std::string fileContent;
     bool hasReadFile = ReadFile(
         TraceRecord::GetInstance().traceFiles_[Device{DeviceType::NPU, info.devId}].filePath, fileContent);
-    bool hasRemoveDir = RemoveDir(TraceRecord::GetInstance().dirPath_);
+    bool hasRemoveDir = RemoveDir(Utility::g_dirPath);
     EXPECT_NE(fileContent.find(result), std::string::npos);
     EXPECT_TRUE(hasReadFile && hasRemoveDir);
 }
 
 TEST(TraceRecord, set_metadata_event)
 {
+    Utility::SetDirPath("leaksDumpResults", std::string(OUTPUT_PATH));
+    TraceRecord::GetInstance().SetDirPath();
     Device device = Device{DeviceType::NPU, 0};
     TraceRecord::GetInstance().truePids_[device] = {1234};
 
@@ -506,7 +544,7 @@ TEST(TraceRecord, set_metadata_event)
     TraceRecord::GetInstance().SetMetadataEvent(device);
     std::string fileContent;
     bool hasReadFile = ReadFile(TraceRecord::GetInstance().traceFiles_[device].filePath, fileContent);
-    bool hasRemoveDir = RemoveDir(TraceRecord::GetInstance().dirPath_);
+    bool hasRemoveDir = RemoveDir(Utility::g_dirPath);
     for (auto result : results) {
         EXPECT_NE(fileContent.find(result), std::string::npos);
     }
@@ -515,13 +553,15 @@ TEST(TraceRecord, set_metadata_event)
 
 TEST(TraceRecord, set_dir_path)
 {
-    Utility::SetDirPath("/MyPath", std::string(OUTPUT_PATH));
+    Utility::SetDirPath("MyPath", std::string(OUTPUT_PATH));
     TraceRecord::GetInstance().SetDirPath();
-    EXPECT_EQ(TraceRecord::GetInstance().dirPath_, "/MyPath/" + std::string(TRACE_FILE));
+    EXPECT_EQ(TraceRecord::GetInstance().dirPath_, "MyPath/" + std::string(TRACE_FILE));
 }
 
 TEST(TraceRecord, process_mindspore_memory_record)
 {
+    Utility::SetDirPath("leaksDumpResults", std::string(OUTPUT_PATH));
+    TraceRecord::GetInstance().SetDirPath();
     auto record = EventRecord{};
     record.type = RecordType::MINDSPORE_NPU_RECORD;
     auto memPoolRecord = MemPoolRecord{};
@@ -550,4 +590,10 @@ TEST(TraceRecord, process_mindspore_memory_record)
 "    \"args\": {\n        \"size\": 10\n    }\n},\n";
 
     TraceRecord::GetInstance().ProcessRecord(record);
+    std::string fileContent;
+    bool hasReadFile = ReadFile(
+        TraceRecord::GetInstance().traceFiles_[Device{DeviceType::NPU, memPoolRecord.devId}].filePath, fileContent);
+    bool hasRemoveDir = RemoveDir(Utility::g_dirPath);
+    EXPECT_NE(fileContent.find(result), std::string::npos);
+    EXPECT_TRUE(hasReadFile && hasRemoveDir);
 }
