@@ -224,9 +224,10 @@ bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRe
     }
 
     std::string mstxMsgString = mstxRecord.markMessage;
-    if (Utility::CheckStrIsStartsWithInvalidChar(mstxRecord.markMessage)) {
+    if (Utility::CheckStrIsStartsWithInvalidChar(mstxMsgString.c_str())) {
+        Utility::ToSafeString(mstxMsgString);
+        LOG_ERROR("mstx msg %s is invalid!", mstxMsgString.c_str());
         mstxMsgString = "";
-        LOG_ERROR("mstx msg %s is invalid!", mstxRecord.markMessage);
     }
     DumpContainer container;
     container.id = mstxRecord.recordIndex;
