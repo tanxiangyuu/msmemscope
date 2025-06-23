@@ -23,7 +23,7 @@
 
 using namespace Leaks;
 
-void static StartKernelEventTrace()
+static void StartKernelEventTrace()
 {
     static std::once_flag flag;
     std::call_once(flag, &KernelEventTrace::StartKernelEventTrace, &KernelEventTrace::GetInstance());

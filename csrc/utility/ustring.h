@@ -81,7 +81,7 @@ inline bool EndWith(std::string const &str, std::string const &target)
 inline bool CheckStrIsStartsWithInvalidChar(const char *const &str)
 {
     const std::set<char> invalidCharList = {'=', '+', '-', '@'};
-    if (invalidCharList.count(*str)) {
+    if (invalidCharList.count(*str) != 0) {
         return true;
     }
     return false;
@@ -110,9 +110,9 @@ public:
         std::vector<std::string> version;
         Split(ver, std::back_inserter(version), ".");
         for (auto s : version) {
-            uint32_t ver;
-            if (s != "" && std::regex_match(s, numberPattern) && StrToUint32(ver, s)) {
-                version_.push_back(ver);
+            uint32_t versionNum;
+            if (s != "" && std::regex_match(s, numberPattern) && StrToUint32(versionNum, s)) {
+                version_.push_back(versionNum);
             }
         }
     }

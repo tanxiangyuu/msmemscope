@@ -40,7 +40,7 @@ def zip_arguments(
     schema: torch.FunctionSchema, args: tuple, kwargs: dict
 ) -> Iterator:
     schema_args = schema.arguments[: len(args)]
-    schema_kwargs = {arg.name: arg for arg in schema.arguments[len(args) :]}
+    schema_kwargs = {arg.name : arg for arg in schema.arguments[len(args) :]}
 
     yield from zip(schema_args, args)
 

@@ -15,7 +15,7 @@
 namespace Utility {
 
 using TraceCbFunc = std::function<void(std::string, std::string, Leaks::PyTraceType, uint64_t)>;
-void RegisterTraceCb(TraceCbFunc func);
+void RegisterTraceCb(TraceCbFunc call);
 void UnRegisterTraceCb();
 bool IsPyInterpRepeInited();
 void PythonCallstack(uint32_t pyDepth, std::string& pyStack);
