@@ -20,7 +20,7 @@
 
 using namespace Leaks;
 
-void LeaksPythonCall(const std::string& module, const std::string& function)
+static void LeaksPythonCall(const std::string& module, const std::string& function)
 {
     if (!Utility::IsPyInterpRepeInited()) {
             CLIENT_ERROR_LOG("Python Interpreter initialization FAILED");

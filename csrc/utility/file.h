@@ -3,7 +3,6 @@
 #ifndef LEAKS_UTILITY_FILE_H
 #define LEAKS_UTILITY_FILE_H
 
-#include <sqlite3.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <iostream>
@@ -14,6 +13,7 @@
 #include "config_info.h"
 #include "umask_guard.h"
 #include "ustring.h"
+#include "sqlite_loader.h"
 
 namespace Utility {
     constexpr uint32_t DIRMOD = 0750;
@@ -126,8 +126,6 @@ namespace Utility {
     /// 输出文件校验
     bool CheckFileBeforeCreate(const std::string &path);
     bool FileExists(const std::string& filePath);
-    // 检查数据库环境
-    bool IsSqliteAvailable();
     bool TableExists(sqlite3 *filefp, std::string tableName);
     bool CreateDbPath(Leaks::Config &config, const std::string &fileName);
     bool CreateDbTable(sqlite3 *filefp, std::string tableCreateSql);

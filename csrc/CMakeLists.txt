@@ -9,11 +9,6 @@ else()
     message(STATUS "csrc Found Python3: ${Python3_INCLUDE_DIRS}")
 endif()
 
-find_package(SQLite3 REQUIRED)
-if (NOT SQLite3_FOUND)
-    message(FATAL_ERROR "SQLite3 is not found.")
-endif()
-
 get_filename_component(SECUREC_INC_DIR ../platform/securec/include ABSOLUTE)
 get_filename_component(FRAMEWORK_INC_DIR ./framework ABSOLUTE)
 get_filename_component(EVENT_TRACE_INC_DIR ./event_trace ABSOLUTE)
@@ -28,13 +23,12 @@ target_include_directories(
                         ${FUNC_HOSTINJECTION_DIR}
                         ${SECUREC_INC_DIR}
                         ${Python3_INCLUDE_DIRS}
-                        ${SQLite3_INCLUDE_DIRS}
                         ${EVENT_TRACE_INC_DIR}
 )
 
 #避免依赖python版本
 target_link_options(ascend_leaks PRIVATE "-Wl,--copy-dt-needed-entries")
-target_link_libraries(ascend_leaks pthread stdc++fs dl c_sec ${SQLite3_LIBRARIES})
+target_link_libraries(ascend_leaks pthread stdc++fs dl c_sec)
 
 add_subdirectory(framework)
 add_subdirectory(utility)

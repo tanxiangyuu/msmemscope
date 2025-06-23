@@ -65,5 +65,9 @@ private:
     std::mutex mutex_;
 };
 
+void OpExcuteBegin(aclrtStream stream, char *rawOp, OpType type);
+void OpExcuteEnd(aclrtStream stream, char *rawOp, MonitoredTensor *tensors, size_t size, OpType type);
+void KernelExcute(aclrtStream stream, char *rawOp, const Mki::SVector<Mki::Tensor>& tensors, OpType type);
+
 }
 #endif

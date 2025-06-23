@@ -7,6 +7,8 @@
 
 namespace Leaks {
 
+const size_t MAX_DESCRIBE_OWNER_LENGTH = 64;
+
 /* 单例类，自定义new函数，避免重复构造 */
 static PyObject* PyLeaksNewDescriber(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
@@ -33,6 +35,10 @@ static PyObject* PyLeaksDescribe(PyObject *self,  PyObject *arg)
         return nullptr;
     }
     std::string str = Utility::PythonObject(arg).Cast<std::string>();
+    if (str.size() > MAX_DESCRIBE_OWNER_LENGTH) {
+        PyErr_Format(PyExc_ValueError, "Input owner exceeds maximum allowed length %zu.", MAX_DESCRIBE_OWNER_LENGTH);
+        Py_RETURN_NONE;
+    }
     DescribeTrace::GetInstance().AddDescribe(str);
     Py_RETURN_NONE;
 }
@@ -46,6 +52,10 @@ static PyObject* PyLeaksUnDescribe(PyObject *self,  PyObject *arg)
         return nullptr;
     }
     std::string str = Utility::PythonObject(arg).Cast<std::string>();
+    if (str.size() > MAX_DESCRIBE_OWNER_LENGTH) {
+        PyErr_Format(PyExc_ValueError, "Input owner exceeds maximum allowed length %zu.", MAX_DESCRIBE_OWNER_LENGTH);
+        Py_RETURN_NONE;
+    }
     DescribeTrace::GetInstance().EraseDescribe(str);
     Py_RETURN_NONE;
 }
@@ -54,12 +64,23 @@ PyDoc_STRVAR(DescribeAddrDoc,
 "describe_addr($self, addr, owner)\n--\n\nEnable debug.");
 static PyObject* PyLeaksDescribeAddr(PyObject *self,  PyObject *args)
 {
-    unsigned long long addr = 0;
+    PyObject *addrObj = nullptr;
     const char* str = nullptr;
 
-    if (!PyArg_ParseTuple(args, "Ks", &addr, &str)) {
-        return NULL;
+    if (!PyArg_ParseTuple(args, "Os", &addrObj, &str)) {
+        return nullptr;
     }
+    if (std::strlen(str) > MAX_DESCRIBE_OWNER_LENGTH) {
+        PyErr_Format(PyExc_ValueError, "Input owner exceeds maximum allowed length %zu.", MAX_DESCRIBE_OWNER_LENGTH);
+        Py_RETURN_NONE;
+    }
+
+    uint64_t addr = static_cast<uint64_t>(PyLong_AsUnsignedLongLong(addrObj));
+    if (PyErr_Occurred()) {
+        PyErr_SetString(PyExc_TypeError, "Parse tensor length failed!");
+        Py_RETURN_NONE;
+    }
+
     DescribeTrace::GetInstance().DescribeAddr(addr, std::string(str));
     Py_RETURN_NONE;
 }
@@ -74,45 +95,45 @@ static PyMethodDef PyLeaksDescriberMethods[] = {
 
 static PyTypeObject PyLeaksDescriberType = {
     PyVarObject_HEAD_INIT(&PyType_Type, 0)
-    "_msleaks._describer",                      /* tp_name */
-    0,                                          /* tp_basicsize */
-    0,                                          /* tp_itemsize */
+    "_msleaks._describer",                            /* tp_name */
+    0,                                                /* tp_basicsize */
+    0,                                                /* tp_itemsize */
     /* methods */
-    0,                                          /* tp_dealloc */
-    0,                                          /* tp_vectorcall_offset */
-    0,                                          /* tp_getattr */
-    0,                                          /* tp_setattr */
-    0,                                          /* tp_as_async */
-    0,                                          /* tp_repr */
-    0,                                          /* tp_as_number */
-    0,                                          /* tp_as_sequence */
-    0,                                          /* tp_as_mapping */
-    0,                                          /* tp_hash */
-    0,                                          /* tp_call */
-    0,                                          /* tp_str */
-    0,                                          /* tp_getattro */
-    0,                                          /* tp_setattro */
-    0,                                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT,                         /* tp_flags */
-    0,                                          /* tp_doc */
-    0,                                          /* tp_traverse */
-    0,                                          /* tp_clear */
-    0,                                          /* tp_richcompare */
-    0,                                          /* tp_weaklistoffset */
-    0,                                          /* tp_iter */
-    0,                                          /* tp_iternext */
-    PyLeaksDescriberMethods,                      /* tp_methods */
-    0,                                          /* tp_members */
-    0,                                          /* tp_getset */
-    &PyBaseObject_Type,                         /* tp_base */
-    0,                                          /* tp_dict */
-    0,                                          /* tp_descr_get */
-    0,                                          /* tp_descr_set */
-    0,                                          /* tp_dictoffset */
-    0,                                          /* tp_init */
-    0,                                          /* tp_alloc */
-    PyLeaksNewDescriber,                          /* tp_new */
-    PyObject_Del,                               /* tp_free */
+    nullptr,                                          /* tp_dealloc */
+    0,                                                /* tp_vectorcall_offset */
+    nullptr,                                          /* tp_getattr */
+    nullptr,                                          /* tp_setattr */
+    nullptr,                                          /* tp_as_async */
+    nullptr,                                          /* tp_repr */
+    nullptr,                                          /* tp_as_number */
+    nullptr,                                          /* tp_as_sequence */
+    nullptr,                                          /* tp_as_mapping */
+    nullptr,                                          /* tp_hash */
+    nullptr,                                          /* tp_call */
+    nullptr,                                          /* tp_str */
+    nullptr,                                          /* tp_getattro */
+    nullptr,                                          /* tp_setattro */
+    nullptr,                                          /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT,                               /* tp_flags */
+    nullptr,                                          /* tp_doc */
+    nullptr,                                          /* tp_traverse */
+    nullptr,                                          /* tp_clear */
+    nullptr,                                          /* tp_richcompare */
+    0,                                                /* tp_weaklistoffset */
+    nullptr,                                          /* tp_iter */
+    nullptr,                                          /* tp_iternext */
+    PyLeaksDescriberMethods,                          /* tp_methods */
+    nullptr,                                          /* tp_members */
+    nullptr,                                          /* tp_getset */
+    &PyBaseObject_Type,                               /* tp_base */
+    nullptr,                                          /* tp_dict */
+    nullptr,                                          /* tp_descr_get */
+    nullptr,                                          /* tp_descr_set */
+    0,                                                /* tp_dictoffset */
+    0,                                                /* tp_init */
+    0,                                                /* tp_alloc */
+    PyLeaksNewDescriber,                              /* tp_new */
+    PyObject_Del,                                     /* tp_free */
 };
 
 PyObject* PyLeaks_GetDescriber()
