@@ -7,7 +7,7 @@
 #include "event_report.h"
 #include "record_info.h"
 #include "log.h"
-
+#include "ustring.h"
 
 namespace Leaks {
 
@@ -23,6 +23,7 @@ std::string DescribeTrace::GetDescribe()
 
 bool DescribeTrace::IsRepeat(uint64_t threadId, std::string owner)
 {
+    Utility::ToSafeString(owner);
     for (auto s : describe_[threadId]) {
         if (s == owner) {
             return true;
@@ -33,6 +34,7 @@ bool DescribeTrace::IsRepeat(uint64_t threadId, std::string owner)
 
 void DescribeTrace::DescribeAddr(uint64_t addr, std::string owner)
 {
+    Utility::ToSafeString(owner);
     owner = "@" + owner;
     AddrInfo info;
     info.type = AddrInfoType::USER_DEFINED;
@@ -48,6 +50,7 @@ void DescribeTrace::DescribeAddr(uint64_t addr, std::string owner)
 void DescribeTrace::AddDescribe(std::string owner)
 {
     auto tid = Utility::GetTid();
+    Utility::ToSafeString(owner);
     if (IsRepeat(tid, owner)) {
         CLIENT_ERROR_LOG("Cannot add duplicate tags " + owner);
         return;
@@ -62,6 +65,7 @@ void DescribeTrace::AddDescribe(std::string owner)
 void DescribeTrace::EraseDescribe(std::string owner)
 {
     auto tid = Utility::GetTid();
+    Utility::ToSafeString(owner);
     size_t i;
     size_t siz = describe_[tid].size();
     for (i = 0; i < siz; i++) {
