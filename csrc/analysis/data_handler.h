@@ -7,7 +7,6 @@
 #include <vector>
 #include <memory>
 #include <cstdio>
-#include <sqlite3.h>
 #include <mutex>
 #include <unordered_map>
 #include "config_info.h"
@@ -15,6 +14,7 @@
 #include "utils.h"
 #include "file.h"
 #include "utility/log.h"
+#include "utility/sqlite_loader.h"
 
 namespace Leaks {
 

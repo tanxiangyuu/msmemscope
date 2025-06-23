@@ -16,6 +16,8 @@
 #include "ustring.h"
 #include "bit_field.h"
 #include "securec.h"
+#include "vallina_symbol.h"
+#include "sqlite_loader.h"
 
 namespace Leaks {
 
@@ -141,7 +143,7 @@ void DoUserCommand(UserCommand userCommand)
     }
 
     if (userCommand.config.dataFormat == static_cast<uint8_t>(DataFormat::DB)) {
-        if (!Utility::IsSqliteAvailable() || !Utility::CreateDbPath(userCommand.config, DB_DUMP_FILE)) {
+        if (!Utility::CreateDbPath(userCommand.config, DB_DUMP_FILE)) {
             return;
         }
     }
@@ -568,6 +570,15 @@ static void ParseDataFormat(const std::string &param, UserCommand &userCommand)
         auto dataFormat = it->second;
         userCommand.config.dataFormat = static_cast<uint8_t>(dataFormat);
     }
+
+    if (userCommand.config.dataFormat == static_cast<uint8_t>(DataFormat::DB)) {
+        auto func = VallinaSymbol<Sqlite3LibLoader>::Instance().Get<Sqlite3OpenFunc>("sqlite3_open");
+        if (func == nullptr) {
+            std::cout << "[msleaks] ERROR: SQLite library not installed." << std::endl;
+            userCommand.printHelpInfo = true;
+        }
+    }
+
     return;
 }
 
