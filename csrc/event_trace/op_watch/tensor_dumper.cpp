@@ -29,14 +29,6 @@ TensorDumper::TensorDumper()
     fullContent_ = config.watchConfig.fullContent;
 
     dumpDir_ = std::string(config.outputDir) + "/watch_dump";
-
-    if (!IsDumpFullContent()) {
-        int32_t devId = GD_INVALID_NUM;
-        if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
-            CLIENT_ERROR_LOG("Get device id failed, " + std::to_string(devId));
-        }
-        fileName_ = "watch_dump_data_check_sum_" + std::to_string(devId) + "_";
-    }
 }
 
 TensorDumper::~TensorDumper()
@@ -75,10 +67,19 @@ bool TensorDumper::DumpTensorBinary(const std::vector<char> &hostData, std::stri
 
 bool TensorDumper::DumpTensorHashValue(const std::vector<char> &hostData, std::string& fileName)
 {
-    auto hashValue = CalculateDataCheckSum64(hostData);
-    if (!Utility::CreateCsvFile(&csvFile_, dumpDir_, fileName_, WATCH_HASH_HEADERS)) {
-        CLIENT_ERROR_LOG("Create csv file failed.");
+    if (csvFile_ == nullptr) {
+        int32_t devId = GD_INVALID_NUM;
+        if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+            CLIENT_ERROR_LOG("Get device id failed, " + std::to_string(devId));
+        }
+        fileName_ = "watch_dump_data_check_sum_" + std::to_string(devId) + "_";
+        if (!Utility::CreateCsvFile(&csvFile_, dumpDir_, fileName_, WATCH_HASH_HEADERS)) {
+            CLIENT_ERROR_LOG("Create csv file failed.");
+            return false;
+        }
     }
+
+    auto hashValue = CalculateDataCheckSum64(hostData);
     if (!Utility::Fprintf(csvFile_, "%s,%s\n", fileName.c_str(), hashValue.c_str())) {
         CLIENT_ERROR_LOG("Write tensor data check sum info failed.");
         return false;
