@@ -5,7 +5,6 @@
 #include <string>
 #include <memory>
 #include <cstdio>
-#include <sqlite3.h>
 #include "config_info.h"
 #include "record_info.h"
 #include "utils.h"
@@ -13,8 +12,10 @@
 #include "securec.h"
 #include "utility/log.h"
 #include "data_handler.h"
+#include "utility/sqlite_loader.h"
 
 using namespace Leaks;
+extern bool g_isDlsymNullptr;
 
 TEST(DataHandler, CsvHandler_Write_LeakRecord)
 {
@@ -22,7 +23,7 @@ TEST(DataHandler, CsvHandler_Write_LeakRecord)
     config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
     config.enableCStack = false;
     config.enablePyStack = false;
-    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testLeaksDumpResults", sizeof(config.outputDir) - 1);
 
     CsvHandler handler(config, DumpClass::LEAKS_RECORD);
     handler.Init();
@@ -61,13 +62,23 @@ TEST(DataHandler, CsvHandler_Write_LeakRecord)
     ASSERT_TRUE(handler_.Write(&event, {}));
 }
 
+TEST(DataHandler, Sqlite3_open)
+{
+    g_isDlsymNullptr = false;
+    sqlite3* db = nullptr;
+    std::string path = "./testLeaksDumpResults/test.db";
+    int rc = Sqlite3Open(path.c_str(), &db);
+    EXPECT_EQ(rc, 0);
+}
+
 TEST(DataHandler, DbHandler_Write_LeakRecord)
 {
+    g_isDlsymNullptr = false;
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::DB);
     config.enableCStack = true;
     config.enablePyStack = true;
-    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testLeaksDumpResults", sizeof(config.outputDir) - 1);
     Utility::CreateDbPath(config, DB_DUMP_FILE);
 
     std::unique_ptr<DataHandler> handler = MakeDataHandler(config, DumpClass::LEAKS_RECORD);
@@ -108,7 +119,7 @@ TEST(DataHandler, CsvHandler_InitSetParm_Default)
 {
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
-    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testLeaksDumpResults", sizeof(config.outputDir) - 1);
     CsvHandler handler(config, static_cast<DumpClass>(999));
     EXPECT_TRUE(true);
 }
@@ -117,7 +128,7 @@ TEST(DataHandler, CsvHandler_Write_NullData)
 {
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
-    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testLeaksDumpResults", sizeof(config.outputDir) - 1);
     CsvHandler handler(config, DumpClass::LEAKS_RECORD);
     handler.Init();
     ASSERT_FALSE(handler.Write(nullptr, {}));
@@ -127,18 +138,19 @@ TEST(DataHandler, DbHandler_InitSetParm_Default)
 {
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::DB);
-    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testLeaksDumpResults", sizeof(config.outputDir) - 1);
     DbHandler handler(config, static_cast<DumpClass>(999));
     EXPECT_TRUE(true);
 }
 
 TEST(DataHandler, DbHandler_Write_NullData)
 {
+    g_isDlsymNullptr = false;
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::DB);
     config.enableCStack = false;
     config.enablePyStack = false;
-    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testLeaksDumpResults", sizeof(config.outputDir) - 1);
     Utility::CreateDbPath(config, DB_DUMP_FILE);
     DbHandler handler(config, DumpClass::LEAKS_RECORD);
     handler.Init();
@@ -156,6 +168,7 @@ TEST(DataHandler, MakeDataHandler_FALSE)
 
 TEST(DataHandler, write_false_type)
 {
+    g_isDlsymNullptr = false;
     DumpDataClass data(static_cast<DumpClass>(2));
     CallStackString stack = {};
     Config config;

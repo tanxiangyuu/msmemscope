@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 #include <unordered_map>
+#include <memory.h>
 #define private public
 #include "event_trace/event_report.h"
 #undef private
@@ -9,6 +10,7 @@
 #include "kernel_hooks/runtime_hooks.h"
 #include "kernel_hooks/acl_hooks.h"
 #include "vallina_symbol.h"
+#include "utility/sqlite_loader.h"
 
 using namespace testing;
 using namespace Leaks;
@@ -73,6 +75,75 @@ ACL_FUNC_VISIBILITY aclError MockAclFinalize()
     return ACL_SUCCESS;
 }
 
+int MockSqlite3_Open(const char* filename, sqlite3** db)
+{
+    std::cout << "Stub Func: " << __func__ << std::endl;
+    *db = reinterpret_cast<sqlite3*>(0x1234);
+    return SQLITE_OK;
+}
+
+int MockSqlite3_Close(sqlite3* db)
+{
+    std::cout << "Stub Func: " << __func__ << std::endl;
+    return SQLITE_OK;
+}
+
+int MockSqlite3_BusyTimeout(sqlite3* db, int ms)
+{
+    std::cout << "Stub Func: " << __func__ << std::endl;
+    return SQLITE_OK;
+}
+
+int MockSqlite3_Exec(sqlite3* db, const char* sql,
+    int (*callback)(void*, int, char**, char**), void* arg, char** errmsg)
+{
+    std::cout << "Stub Func: " << __func__ << std::endl;
+    return SQLITE_OK;
+}
+
+int MockSqlite3_PrepareV2(sqlite3* db, const char* sql, int nByte, sqlite3_stmt** ppStmt, const char** pzTail)
+{
+    std::cout << "Stub Func: " << __func__ << std::endl;
+    *ppStmt = reinterpret_cast<sqlite3_stmt*>(0x1234);
+    return SQLITE_OK;
+}
+
+int MockSqlite3_Step(sqlite3_stmt* pStmt)
+{
+    std::cout << "Stub Func: " << __func__ << std::endl;
+    return SQLITE_DONE;
+}
+
+int MockSqlite3_Finalize(sqlite3_stmt* pStmt)
+{
+    std::cout << "Stub Func: " << __func__ << std::endl;
+    return SQLITE_OK;
+}
+
+int MockSqlite3_BindText(sqlite3_stmt* pStmt, int index, const char* value, int n, void(*)(void*))
+{
+    std::cout << "Stub Func: " << __func__ << std::endl;
+    return SQLITE_OK;
+}
+
+int MockSqlite3_BindInt(sqlite3_stmt* pStmt, int index, int value)
+{
+    std::cout << "Stub Func: " << __func__ << std::endl;
+    return SQLITE_OK;
+}
+
+int MockSqlite3_BindInt64(sqlite3_stmt* pStmt, int index, sqlite3_int64 value)
+{
+    std::cout << "Stub Func: " << __func__ << std::endl;
+    return SQLITE_OK;
+}
+
+const char* MockSqlite3_Errmsg(sqlite3* db)
+{
+    std::cout << "Stub Func: " << __func__ << std::endl;
+    return nullptr;
+}
+
 std::unordered_map<std::string, void *> g_funcMocks{
     {"rtKernelLaunch", reinterpret_cast<void *>(&MockRtKernelLaunch)},
     {"rtKernelLaunchWithHandleV2", reinterpret_cast<void *>(&MockRtKernelLaunchWithHandleV2)},
@@ -83,6 +154,17 @@ std::unordered_map<std::string, void *> g_funcMocks{
     {"rtGetStreamId", reinterpret_cast<void *>(&MockRtGetStreamId)},
     {"aclInit", reinterpret_cast<void *>(&MockAclInit)},
     {"aclFinalize", reinterpret_cast<void *>(&MockAclFinalize)},
+    {"sqlite3_open", reinterpret_cast<void *>(&MockSqlite3_Open)},
+    {"sqlite3_close", reinterpret_cast<void *>(&MockSqlite3_Close)},
+    {"sqlite3_busy_timeout", reinterpret_cast<void *>(&MockSqlite3_BusyTimeout)},
+    {"sqlite3_exec", reinterpret_cast<void *>(&MockSqlite3_Exec)},
+    {"sqlite3_prepare_v2", reinterpret_cast<void *>(&MockSqlite3_PrepareV2)},
+    {"sqlite3_step", reinterpret_cast<void *>(&MockSqlite3_Step)},
+    {"sqlite3_finalize", reinterpret_cast<void *>(&MockSqlite3_Finalize)},
+    {"sqlite3_bind_text", reinterpret_cast<void *>(&MockSqlite3_BindText)},
+    {"sqlite3_bind_int", reinterpret_cast<void *>(&MockSqlite3_BindInt)},
+    {"sqlite3_bind_int64", reinterpret_cast<void *>(&MockSqlite3_BindInt64)},
+    {"sqlite3_errmsg", reinterpret_cast<void *>(&MockSqlite3_Errmsg)},
 };
 
 bool g_isDlsymNullptr = false;
