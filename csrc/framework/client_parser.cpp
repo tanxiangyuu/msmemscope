@@ -144,6 +144,7 @@ void DoUserCommand(UserCommand userCommand)
 
     if (userCommand.config.dataFormat == static_cast<uint8_t>(DataFormat::DB)) {
         if (!Utility::CreateDbPath(userCommand.config, DB_DUMP_FILE)) {
+            std::cout << "[msleaks] Error: Create dbfile path failed. " << std::endl;
             return;
         }
     }

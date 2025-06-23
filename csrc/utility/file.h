@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <linux/limits.h>
 #include "path.h"
@@ -17,6 +18,7 @@
 namespace Utility {
     constexpr uint32_t DIRMOD = 0750;
     constexpr uint32_t DEFAULT_UMASK_FOR_CSV_FILE = 0177;
+    constexpr uint32_t DEFAULT_UMASK_FOR_DB_FILE = 0177;
     constexpr uint32_t DEFAULT_UMASK_FOR_BIN_FILE = 0177;
     extern std::string g_dirPath;
     constexpr uint64_t MAX_INPUT_FILE_SIZE = 1UL << 33; // 8GB
@@ -123,7 +125,7 @@ namespace Utility {
 
     /// 输出文件校验
     bool CheckFileBeforeCreate(const std::string &path);
-
+    bool FileExists(const std::string& filePath);
     bool TableExists(sqlite3 *filefp, std::string tableName);
     bool CreateDbPath(Leaks::Config &config, const std::string &fileName);
     bool CreateDbTable(sqlite3 *filefp, std::string tableCreateSql);
