@@ -106,9 +106,17 @@ namespace Utility {
     bool CreateDbPath(Leaks::Config &config, const std::string &fileName)
     {
         std::string name = fileName + "_" + Utility::GetDateStr() + ".db";
-        std::string path = std::string(config.outputDir) + "/" + Leaks::DUMP_FILE + "/" + name;
-        if (strncpy_s(config.dbFileDir, sizeof(config.dbFileDir), path.c_str(), sizeof(config.dbFileDir) - 1) != EOK) {
-            std::cout << "strncpy_s FAILED DB" << std::endl;
+        std::string path = std::string(config.outputDir) + "/" + Leaks::DUMP_FILE;
+        if (!MakeDir(path)) {
+            return false;
+        }
+        if (!CheckFileBeforeCreate(path)) {
+            return false;
+        }
+        std::string filePath = std::string(config.outputDir) + "/" + Leaks::DUMP_FILE + "/" + name;
+        if (strncpy_s(config.dbFileDir, sizeof(config.dbFileDir),
+            filePath.c_str(), sizeof(config.dbFileDir) - 1) != EOK) {
+            std::cout << "[msleaks] strncpy_s FAILED DB" << std::endl;
         }
         config.dbFileDir[sizeof(config.dbFileDir) - 1] = '\0';
         if (std::string(config.dbFileDir).length() > PATH_MAX) {
@@ -117,6 +125,12 @@ namespace Utility {
             return false;
         }
         return true;
+    }
+
+    bool FileExists(const std::string& filePath)
+    {
+        std::ifstream file(filePath);
+        return file.good();
     }
 
     bool TableExists(sqlite3 *filefp, std::string tableName)
@@ -153,6 +167,15 @@ namespace Utility {
     bool CreateDbFile(sqlite3 **filefp, std::string filePath, std::string tableName, std::string tableCreateSql)
     {
         if (*filefp == nullptr) {
+            // 在sqlite3_open前先创建好db文件
+            if (!FileExists(filePath)) {
+                FILE* fp = CreateFileWithUmask(filePath, "a", DEFAULT_UMASK_FOR_DB_FILE);
+                if (fp == nullptr) {
+                    std::cout << "[msleaks] Error: open file " << filePath << " failed." << std::endl;
+                    return false;
+                }
+                std::cout << "[msleaks] Info: create dbfile " << filePath << "." << std::endl;
+            }
             sqlite3* db = nullptr;
             int rc = sqlite3_open(filePath.c_str(), &db);
             if (rc != SQLITE_OK) {
@@ -163,7 +186,7 @@ namespace Utility {
                 return false;
             }
             if (CreateDbTable(db, tableCreateSql)) {
-                std::cout << "[msleaks] Info: create dbfile " << filePath << "." << std::endl;
+                std::cout << "[msleaks] Info: create dbtable " << tableName << " in " << filePath << "." << std::endl;
                 *filefp = db;
             } else {
                 sqlite3_close(db);
