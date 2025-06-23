@@ -34,7 +34,7 @@ public:
     void Stop();
 private:
     bool DumpTraceEvent(TraceEvent &event);
-    bool IsIgnore(std::string func);
+    bool IsIgnore(std::string funcName);
     PythonTrace()
     {
         config_ = EventReport::Instance(CommType::SOCKET).GetConfig();

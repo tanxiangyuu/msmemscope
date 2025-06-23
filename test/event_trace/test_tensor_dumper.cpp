@@ -12,7 +12,7 @@ using namespace Leaks;
 TEST(TesnorDumperTest, dump_tensor_binary_expect_success)
 {
     std::string fileName = "test";
-    std::vector<char> hostData(fileName.begin(), fileName.end());
+    std::vector<uint8_t> hostData(fileName.begin(), fileName.end());
     auto ret = TensorDumper::GetInstance().DumpTensorBinary(hostData, fileName);
     ASSERT_TRUE(ret);
 }
@@ -20,7 +20,7 @@ TEST(TesnorDumperTest, dump_tensor_binary_expect_success)
 TEST(TesnorDumperTest, dump_tensor_MD5_expect_success)
 {
     std::string fileName = "test";
-    std::vector<char> hostData(fileName.begin(), fileName.end());
+    std::vector<uint8_t> hostData(fileName.begin(), fileName.end());
     auto ret = TensorDumper::GetInstance().DumpTensorHashValue(hostData, fileName);
     ASSERT_TRUE(ret);
 }

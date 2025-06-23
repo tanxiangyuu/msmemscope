@@ -6,6 +6,6 @@
 #include <string>
 #include <vector>
 
-std::string CalculateDataCheckSum64(const std::vector<char>& data);
+std::string CalculateDataCheckSum64(const std::vector<uint8_t>& data);
 
 #endif
