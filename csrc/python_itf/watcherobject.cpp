@@ -6,6 +6,8 @@
 
 namespace Leaks {
 
+const size_t MAX_WATCH_NAME_LENGTH = 64;
+
 /* 单例类，自定义new函数，避免重复构造 */
 static PyObject* PyLeaksNewWatcher(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
@@ -134,6 +136,10 @@ static PyObject* PyLeaksWatcherWatch(PyObject *self,  PyObject *args, PyObject* 
         name = PyUnicode_AsUTF8(nameObj);
         if (name == nullptr) {
             PyErr_SetString(PyExc_TypeError, "Parse name failed!");
+            Py_RETURN_NONE;
+        }
+        if (std::strlen(name) > MAX_WATCH_NAME_LENGTH) {
+            PyErr_Format(PyExc_ValueError, "Input name exceeds maximum allowed length %zu.", MAX_WATCH_NAME_LENGTH);
             Py_RETURN_NONE;
         }
         PyObject* dumpNumsObj = PyDict_GetItemString(kwds, "dump_nums");

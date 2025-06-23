@@ -7,6 +7,8 @@
 
 namespace Leaks {
 
+const size_t MAX_DESCRIBE_OWNER_LENGTH = 64;
+
 /* 单例类，自定义new函数，避免重复构造 */
 static PyObject* PyLeaksNewDescriber(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
@@ -33,6 +35,10 @@ static PyObject* PyLeaksDescribe(PyObject *self,  PyObject *arg)
         return nullptr;
     }
     std::string str = Utility::PythonObject(arg).Cast<std::string>();
+    if (str.size() > MAX_DESCRIBE_OWNER_LENGTH) {
+        PyErr_Format(PyExc_ValueError, "Input owner exceeds maximum allowed length %zu.", MAX_DESCRIBE_OWNER_LENGTH);
+        Py_RETURN_NONE;
+    }
     DescribeTrace::GetInstance().AddDescribe(str);
     Py_RETURN_NONE;
 }
@@ -46,6 +52,10 @@ static PyObject* PyLeaksUnDescribe(PyObject *self,  PyObject *arg)
         return nullptr;
     }
     std::string str = Utility::PythonObject(arg).Cast<std::string>();
+    if (str.size() > MAX_DESCRIBE_OWNER_LENGTH) {
+        PyErr_Format(PyExc_ValueError, "Input owner exceeds maximum allowed length %zu.", MAX_DESCRIBE_OWNER_LENGTH);
+        Py_RETURN_NONE;
+    }
     DescribeTrace::GetInstance().EraseDescribe(str);
     Py_RETURN_NONE;
 }
@@ -59,6 +69,10 @@ static PyObject* PyLeaksDescribeAddr(PyObject *self,  PyObject *args)
 
     if (!PyArg_ParseTuple(args, "Ks", &addr, &str)) {
         return NULL;
+    }
+    if (std::strlen(str) > MAX_DESCRIBE_OWNER_LENGTH) {
+        PyErr_Format(PyExc_ValueError, "Input owner exceeds maximum allowed length %zu.", MAX_DESCRIBE_OWNER_LENGTH);
+        Py_RETURN_NONE;
     }
     DescribeTrace::GetInstance().DescribeAddr(addr, std::string(str));
     Py_RETURN_NONE;
