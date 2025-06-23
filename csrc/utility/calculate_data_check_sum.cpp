@@ -28,7 +28,7 @@ static void InitializeTable()
         uint64_t checksum = static_cast<uint64_t>(i);
         
         for (int j = 0; j < BITS_PER_BYTE; ++j) {
-            if (checksum & 1) {
+            if ((checksum & 1) != 0) {
                 checksum = (checksum >> 1) ^ DATA_CHECKSUM64_POLYNOMIAL;
             } else {
                 checksum >>= 1;
@@ -41,7 +41,7 @@ static void InitializeTable()
     tableInitialized = true;
 }
 
-std::string CalculateDataCheckSum64(const std::vector<char>& data)
+std::string CalculateDataCheckSum64(const std::vector<uint8_t>& data)
 {
     // 确保查找表已初始化
     InitializeTable();

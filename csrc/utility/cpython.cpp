@@ -69,9 +69,8 @@ bool IsPyInterpRepeInited()
     return false;
 }
 
-PyInterpGuard::PyInterpGuard()
+PyInterpGuard::PyInterpGuard() : gstate(PyGILState_Ensure())
 {
-    gstate = PyGILState_Ensure();
 }
 
 PyInterpGuard::~PyInterpGuard()
@@ -95,7 +94,7 @@ void PythonCallstack(uint32_t pyDepth, std::string& pyStack)
     if (frame == nullptr) {
         return;
     }
-    Py_IncRef((PyObject *)frame);
+    Py_IncRef(reinterpret_cast<PyObject *>(frame));
     size_t depth = 0;
     pyStack.reserve(PRE_ALLOC_SIZE);
     pyStack += "\"";
@@ -112,13 +111,13 @@ void PythonCallstack(uint32_t pyDepth, std::string& pyStack)
                    "): " + std::string(PyUnicode_AsUTF8(PyObject_Str(funcName))) + "\n";
 
         PyFrameObject *prevFrame = PyFrame_GetBack(frame);
-        Py_DecRef((PyObject *)frame);
+        Py_DecRef(reinterpret_cast<PyObject *>(frame));
         frame = prevFrame;
-        Py_DecRef((PyObject *)code);
+        Py_DecRef(reinterpret_cast<PyObject *>(code));
         depth++;
     }
     if (frame != nullptr) {
-        Py_DecRef((PyObject *)frame);
+        Py_DecRef(reinterpret_cast<PyObject *>(frame));
     }
     pyStack += "\"";
     return;
