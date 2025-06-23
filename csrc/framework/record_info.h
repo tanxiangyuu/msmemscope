@@ -291,7 +291,7 @@ struct EventRecord {
     uint64_t pyStackLen;
     uint64_t cStackLen;
     char buffer[0];
-    explicit EventRecord(RecordType type) : type(type)
+    explicit EventRecord(RecordType type) : type(type), pyStackLen(0), cStackLen(0)
     {}
     EventRecord() = default;
 };
