@@ -24,7 +24,7 @@ void OpExcuteWatch::BeginExcute(aclrtStream stream, const std::string &rawItem, 
 }
 
 void OpExcuteWatch::EndExcute(aclrtStream stream, const std::string &excuteItem, const std::string &rawItem,
-    OpType type, const std::vector<MonitoredTensor> &outputTensors)
+    OpType type, const std::vector<MonitoredTensor> &outputTensors,  uint32_t outputId)
 {
     OpEventType opEventType;
     if (type == OpType::ATB) {
@@ -35,10 +35,11 @@ void OpExcuteWatch::EndExcute(aclrtStream stream, const std::string &excuteItem,
         CLIENT_WARN_LOG("Get unknown type!");
         return ;
     }
-    if (IsFirstWatchOp(excuteItem)) {
+
+    if (IsFirstWatchOp(excuteItem) && watchedOpName_.empty()) {
         SetWatchedOpName(excuteItem);
-        TensorMonitor::GetInstance().AddWatchTensor(outputTensors);
-        TensorDumper::GetInstance().Dump(stream, rawItem, opEventType);
+        TensorMonitor::GetInstance().AddWatchTensor(outputTensors, outputId);
+        TensorDumper::GetInstance().Dump(stream, rawItem, opEventType, true);
 
         return;
     }
@@ -56,6 +57,25 @@ void OpExcuteWatch::EndExcute(aclrtStream stream, const std::string &excuteItem,
     }
 
     return;
+}
+
+void OpExcuteBegin(aclrtStream stream, char *rawOp, OpType type)
+{
+    std::string str(rawOp);
+    return Leaks::OpExcuteWatch::GetInstance().OpExcuteBegin(stream, str, OpType::ATB);
+}
+
+void OpExcuteEnd(aclrtStream stream, char *rawOp, MonitoredTensor* tensorsInput, size_t size, OpType type)
+{
+    std::vector<MonitoredTensor> tensors;
+
+    tensors.reserve(size);
+
+    for (size_t i = 0; i < size; ++i) {
+        tensors.push_back(tensorsInput[i]);
+    }
+    std::string str(rawOp);
+    return Leaks::OpExcuteWatch::GetInstance().OpExcuteEnd(stream, str, tensors, OpType::ATB);
 }
 
 void OpExcuteWatch::OpExcuteBegin(aclrtStream stream, const std::string &rawOp, OpType type)
@@ -76,9 +96,15 @@ void OpExcuteWatch::OpExcuteEnd(aclrtStream stream,
         std::vector<MonitoredTensor> dumpTensors;
         MonitoredTensor tensor = tensors[outputId_];
         dumpTensors.emplace_back(tensor);
-        return EndExcute(stream, op, rawOp, type, dumpTensors);
+        return EndExcute(stream, op, rawOp, type, dumpTensors, outputId_);
     }
     return EndExcute(stream, op, rawOp, type, tensors);
+}
+
+void KernelExcute(aclrtStream stream, char *rawOp, const Mki::SVector<Mki::Tensor>& tensors, OpType type)
+{
+    std::string str(rawOp);
+    return Leaks::OpExcuteWatch::GetInstance().KernelExcute(stream, str, tensors, OpType::ATB);
 }
 
 void OpExcuteWatch::KernelExcute(aclrtStream stream,
@@ -100,7 +126,7 @@ void OpExcuteWatch::KernelExcute(aclrtStream stream,
             tensor.data = tensors[outputId_].data;
             tensor.dataSize = static_cast<uint64_t>(tensors[outputId_].dataSize);
             dumpTensors.emplace_back(tensor);
-            return EndExcute(stream, kernelDir, rawKernel.substr(0, afterPos), type, dumpTensors);
+            return EndExcute(stream, kernelDir, rawKernel.substr(0, afterPos), type, dumpTensors, outputId_);
         }
         for (auto &item : tensors) {
             MonitoredTensor tensor {};

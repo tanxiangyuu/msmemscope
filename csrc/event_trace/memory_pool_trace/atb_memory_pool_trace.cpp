@@ -135,7 +135,7 @@ void ATBMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregi
         memUsageMp_[rangeDesc.deviceId].ptr = reinterpret_cast<int64_t>(rangeDesc.ptr);
         memUsageMp_[rangeDesc.deviceId].totalAllocated =
             Utility::GetSubResult(memUsageMp_[rangeDesc.deviceId].totalAllocated, rangeDesc.size);
-        memUsageMp_[rangeDesc.deviceId].allocSize = -rangeDesc.size;
+        memUsageMp_[rangeDesc.deviceId].allocSize = rangeDesc.size;
         record.type = RecordType::ATB_MEMORY_POOL_RECORD;
         record.memoryUsage = memUsageMp_[rangeDesc.deviceId];
         record.pid = Utility::GetPid();

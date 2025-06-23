@@ -132,7 +132,13 @@ void DoUserCommand(UserCommand userCommand)
             sizeof(userCommand.config.outputDir) - 1) != EOK) {
         std::cout << "strncpy_s FAILED" << std::endl;
     }
+
     userCommand.config.outputDir[sizeof(userCommand.config.outputDir) - 1] = '\0';
+
+    if (userCommand.config.watchConfig.isWatched) {
+        std::cout << "[msleaks] Info: the output of watch will be saved in the " <<
+            userCommand.config.outputDir << "/watch_dump" << std::endl;
+    }
 
     if (userCommand.config.dataFormat == static_cast<uint8_t>(DataFormat::DB)) {
         if (!Utility::IsSqliteAvailable() || !Utility::CreateDbPath(userCommand.config, DB_DUMP_FILE)) {

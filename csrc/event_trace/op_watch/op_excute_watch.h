@@ -47,7 +47,7 @@ private:
     // 落盘时需要用完整的opName，包含卡号和线程号。
     void BeginExcute(aclrtStream stream, const std::string &rawItem, OpType type);
     void EndExcute(aclrtStream stream, const std::string &excuteItem, const std::string &rawItem, OpType type,
-        const std::vector<MonitoredTensor> &outputTensors = {});
+        const std::vector<MonitoredTensor> &outputTensors = {}, uint32_t outputId = 0);
 
     bool IsFirstWatchOp(const std::string &op);
     bool IsLastWatchOp(const std::string &op);
@@ -62,9 +62,12 @@ private:
     std::string fistWatchOp_;
     std::string lastWatchOp_;
     uint32_t outputId_;
-
     std::mutex mutex_;
 };
+
+void OpExcuteBegin(aclrtStream stream, char *rawOp, OpType type);
+void OpExcuteEnd(aclrtStream stream, char *rawOp, MonitoredTensor *tensors, size_t size, OpType type);
+void KernelExcute(aclrtStream stream, char *rawOp, const Mki::SVector<Mki::Tensor>& tensors, OpType type);
 
 }
 #endif

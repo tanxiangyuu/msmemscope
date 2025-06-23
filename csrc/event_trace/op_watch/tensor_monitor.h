@@ -25,8 +25,9 @@ public:
         return instance;
     }
     void AddWatchTensor(MonitoredTensor& tensorInfo);
-    void AddWatchTensor(const std::vector<MonitoredTensor>& tensorInfoLists);
+    void AddWatchTensor(const std::vector<MonitoredTensor>& tensorInfoLists, uint32_t outputId);
     std::unordered_map<uint64_t, MonitoredTensor>& GetCmdWatchedTensorsMap();
+    uint32_t GetCmdWatchedOutputId();
     std::unordered_map<uint64_t, MonitoredTensor>& GetPythonWatchedTensorsMap();
     void DeleteWatchTensor(MonitoredTensor& tensorInfo);
     void ClearCmdWatchTensor();
@@ -36,6 +37,7 @@ private:
     TensorMonitor(const TensorMonitor&) = delete;
     TensorMonitor& operator=(const TensorMonitor&) = delete;
 private:
+    uint32_t outputId_ = {0};
     std::unordered_map<uint64_t, MonitoredTensor> cmdWatchedTensorsMap_ = {};
     std::unordered_map<uint64_t, MonitoredTensor> pythonWatchedTensorsMap_ = {};
     std::mutex mapMutex_;
