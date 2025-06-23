@@ -267,16 +267,26 @@ extern "C" atb::Status _ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE(atb::Runn
     if (isReportAccess) {
         atb::LeaksReportTensors(runnerVariantPack, name);
     }
+    char cDirPath[WATCH_OP_DIR_MAX_LENGTH];
     if (config.watchConfig.isWatched) {
-        Leaks::OpExcuteWatch::GetInstance().OpExcuteBegin(stream, dir, OpType::ATB);
+        if (strncpy_s(cDirPath, WATCH_OP_DIR_MAX_LENGTH, dir.c_str(), WATCH_OP_DIR_MAX_LENGTH - 1) != EOK) {
+            CLIENT_ERROR_LOG("strncpy_s FAILED");
+            cDirPath[0] = '\0';
+        }
+    }
+    if (config.watchConfig.isWatched) {
+        OpExcuteBegin(stream, cDirPath, OpType::ATB);
     }
     atb::Status st = funcExecute(thisPtr, runnerVariantPack);
     if (config.watchConfig.isWatched) {
-        std::vector<MonitoredTensor> outputTensors;
+        MonitoredTensor tensors[runnerVariantPack.outTensors.size()];
+        size_t loop = 0;
         for (auto &item : runnerVariantPack.outTensors) {
-            outputTensors.emplace_back(MonitoredTensor{item.deviceData, item.dataSize});
+            tensors[loop].dataSize = item.dataSize;
+            tensors[loop].data = item.deviceData;
+            loop++;
         }
-        Leaks::OpExcuteWatch::GetInstance().OpExcuteEnd(stream, dir, outputTensors, OpType::ATB);
+        OpExcuteEnd(stream, cDirPath, tensors, runnerVariantPack.outTensors.size(), OpType::ATB);
     }
     if (isReportLaunch) {
         atb::LeaksReportOp(name, params, false);
@@ -312,8 +322,12 @@ extern "C" void _ZN3atb9StoreUtil15SaveLaunchParamEPvRKN3Mki11LaunchParamERKNSt7
     }
 
     if (config.watchConfig.isWatched) {
-        Leaks::OpExcuteWatch::GetInstance().KernelExcute(stream, dirPath,
-            getOutTensors(const_cast<Mki::LaunchParam*>(&launchParam)), OpType::ATB);
+        char cDirPath[WATCH_OP_DIR_MAX_LENGTH];
+        if (strncpy_s(cDirPath, WATCH_OP_DIR_MAX_LENGTH, dirPath.c_str(), WATCH_OP_DIR_MAX_LENGTH - 1) != EOK) {
+            CLIENT_ERROR_LOG("strncpy_s FAILED");
+            cDirPath[0] = '\0';
+        }
+        KernelExcute(stream, cDirPath, getOutTensors(const_cast<Mki::LaunchParam*>(&launchParam)), OpType::ATB);
     }
     std::string name;
     static BitField<decltype(config.eventType)> eventType(config.eventType);
