@@ -25,6 +25,7 @@ target_sources(ascend_kernel_hook PRIVATE
   ${UTILITY_INC_DIR}/call_stack.cpp
   ${UTILITY_INC_DIR}/cpython.cpp
   ${UTILITY_INC_DIR}/path.cpp
+  ${UTILITY_INC_DIR}/ustring.cpp
   ${FUNC_HOSTINJECTION_DIR}/utils/FileSystem.cpp
   ${FUNC_HOSTINJECTION_DIR}/utils/Ustring.cpp
 )

@@ -64,16 +64,23 @@ PyDoc_STRVAR(DescribeAddrDoc,
 "describe_addr($self, addr, owner)\n--\n\nEnable debug.");
 static PyObject* PyLeaksDescribeAddr(PyObject *self,  PyObject *args)
 {
-    unsigned long long addr = 0;
+    PyObject *addrObj = nullptr;
     const char* str = nullptr;
 
-    if (!PyArg_ParseTuple(args, "Ks", &addr, &str)) {
+    if (!PyArg_ParseTuple(args, "Os", &addrObj, &str)) {
         return nullptr;
     }
     if (std::strlen(str) > MAX_DESCRIBE_OWNER_LENGTH) {
         PyErr_Format(PyExc_ValueError, "Input owner exceeds maximum allowed length %zu.", MAX_DESCRIBE_OWNER_LENGTH);
         Py_RETURN_NONE;
     }
+
+    uint64_t addr = static_cast<uint64_t>(PyLong_AsUnsignedLongLong(addrObj));
+    if (PyErr_Occurred()) {
+        PyErr_SetString(PyExc_TypeError, "Parse tensor length failed!");
+        Py_RETURN_NONE;
+    }
+
     DescribeTrace::GetInstance().DescribeAddr(addr, std::string(str));
     Py_RETURN_NONE;
 }
