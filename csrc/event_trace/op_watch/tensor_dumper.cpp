@@ -128,9 +128,9 @@ std::string TensorDumper::GetFileName(const std::string &op, OpEventType eventTy
     std::string wathcedOpName, uint64_t index, bool isFirstOp)
 {
     std::string type;
-    std::string opName;
+    std::string opName = op;
     if (eventType == OpEventType::ATB_START || eventType == OpEventType::ATEN_START) {
-        opName = op + "_" + std::to_string(CountOpName(op));
+        opName += "_" + std::to_string(CountOpName(op));
         type = "before";
     }
     if (eventType == OpEventType::ATB_END || eventType == OpEventType::ATEN_END) {
@@ -141,7 +141,7 @@ std::string TensorDumper::GetFileName(const std::string &op, OpEventType eventTy
         }
         type = "after";
     }
-    std::string name = op + "-" + wathcedOpName + "_" + std::to_string(index) + "_" + type + ".bin";
+    std::string name = opName + "-" + wathcedOpName + "_" + std::to_string(index) + "_" + type + ".bin";
     return name;
 }
 
