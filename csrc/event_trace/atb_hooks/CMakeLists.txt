@@ -9,6 +9,7 @@ target_sources(atb_abi_0_hook PRIVATE
   ${UTILITY_INC_DIR}/log.cpp
   ${UTILITY_INC_DIR}/file.cpp
   ${UTILITY_INC_DIR}/calculate_data_check_sum.cpp
+  ${UTILITY_INC_DIR}/sqlite_loader.cpp
   ${UTILITY_INC_DIR}/path.cpp
   ${FRAMEWORK_INC_DIR}/client_process.cpp
 )
@@ -39,6 +40,7 @@ target_sources(atb_abi_1_hook PRIVATE
   enum2string.cpp
   ${UTILITY_INC_DIR}/log.cpp
   ${UTILITY_INC_DIR}/file.cpp
+  ${UTILITY_INC_DIR}/sqlite_loader.cpp
   ${UTILITY_INC_DIR}/path.cpp
   ${FRAMEWORK_INC_DIR}/client_process.cpp
 )

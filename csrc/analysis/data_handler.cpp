@@ -1,11 +1,9 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 
 #include <sstream>
-#include <sqlite3.h>
 #include "file.h"
 #include "utils.h"
 #include "data_handler.h"
-
 namespace Leaks {
 
 DataHandler::DataHandler(const Config config)
@@ -111,9 +109,8 @@ CsvHandler::~CsvHandler()
     }
 }
 
-DbHandler::DbHandler(const Config config, DumpClass dumpType) : DataHandler(config)
+DbHandler::DbHandler(const Config config, DumpClass dumpType) : DataHandler(config), dumpType_(dumpType)
 {
-    dumpType_ = dumpType;
     InitSetParm();
 }
 
@@ -177,37 +174,37 @@ bool DbHandler::WriteDumpRecord(const DumpContainer* container, const CallStackS
 
     std::string insertSql = BuildInsertStatement(DUMP_RECORD_TABLE, columns);
     sqlite3_stmt* stmt = nullptr;
-    int rc = sqlite3_prepare_v2(dataFileDb_, insertSql.c_str(), -1, &stmt, nullptr);
+    int rc = Sqlite3PrepareV2(dataFileDb_, insertSql.c_str(), -1, &stmt, nullptr);
     if (rc != SQLITE_OK) {
-        LOG_ERROR("Sqlite prepare error: %s", sqlite3_errmsg(dataFileDb_));
+        LOG_ERROR("Sqlite prepare error: %s", Sqlite3Errmsg(dataFileDb_));
         return false;
     }
     std::string attrJson = FixJson(container->attr);
     int paramIndex = 1;
-    sqlite3_bind_int64(stmt, paramIndex++, container->id);
-    sqlite3_bind_text(stmt, paramIndex++, container->event.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, paramIndex++, container->eventType.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, paramIndex++, container->name.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_int64(stmt, paramIndex++, container->timeStamp);
-    sqlite3_bind_int(stmt, paramIndex++, container->pid);
-    sqlite3_bind_int(stmt, paramIndex++, container->tid);
-    sqlite3_bind_text(stmt, paramIndex++, container->deviceId.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, paramIndex++, container->addr.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, paramIndex++, attrJson.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindInt64(stmt, paramIndex++, container->id);
+    Sqlite3BindText(stmt, paramIndex++, container->event.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(stmt, paramIndex++, container->eventType.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(stmt, paramIndex++, container->name.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindInt64(stmt, paramIndex++, container->timeStamp);
+    Sqlite3BindInt(stmt, paramIndex++, container->pid);
+    Sqlite3BindInt(stmt, paramIndex++, container->tid);
+    Sqlite3BindText(stmt, paramIndex++, container->deviceId.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(stmt, paramIndex++, container->addr.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(stmt, paramIndex++, attrJson.c_str(), -1, SQLITE_STATIC);
     if (config_.enableCStack) {
-        sqlite3_bind_text(stmt, paramIndex++, stack.cStack.c_str(), -1, SQLITE_STATIC);
+        Sqlite3BindText(stmt, paramIndex++, stack.cStack.c_str(), -1, SQLITE_STATIC);
     }
     if (config_.enablePyStack) {
-        sqlite3_bind_text(stmt, paramIndex++, stack.pyStack.c_str(), -1, SQLITE_STATIC);
+        Sqlite3BindText(stmt, paramIndex++, stack.pyStack.c_str(), -1, SQLITE_STATIC);
     }
-    sqlite3_busy_timeout(dataFileDb_, SQLITE_TIME_OUT);
-    rc = sqlite3_step(stmt);
+    Sqlite3BusyTimeout(dataFileDb_, SQLITE_TIME_OUT);
+    rc = Sqlite3Step(stmt);
     if (rc != SQLITE_DONE) {
-        LOG_ERROR("Sqlite insert error in leaks dump: %s", sqlite3_errmsg(dataFileDb_));
-        sqlite3_finalize(stmt);
+        LOG_ERROR("Sqlite insert error in leaks dump: %s", Sqlite3Errmsg(dataFileDb_));
+        Sqlite3Finalize(stmt);
         return false;
     }
-    sqlite3_finalize(stmt);
+    Sqlite3Finalize(stmt);
     return true;
 }
 
@@ -228,30 +225,30 @@ bool DbHandler::WriteTraceEvent(const TraceEvent* event, const std::string &tabl
     std::string insertSql = BuildInsertStatement(tableName, columns);
 
     sqlite3_stmt* stmt = nullptr;
-    int rc = sqlite3_prepare_v2(dataFileDb_, insertSql.c_str(), -1, &stmt, nullptr);
+    int rc = Sqlite3PrepareV2(dataFileDb_, insertSql.c_str(), -1, &stmt, nullptr);
     if (rc != SQLITE_OK) {
-        LOG_ERROR("Sqlite prepare error: %s", sqlite3_errmsg(dataFileDb_));
+        LOG_ERROR("Sqlite prepare error: %s", Sqlite3Errmsg(dataFileDb_));
         return false;
     }
 
     std::string startTime = event->startTs ? std::to_string(event->startTs) : "N/A";
     std::string endTime = event->endTs ? std::to_string(event->endTs) : "N/A";
     int paramIndex = 1;
-    sqlite3_bind_text(stmt, paramIndex++, event->info.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, paramIndex++, startTime.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, paramIndex++, endTime.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_int64(stmt, paramIndex++, event->tid);
-    sqlite3_bind_int64(stmt, paramIndex++, event->pid);
+    Sqlite3BindText(stmt, paramIndex++, event->info.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(stmt, paramIndex++, startTime.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(stmt, paramIndex++, endTime.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindInt64(stmt, paramIndex++, event->tid);
+    Sqlite3BindInt64(stmt, paramIndex++, event->pid);
 
-    sqlite3_busy_timeout(dataFileDb_, SQLITE_TIME_OUT);
-    rc = sqlite3_step(stmt);
+    Sqlite3BusyTimeout(dataFileDb_, SQLITE_TIME_OUT);
+    rc = Sqlite3Step(stmt);
     if (rc != SQLITE_DONE) {
-        LOG_ERROR("Sqlite insert error in python trace: %s", sqlite3_errmsg(dataFileDb_));
-        sqlite3_finalize(stmt);
+        LOG_ERROR("Sqlite insert error in python trace: %s", Sqlite3Errmsg(dataFileDb_));
+        Sqlite3Finalize(stmt);
         return false;
     }
 
-    sqlite3_finalize(stmt);
+    Sqlite3Finalize(stmt);
     return true;
 }
 
@@ -264,7 +261,7 @@ bool DbHandler::Read(std::vector<DumpContainer>& data)
 DbHandler::~DbHandler()
 {
     if (dataFileDb_ != nullptr) {
-        sqlite3_close(dataFileDb_);
+        Sqlite3Close(dataFileDb_);
         dataFileDb_ = nullptr;
     }
 }
