@@ -88,7 +88,7 @@ inline bool CheckStrIsStartsWithInvalidChar(const char *const &str)
 }
 
 std::string ExtractAttrValueByKey(const std::string& str, const std::string& key);
-
+void ToSafeString(std::string &str);
 // 去除空格
 inline std::string Trim(const char* str)
 {

@@ -100,6 +100,7 @@ void StepInterAnalyzer::ReadCsvFile(std::string &path, std::unordered_map<DEVICE
         // 获取每一行的数据
         while (ss.good()) {
             std::string singleValue = ReadQuotedField(ss);
+            Utility::ToSafeString(singleValue);
             lineData.emplace_back(singleValue);
         }
 
