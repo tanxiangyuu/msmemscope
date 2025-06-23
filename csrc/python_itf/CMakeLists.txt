@@ -13,5 +13,6 @@ target_sources(_msleaks PRIVATE ${SOURCES})
 target_sources(_msleaks PRIVATE
   ${EVENT_TRACE_INC_DIR}/python_trace.cpp
   ${EVENT_TRACE_INC_DIR}/describe_trace.cpp
+  ${UTILITY_INC_DIR}/ustring.cpp
 )
 target_link_libraries(_msleaks PUBLIC ascend_leaks)

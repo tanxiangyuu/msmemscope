@@ -2,6 +2,7 @@
 
 #include "mstx_analyzer.h"
 #include "utility/log.h"
+#include "utility/ustring.h"
 
 namespace Leaks {
 
@@ -48,13 +49,15 @@ bool MstxAnalyzer::RecordMstx(const ClientId &clientId, const MstxRecord &mstxRe
 {
     DeviceId deviceId = mstxRecord.devId;
     uint64_t stepId = mstxRecord.stepId;
+    std::string mstxMessage(mstxRecord.markMessage);
+    Utility::ToSafeString(mstxMessage);
     if (mstxRecord.markType == MarkType::RANGE_START_A) {
         LOG_INFO("[npu %ld][client %u][stepid %llu][streamid %d][start]: %s",
             deviceId,
             clientId,
             stepId,
             mstxRecord.streamId,
-            mstxRecord.markMessage);
+            mstxMessage.c_str());
         Notify(mstxRecord);
         return true;
     } else if (mstxRecord.markType == MarkType::RANGE_END) {
@@ -63,7 +66,7 @@ bool MstxAnalyzer::RecordMstx(const ClientId &clientId, const MstxRecord &mstxRe
             clientId,
             stepId,
             mstxRecord.streamId,
-            mstxRecord.markMessage);
+            mstxMessage.c_str());
         Notify(mstxRecord);
         return true;
     } else if (mstxRecord.markType == MarkType::MARK_A) {
@@ -72,7 +75,7 @@ bool MstxAnalyzer::RecordMstx(const ClientId &clientId, const MstxRecord &mstxRe
             clientId,
             stepId,
             mstxRecord.streamId,
-            mstxRecord.markMessage);
+            mstxMessage.c_str());
         return true;
     }
     return false;

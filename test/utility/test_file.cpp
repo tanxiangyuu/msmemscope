@@ -2,7 +2,6 @@
 
 #include <gtest/gtest.h>
 #include <dlfcn.h>
-#include <sqlite3.h>
 #include "utility/file.h"
 #include "utility/log.h"
 #include "config_info.h"

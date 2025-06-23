@@ -29,14 +29,6 @@ TensorDumper::TensorDumper()
     fullContent_ = config.watchConfig.fullContent;
 
     dumpDir_ = std::string(config.outputDir) + "/watch_dump";
-
-    if (!IsDumpFullContent()) {
-        int32_t devId = GD_INVALID_NUM;
-        if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
-            CLIENT_ERROR_LOG("Get device id failed, " + std::to_string(devId));
-        }
-        fileName_ = "watch_dump_data_check_sum_" + std::to_string(devId) + "_";
-    }
 }
 
 TensorDumper::~TensorDumper()
@@ -52,7 +44,7 @@ bool TensorDumper::IsDumpFullContent()
     return fullContent_;
 }
 
-bool TensorDumper::DumpTensorBinary(const std::vector<char> &hostData, std::string& fileName)
+bool TensorDumper::DumpTensorBinary(const std::vector<uint8_t> &hostData, std::string& fileName)
 {
     CleanFileName(fileName);
 
@@ -62,7 +54,7 @@ bool TensorDumper::DumpTensorBinary(const std::vector<char> &hostData, std::stri
         return false;
     }
 
-    outFile.write(hostData.data(), hostData.size());
+    outFile.write(reinterpret_cast<const char*>(hostData.data()), hostData.size());
 
     if (!outFile.good()) {
         return false;
@@ -73,12 +65,21 @@ bool TensorDumper::DumpTensorBinary(const std::vector<char> &hostData, std::stri
     return true;
 }
 
-bool TensorDumper::DumpTensorHashValue(const std::vector<char> &hostData, std::string& fileName)
+bool TensorDumper::DumpTensorHashValue(const std::vector<uint8_t> &hostData, std::string& fileName)
 {
-    auto hashValue = CalculateDataCheckSum64(hostData);
-    if (!Utility::CreateCsvFile(&csvFile_, dumpDir_, fileName_, WATCH_HASH_HEADERS)) {
-        CLIENT_ERROR_LOG("Create csv file failed.");
+    if (csvFile_ == nullptr) {
+        int32_t devId = GD_INVALID_NUM;
+        if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+            CLIENT_ERROR_LOG("Get device id failed, " + std::to_string(devId));
+        }
+        fileName_ = "watch_dump_data_check_sum_" + std::to_string(devId) + "_";
+        if (!Utility::CreateCsvFile(&csvFile_, dumpDir_, fileName_, WATCH_HASH_HEADERS)) {
+            CLIENT_ERROR_LOG("Create csv file failed.");
+            return false;
+        }
     }
+
+    auto hashValue = CalculateDataCheckSum64(hostData);
     if (!Utility::Fprintf(csvFile_, "%s,%s\n", fileName.c_str(), hashValue.c_str())) {
         CLIENT_ERROR_LOG("Write tensor data check sum info failed.");
         return false;
@@ -98,7 +99,7 @@ bool TensorDumper::DumpOneTensor(const MonitoredTensor& tensor, std::string& fil
         return false;
     }
 
-    std::vector<char> hostData(tensor.dataSize);
+    std::vector<uint8_t> hostData(tensor.dataSize);
     aclError ret = vallina(hostData.data(), tensor.dataSize, tensor.data, tensor.dataSize, ACL_MEMCPY_DEVICE_TO_HOST);
     if (ret != ACL_SUCCESS) {
         return false;
@@ -127,9 +128,9 @@ std::string TensorDumper::GetFileName(const std::string &op, OpEventType eventTy
     std::string wathcedOpName, uint64_t index, bool isFirstOp)
 {
     std::string type;
-    std::string opName;
+    std::string opName = op;
     if (eventType == OpEventType::ATB_START || eventType == OpEventType::ATEN_START) {
-        opName = op + "_" + std::to_string(CountOpName(op));
+        opName += "_" + std::to_string(CountOpName(op));
         type = "before";
     }
     if (eventType == OpEventType::ATB_END || eventType == OpEventType::ATEN_END) {
@@ -140,7 +141,7 @@ std::string TensorDumper::GetFileName(const std::string &op, OpEventType eventTy
         }
         type = "after";
     }
-    std::string name = op + "-" + wathcedOpName + "_" + std::to_string(index) + "_" + type + ".bin";
+    std::string name = opName + "-" + wathcedOpName + "_" + std::to_string(index) + "_" + type + ".bin";
     return name;
 }
 

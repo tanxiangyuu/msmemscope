@@ -18,7 +18,16 @@ namespace Leaks {
 struct ATBLibLoader {
     static void *Load(void)
     {
-        return dlopen("libatb.so", RTLD_NOW | RTLD_GLOBAL);
+        std::string libName = "libatb.so";
+        const char *pathEnv = std::getenv("ATB_HOME_PATH");
+        if (!pathEnv || std::string(pathEnv).empty()) {
+            std::cout << "[msleaks] Failed to acquire ATB_HOME_PATH environment variable while loading "
+                << libName << "." << std::endl;
+            return nullptr;
+        }
+        std::string libPath = pathEnv;
+        libPath += "/lib/" + libName;
+        return dlopen(libPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
     }
 };
 }
