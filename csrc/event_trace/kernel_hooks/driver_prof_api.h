@@ -9,7 +9,7 @@ namespace Leaks {
 struct DriverProfApiLoader {
     static void *Load(void)
     {
-        return dlopen("libascend_hal.so", RTLD_NOW | RTLD_GLOBAL);
+        return LibLoadFromDriver("libascend_hal.so");
     }
 };
 
