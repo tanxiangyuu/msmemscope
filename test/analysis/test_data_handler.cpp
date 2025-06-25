@@ -41,6 +41,8 @@ TEST(DataHandler, CsvHandler_Write_LeakRecord)
     data.dumpType = DumpClass::LEAKS_RECORD;
     CallStackString stack = {};
     ASSERT_TRUE(handler.Write(&data, stack));
+    std::vector<DumpContainer> dataVec = {};
+    handler.Read(dataVec);
 
     config.enablePyStack = true;
     CsvHandler handlerPy(config, DumpClass::LEAKS_RECORD);
@@ -69,6 +71,7 @@ TEST(DataHandler, Sqlite3_open)
     std::string path = "./testLeaksDumpResults/test.db";
     int rc = Sqlite3Open(path.c_str(), &db);
     EXPECT_EQ(rc, 0);
+    Sqlite3Errmsg(db);
 }
 
 TEST(DataHandler, DbHandler_Write_LeakRecord)
@@ -99,6 +102,7 @@ TEST(DataHandler, DbHandler_Write_LeakRecord)
     stack.cStack = "call_stack_c";
     stack.pyStack = "call_stack_py";
     ASSERT_TRUE(handler->Write(&data, stack));
+    std::vector<DumpContainer> dataVec = {};
 
     config.enableCStack = false;
     config.enablePyStack = false;
@@ -112,6 +116,7 @@ TEST(DataHandler, DbHandler_Write_LeakRecord)
     event.info = "function_call";
     event.hash = "hash123";
     event.dumpType = DumpClass::PYTHON_TRACE;
+    handler_.Read(dataVec);
     ASSERT_TRUE(handler_.Write(&event, {}));
 }
 
