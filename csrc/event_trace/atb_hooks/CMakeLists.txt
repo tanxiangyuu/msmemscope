@@ -3,12 +3,8 @@ add_library(atb_abi_0_hook SHARED atb_hooks.cpp)
 target_sources(atb_abi_0_hook PRIVATE
   atb_hooks.cpp
   enum2string.cpp
-  ${EVENT_TRACE_INC_DIR}/op_watch/op_excute_watch.cpp
-  ${EVENT_TRACE_INC_DIR}/op_watch/tensor_dumper.cpp
-  ${EVENT_TRACE_INC_DIR}/op_watch/tensor_monitor.cpp
   ${UTILITY_INC_DIR}/log.cpp
   ${UTILITY_INC_DIR}/file.cpp
-  ${UTILITY_INC_DIR}/calculate_data_check_sum.cpp
   ${UTILITY_INC_DIR}/sqlite_loader.cpp
   ${UTILITY_INC_DIR}/path.cpp
   ${FRAMEWORK_INC_DIR}/client_process.cpp
