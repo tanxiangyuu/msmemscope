@@ -80,14 +80,16 @@ void AtenManager::ReportAtenLaunch(const char* msg, int32_t streamId, bool isAte
     }
 
     std::string name;
-    std::string deviceId;
     ExtractTensorInfo(msg, "name=", name);
-    ExtractTensorInfo(msg, "device=", deviceId);
+    int32_t devId = GD_INVALID_NUM;
+    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+        CLIENT_ERROR_LOG("Get device id failed.");
+    }
     uint64_t tid = Utility::GetTid();
 
     strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1);
 
-    std::string opName = deviceId + "_" + std::to_string(tid) + "/" + name;
+    std::string opName = std::to_string(devId) + "_" + std::to_string(tid) + "/" + name;
     if (isWatchEnable_ && isAtenBegin) {
         OpExcuteWatch::GetInstance().OpExcuteBegin(nullptr, opName, OpType::ATEN);
     }
