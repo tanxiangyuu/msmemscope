@@ -263,6 +263,55 @@ TEST(EventReportTest, ReportAtbMemAccessTest) {
     EXPECT_TRUE(instance.ReportAtbAccessMemory(records));
 }
 
+TEST(EventReportTest, ReportAtenLaunchTestExpectSuccess)
+{
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.isReceiveServerInfo_ = true;
+    AtenOpLaunchRecord atenOpLaunchRecord{};
+    CallStackString stack;
+    EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord, stack));
+}
+
+TEST(EventReportTest, ReportAtenAccessTestExpectSuccess)
+{
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.isReceiveServerInfo_ = true;
+    MemAccessRecord  memAccessRecord {};
+    CallStackString stack;
+    EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord, stack));
+}
+
+TEST(EventReportTest, ReportAtenLaunchTestExpextSuccess)
+{
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.isReceiveServerInfo_ = true;
+    AtenOpLaunchRecord atenOpLaunchRecord {};
+    CallStackString stack;
+    EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord, stack));
+}
+
+TEST(EventReportTest, ReportAtenAccessTestExpextSuccess)
+{
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.isReceiveServerInfo_ = true;
+    MemAccessRecord  memAccessRecord  {};
+    CallStackString stack;
+    EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord, stack));
+}
+
+TEST(EventReportTest, ReportKernelExcuteTestExpextSuccess)
+{
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    instance.isReceiveServerInfo_ = true;
+    MemAccessRecord  memAccessRecord  {};
+    CallStackString stack;
+    std::string name = "test";
+    uint64_t time = 1234;
+    KernelEventType type = KernelEventType::KERNEL_START;
+    TaskKey key;
+    EXPECT_TRUE(instance.ReportKernelExcute(key, name, time, type));
+}
+
 struct TestLoader {
     static void *Load(void)
     {
@@ -433,81 +482,6 @@ TEST(EventReportTest, ReportTestWithNoReceiveServerInfo) {
 
     MstxRecord mstxRecord = {};
     EXPECT_TRUE(instance.ReportMark(mstxRecord, callStack));
-}
-
-TEST(EventReportTest, ReportAtenLaunchTestExpectSuccess)
-{
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
-    instance.config_.stepList.stepCount = 3;
-    instance.config_.stepList.stepIdList[0] = 1;
-    instance.config_.stepList.stepIdList[1] = 2;
-    instance.config_.stepList.stepIdList[2] = 6;
-    instance.isReceiveServerInfo_ = true;
-    AtenOpLaunchRecord atenOpLaunchRecord{};
-    CallStackString stack;
-    EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord, stack));
-    ResetEventReportStepInfo();
-}
-
-TEST(EventReportTest, ReportAtenAccessTestExpectSuccess)
-{
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
-    instance.config_.stepList.stepCount = 3;
-    instance.config_.stepList.stepIdList[0] = 1;
-    instance.config_.stepList.stepIdList[1] = 2;
-    instance.config_.stepList.stepIdList[2] = 6;
-    instance.isReceiveServerInfo_ = true;
-    instance.stepInfo_.currentStepId = 100;
-    MemAccessRecord  memAccessRecord {};
-    CallStackString stack;
-    EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord, stack));
-    ResetEventReportStepInfo();
-}
-
-TEST(EventReportTest, ReportAtenLaunchTestExpextSuccess)
-{
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
-    instance.config_.stepList.stepCount = 3;
-    instance.config_.stepList.stepIdList[0] = 1;
-    instance.config_.stepList.stepIdList[1] = 2;
-    instance.config_.stepList.stepIdList[2] = 6;
-    instance.isReceiveServerInfo_ = true;
-    AtenOpLaunchRecord atenOpLaunchRecord {};
-    CallStackString stack;
-    EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord, stack));
-    ResetEventReportStepInfo();
-}
-
-TEST(EventReportTest, ReportAtenAccessTestExpextSuccess)
-{
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
-    instance.config_.stepList.stepCount = 3;
-    instance.config_.stepList.stepIdList[0] = 1;
-    instance.config_.stepList.stepIdList[1] = 2;
-    instance.config_.stepList.stepIdList[2] = 6;
-    instance.isReceiveServerInfo_ = true;
-    MemAccessRecord  memAccessRecord  {};
-    CallStackString stack;
-    EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord, stack));
-    ResetEventReportStepInfo();
-}
-
-TEST(EventReportTest, ReportKernelExcuteTestExpextSuccess)
-{
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
-    instance.config_.stepList.stepCount = 3;
-    instance.config_.stepList.stepIdList[0] = 1;
-    instance.config_.stepList.stepIdList[1] = 2;
-    instance.config_.stepList.stepIdList[2] = 6;
-    instance.isReceiveServerInfo_ = true;
-    MemAccessRecord  memAccessRecord  {};
-    CallStackString stack;
-    std::string name = "test";
-    uint64_t time = 1234;
-    KernelEventType type = KernelEventType::KERNEL_START;
-    TaskKey key;
-    EXPECT_TRUE(instance.ReportKernelExcute(key, name, time, type));
-    ResetEventReportStepInfo();
 }
 
 constexpr uint64_t MEM_VIRT_BIT = 10;

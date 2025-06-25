@@ -146,3 +146,24 @@ TEST(AtenManagerTest, ExtractTensorInfoFailedTest)
     EXPECT_EQ(value, "");
 }
 
+TEST(AtenManagerTest, IsFirstWatchedOpTest)
+{
+    AtenManager::GetInstance().firstWatchOp_ = "test";
+    auto ret = AtenManager::GetInstance().IsFirstWatchedOp("test");
+    ASSERT_TRUE(ret);
+
+    AtenManager::GetInstance().firstWatchOp_ = "test1";
+    ret = AtenManager::GetInstance().IsFirstWatchedOp("test2");
+    ASSERT_FALSE(ret);
+}
+
+TEST(AtenManagerTest, IsLastWatchedOpTest)
+{
+    AtenManager::GetInstance().lastWatchOp_ = "test";
+    auto ret = AtenManager::GetInstance().IsLastWatchedOp("test");
+    ASSERT_TRUE(ret);
+
+    AtenManager::GetInstance().lastWatchOp_ = "test1";
+    ret = AtenManager::GetInstance().IsLastWatchedOp("test2");
+    ASSERT_FALSE(ret);
+}

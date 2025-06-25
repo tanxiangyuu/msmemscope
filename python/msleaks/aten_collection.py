@@ -143,7 +143,7 @@ class MemoryDispatchMode(TorchDispatchMode):
 
         is_factory = bool(FACTORY_FUNCTION_REGEX.match(func._schema.name))
         # 获取aten算子执行开始事件
-        mstx.mark(f"leaks-aten-b: name={func.__module__}.{func.__name__};device={torch.npu.current_device()}", None)
+        mstx.mark(f"leaks-aten-b: name={func.__module__}.{func.__name__}}", None)
 
         argument_handler = ArgumentHandler()
         argument_handler.parse_inputs(func, args, kwargs, is_factory=is_factory)
@@ -152,7 +152,7 @@ class MemoryDispatchMode(TorchDispatchMode):
         
         argument_handler.parse_outputs(func, outputs, is_factory=is_factory)
         # 获取aten算子执行结束事件
-        mstx.mark(f"leaks-aten-e: name={func.__module__}.{func.__name__};device={torch.npu.current_device()}", None)
+        mstx.mark(f"leaks-aten-e: name={func.__module__}.{func.__name__}}", None)
 
         return outputs
 
