@@ -24,7 +24,7 @@ constexpr const char *DUMP_FILE = "dump";
 constexpr const char *COMPARE_FILE = "compare";
 constexpr uint16_t WATCH_OP_DIR_MAX_LENGTH = 255;
 constexpr const char *DB_DUMP_FILE = "leaks_dump";
-constexpr int SQLITE_TIME_OUT = 500;
+constexpr int SQLITE_TIME_OUT = 5000;
 
 // level type可以多选，每一种type占一个bit位
 enum class LevelType : uint8_t {

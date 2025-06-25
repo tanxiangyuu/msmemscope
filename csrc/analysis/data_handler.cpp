@@ -11,9 +11,8 @@ DataHandler::DataHandler(const Config config)
     config_ = config;
 }
 
-CsvHandler::CsvHandler(const Config config, DumpClass dumpType) : DataHandler(config)
+CsvHandler::CsvHandler(const Config config, DumpClass dumpType) : DataHandler(config), dumpType_(dumpType)
 {
-    dumpType_ = dumpType;
     InitSetParm();
 }
 
@@ -119,21 +118,51 @@ void DbHandler::InitSetParm()
     switch (dumpType_) {
         case DumpClass::LEAKS_RECORD: {
             std::vector<std::pair<std::string, std::string>> schema = DUMP_RECORD_TABLE_SQL;
-            if (config_.enablePyStack) schema.emplace_back("Call Stack(Python)", "TEXT");
-            if (config_.enableCStack) schema.emplace_back("Call Stack(C)", "TEXT");
+            leakColumns_ = ParserHeader(DUMP_RECORD_TABLE_SQL);
+            if (config_.enablePyStack) {
+                schema.emplace_back("Call Stack(Python)", "TEXT");
+                leakColumns_.push_back("Call Stack(Python)");
+            }
+            if (config_.enableCStack) {
+                schema.emplace_back("Call Stack(C)", "TEXT");
+                leakColumns_.push_back("Call Stack(C)");
+            }
             tableName_ = DUMP_RECORD_TABLE;
             dbHeader_ = BuildCreateStatement(tableName_, schema);
+            if (!Init()) {
+                LOG_ERROR("Sqlite create error: %s", Sqlite3Errmsg(dataFileDb_));
+                break;
+            }
+            std::string insertSql = BuildInsertStatement(DUMP_RECORD_TABLE, leakColumns_);
+            int resultCount1 = Sqlite3PrepareV2(dataFileDb_, insertSql.c_str(), -1, &insertLeakStmt_, nullptr);
+            if (resultCount1 != SQLITE_OK) {
+                LOG_ERROR("Sqlite prepare error: %s", Sqlite3Errmsg(dataFileDb_));
+                insertLeakStmt_ = nullptr;
+            }
             break;
         }
-        case DumpClass::PYTHON_TRACE:
+        case DumpClass::PYTHON_TRACE: {
             tableName_ = "python_trace_" + std::to_string(Utility::GetPid());
             dbHeader_ = BuildCreateStatement(tableName_, PYTHON_TRACE_TABLE_SQL);
+            traceColumns_ = ParserHeader(PYTHON_TRACE_TABLE_SQL);
+            if (!Init()) {
+                LOG_ERROR("Sqlite create error: %s", Sqlite3Errmsg(dataFileDb_));
+                break;
+            }
+            std::string insertSql = BuildInsertStatement(tableName_, traceColumns_);
+            int resultCount2 = Sqlite3PrepareV2(dataFileDb_, insertSql.c_str(), -1, &insertTraceStmt_, nullptr);
+            if (resultCount2 != SQLITE_OK) {
+                LOG_ERROR("Sqlite prepare error: %s", Sqlite3Errmsg(dataFileDb_));
+                insertTraceStmt_ = nullptr;
+            }
             break;
+        }
         default:
             LOG_ERROR("Unsupported data type : %d\n", static_cast<int>(dumpType_));
             break;
     }
 }
+
 bool DbHandler::Init()
 {
     return Utility::CreateDbFile(&dataFileDb_, std::string(config_.dbFileDir), tableName_, dbHeader_);
@@ -159,96 +188,54 @@ bool DbHandler::Write(DumpDataClass *data, const CallStackString &stack)
 
 bool DbHandler::WriteDumpRecord(const DumpContainer* container, const CallStackString& stack)
 {
-    std::vector<std::string> columns = [] {
-        std::vector<std::string> result;
-        std::istringstream iss(LEAKS_HEADERS);
-        std::string token;
-        while (std::getline(iss, token, ',')) {
-            result.push_back(token);
-        }
-        return result;
-    }();
-
-    if (config_.enableCStack) { columns.push_back("Call Stack(C)");}
-    if (config_.enablePyStack) { columns.push_back("Call Stack(Python)");}
-
-    std::string insertSql = BuildInsertStatement(DUMP_RECORD_TABLE, columns);
-    sqlite3_stmt* stmt = nullptr;
-    int rc = Sqlite3PrepareV2(dataFileDb_, insertSql.c_str(), -1, &stmt, nullptr);
-    if (rc != SQLITE_OK) {
-        LOG_ERROR("Sqlite prepare error: %s", Sqlite3Errmsg(dataFileDb_));
-        return false;
-    }
     std::string attrJson = FixJson(container->attr);
     int paramIndex = 1;
-    Sqlite3BindInt64(stmt, paramIndex++, container->id);
-    Sqlite3BindText(stmt, paramIndex++, container->event.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(stmt, paramIndex++, container->eventType.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(stmt, paramIndex++, container->name.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindInt64(stmt, paramIndex++, container->timeStamp);
-    Sqlite3BindInt(stmt, paramIndex++, container->pid);
-    Sqlite3BindInt(stmt, paramIndex++, container->tid);
-    Sqlite3BindText(stmt, paramIndex++, container->deviceId.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(stmt, paramIndex++, container->addr.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(stmt, paramIndex++, attrJson.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindInt64(insertLeakStmt_, paramIndex++, container->id);
+    Sqlite3BindText(insertLeakStmt_, paramIndex++, container->event.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(insertLeakStmt_, paramIndex++, container->eventType.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(insertLeakStmt_, paramIndex++, container->name.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindInt64(insertLeakStmt_, paramIndex++, container->timeStamp);
+    Sqlite3BindInt(insertLeakStmt_, paramIndex++, container->pid);
+    Sqlite3BindInt(insertLeakStmt_, paramIndex++, container->tid);
+    Sqlite3BindText(insertLeakStmt_, paramIndex++, container->deviceId.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(insertLeakStmt_, paramIndex++, container->addr.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(insertLeakStmt_, paramIndex++, attrJson.c_str(), -1, SQLITE_STATIC);
     if (config_.enableCStack) {
-        Sqlite3BindText(stmt, paramIndex++, stack.cStack.c_str(), -1, SQLITE_STATIC);
+        Sqlite3BindText(insertLeakStmt_, paramIndex++, stack.cStack.c_str(), -1, SQLITE_STATIC);
     }
     if (config_.enablePyStack) {
-        Sqlite3BindText(stmt, paramIndex++, stack.pyStack.c_str(), -1, SQLITE_STATIC);
+        Sqlite3BindText(insertLeakStmt_, paramIndex++, stack.pyStack.c_str(), -1, SQLITE_STATIC);
     }
     Sqlite3BusyTimeout(dataFileDb_, SQLITE_TIME_OUT);
-    rc = Sqlite3Step(stmt);
+    int rc = Sqlite3Step(insertLeakStmt_);
     if (rc != SQLITE_DONE) {
-        LOG_ERROR("Sqlite insert error in leaks dump: %s", Sqlite3Errmsg(dataFileDb_));
-        Sqlite3Finalize(stmt);
+        LOG_ERROR("Sqlite insert error in leaks dump: %s  %d", Sqlite3Errmsg(dataFileDb_), getpid());
+        Sqlite3Reset(insertLeakStmt_);
         return false;
     }
-    Sqlite3Finalize(stmt);
+    Sqlite3Reset(insertLeakStmt_);
     return true;
 }
 
 bool DbHandler::WriteTraceEvent(const TraceEvent* event, const std::string &tableName)
 {
-    std::vector<std::string> columns = [] {
-        std::vector<std::string> result;
-        std::istringstream iss(TRACE_HEADERS);
-        std::string token;
-        std::getline(iss, token);
-        std::istringstream line_iss(token);
-        while (std::getline(line_iss, token, ',')) {
-            result.push_back(token);
-        }
-        return result;
-    }();
-
-    std::string insertSql = BuildInsertStatement(tableName, columns);
-
-    sqlite3_stmt* stmt = nullptr;
-    int rc = Sqlite3PrepareV2(dataFileDb_, insertSql.c_str(), -1, &stmt, nullptr);
-    if (rc != SQLITE_OK) {
-        LOG_ERROR("Sqlite prepare error: %s", Sqlite3Errmsg(dataFileDb_));
-        return false;
-    }
-
     std::string startTime = event->startTs ? std::to_string(event->startTs) : "N/A";
     std::string endTime = event->endTs ? std::to_string(event->endTs) : "N/A";
     int paramIndex = 1;
-    Sqlite3BindText(stmt, paramIndex++, event->info.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(stmt, paramIndex++, startTime.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(stmt, paramIndex++, endTime.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindInt64(stmt, paramIndex++, event->tid);
-    Sqlite3BindInt64(stmt, paramIndex++, event->pid);
+    Sqlite3BindText(insertTraceStmt_, paramIndex++, event->info.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(insertTraceStmt_, paramIndex++, startTime.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(insertTraceStmt_, paramIndex++, endTime.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindInt64(insertTraceStmt_, paramIndex++, event->tid);
+    Sqlite3BindInt64(insertTraceStmt_, paramIndex++, event->pid);
 
     Sqlite3BusyTimeout(dataFileDb_, SQLITE_TIME_OUT);
-    rc = Sqlite3Step(stmt);
+    int rc = Sqlite3Step(insertTraceStmt_);
     if (rc != SQLITE_DONE) {
         LOG_ERROR("Sqlite insert error in python trace: %s", Sqlite3Errmsg(dataFileDb_));
-        Sqlite3Finalize(stmt);
+        Sqlite3Reset(insertTraceStmt_);
         return false;
     }
-
-    Sqlite3Finalize(stmt);
+    Sqlite3Reset(insertTraceStmt_);
     return true;
 }
 
@@ -261,7 +248,19 @@ bool DbHandler::Read(std::vector<DumpContainer>& data)
 DbHandler::~DbHandler()
 {
     if (dataFileDb_ != nullptr) {
-        Sqlite3Close(dataFileDb_);
+        Sqlite3Exec(dataFileDb_, "PRAGMA wal_checkpoint(FULL);", nullptr, nullptr, nullptr);
+        // 提交任何未完成的事务
+        Sqlite3Exec(dataFileDb_, "COMMIT;", nullptr, nullptr, nullptr);
+        if (insertLeakStmt_ != nullptr) {
+            Sqlite3Finalize(insertLeakStmt_);
+        }
+        if (insertTraceStmt_ != nullptr) {
+            Sqlite3Finalize(insertTraceStmt_);
+        }
+        int rc = Sqlite3Close(dataFileDb_);
+        if (rc != SQLITE_OK) {
+            LOG_ERROR("Sqlite close error: %s", Sqlite3Errmsg(dataFileDb_));
+        }
         dataFileDb_ = nullptr;
     }
 }
@@ -351,5 +350,15 @@ std::string FixJson(const std::string& input)
     }
     oss << "}";
     return oss.str();
+}
+
+std::vector<std::string> ParserHeader(const std::vector<std::pair<std::string, std::string>>& header)
+{
+    std::vector<std::string> result;
+    result.reserve(header.size());
+    for (const auto& item : header) {
+        result.push_back(item.first);
+    }
+    return result;
 }
 };
