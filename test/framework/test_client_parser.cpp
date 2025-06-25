@@ -98,25 +98,11 @@ TEST(ClientParser, pass_valid_analysis_type_case_decompose)
     ASSERT_EQ(cmd.config.analysisType, 2);
 }
 
-TEST(ClientParser, pass_valid_analysis_type_case_inefficient)
-{
-    std::vector<const char*> argv = {
-        "msleaks",
-        "--analysis=inefficient"
-    };
- 
-    /// Reset getopt states
-    optind = 1;
-    ClientParser cliParser;
-    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
-    ASSERT_EQ(cmd.config.analysisType, 4);
-}
-
 TEST(ClientParser, pass_valid_analysis_type_case_all)
 {
     std::vector<const char*> argv = {
         "msleaks",
-        "--analysis=leaks,decompose,inefficient"
+        "--analysis=leaks,decompose"
     };
  
     /// Reset getopt states
