@@ -7,7 +7,6 @@
 #include <array>
 #include <iostream>
 #include <vector>
-#include <cstdlib>
 #include <cstring>
 #include <dlfcn.h>
 #include <sys/stat.h>
