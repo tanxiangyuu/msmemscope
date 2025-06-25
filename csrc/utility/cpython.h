@@ -27,7 +27,7 @@ public:
     ~PythonObject();
     PythonObject(const PythonObject &obj);
     PythonObject& operator=(const PythonObject &obj);
-    explicit PythonObject(PyObject* o);
+    explicit PythonObject(PyObject *o);
     explicit PythonObject(const PyObject* o);
     explicit PythonObject(const int32_t& input);
     explicit PythonObject(const uint32_t& input);

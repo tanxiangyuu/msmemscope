@@ -6,12 +6,6 @@
 #include "vallina_symbol.h"
 namespace Leaks {
 
-struct DriverProfApiLoader {
-    static void *Load(void)
-    {
-        return LibLoadFromDriver("libascend_hal.so");
-    }
-};
 
 constexpr uint64_t MAX_BUFFER_SIZE = 1024 * 1024 * 2;
 constexpr uint32_t SECTONSEC = 1000000000UL;

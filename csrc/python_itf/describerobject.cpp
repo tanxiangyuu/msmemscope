@@ -130,8 +130,8 @@ static PyTypeObject PyLeaksDescriberType = {
     nullptr,                                          /* tp_descr_get */
     nullptr,                                          /* tp_descr_set */
     0,                                                /* tp_dictoffset */
-    0,                                                /* tp_init */
-    0,                                                /* tp_alloc */
+    nullptr,                                          /* tp_init */
+    nullptr,                                          /* tp_alloc */
     PyLeaksNewDescriber,                              /* tp_new */
     PyObject_Del,                                     /* tp_free */
 };

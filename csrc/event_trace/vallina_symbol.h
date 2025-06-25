@@ -16,31 +16,22 @@
 
 namespace Leaks {
 
-inline void *LibLoad(std::string libName)
-{
-    if (libName.empty()) {
-        std::cout << "Null library name." << std::endl;
-        return nullptr;
-    }
-    const char *pathEnv = std::getenv("ASCEND_HOME_PATH");
-    if (!pathEnv || std::string(pathEnv).empty()) {
-        std::cout << "[msleaks] Failed to acquire ASCEND_HOME_PATH environment variable while loading "
-            << libName << "."
-            << std::endl;
-        return nullptr;
-    }
-    std::string libPath = pathEnv;
-    libPath += "/lib64/" + libName;
-    return dlopen(libPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
-}
+void *LibLoad(std::string libName);
 
-void *LibLoadFromDriver(std::string libName);
+void *GetSymbol(char const *symbol);
+
 std::string ExecuteCommand(const char* cmd);
+
 std::string GetDirname(const std::string& path);
+
 std::string JoinPath(const std::string& base, const std::string& component);
+
 bool FileExists(const std::string& path);
+
 std::string FindLibParentDir(const std::string& startPath, int maxDepth = 5);
+
 bool ValidateLibrary(const std::string& path);
+
 void* FindAndLoadSqliteInDir(const std::string& dirPath, int depth = 0, int maxDepth = 3);
 
 struct Sqlite3LibLoader {

@@ -96,7 +96,7 @@ void KernelEventTrace::CreateReadDataChannel(uint32_t devId)
         int currLen = 0;
         using ReadFunc = int(*)(unsigned int, unsigned int, char*, unsigned int);
         while (started_) {
-            static auto vallina = VallinaSymbol<DriverProfApiLoader>::Instance().Get<ReadFunc>("prof_channel_read");
+            static auto vallina = reinterpret_cast<ReadFunc>(GetSymbol("prof_channel_read"));
             if (vallina == nullptr) {
                 CLIENT_ERROR_LOG("ReadFunc is null");
                 return;

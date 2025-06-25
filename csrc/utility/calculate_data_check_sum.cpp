@@ -50,7 +50,7 @@ std::string CalculateDataCheckSum64(const std::vector<uint8_t>& data)
     uint64_t checksum = DATA_CHECKSUM64_INITIAL_VALUE;
     
     // 计算
-    for (char byte : data) {
+    for (auto byte : data) {
         uint8_t index = static_cast<uint8_t>(checksum ^ byte);
         checksum = (checksum >> BITS_PER_BYTE) ^ g_checksum64Table[index];
     }
