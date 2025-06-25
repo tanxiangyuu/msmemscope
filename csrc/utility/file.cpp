@@ -173,6 +173,7 @@ namespace Utility {
                 }
                 return false;
             }
+            Sqlite3Exec(db, "PRAGMA journal_mode=WAL;", nullptr, nullptr, nullptr);
             if (CreateDbTable(db, tableCreateSql)) {
                 std::cout << "[msleaks] Info: create dbtable " << tableName << " in " << filePath << "." << std::endl;
                 *filefp = db;

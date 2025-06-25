@@ -139,6 +139,10 @@ private:
     bool WriteDumpRecord(const DumpContainer* container, const CallStackString& stack);
     bool WriteTraceEvent(const TraceEvent* event, const std::string &tableName);
     sqlite3 *dataFileDb_ = nullptr;
+    sqlite3_stmt *insertLeakStmt_ = nullptr;
+    sqlite3_stmt *insertTraceStmt_ = nullptr;
+    std::vector<std::string> leakColumns_;
+    std::vector<std::string> traceColumns_;
     std::string dbHeader_;
     std::string tableName_;
     std::string dirPath_;
@@ -151,5 +155,6 @@ std::string BuildCreateStatement(const std::string& table,
 
 std::unique_ptr<DataHandler> MakeDataHandler(Config config, DumpClass data);
 std::string FixJson(const std::string& input);
+std::vector<std::string> ParserHeader(const std::vector<std::pair<std::string, std::string>>& header);
 }
 #endif

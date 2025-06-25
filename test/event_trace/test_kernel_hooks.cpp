@@ -144,6 +144,12 @@ const char* MockSqlite3_Errmsg(sqlite3* db)
     return nullptr;
 }
 
+int MockSqlite3_Reset(sqlite3_stmt* pStmt)
+{
+    std::cout << "Stub Func: " << __func__ << std::endl;
+    return SQLITE_OK;
+}
+
 std::unordered_map<std::string, void *> g_funcMocks{
     {"rtKernelLaunch", reinterpret_cast<void *>(&MockRtKernelLaunch)},
     {"rtKernelLaunchWithHandleV2", reinterpret_cast<void *>(&MockRtKernelLaunchWithHandleV2)},
@@ -165,6 +171,7 @@ std::unordered_map<std::string, void *> g_funcMocks{
     {"sqlite3_bind_int", reinterpret_cast<void *>(&MockSqlite3_BindInt)},
     {"sqlite3_bind_int64", reinterpret_cast<void *>(&MockSqlite3_BindInt64)},
     {"sqlite3_errmsg", reinterpret_cast<void *>(&MockSqlite3_Errmsg)},
+    {"sqlite3_reset", reinterpret_cast<void *>(&MockSqlite3_Reset)},
 };
 
 bool g_isDlsymNullptr = false;

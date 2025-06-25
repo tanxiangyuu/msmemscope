@@ -29,6 +29,7 @@ using Sqlite3BindIntFunc = int (*)(sqlite3_stmt*, int, int);
 using Sqlite3BindInt64Func = int (*)(sqlite3_stmt*, int, sqlite3_int64);
 using Sqlite3BusyTimeoutFunc = int (*)(sqlite3*, int);
 using Sqlite3ErrmsgFunc = const char* (*)(sqlite3*);
+using Sqlite3ResetFunc = int (*)(sqlite3_stmt*);
 
 int Sqlite3Open(const char* filename, sqlite3** db);
 int Sqlite3Close(sqlite3* db);
@@ -41,4 +42,5 @@ int Sqlite3BindText(sqlite3_stmt* pStmt, int index, const char* value, int n, vo
 int Sqlite3BindInt(sqlite3_stmt* pStmt, int index, int value);
 int Sqlite3BindInt64(sqlite3_stmt* pStmt, int index, sqlite3_int64 value);
 const char* Sqlite3Errmsg(sqlite3* db);
+int Sqlite3Reset(sqlite3_stmt* pStmt);
 #endif
