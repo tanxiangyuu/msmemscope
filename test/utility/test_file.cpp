@@ -92,3 +92,11 @@ TEST(FILE, create_empty_csv_file_expect_false)
     auto ret = CreateCsvFile(&fp, dirPath, "test.csv", "test_headers\n");
     ASSERT_FALSE(ret);
 }
+
+TEST(FILE, create_file_with_umask_failed)
+{
+    uint32_t mask = 0177;
+    std::string path = "";
+    auto ret = CreateFileWithUmask(path, "", mask);
+    EXPECT_EQ(ret, nullptr);
+}

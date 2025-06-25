@@ -76,8 +76,6 @@ void ShowHelpInfo()
         << "                                               - leaks : Enables memory leak detection (default)"
         << std::endl
         << "                                               - decompose : Enables memory categorization" << std::endl
-        << "                                               - inefficient : Enables memory inefficiencies detection"
-        << std::endl
         << "                                             Leave empty to disable all analysis features." << std::endl
         << "    --compare                                Enable memory data comparison." << std::endl
         << "    --watch                                  Enable watch ability." << std::endl
@@ -248,7 +246,6 @@ static void ParseAnalysis(const std::string &param, UserCommand &userCommand)
     std::unordered_map<std::string, AnalysisType> analysisMp = {
         {"leaks", AnalysisType::LEAKS_ANALYSIS},
         {"decompose", AnalysisType::DECOMPOSE_ANALYSIS},
-        {"inefficient", AnalysisType::INEFFICIENT_ANALYSIS},
     };
     while (it != end) {
         std::string analysisMethod = it->str();

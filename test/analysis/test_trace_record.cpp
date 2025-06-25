@@ -597,3 +597,13 @@ TEST(TraceRecord, process_mindspore_memory_record)
     EXPECT_NE(fileContent.find(result), std::string::npos);
     EXPECT_TRUE(hasReadFile && hasRemoveDir);
 }
+
+TEST(TraceRecord, safe_write_string_failed)
+{
+    std::string str = "";
+    Device device1 = Device{DeviceType::NPU, GD_INVALID_NUM};
+    TraceRecord::GetInstance().SafeWriteString(str, device1);
+
+    Device device2 = Device{DeviceType::NPU, -1};
+    TraceRecord::GetInstance().SafeWriteString(str, device2);
+}
