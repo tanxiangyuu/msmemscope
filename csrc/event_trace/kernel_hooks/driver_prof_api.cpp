@@ -13,7 +13,7 @@ namespace Leaks {
 static tagDrvError HalGetDeviceInfo(uint32_t deviceId, int32_t moduleType, int32_t infoType, int64_t* value)
 {
     using HalGetDeviceInfoFunc = tagDrvError(*)(uint32_t, int32_t, int32_t, int64_t*);
-    auto vallina = Leaks::VallinaSymbol<DriverProfApiLoader>::Instance().Get<HalGetDeviceInfoFunc>("halGetDeviceInfo");
+    static auto vallina = reinterpret_cast<HalGetDeviceInfoFunc>(GetSymbol("halGetDeviceInfo"));
     if (vallina == nullptr) {
         CLIENT_ERROR_LOG("halGetDeviceInfo api get failed");
         return DRV_ERROR_NOT_SUPPORT;
@@ -122,7 +122,7 @@ void StartDriverKernelInfoTrace(int32_t devId)
     profStartPara.userDataSize = static_cast<unsigned int>(sizeof(StarsSocLogConfigT));
 
     using DriverProfStartFunc = int(*)(unsigned int, unsigned int, struct ProfStartPara*);
-    auto vallina = Leaks::VallinaSymbol<DriverProfApiLoader>::Instance().Get<DriverProfStartFunc>("prof_drv_start");
+    static auto vallina = reinterpret_cast<DriverProfStartFunc>(GetSymbol("prof_drv_start"));
     if (vallina == nullptr) {
         CLIENT_ERROR_LOG("DriverProfStartFunc is nullptr");
         return;
@@ -143,7 +143,7 @@ void EndDriverKernelInfoTrace()
         CLIENT_ERROR_LOG("get device id failed");
     }
     using DriverProfEndFunc = int(*)(unsigned int, unsigned int);
-    auto vallina = Leaks::VallinaSymbol<DriverProfApiLoader>::Instance().Get<DriverProfEndFunc>("prof_stop");
+    static auto vallina = reinterpret_cast<DriverProfEndFunc>(GetSymbol("prof_stop"));
     if (vallina == nullptr) {
         CLIENT_ERROR_LOG("EndDriverKernelInfoTrace is nullptr");
         return;

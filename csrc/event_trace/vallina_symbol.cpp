@@ -20,6 +20,12 @@ namespace Leaks {
         libPath += "/lib64/" + libName;
         return dlopen(libPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
     }
+    
+    void *GetSymbol(char const *symbol)
+    {
+        void *func = dlsym(nullptr, symbol);
+        return func;
+    }
 
     std::string ExecuteCommand(const char* cmd)
     {
