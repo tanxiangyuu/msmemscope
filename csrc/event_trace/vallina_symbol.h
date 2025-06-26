@@ -17,6 +17,8 @@ namespace Leaks {
 
 void *LibLoad(std::string libName);
 
+void *GetSymbol(char const *symbol);
+
 std::string ExecuteCommand(const char* cmd);
 
 std::string GetDirname(const std::string& path);
