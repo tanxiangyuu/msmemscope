@@ -6,12 +6,7 @@
 #include <string>
 #include <array>
 #include <iostream>
-#include <vector>
-#include <cstring>
 #include <dlfcn.h>
-#include <sys/stat.h>
-#include <dirent.h>
-#include <unistd.h>
 
 namespace Leaks {
 
