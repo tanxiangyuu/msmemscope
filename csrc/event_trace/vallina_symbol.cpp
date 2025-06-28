@@ -1,5 +1,10 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 
+#include <sys/stat.h>
+#include <dirent.h>
+#include <unistd.h>
+#include <vector>
+#include <cstring>
 #include "vallina_symbol.h"
 
 namespace Leaks {

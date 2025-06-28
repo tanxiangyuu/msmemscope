@@ -91,7 +91,7 @@ static size_t TransDataToActivityBuffer(char buffer[], size_t validSize,
 void KernelEventTrace::CreateReadDataChannel(uint32_t devId)
 {
     readTh_ = std::thread([devId, this]()mutable {
-        char buf[MAX_BUFFER_SIZE] = {0};
+        std::vector<char> buf(MAX_BUFFER_SIZE);
         size_t curPos = 0;
         int currLen = 0;
         using ReadFunc = int(*)(unsigned int, unsigned int, char*, unsigned int);
@@ -101,7 +101,7 @@ void KernelEventTrace::CreateReadDataChannel(uint32_t devId)
                 CLIENT_ERROR_LOG("ReadFunc is null");
                 return;
             }
-            currLen = vallina(devId, PROF_CHANNEL_STARS_SOC_LOG, buf + curPos, MAX_BUFFER_SIZE - curPos);
+            currLen = vallina(devId, PROF_CHANNEL_STARS_SOC_LOG, buf.data() + curPos, MAX_BUFFER_SIZE - curPos);
             if (currLen <= 0) {
                 continue;
             }
@@ -110,10 +110,11 @@ void KernelEventTrace::CreateReadDataChannel(uint32_t devId)
                 CLIENT_ERROR_LOG("Read invalid data len from driver");
                 continue;
             }
-            size_t lastPos = TransDataToActivityBuffer(buf, curPos + uintCurrLen,
+            size_t lastPos = TransDataToActivityBuffer(buf.data(), curPos + uintCurrLen,
                 devId, PROF_CHANNEL_STARS_SOC_LOG);
             if (lastPos < curPos + uintCurrLen) {
-                if (memcpy_s(buf, MAX_BUFFER_SIZE, buf + lastPos, curPos + uintCurrLen - lastPos) != EOK) {
+                if (memcpy_s(buf.data(), MAX_BUFFER_SIZE, buf.data() + lastPos, curPos + uintCurrLen - lastPos) !=
+                    EOK) {
                     continue;
                 }
             }
