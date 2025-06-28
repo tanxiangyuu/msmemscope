@@ -144,5 +144,11 @@ const char* Sqlite3Errmsg(sqlite3* db)
 int Sqlite3Reset(sqlite3_stmt* pStmt)
 {
     static auto func = Leaks::VallinaSymbol<Leaks::Sqlite3LibLoader>::Instance().Get<Sqlite3ResetFunc>("sqlite3_reset");
+    if (!func) {
+        return SQLITE_ERROR;
+    }
+    if (!pStmt) {
+        return SQLITE_MISUSE;
+    }
     return func(pStmt);
 }
