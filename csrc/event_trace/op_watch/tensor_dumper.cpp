@@ -165,7 +165,7 @@ void TensorDumper::SynchronizeStream(aclrtStream stream)
 void TensorDumper::Dump(aclrtStream stream, const std::string &op, OpEventType eventType, bool isFirstOp)
 {
     SynchronizeStream(stream);
-    std::unordered_map<uint64_t, MonitoredTensor> &tensorsMap = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
+    std::unordered_map<uint64_t, MonitoredTensor> tensorsMap = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     uint64_t index = 0;
     for (const auto& tensorPair : tensorsMap) {
         std::string watchedOpName = OpExcuteWatch::GetInstance().GetWatchedOpName();
@@ -178,7 +178,7 @@ void TensorDumper::Dump(aclrtStream stream, const std::string &op, OpEventType e
         ++index;
     }
     index = 0;
-    std::unordered_map<uint64_t, MonitoredTensor> &tensors = TensorMonitor::GetInstance().GetPythonWatchedTensorsMap();
+    std::unordered_map<uint64_t, MonitoredTensor> tensors = TensorMonitor::GetInstance().GetPythonWatchedTensorsMap();
     for (const auto& tensorPair : tensors) {
         uint64_t ptr = static_cast<uint64_t>((std::uintptr_t)(tensorPair.second.data));
         std::string watchedOpName = GetDumpName(ptr);
