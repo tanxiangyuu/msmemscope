@@ -32,8 +32,9 @@ void TensorMonitor::AddWatchTensor(const std::vector<MonitoredTensor>& tensorInf
     }
 }
 
-std::unordered_map<uint64_t, MonitoredTensor>& TensorMonitor::GetCmdWatchedTensorsMap()
+std::unordered_map<uint64_t, MonitoredTensor> TensorMonitor::GetCmdWatchedTensorsMap()
 {
+    std::lock_guard<std::mutex> lock(mapMutex_);
     return cmdWatchedTensorsMap_;
 }
 
@@ -42,8 +43,9 @@ uint32_t TensorMonitor::GetCmdWatchedOutputId()
     return outputId_;
 }
 
-std::unordered_map<uint64_t, MonitoredTensor>& TensorMonitor::GetPythonWatchedTensorsMap()
+std::unordered_map<uint64_t, MonitoredTensor> TensorMonitor::GetPythonWatchedTensorsMap()
 {
+    std::lock_guard<std::mutex> lock(mapMutex_);
     return pythonWatchedTensorsMap_;
 }
 
