@@ -59,32 +59,49 @@ class ArgumentHandler:
         metadata_only: bool,
         is_output: bool = False,
     ) -> None:
-        if not isinstance(value, torch.Tensor) or not value.is_npu:
+
+        def _handle_tensor(
+            func,
+            value: Any,
+            is_write: bool,
+            is_factory: bool,
+            metadata_only: bool,
+            is_output: bool,
+        ) -> None:
+
+            is_read = False
+            data_ptr = value.data_ptr()
+
+            if not is_write and not metadata_only:
+                is_read = True
+            
+            # 对于metadata_only分俩类处理，FACTORY FUNC和其它VIEW FUNC
+            if metadata_only:
+                if is_factory and is_output:
+                    # 对于empty_like方法，为特例，由于其并未初始化，因此未涉及到写内存
+                    if "empty_like" in func.__name__:
+                        return
+                    is_write = True
+                else:
+                    # VIEW FUNC不访问显存
+                    return
+
+            # 计算tensor大小
+            tensor_size = calculate_tensor_size(value)
+
+            mstx.mark(f"leaks-aten-ac:ptr={data_ptr};is_write={is_write};is_read={is_read};is_output={is_output};"\
+                    f"name={func.__module__}.{func.__name__};shape={value.shape};"\
+                    f"dtype={value.dtype};tensor_size={tensor_size};device={value.device}", None)
+        
+        if isinstance(value, list) or isinstance(value, tuple):
+            for t in value:
+                if isinstance(value, torch.Tensor) and value.is_npu:
+                    _handle_tensor(func, t, is_write, is_factory, metadata_only, is_output)
             return
 
-        is_read = False
-        data_ptr = value.data_ptr()
-
-        if not is_write and not metadata_only:
-            is_read = True
-        
-        # 对于metadata_only分俩类处理，FACTORY FUNC和其它VIEW FUNC
-        if metadata_only:
-            if is_factory and is_output:
-                # 对于empty_like方法，为特例，由于其并未初始化，因此未涉及到写内存
-                if "empty_like" in func.__name__:
-                    return
-                is_write = True
-            else:
-                # VIEW FUNC不访问显存
-                return
-
-        # 计算tensor大小
-        tensor_size = calculate_tensor_size(value)
-
-        mstx.mark(f"leaks-aten-ac:ptr={data_ptr};is_write={is_write};is_read={is_read};is_output={is_output};"\
-                f"name={func.__module__}.{func.__name__};shape={value.shape};"\
-                f"dtype={value.dtype};tensor_size={tensor_size};device={value.device}", None)
+        if isinstance(value, torch.Tensor) and value.is_npu:
+            _handle_tensor(func, value, is_write, is_factory, metadata_only, is_output)
+            return
 
     def parse_inputs(
         self,
