@@ -97,6 +97,10 @@ static void InitDevTimeInfo(uint32_t deviceId)
 
 uint64_t GetRealTimeFromSysCnt(uint32_t deviceId, uint64_t sysCnt)
 {
+    if (g_devTimeInfo.freq == 0) {
+        CLIENT_ERROR_LOG("g_devTimeInfo.freq is 0, please check!");
+        return 0;
+    }
     uint64_t realTime = MSTONS * (sysCnt - g_devTimeInfo.startSysCnt) / g_devTimeInfo.freq +
         g_devTimeInfo.startRealTime;
     return realTime;
