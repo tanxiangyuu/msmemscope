@@ -165,7 +165,8 @@ void DbHandler::InitSetParm()
 
 bool DbHandler::Init()
 {
-    return Utility::CreateDbFile(&dataFileDb_, std::string(config_.dbFileDir), tableName_, dbHeader_);
+    std::string filePath = std::string(config_.outputDir) + "/" + Leaks::DUMP_FILE + "/" + config_.dbFileName;
+    return Utility::CreateDbFile(&dataFileDb_, filePath, tableName_, dbHeader_);
 }
 
 bool DbHandler::Write(DumpDataClass *data, const CallStackString &stack)

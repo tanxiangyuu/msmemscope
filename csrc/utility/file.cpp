@@ -101,16 +101,9 @@ namespace Utility {
         if (!CheckFileBeforeCreate(path)) {
             return false;
         }
-        std::string filePath = std::string(config.outputDir) + "/" + Leaks::DUMP_FILE + "/" + name;
-        if (strncpy_s(config.dbFileDir, sizeof(config.dbFileDir),
-            filePath.c_str(), sizeof(config.dbFileDir) - 1) != EOK) {
+        if (strncpy_s(config.dbFileName, sizeof(config.dbFileName),
+            name.c_str(), sizeof(config.dbFileName) - 1) != EOK) {
             std::cout << "[msleaks] strncpy_s FAILED DB" << std::endl;
-        }
-        config.dbFileDir[sizeof(config.dbFileDir) - 1] = '\0';
-        if (std::string(config.dbFileDir).length() > PATH_MAX) {
-            std::cout << "[msleaks] Error: Path " << std::string(config.dbFileDir)
-                        << " length exceeds the maximum length:" << PATH_MAX << "." << std::endl;
-            return false;
         }
         return true;
     }
