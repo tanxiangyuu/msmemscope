@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 #include <vector>
 #include "serializer.h"
+#include "securec.h"
 #define private public
 #include "process.h"
 #undef private
@@ -33,6 +34,7 @@ void setConfig(Config &config)
     config.enablePyStack = true;
     config.stepList.stepCount = 0;
     config.dataFormat = 0;
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
 }
 
 TEST(Process, process_launch_ls_expect_success)
@@ -171,6 +173,7 @@ TEST(Process, do_dump_record_except_success)
     Record record{};
 
     Config config;
+    setConfig(config);
     CallStackString stack{};
     DumpRecord::GetInstance(config).DumpData(clientId, record, stack);
 }
