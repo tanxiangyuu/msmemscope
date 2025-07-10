@@ -11,6 +11,7 @@
 #include "memory_pool_trace/memory_pool_trace_manager.h"
 #include "memory_pool_trace/atb_memory_pool_trace.h"
 #include "memory_pool_trace/mindspore_memory_pool_trace.h"
+#include "memory_pool_trace/pta_memory_pool_trace.h"
 
 namespace Leaks {
 
@@ -84,7 +85,7 @@ uint64_t MstxManager::GetRangeId()
 {
     return rangeId_++;
 }
-
+// MSTX针对内存池的分析功能 这里进行代码重构 和上面的打点功能剥离
 mstxDomainHandle_t MstxManager::ReportDomainCreateA(char const *domainName)
 {
     // 后续收编所有通过MSTX打点的内存池trace
@@ -99,10 +100,12 @@ mstxDomainHandle_t MstxManager::ReportDomainCreateA(char const *domainName)
             return MemoryPoolTraceManager::GetInstance().CreateDomain(domainName);
         }
     }
-    if (domainName == nullptr || std::string(domainName) != "msleaks") {
-        return nullptr;
+    if (std::string(domainName) == "msleaks") {
+        // PTA会进行多次内存池注册 已经注册过就返回之前注册的domain
+        MemoryPoolTraceManager::GetInstance().RegisterMemoryPoolTracer("msleaks", &PTAMemoryPoolTrace::GetInstance());
+        return MemoryPoolTraceManager::GetInstance().CreateDomain(domainName);
     }
-    return msleaksDomain_;
+    return nullptr;
 }
 
 mstxMemHeapHandle_t MstxManager::ReportHeapRegister(mstxDomainHandle_t domain, mstxMemHeapDesc_t const *desc)
@@ -111,17 +114,6 @@ mstxMemHeapHandle_t MstxManager::ReportHeapRegister(mstxDomainHandle_t domain, m
     if (tracer) {
         return tracer->Allocate(domain, desc);
     }
-    if (domain == nullptr || desc == nullptr || domain != msleaksDomain_) {
-        return nullptr;
-    }
-    std::lock_guard<std::mutex> guard(mutex_);
-
-    const mstxMemVirtualRangeDesc_t *rangeDesc =
-        reinterpret_cast<const mstxMemVirtualRangeDesc_t *>(desc->typeSpecificDesc);
-    int64_t memSize = rangeDesc->size;
-    int devId = rangeDesc->deviceId;
-    memUsageMp_[devId].totalReserved = memSize;
-    heapHandleMp_[rangeDesc->ptr] = *rangeDesc;
     return nullptr;
 }
 
@@ -131,15 +123,6 @@ void MstxManager::ReportHeapUnregister(mstxDomainHandle_t domain, mstxMemHeapHan
     if (tracer) {
         return tracer->Deallocate(domain, heap);
     }
-    if (domain == nullptr || heap == nullptr || domain != msleaksDomain_) {
-        return;
-    }
-    void *ptr = reinterpret_cast<void *>(heap);
-    if (heapHandleMp_.count(ptr)) {
-        auto desc = heapHandleMp_[ptr];
-        memUsageMp_[desc.deviceId].totalReserved =
-            Utility::GetSubResult(memUsageMp_[desc.deviceId].totalReserved, desc.size);
-    }
 }
 
 void MstxManager::ReportRegionsRegister(mstxDomainHandle_t domain, mstxMemRegionsRegisterBatch_t const *desc)
@@ -148,41 +131,6 @@ void MstxManager::ReportRegionsRegister(mstxDomainHandle_t domain, mstxMemRegion
     if (tracer) {
         return tracer->Reallocate(domain, desc);
     }
-    if (domain == nullptr || desc == nullptr || domain != msleaksDomain_) {
-        return;
-    }
-    std::lock_guard<std::mutex> guard(mutex_);
-
-    const mstxMemVirtualRangeDesc_t *rangeDescArray =
-        reinterpret_cast<const mstxMemVirtualRangeDesc_t *>(desc->regionDescArray);
-    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
-    std::string cStack;
-    std::string pyStack;
-    if (config.enableCStack) {
-        Utility::GetCCallstack(config.cStackDepth, cStack, SKIP_DEPTH);
-    }
-    if (config.enablePyStack) {
-        Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
-    }
-    CallStackString stack{cStack, pyStack};
-    for (size_t i = 0; i < desc->regionCount; i++) {
-        MemPoolRecord memPoolRecord;
-        int devId = rangeDescArray[i].deviceId;
-        memUsageMp_[devId].dataType = 0;
-        memUsageMp_[devId].deviceIndex = devId;
-        memUsageMp_[devId].ptr = reinterpret_cast<int64_t>(rangeDescArray[i].ptr);
-        memUsageMp_[devId].allocSize = rangeDescArray[i].size;
-        memUsageMp_[devId].totalAllocated =
-            Utility::GetAddResult(memUsageMp_[devId].totalAllocated, memUsageMp_[devId].allocSize);
-        regionHandleMp_[rangeDescArray[i].ptr] = rangeDescArray[i];
-        memPoolRecord.type = RecordType::TORCH_NPU_RECORD;
-        memPoolRecord.memoryUsage = memUsageMp_[devId];
-        memPoolRecord.pid = Utility::GetPid();
-        memPoolRecord.tid = Utility::GetTid();
-        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(memPoolRecord, stack)) {
-            CLIENT_ERROR_LOG("Report Npu Data Failed");
-        }
-    }
 }
 
 void MstxManager::ReportRegionsUnregister(mstxDomainHandle_t domain, mstxMemRegionsUnregisterBatch_t const *desc)
@@ -190,41 +138,6 @@ void MstxManager::ReportRegionsUnregister(mstxDomainHandle_t domain, mstxMemRegi
     auto tracer = MemoryPoolTraceManager::GetInstance().GetMemoryPoolTracer(domain);
     if (tracer) {
         return tracer->Release(domain, desc);
-    }
-    if (domain == nullptr || desc == nullptr || domain != msleaksDomain_) {
-        return;
-    }
-    std::lock_guard<std::mutex> guard(mutex_);
-
-    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
-    std::string cStack;
-    std::string pyStack;
-    if (config.enableCStack) {
-        Utility::GetCCallstack(config.cStackDepth, cStack, SKIP_DEPTH);
-    }
-    if (config.enablePyStack) {
-        Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
-    }
-    CallStackString stack{cStack, pyStack};
-    for (size_t i = 0; i < desc->refCount; i++) {
-        if (!regionHandleMp_.count(desc->refArray[i].pointer)) {
-            continue;
-        }
-        MemPoolRecord memPoolRecord;
-        mstxMemVirtualRangeDesc_t rangeDesc = regionHandleMp_[desc->refArray[i].pointer];
-        memUsageMp_[rangeDesc.deviceId].dataType = 1;
-        memUsageMp_[rangeDesc.deviceId].deviceIndex = rangeDesc.deviceId;
-        memUsageMp_[rangeDesc.deviceId].ptr = reinterpret_cast<int64_t>(rangeDesc.ptr);
-        memUsageMp_[rangeDesc.deviceId].totalAllocated =
-            Utility::GetSubResult(memUsageMp_[rangeDesc.deviceId].totalAllocated, rangeDesc.size);
-        memUsageMp_[rangeDesc.deviceId].allocSize = rangeDesc.size;
-        memPoolRecord.type = RecordType::TORCH_NPU_RECORD;
-        memPoolRecord.memoryUsage = memUsageMp_[rangeDesc.deviceId];
-        memPoolRecord.pid = Utility::GetPid();
-        memPoolRecord.tid = Utility::GetTid();
-        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(memPoolRecord, stack)) {
-            CLIENT_ERROR_LOG("Report Npu Data Failed");
-        }
     }
 }
 

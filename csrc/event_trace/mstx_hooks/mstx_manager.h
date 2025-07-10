@@ -36,22 +36,11 @@ public:
 private:
     MstxManager()
     {
-        msleaksDomain_ = new mstxDomainRegistration_st;
         rangeId_ = 1;
-    }
-    ~MstxManager()
-    {
-        delete msleaksDomain_;
-        msleaksDomain_ = nullptr;
     }
     uint64_t GetRangeId();
 
 private:
-    std::mutex mutex_;
-    mstxDomainHandle_t msleaksDomain_{nullptr};
-    std::unordered_map<int, MemoryUsage> memUsageMp_;
-    std::unordered_map<const void*, mstxMemVirtualRangeDesc_t> regionHandleMp_;
-    std::unordered_map<const void*, mstxMemVirtualRangeDesc_t> heapHandleMp_;
     std::atomic<uint64_t> rangeId_;
     const int onlyMarkId_ = 0;
 };
