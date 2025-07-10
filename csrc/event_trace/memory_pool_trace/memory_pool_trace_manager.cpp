@@ -65,7 +65,7 @@ bool MemoryPoolTraceManager::RegisterMemoryPoolTracer(const std::string& domainN
         std::lock_guard<std::mutex> lock(mutex_);
         tracers_[domainName] = tracer;
     }
-
+    
     return true;
 }
 
