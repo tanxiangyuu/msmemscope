@@ -40,8 +40,8 @@ private:
     void PostProcess(const ExecCmd &cmd);
 
     void MsgHandle(size_t &clientId, std::string &msg);
-    void RecordHandler(const ClientId &clientId, const Record &record);
-    void MemoryRecordPreprocess(const ClientId &clientId, const Record &record, CallStackString& stack);
+    void RecordHandler(const ClientId &clientId, const RecordBuffer& record);
+    void MemoryRecordPreprocess(const ClientId &clientId, const RecordBase &record);
 private:
     std::unique_ptr<ServerProcess> server_;
     std::map<ClientId, Protocol> protocolList_;

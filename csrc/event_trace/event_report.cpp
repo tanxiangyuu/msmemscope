@@ -75,42 +75,11 @@ RTS_API rtError_t GetDevice(int32_t *devId)
     return ret;
 }
 
-MemOpRecord CreateMemRecord(MemOpType type, unsigned long long flag, MemOpSpace space, uint64_t addr, uint64_t size)
+int EventReport::ReportRecordEvent(const RecordBuffer& record)
 {
-    MemOpRecord record;
-    record.timeStamp = Utility::GetTimeNanoseconds();
-    record.flag = flag;
-    record.memType = type;
-    record.space = space;
-    record.addr = addr;
-    record.memSize = size;
-    record.pid = Utility::GetPid();
-    record.tid = Utility::GetTid();
-    return record;
-}
-
-AclItfRecord CreateAclItfRecord(AclOpType type)
-{
-    auto record = AclItfRecord {};
-    record.timeStamp = Utility::GetTimeNanoseconds();
-    record.type = type;
-    record.pid = Utility::GetPid();
-    record.tid = Utility::GetTid();
-    return record;
-}
-
-int EventReport::ReportRecordEvent(EventRecord &record, PacketHead &head, CallStackString& stack)
-{
-    record.cStackLen = stack.cStack.size();
-    record.pyStackLen = stack.pyStack.size();
-    std::string buffer = Serialize<PacketHead, EventRecord>(head, record) + stack.cStack + stack.pyStack;
-    auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(buffer);
-    return sendNums;
-}
-
-int EventReport::ReportRecordEvent(EventRecord &record, PacketHead &head)
-{
-    std::string buffer = Serialize<PacketHead, EventRecord>(head, record);
+    /* head仅在接口切换期间用于标记数据格式，当全量接口替换完成之后应废弃 */
+    std::string head = Serialize<PacketHead>(PacketHead{PacketType::RECORD_NEW, record.Size()});
+    std::string buffer =  head + record.Get();
     auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(buffer);
     return sendNums;
 }
@@ -182,23 +151,20 @@ void GetOwner(char *res, uint32_t size)
     }
 }
 
-bool EventReport::ReportAddrInfo(AddrInfo &info)
+bool EventReport::ReportAddrInfo(RecordBuffer &infoBuffer)
 {
     g_isInReportFunction = true;
     if (!IsConnectToServer()) {
         return true;
     }
-    PacketHead head = {PacketType::RECORD};
-    EventRecord eventRecord;
-    eventRecord.type = RecordType::ADDR_INFO_RECORD;
-    eventRecord.record.addrInfo = info;
-    CallStackString stack;
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+    AddrInfo* info = infoBuffer.Cast<AddrInfo>();
+    info->type = RecordType::ADDR_INFO_RECORD;
+    auto sendNums = ReportRecordEvent(infoBuffer);
     g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportMemPoolRecord(MemPoolRecord &memPoolRecord, CallStackString& stack)
+bool EventReport::ReportMemPoolRecord(RecordBuffer &memPoolRecordBuffer)
 {
     g_isInReportFunction = true;
 
@@ -211,8 +177,9 @@ bool EventReport::ReportMemPoolRecord(MemPoolRecord &memPoolRecord, CallStackStr
     }
 
     BitField<decltype(config_.eventType)> eventType(config_.eventType);
+    MemPoolRecord* record = memPoolRecordBuffer.Cast<MemPoolRecord>();
     // 根据命令行参数判断malloc和free是否上报, 0为malloc，剩下的为free
-    if (memPoolRecord.memoryUsage.dataType == 0) {
+    if (record->memoryUsage.dataType == 0) {
         if (!eventType.checkBit(static_cast<size_t>(EventType::ALLOC_EVENT))) {
             return true;
         }
@@ -221,21 +188,10 @@ bool EventReport::ReportMemPoolRecord(MemPoolRecord &memPoolRecord, CallStackStr
             return true;
         }
     }
-
-    PacketHead head = {PacketType::RECORD};
-    EventRecord eventRecord;
-    eventRecord.type = memPoolRecord.type;
-    eventRecord.record.memPoolRecord = memPoolRecord;
-    eventRecord.record.memPoolRecord.timeStamp = Utility::GetTimeNanoseconds();
-    eventRecord.record.memPoolRecord.kernelIndex = kernelLaunchRecordIndex_;
-    eventRecord.record.memPoolRecord.devId = static_cast<int32_t>(memPoolRecord.memoryUsage.deviceIndex);
-    if (eventRecord.record.memPoolRecord.memoryUsage.dataType) {
-        eventRecord.record.memPoolRecord.owner[0] = '\0';
-    } else {
-        GetOwner(eventRecord.record.memPoolRecord.owner, sizeof(eventRecord.record.memPoolRecord.owner));
-    }
-    eventRecord.record.memPoolRecord.recordIndex = ++recordIndex_;
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+    record->kernelIndex = kernelLaunchRecordIndex_;
+    record->devId = static_cast<int32_t>(record->memoryUsage.deviceIndex);
+    record->recordIndex = ++recordIndex_;
+    auto sendNums = ReportRecordEvent(memPoolRecordBuffer);
 
     g_isInReportFunction = false;
 
@@ -263,17 +219,26 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
     int32_t devId = (flag & 0x3FF);
     int32_t moduleId = GetMallocModuleId(flag);
     MemOpSpace space = GetMemOpSpace(flag);
-    PacketHead head = {PacketType::RECORD};
-    auto eventRecord = EventRecord {};
-    eventRecord.type = RecordType::MEMORY_RECORD;
-    eventRecord.record.memoryRecord = CreateMemRecord(MemOpType::MALLOC, flag, space, addr, size);
-    eventRecord.record.memoryRecord.devType = DeviceType::NPU;
-    eventRecord.record.memoryRecord.devId = devId;
-    eventRecord.record.memoryRecord.modid = moduleId;
-    eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
-    eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
-    GetOwner(eventRecord.record.memoryRecord.owner, sizeof(eventRecord.record.memoryRecord.owner));
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+
+    std::string owner = DescribeTrace::GetInstance().GetDescribe();
+    TLVBlockType cStack = stack.cStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_C;
+    TLVBlockType pyStack = stack.pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemOpRecord>(
+        TLVBlockType::MEM_OWNER, owner, cStack, stack.cStack, pyStack, stack.pyStack);
+    MemOpRecord* record = buffer.Cast<MemOpRecord>();
+    record->type = RecordType::MEMORY_RECORD;
+    record->subtype = RecordSubType::MALLOC;
+    record->flag = flag;
+    record->space = space;
+    record->addr = addr;
+    record->memSize = size;
+    record->devType = DeviceType::NPU;
+    record->devId = devId;
+    record->modid = moduleId;
+    record->recordIndex = ++recordIndex_;
+    record->kernelIndex = kernelLaunchRecordIndex_;
+
+    auto sendNums = ReportRecordEvent(buffer);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
@@ -296,17 +261,23 @@ bool EventReport::ReportFree(uint64_t addr, CallStackString& stack)
         return true;
     }
 
-    PacketHead head = {PacketType::RECORD};
-    auto eventRecord = EventRecord {};
-    eventRecord.type = RecordType::MEMORY_RECORD;
-    eventRecord.record.memoryRecord = CreateMemRecord(MemOpType::FREE, FLAG_INVALID, MemOpSpace::INVALID, addr, 0);
-    eventRecord.record.memoryRecord.devType = DeviceType::NPU;
-    eventRecord.record.memoryRecord.devId = GD_INVALID_NUM;
-    eventRecord.record.memoryRecord.modid = INVALID_MODID;
-    eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
-    eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
-    eventRecord.record.memoryRecord.owner[0] = '\0';
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+    TLVBlockType cStack = stack.cStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_C;
+    TLVBlockType pyStack = stack.pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemOpRecord>(cStack, stack.cStack, pyStack, stack.pyStack);
+    MemOpRecord* record = buffer.Cast<MemOpRecord>();
+    record->type = RecordType::MEMORY_RECORD;
+    record->subtype = RecordSubType::FREE;
+    record->flag = FLAG_INVALID;
+    record->space = MemOpSpace::INVALID;
+    record->addr = addr;
+    record->memSize = 0;
+    record->devType = DeviceType::NPU;
+    record->devId = GD_INVALID_NUM;
+    record->modid = INVALID_MODID;
+    record->recordIndex = ++recordIndex_;
+    record->kernelIndex = kernelLaunchRecordIndex_;
+
+    auto sendNums = ReportRecordEvent(buffer);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
@@ -325,18 +296,22 @@ bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size)
         return true;
     }
 
-    PacketHead head = {PacketType::RECORD};
-    auto eventRecord = EventRecord {};
-    eventRecord.type = RecordType::MEMORY_RECORD;
-    eventRecord.record.memoryRecord = CreateMemRecord(
-        MemOpType::MALLOC, FLAG_INVALID, MemOpSpace::INVALID, addr, size);
-    eventRecord.record.memoryRecord.devType = DeviceType::CPU;
-    eventRecord.record.memoryRecord.devId = 0;
-    eventRecord.record.memoryRecord.modid = INVALID_MODID;
-    eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
-    eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
-    GetOwner(eventRecord.record.memoryRecord.owner, sizeof(eventRecord.record.memoryRecord.owner));
-    auto sendNums = ReportRecordEvent(eventRecord, head);
+    std::string owner = DescribeTrace::GetInstance().GetDescribe();
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemOpRecord>(TLVBlockType::MEM_OWNER, owner);
+    MemOpRecord* record = buffer.Cast<MemOpRecord>();
+    record->type = RecordType::MEMORY_RECORD;
+    record->subtype = RecordSubType::MALLOC;
+    record->flag = FLAG_INVALID;
+    record->space = MemOpSpace::INVALID;
+    record->addr = addr;
+    record->memSize = size;
+    record->devType = DeviceType::CPU;
+    record->devId = 0;
+    record->modid = INVALID_MODID;
+    record->recordIndex = ++recordIndex_;
+    record->kernelIndex = kernelLaunchRecordIndex_;
+
+    auto sendNums = ReportRecordEvent(buffer);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
@@ -355,17 +330,20 @@ bool EventReport::ReportHostFree(uint64_t addr)
         return true;
     }
 
-    PacketHead head = {PacketType::RECORD};
-    auto eventRecord = EventRecord {};
-    eventRecord.type = RecordType::MEMORY_RECORD;
-    eventRecord.record.memoryRecord = CreateMemRecord(MemOpType::FREE, FLAG_INVALID, MemOpSpace::INVALID, addr, 0);
-    eventRecord.record.memoryRecord.devType = DeviceType::CPU;
-    eventRecord.record.memoryRecord.devId = 0;
-    eventRecord.record.memoryRecord.modid = INVALID_MODID;
-    eventRecord.record.memoryRecord.recordIndex = ++recordIndex_;
-    eventRecord.record.memoryRecord.kernelIndex = kernelLaunchRecordIndex_;
-    eventRecord.record.memoryRecord.owner[0] = '\0';
-    auto sendNums = ReportRecordEvent(eventRecord, head);
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemOpRecord>();
+    MemOpRecord* record = buffer.Cast<MemOpRecord>();
+    record->type = RecordType::MEMORY_RECORD;
+    record->subtype = RecordSubType::FREE;
+    record->flag = FLAG_INVALID;
+    record->space = MemOpSpace::INVALID;
+    record->addr = addr;
+    record->memSize = 0;
+    record->devType = DeviceType::CPU;
+    record->devId = 0;
+    record->modid = INVALID_MODID;
+    record->recordIndex = ++recordIndex_;
+    record->kernelIndex = kernelLaunchRecordIndex_;
+    auto sendNums = ReportRecordEvent(buffer);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
@@ -378,8 +356,10 @@ void EventReport::SetStepInfo(const MstxRecord &mstxRecord)
     }
 
     std::lock_guard<std::mutex> lock(mutex_);
+    const TLVBlock* tlv = GetTlvBlock(mstxRecord, TLVBlockType::MARK_MESSAGE);
+    std::string markMessage = tlv == nullptr ? "N/A" : tlv->data;
     if (mstxRecord.markType == MarkType::RANGE_START_A) {
-        if (strcmp(mstxRecord.markMessage, "step start") != 0) {
+        if (strcmp(markMessage.c_str(), "step start") != 0) {
             return;
         }
         stepInfo_.currentStepId++;
@@ -401,7 +381,7 @@ void EventReport::SetStepInfo(const MstxRecord &mstxRecord)
     return;
 }
 
-bool EventReport::ReportMark(MstxRecord& mstxRecord, CallStackString& stack)
+bool EventReport::ReportMark(RecordBuffer &mstxRecordBuffer)
 {
     g_isInReportFunction = true;
 
@@ -414,35 +394,32 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord, CallStackString& stack)
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
-    PacketHead head = {PacketType::RECORD};
-    auto eventRecord = EventRecord{};
-    eventRecord.type = RecordType::MSTX_MARK_RECORD;
-    mstxRecord.devId = devId;
-    eventRecord.record.mstxRecord = mstxRecord;
-    eventRecord.record.mstxRecord.pid = Utility::GetPid();
-    eventRecord.record.mstxRecord.tid = Utility::GetTid();
-    eventRecord.record.mstxRecord.timeStamp = Utility::GetTimeNanoseconds();
-    eventRecord.record.mstxRecord.kernelIndex = kernelLaunchRecordIndex_;
-    eventRecord.record.mstxRecord.recordIndex = ++recordIndex_;
+    MstxRecord* record = mstxRecordBuffer.Cast<MstxRecord>();
+    record->type = RecordType::MSTX_MARK_RECORD;
+    record->devId = devId;
+    record->recordIndex = ++recordIndex_;
+    record->kernelIndex = kernelLaunchRecordIndex_;
 
-    SetStepInfo(mstxRecord);
-    eventRecord.record.mstxRecord.stepId = stepInfo_.currentStepId;
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+    SetStepInfo(*record);
+    record->stepId = stepInfo_.currentStepId;
+    auto sendNums = ReportRecordEvent(mstxRecordBuffer);
 
     // 通过有无固化语句判断是否要采集host侧内存数据
     {
         std::lock_guard<std::mutex> lock(rangeIdTableMutex_);
-        uint64_t pid = eventRecord.record.mstxRecord.pid;
-        uint64_t tid = eventRecord.record.mstxRecord.tid;
-        if (mstxRecord.markType == MarkType::RANGE_START_A &&
-            strcmp(mstxRecord.markMessage, "report host memory info start") == 0) {
-            mstxRangeIdTables_[pid][tid] = mstxRecord.rangeId;
+        const TLVBlock* tlv = GetTlvBlock(*record, TLVBlockType::MARK_MESSAGE);
+        std::string markMessage = tlv == nullptr ? "N/A" : tlv->data;
+        uint64_t pid = record->pid;
+        uint64_t tid = record->tid;
+        if (record->markType == MarkType::RANGE_START_A &&
+            strcmp(markMessage.c_str(), "report host memory info start") == 0) {
+            mstxRangeIdTables_[pid][tid] = record->rangeId;
             CLIENT_INFO_LOG("[mark] Start report host memory info...");
             g_isReportHostMem = true;
-        } else if (mstxRecord.markType == MarkType::RANGE_END &&
+        } else if (record->markType == MarkType::RANGE_END &&
             mstxRangeIdTables_.find(pid) != mstxRangeIdTables_.end() &&
             mstxRangeIdTables_[pid].find(tid) != mstxRangeIdTables_[pid].end() &&
-            mstxRangeIdTables_[pid][tid] == mstxRecord.rangeId) {
+            mstxRangeIdTables_[pid][tid] == record->rangeId) {
             mstxRangeIdTables_[pid].erase(tid);
             CLIENT_INFO_LOG("[mark] Stop report host memory info.");
             g_isReportHostMem = false;
@@ -453,7 +430,7 @@ bool EventReport::ReportMark(MstxRecord& mstxRecord, CallStackString& stack)
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportAtenLaunch(AtenOpLaunchRecord &atenOpLaunchRecord, CallStackString& stack)
+bool EventReport::ReportAtenLaunch(RecordBuffer &atenOpLaunchRecordBuffer)
 {
     g_isInReportFunction = true;
 
@@ -470,23 +447,18 @@ bool EventReport::ReportAtenLaunch(AtenOpLaunchRecord &atenOpLaunchRecord, CallS
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
-    PacketHead head = {PacketType::RECORD};
-    auto eventRecord = EventRecord{};
-    eventRecord.type = RecordType::ATEN_OP_LAUNCH_RECORD;
-    atenOpLaunchRecord.devId = devId;
-    atenOpLaunchRecord.pid = Utility::GetPid();
-    atenOpLaunchRecord.tid = Utility::GetTid();
-    atenOpLaunchRecord.timestamp = Utility::GetTimeNanoseconds();
-    atenOpLaunchRecord.recordIndex = ++recordIndex_;
-    eventRecord.record.atenOpLaunchRecord = atenOpLaunchRecord;
+    AtenOpLaunchRecord* record = atenOpLaunchRecordBuffer.Cast<AtenOpLaunchRecord>();
+    record->type = RecordType::ATEN_OP_LAUNCH_RECORD;
+    record->devId = devId;
+    record->recordIndex = ++recordIndex_;
 
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+    auto sendNums = ReportRecordEvent(atenOpLaunchRecordBuffer);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportAtenAccess(MemAccessRecord &memAccessRecord, CallStackString& stack)
+bool EventReport::ReportAtenAccess(RecordBuffer &memAccessRecordBuffer)
 {
     g_isInReportFunction = true;
 
@@ -503,18 +475,13 @@ bool EventReport::ReportAtenAccess(MemAccessRecord &memAccessRecord, CallStackSt
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
-    PacketHead head = {PacketType::RECORD};
-    auto eventRecord = EventRecord{};
-    eventRecord.type = RecordType::MEM_ACCESS_RECORD;
-    memAccessRecord.pid = Utility::GetPid();
-    memAccessRecord.tid = Utility::GetTid();
-    memAccessRecord.timestamp = Utility::GetTimeNanoseconds();
-    memAccessRecord.devId = devId;
-    memAccessRecord.devType = DeviceType::NPU;
-    memAccessRecord.recordIndex = ++recordIndex_;
-    eventRecord.record.memAccessRecord = memAccessRecord;
+    MemAccessRecord* record = memAccessRecordBuffer.Cast<MemAccessRecord>();
+    record->type = RecordType::MEM_ACCESS_RECORD;
+    record->devId = devId;
+    record->devType = DeviceType::NPU;
+    record->recordIndex = ++recordIndex_;
 
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+    auto sendNums = ReportRecordEvent(memAccessRecordBuffer);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
@@ -546,25 +513,17 @@ bool EventReport::ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
         }
     }
 
-    auto eventRecord = EventRecord{};
-    eventRecord.type = RecordType::KERNEL_LAUNCH_RECORD;
-    eventRecord.record.kernelLaunchRecord.timeStamp = kernelLaunchInfo.timeStamp;
-    eventRecord.record.kernelLaunchRecord.pid = Utility::GetPid();
-    eventRecord.record.kernelLaunchRecord.tid = Utility::GetTid();
-    eventRecord.record.kernelLaunchRecord.devId = devId;
-    eventRecord.record.kernelLaunchRecord.streamId = std::get<1>(kernelLaunchInfo.taskKey);
-    eventRecord.record.kernelLaunchRecord.taskId = std::get<2>(kernelLaunchInfo.taskKey);
-    eventRecord.record.kernelLaunchRecord.kernelLaunchIndex = ++kernelLaunchRecordIndex_;
-    eventRecord.record.kernelLaunchRecord.recordIndex = ++recordIndex_;
-    auto ret = strncpy_s(eventRecord.record.kernelLaunchRecord.kernelName,
-        KERNELNAME_MAX_SIZE, kernelLaunchInfo.kernelName.c_str(), KERNELNAME_MAX_SIZE - 1);
-    if (ret != EOK) {
-        CLIENT_WARN_LOG("strncpy_s FAILED");
-    }
-    CallStackString stack;
-
-    PacketHead head = {PacketType::RECORD};
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<KernelLaunchRecord>(
+        TLVBlockType::KERNEL_NAME, kernelLaunchInfo.kernelName);
+    KernelLaunchRecord* record = buffer.Cast<KernelLaunchRecord>();
+    record->type = RecordType::KERNEL_LAUNCH_RECORD;
+    record->devId = devId;
+    record->streamId = std::get<1>(kernelLaunchInfo.taskKey);
+    record->taskId = std::get<2>(kernelLaunchInfo.taskKey);
+    record->kernelLaunchIndex = ++kernelLaunchRecordIndex_;
+    record->recordIndex = ++recordIndex_;
+    record->timestamp = kernelLaunchInfo.timestamp;
+    auto sendNums = ReportRecordEvent(buffer);
     if (sendNums < 0) {
         return false;
     }
@@ -585,22 +544,16 @@ bool EventReport::ReportKernelExcute(const TaskKey &key, std::string &name, uint
         return true;
     }
 
-    PacketHead head = {PacketType::RECORD};
-    auto eventRecord = EventRecord{};
-    eventRecord.type = RecordType::KERNEL_EXCUTE_RECORD;
-    eventRecord.record.kernelExcuteRecord.type = type;
-    eventRecord.record.kernelExcuteRecord.devId = std::get<0>(key);
-    eventRecord.record.kernelExcuteRecord.streamId = std::get<1>(key);
-    eventRecord.record.kernelExcuteRecord.taskId = std::get<2>(key);
-    eventRecord.record.kernelExcuteRecord.timeStamp = time;
-    eventRecord.record.kernelExcuteRecord.recordIndex = ++recordIndex_;
-    auto ret = strncpy_s(eventRecord.record.kernelExcuteRecord.kernelName,
-        KERNELNAME_MAX_SIZE, name.c_str(), KERNELNAME_MAX_SIZE - 1);
-    if (ret != EOK) {
-        CLIENT_WARN_LOG("strncpy_s FAILED");
-    }
-    CallStackString stack;
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<KernelExcuteRecord>(TLVBlockType::KERNEL_NAME, name);
+    KernelExcuteRecord* record = buffer.Cast<KernelExcuteRecord>();
+    record->type = RecordType::KERNEL_EXCUTE_RECORD;
+    record->kernelEventType = type;
+    record->devId = std::get<0>(key);
+    record->streamId = std::get<1>(key);
+    record->taskId = std::get<2>(key);
+    record->recordIndex = ++recordIndex_;
+    record->timestamp = time;
+    auto sendNums = ReportRecordEvent(buffer);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
@@ -621,22 +574,22 @@ bool EventReport::ReportAclItf(AclOpType aclOpType)
         KernelEventTrace::GetInstance().EndKernelEventTrace();
     }
     int32_t devId = GD_INVALID_NUM;
-    PacketHead head = {PacketType::RECORD};
-    auto eventRecord = EventRecord{};
-    eventRecord.type = RecordType::ACL_ITF_RECORD;
-    eventRecord.record.aclItfRecord = CreateAclItfRecord(aclOpType);
-    eventRecord.record.aclItfRecord.devId = devId;
-    eventRecord.record.aclItfRecord.recordIndex = ++recordIndex_;
-    eventRecord.record.aclItfRecord.aclItfRecordIndex = ++aclItfRecordIndex_;
-    eventRecord.record.aclItfRecord.kernelIndex = kernelLaunchRecordIndex_;
-    CallStackString stack;
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<AclItfRecord>();
+    AclItfRecord* record = buffer.Cast<AclItfRecord>();
+    record->type = RecordType::ACL_ITF_RECORD;
+    record->aclOpType = aclOpType;
+    record->devId = devId;
+    record->recordIndex = ++recordIndex_;
+    record->aclItfRecordIndex = ++aclItfRecordIndex_;
+    record->kernelIndex = kernelLaunchRecordIndex_;
+    auto sendNums = ReportRecordEvent(buffer);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportAtbOpExecute(AtbOpExecuteRecord& atbOpExecuteRecord)
+bool EventReport::ReportAtbOpExecute(RecordBuffer& atbOpExecuteRecordBuffer)
 {
     g_isInReportFunction = true;
 
@@ -653,24 +606,18 @@ bool EventReport::ReportAtbOpExecute(AtbOpExecuteRecord& atbOpExecuteRecord)
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
-    PacketHead head = {PacketType::RECORD};
-    auto eventRecord = EventRecord{};
-    eventRecord.type = RecordType::ATB_OP_EXECUTE_RECORD;
-    atbOpExecuteRecord.devId = devId;
-    atbOpExecuteRecord.pid = Utility::GetPid();
-    atbOpExecuteRecord.tid = Utility::GetTid();
-    atbOpExecuteRecord.timestamp = Utility::GetTimeNanoseconds();
-    atbOpExecuteRecord.recordIndex = ++recordIndex_;
-    eventRecord.record.atbOpExecuteRecord = atbOpExecuteRecord;
+    AtbOpExecuteRecord* record = atbOpExecuteRecordBuffer.Cast<AtbOpExecuteRecord>();
+    record->type = RecordType::ATB_OP_EXECUTE_RECORD;
+    record->devId = devId;
+    record->recordIndex = ++recordIndex_;
 
-    CallStackString stack;
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+    auto sendNums = ReportRecordEvent(atbOpExecuteRecordBuffer);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportAtbKernel(AtbKernelRecord& atbKernelRecord)
+bool EventReport::ReportAtbKernel(RecordBuffer& atbKernelRecordBuffer)
 {
     g_isInReportFunction = true;
 
@@ -687,24 +634,18 @@ bool EventReport::ReportAtbKernel(AtbKernelRecord& atbKernelRecord)
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
-    PacketHead head = {PacketType::RECORD};
-    auto eventRecord = EventRecord{};
-    eventRecord.type = RecordType::ATB_KERNEL_RECORD;
-    atbKernelRecord.devId = devId;
-    atbKernelRecord.pid = Utility::GetPid();
-    atbKernelRecord.tid = Utility::GetTid();
-    atbKernelRecord.timestamp = Utility::GetTimeNanoseconds();
-    atbKernelRecord.recordIndex = ++recordIndex_;
-    eventRecord.record.atbKernelRecord = atbKernelRecord;
+    AtbKernelRecord* record = atbKernelRecordBuffer.Cast<AtbKernelRecord>();
+    record->type = RecordType::ATB_KERNEL_RECORD;
+    record->devId = devId;
+    record->recordIndex = ++recordIndex_;
 
-    CallStackString stack;
-    auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+    auto sendNums = ReportRecordEvent(atbKernelRecordBuffer);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportAtbAccessMemory(std::vector<MemAccessRecord>& memAccessRecords)
+bool EventReport::ReportAtbAccessMemory(std::vector<RecordBuffer>& memAccessRecordBuffers)
 {
     g_isInReportFunction = true;
 
@@ -721,23 +662,14 @@ bool EventReport::ReportAtbAccessMemory(std::vector<MemAccessRecord>& memAccessR
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
-    uint64_t pid = Utility::GetPid();
-    uint64_t tid = Utility::GetTid();
-    uint64_t timestamp = Utility::GetTimeNanoseconds();
+    for (auto& buffer : memAccessRecordBuffers) {
+        MemAccessRecord* record = buffer.Cast<MemAccessRecord>();
+        record->type = RecordType::MEM_ACCESS_RECORD;
+        record->devId = devId;
+        record->devType = DeviceType::NPU;
+        record->recordIndex = ++recordIndex_;
 
-    for (auto& record : memAccessRecords) {
-        PacketHead head = {PacketType::RECORD};
-        auto eventRecord = EventRecord{};
-        eventRecord.type = RecordType::MEM_ACCESS_RECORD;
-        record.pid = pid;
-        record.tid = tid;
-        record.timestamp = timestamp;
-        record.devId = devId;
-        record.devType = DeviceType::NPU;
-        record.recordIndex = ++recordIndex_;
-        eventRecord.record.memAccessRecord = record;
-        CallStackString stack;
-        auto sendNums = ReportRecordEvent(eventRecord, head, stack);
+        auto sendNums = ReportRecordEvent(buffer);
         if (sendNums < 0) {
             return false;
         }

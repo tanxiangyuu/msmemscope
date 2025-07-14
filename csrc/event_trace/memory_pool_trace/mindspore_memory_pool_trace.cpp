@@ -5,6 +5,7 @@
 #include "utils.h"
 #include "event_report.h"
 #include "call_stack.h"
+#include "describe_trace.h"
 
 namespace Leaks {
 MindsporeMemoryPoolTrace::MindsporeMemoryPoolTrace()
@@ -80,12 +81,15 @@ void MindsporeMemoryPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegi
         memUsageMp_[devId].totalAllocated =
             Utility::GetAddResult(memUsageMp_[devId].totalAllocated, memUsageMp_[devId].allocSize);
         regionHandleMp_[rangeDescArray[i].ptr] = rangeDescArray[i];
-        MemPoolRecord record;
-        record.type = RecordType::MINDSPORE_NPU_RECORD;
-        record.memoryUsage = memUsageMp_[devId];
-        record.pid = Utility::GetPid();
-        record.tid = Utility::GetTid();
-        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(record, stack)) {
+        std::string owner = DescribeTrace::GetInstance().GetDescribe();
+        TLVBlockType cStackType = stack.cStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_C;
+        TLVBlockType pyStackType = stack.pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
+        RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>(
+            TLVBlockType::ADDR_OWNER, owner.c_str(), cStackType, stack.cStack, pyStackType, stack.pyStack);
+        MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
+        record->type = RecordType::MINDSPORE_NPU_RECORD;
+        record->memoryUsage = memUsageMp_[devId];
+        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(buffer)) {
             CLIENT_ERROR_LOG("Report Mindspore Data Failed");
         }
     }
@@ -111,7 +115,6 @@ void MindsporeMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegions
         if (!regionHandleMp_.count(desc->refArray[i].pointer)) {
             continue;
         }
-        MemPoolRecord record;
         mstxMemVirtualRangeDesc_t rangeDesc = regionHandleMp_[desc->refArray[i].pointer];
         memUsageMp_[rangeDesc.deviceId].dataType = 1;
         memUsageMp_[rangeDesc.deviceId].deviceIndex = rangeDesc.deviceId;
@@ -119,11 +122,15 @@ void MindsporeMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegions
         memUsageMp_[rangeDesc.deviceId].totalAllocated =
             Utility::GetSubResult(memUsageMp_[rangeDesc.deviceId].totalAllocated, rangeDesc.size);
         memUsageMp_[rangeDesc.deviceId].allocSize = rangeDesc.size;
-        record.type = RecordType::MINDSPORE_NPU_RECORD;
-        record.memoryUsage = memUsageMp_[rangeDesc.deviceId];
-        record.pid = Utility::GetPid();
-        record.tid = Utility::GetTid();
-        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(record, stack)) {
+        std::string owner = " ";
+        TLVBlockType cStackType = stack.cStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_C;
+        TLVBlockType pyStackType = stack.pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
+        RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>(
+            TLVBlockType::ADDR_OWNER, owner.c_str(), cStackType, stack.cStack, pyStackType, stack.pyStack);
+        MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
+        record->type = RecordType::MINDSPORE_NPU_RECORD;
+        record->memoryUsage = memUsageMp_[rangeDesc.deviceId];
+        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(buffer)) {
             CLIENT_ERROR_LOG("Report Mindspore Data Failed");
         }
     }

@@ -26,11 +26,11 @@ public:
         return instance;
     }
 
-    void OpExcuteBegin(aclrtStream stream, const std::string &rawOp, OpType type);
+    void OpExcuteBegin(aclrtStream stream, const std::string &rawOp, AccessMemType type);
     void OpExcuteEnd(aclrtStream stream, const std::string &rawOp, const std::vector<MonitoredTensor>& tensors,
-        OpType type);
+        AccessMemType type);
     void KernelExcute(aclrtStream stream, const std::string &rawKernel, const Mki::SVector<Mki::Tensor>& tensors,
-        OpType type);
+        AccessMemType type);
 
     std::string GetWatchedOpName();
 
@@ -45,8 +45,8 @@ private:
     ~OpExcuteWatch() = default;
 
     // 落盘时需要用完整的opName，包含卡号和线程号。
-    void BeginExcute(aclrtStream stream, const std::string &rawItem, OpType type);
-    void EndExcute(aclrtStream stream, const std::string &excuteItem, const std::string &rawItem, OpType type,
+    void BeginExcute(aclrtStream stream, const std::string &rawItem, AccessMemType type);
+    void EndExcute(aclrtStream stream, const std::string &excuteItem, const std::string &rawItem, AccessMemType type,
         const std::vector<MonitoredTensor> &outputTensors = {}, uint32_t outputId = 0);
 
     bool IsFirstWatchOp(const std::string &op);
@@ -65,9 +65,9 @@ private:
     std::mutex mutex_;
 };
 
-void OpExcuteBegin(aclrtStream stream, char *rawOp, OpType type);
-void OpExcuteEnd(aclrtStream stream, char *rawOp, MonitoredTensor *tensors, size_t size, OpType type);
-void KernelExcute(aclrtStream stream, char *rawOp, const Mki::SVector<Mki::Tensor>& tensors, OpType type);
+void OpExcuteBegin(aclrtStream stream, char *rawOp, AccessMemType type);
+void OpExcuteEnd(aclrtStream stream, char *rawOp, MonitoredTensor *tensors, size_t size, AccessMemType type);
+void KernelExcute(aclrtStream stream, char *rawOp, const Mki::SVector<Mki::Tensor>& tensors, AccessMemType type);
 
 }
 #endif

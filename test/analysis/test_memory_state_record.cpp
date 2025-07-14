@@ -10,9 +10,8 @@ using namespace Leaks;
 
 TEST(MemoryStateRecordTest, state_cpu_memory_record_expect_success)
 {
-    auto record = Record{};
-    record.eventRecord.type = RecordType::MEMORY_RECORD;
     auto memRecordMalloc = MemOpRecord{};
+    memRecordMalloc.type = RecordType::MEMORY_RECORD;
     memRecordMalloc.devType = DeviceType::CPU;
     memRecordMalloc.tid = 10;
     memRecordMalloc.pid = 10;
@@ -24,33 +23,30 @@ TEST(MemoryStateRecordTest, state_cpu_memory_record_expect_success)
     memRecordMalloc.space = MemOpSpace::HOST;
     memRecordMalloc.addr = 0x1234;
     memRecordMalloc.memSize = 128;
-    memRecordMalloc.timeStamp = 789;
-    memRecordMalloc.memType = MemOpType::MALLOC;
-    record.eventRecord.record.memoryRecord = memRecordMalloc;
+    memRecordMalloc.timestamp = 789;
+    memRecordMalloc.subtype = RecordSubType::MALLOC;
 
-    CallStackString stack{};
     Config config;
     MemoryStateRecord memoryStateRecord{config};
-    memoryStateRecord.MemoryInfoProcess(record, stack);
+    memoryStateRecord.MemoryInfoProcess(static_cast<const RecordBase&>(memRecordMalloc));
     auto key = std::make_pair("common", memRecordMalloc.addr);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 1);
 
-    record.eventRecord.record.memoryRecord.memType = MemOpType::FREE;
-    memoryStateRecord.MemoryInfoProcess(record, stack);
+    memRecordMalloc.subtype = RecordSubType::FREE;
+    memoryStateRecord.MemoryInfoProcess(static_cast<const RecordBase&>(memRecordMalloc));
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 2);
 }
 
 TEST(MemoryStateRecordTest, state_ATB_memory_pool_record_expect_success)
 {
-    auto record = Record{};
-    record.eventRecord.type = RecordType::ATB_MEMORY_POOL_RECORD;
     auto atbPoolRecord = MemPoolRecord{};
+    atbPoolRecord.type = RecordType::ATB_MEMORY_POOL_RECORD;
     atbPoolRecord.recordIndex = 1;
     atbPoolRecord.pid = 1234;
     atbPoolRecord.tid = 1234;
-    atbPoolRecord.timeStamp = 1000;
+    atbPoolRecord.timestamp = 1000;
     atbPoolRecord.devId = 1;
     auto atbMemUsage = MemoryUsage{};
     atbMemUsage.ptr = 1234;
@@ -60,32 +56,29 @@ TEST(MemoryStateRecordTest, state_ATB_memory_pool_record_expect_success)
     atbMemUsage.totalReserved = 30000;
     atbMemUsage.totalActive = 10000;
     atbPoolRecord.memoryUsage = atbMemUsage;
-    record.eventRecord.record.memPoolRecord = atbPoolRecord;
 
-    CallStackString stack{};
     Config config;
     MemoryStateRecord memoryStateRecord{config};
     auto key = std::make_pair("ATB", atbPoolRecord.memoryUsage.ptr);
-    memoryStateRecord.MemoryPoolInfoProcess(record, stack);
+    memoryStateRecord.MemoryPoolInfoProcess(static_cast<const RecordBase&>(atbPoolRecord));
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 1);
 
     atbPoolRecord.memoryUsage.dataType = 1;
     atbPoolRecord.memoryUsage.allocSize = 100;
-    memoryStateRecord.MemoryPoolInfoProcess(record, stack);
+    memoryStateRecord.MemoryPoolInfoProcess(static_cast<const RecordBase&>(atbPoolRecord));
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 2);
 }
 
 TEST(MemoryStateRecordTest, state_PTA_memory_pool_record_with_decompose_expect_success)
 {
-    auto record = Record{};
-    record.eventRecord.type = RecordType::TORCH_NPU_RECORD;
     auto ptaPoolRecord = MemPoolRecord{};
+    ptaPoolRecord.type = RecordType::TORCH_NPU_RECORD;
     ptaPoolRecord.recordIndex = 1;
     ptaPoolRecord.pid = 1234;
     ptaPoolRecord.tid = 1234;
-    ptaPoolRecord.timeStamp = 1000;
+    ptaPoolRecord.timestamp = 1000;
     ptaPoolRecord.devId = 1;
     auto ptaMemUsage = MemoryUsage{};
     ptaMemUsage.ptr = 1234;
@@ -94,33 +87,30 @@ TEST(MemoryStateRecordTest, state_PTA_memory_pool_record_with_decompose_expect_s
     ptaMemUsage.totalAllocated = 10000;
     ptaMemUsage.totalReserved = 30000;
     ptaPoolRecord.memoryUsage = ptaMemUsage;
-    record.eventRecord.record.memPoolRecord = ptaPoolRecord;
 
-    CallStackString stack{};
     Config config;
     config.analysisType = 2;
     MemoryStateRecord memoryStateRecord{config};
     auto key = std::make_pair("PTA", ptaPoolRecord.memoryUsage.ptr);
-    memoryStateRecord.MemoryPoolInfoProcess(record, stack);
+    memoryStateRecord.MemoryPoolInfoProcess(static_cast<const RecordBase&>(ptaPoolRecord));
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 1);
 
     ptaPoolRecord.memoryUsage.dataType = 1;
     ptaPoolRecord.memoryUsage.allocSize = 100;
-    memoryStateRecord.MemoryPoolInfoProcess(record, stack);
+    memoryStateRecord.MemoryPoolInfoProcess(static_cast<const RecordBase&>(ptaPoolRecord));
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 2);
 }
 
 TEST(MemoryStateRecordTest, state_mindspore_memory_pool_record_with_decompose_expect_success)
 {
-    auto record = Record{};
-    record.eventRecord.type = RecordType::MINDSPORE_NPU_RECORD;
     auto msPoolRecord = MemPoolRecord{};
+    msPoolRecord.type = RecordType::MINDSPORE_NPU_RECORD;
     msPoolRecord.recordIndex = 1;
     msPoolRecord.pid = 1234;
     msPoolRecord.tid = 1234;
-    msPoolRecord.timeStamp = 1000;
+    msPoolRecord.timestamp = 1000;
     msPoolRecord.devId = 1;
     auto msMemUsage = MemoryUsage{};
     msMemUsage.ptr = 1234;
@@ -129,56 +119,52 @@ TEST(MemoryStateRecordTest, state_mindspore_memory_pool_record_with_decompose_ex
     msMemUsage.totalAllocated = 10000;
     msMemUsage.totalReserved = 30000;
     msPoolRecord.memoryUsage = msMemUsage;
-    record.eventRecord.record.memPoolRecord = msPoolRecord;
 
-    CallStackString stack{};
     Config config;
     config.analysisType = 2;
     MemoryStateRecord memoryStateRecord{config};
     auto key = std::make_pair("MINDSPORE", msPoolRecord.memoryUsage.ptr);
-    memoryStateRecord.MemoryPoolInfoProcess(record, stack);
+    memoryStateRecord.MemoryPoolInfoProcess(static_cast<const RecordBase&>(msPoolRecord));
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 1);
 
     msPoolRecord.memoryUsage.dataType = 1;
     msPoolRecord.memoryUsage.allocSize = 100;
-    memoryStateRecord.MemoryPoolInfoProcess(record, stack);
+    memoryStateRecord.MemoryPoolInfoProcess(static_cast<const RecordBase&>(msPoolRecord));
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 2);
 }
 
 TEST(MemoryStateRecordTest, state_unknown_memory_pool_record)
 {
-    auto record = Record{};
-    record.eventRecord.type = RecordType::INVALID_RECORD;
+    auto record = RecordBase{};
+    record.type = RecordType::INVALID_RECORD;
 
-    CallStackString stack{};
     Config config;
     MemoryStateRecord memoryStateRecord{config};
-    memoryStateRecord.MemoryPoolInfoProcess(record, stack);
+    memoryStateRecord.MemoryPoolInfoProcess(record);
 }
 
 TEST(MemoryStateRecordTest, state_addr_info_record_expect_success)
 {
-    auto record = Record{};
-    record.eventRecord.type = RecordType::ADDR_INFO_RECORD;
-    auto info = AddrInfo{};
-    info.addr = 123;
-    record.eventRecord.record.addrInfo = info;
-    CallStackString stack{};
+    auto buffer = RecordBuffer::CreateRecordBuffer<AddrInfo>();
+    AddrInfo* info = buffer.Cast<AddrInfo>();
+    info->type = RecordType::ADDR_INFO_RECORD;
+    info->addr = 123;
+
     Config config;
     MemoryStateRecord memoryStateRecord{config};
-    memoryStateRecord.MemoryAddrInfoProcess(record, stack);
+    memoryStateRecord.MemoryAddrInfoProcess(static_cast<const RecordBase&>(*info));
 
-    record.eventRecord.type = RecordType::TORCH_NPU_RECORD;
-    auto memPoolRecord = MemPoolRecord{};
-    memPoolRecord.type = RecordType::TORCH_NPU_RECORD;
-    memPoolRecord.memoryUsage.ptr = 123;
-    memPoolRecord.recordIndex = 1;
-    memPoolRecord.pid = 1234;
-    memPoolRecord.tid = 1234;
-    memPoolRecord.timeStamp = 1000;
-    memPoolRecord.devId = 1;
+    auto buffer1 = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
+    MemPoolRecord* memPoolRecord = buffer1.Cast<MemPoolRecord>();
+    memPoolRecord->type = RecordType::TORCH_NPU_RECORD;
+    memPoolRecord->memoryUsage.ptr = 123;
+    memPoolRecord->recordIndex = 1;
+    memPoolRecord->pid = 1234;
+    memPoolRecord->tid = 1234;
+    memPoolRecord->timestamp = 1000;
+    memPoolRecord->devId = 1;
     auto ptaMemUsage = MemoryUsage{};
     ptaMemUsage.ptr = 123;
     ptaMemUsage.dataType = 0;
@@ -186,40 +172,35 @@ TEST(MemoryStateRecordTest, state_addr_info_record_expect_success)
     ptaMemUsage.totalAllocated = 10000;
     ptaMemUsage.totalReserved = 30000;
     ptaMemUsage.totalActive = 10000;
-    memPoolRecord.memoryUsage = ptaMemUsage;
-    record.eventRecord.record.memPoolRecord = memPoolRecord;
+    memPoolRecord->memoryUsage = ptaMemUsage;
 
-    memoryStateRecord.MemoryPoolInfoProcess(record, stack);
-
-    record.eventRecord.type = RecordType::ADDR_INFO_RECORD;
-    record.eventRecord.record.addrInfo = info;
-    memoryStateRecord.MemoryAddrInfoProcess(record, stack);
+    memoryStateRecord.MemoryPoolInfoProcess(static_cast<const RecordBase&>(*memPoolRecord));
+    memoryStateRecord.MemoryAddrInfoProcess(static_cast<const RecordBase&>(*info));
 }
 
 TEST(MemoryStateRecordTest, state_addr_info_record_set_config)
 {
-    auto record = Record{};
-    record.eventRecord.type = RecordType::ADDR_INFO_RECORD;
-    auto info = AddrInfo{};
-    info.addr = 123;
-    record.eventRecord.record.addrInfo = info;
-    CallStackString stack{};
+    auto buffer = RecordBuffer::CreateRecordBuffer<AddrInfo>();
+    AddrInfo* info = buffer.Cast<AddrInfo>();
+    info->type = RecordType::ADDR_INFO_RECORD;
+    info->addr = 123;
+
     Config config;
     BitField<decltype(config.analysisType)> analysisBit;
     analysisBit.setBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS));
     config.analysisType = analysisBit.getValue();
     MemoryStateRecord memoryStateRecord{config};
-    memoryStateRecord.MemoryAddrInfoProcess(record, stack);
+    memoryStateRecord.MemoryAddrInfoProcess(static_cast<const RecordBase&>(*info));
 
-    record.eventRecord.type = RecordType::TORCH_NPU_RECORD;
-    auto memPoolRecord = MemPoolRecord{};
-    memPoolRecord.type = RecordType::TORCH_NPU_RECORD;
-    memPoolRecord.memoryUsage.ptr = 123;
-    memPoolRecord.recordIndex = 1;
-    memPoolRecord.pid = 1234;
-    memPoolRecord.tid = 1234;
-    memPoolRecord.timeStamp = 1000;
-    memPoolRecord.devId = 1;
+    auto buffer1 = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
+    MemPoolRecord* memPoolRecord = buffer1.Cast<MemPoolRecord>();
+    memPoolRecord->type = RecordType::TORCH_NPU_RECORD;
+    memPoolRecord->memoryUsage.ptr = 123;
+    memPoolRecord->recordIndex = 1;
+    memPoolRecord->pid = 1234;
+    memPoolRecord->tid = 1234;
+    memPoolRecord->timestamp = 1000;
+    memPoolRecord->devId = 1;
     auto ptaMemUsage = MemoryUsage{};
     ptaMemUsage.ptr = 123;
     ptaMemUsage.dataType = 0;
@@ -227,133 +208,108 @@ TEST(MemoryStateRecordTest, state_addr_info_record_set_config)
     ptaMemUsage.totalAllocated = 10000;
     ptaMemUsage.totalReserved = 30000;
     ptaMemUsage.totalActive = 10000;
-    memPoolRecord.memoryUsage = ptaMemUsage;
-    record.eventRecord.record.memPoolRecord = memPoolRecord;
+    memPoolRecord->memoryUsage = ptaMemUsage;
 
-    memoryStateRecord.MemoryPoolInfoProcess(record, stack);
-
-    record.eventRecord.type = RecordType::ADDR_INFO_RECORD;
-    record.eventRecord.record.addrInfo = info;
-    memoryStateRecord.MemoryAddrInfoProcess(record, stack);
+    memoryStateRecord.MemoryPoolInfoProcess(static_cast<const RecordBase&>(*memPoolRecord));
+    memoryStateRecord.MemoryAddrInfoProcess(static_cast<const RecordBase&>(*info));
 }
 
 TEST(MemoryStateRecordTest, state_addr_info_record_for_malloc)
 {
-    auto record = Record{};
-    record.eventRecord.type = RecordType::ADDR_INFO_RECORD;
-    auto info = AddrInfo{};
-    info.addr = 123;
-    info.type = AddrInfoType::PTA_OPTIMIZER_STEP;
-    strncpy_s(info.owner, sizeof(info.owner), "weight", sizeof(info.owner) - 1);
-    record.eventRecord.record.addrInfo = info;
-    CallStackString stack{};
+    auto buffer = RecordBuffer::CreateRecordBuffer<AddrInfo>(TLVBlockType::ADDR_OWNER, "weight");
+    AddrInfo* info = buffer.Cast<AddrInfo>();
+    info->type = RecordType::ADDR_INFO_RECORD;
+    info->addr = 123;
+    info->addrInfoType = AddrInfoType::PTA_OPTIMIZER_STEP;
     Config config;
     BitField<decltype(config.analysisType)> analysisBit;
     analysisBit.setBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS));
     config.analysisType = analysisBit.getValue();
     MemoryStateRecord memoryStateRecord{config};
-    memoryStateRecord.MemoryAddrInfoProcess(record, stack);
+    memoryStateRecord.MemoryAddrInfoProcess(static_cast<const RecordBase&>(*info));
 
-    record.eventRecord.type = RecordType::TORCH_NPU_RECORD;
-    auto memPoolRecord = MemPoolRecord{};
-    memPoolRecord.type = RecordType::TORCH_NPU_RECORD;
-    memPoolRecord.memoryUsage.ptr = 123;
-    memPoolRecord.recordIndex = 1;
-    memPoolRecord.pid = 1234;
-    memPoolRecord.tid = 1234;
-    memPoolRecord.timeStamp = 1000;
-    memPoolRecord.devId = 1;
+    auto buffer1 = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
+    MemPoolRecord* memPoolRecord = buffer1.Cast<MemPoolRecord>();
+    memPoolRecord->type = RecordType::TORCH_NPU_RECORD;
+    memPoolRecord->memoryUsage.ptr = 123;
+    memPoolRecord->recordIndex = 1;
+    memPoolRecord->pid = 1234;
+    memPoolRecord->tid = 1234;
+    memPoolRecord->timestamp = 1000;
+    memPoolRecord->devId = 1;
     auto ptaMemUsage = MemoryUsage{};
     ptaMemUsage.ptr = 123;
     ptaMemUsage.dataType = 0;
     ptaMemUsage.allocSize = 100;
-    memPoolRecord.memoryUsage = ptaMemUsage;
-    record.eventRecord.record.memPoolRecord = memPoolRecord;
+    memPoolRecord->memoryUsage = ptaMemUsage;
 
-    memoryStateRecord.MemoryPoolInfoProcess(record, stack);
-
-    record.eventRecord.type = RecordType::ADDR_INFO_RECORD;
-    record.eventRecord.record.addrInfo = info;
-    memoryStateRecord.MemoryAddrInfoProcess(record, stack);
+    memoryStateRecord.MemoryPoolInfoProcess(static_cast<const RecordBase&>(*memPoolRecord));
+    memoryStateRecord.MemoryAddrInfoProcess(static_cast<const RecordBase&>(*info));
 }
 
 TEST(MemoryStateRecordTest, state_addr_info_record_for_free)
 {
-    auto record = Record{};
-    record.eventRecord.type = RecordType::ADDR_INFO_RECORD;
-    auto info = AddrInfo{};
-    info.addr = 123;
-    info.type = AddrInfoType::PTA_OPTIMIZER_STEP;
-    strncpy_s(info.owner, sizeof(info.owner), "weight", sizeof(info.owner) - 1);
-    record.eventRecord.record.addrInfo = info;
-    CallStackString stack{};
+    auto buffer = RecordBuffer::CreateRecordBuffer<AddrInfo>(TLVBlockType::ADDR_OWNER, "weight");
+    AddrInfo* info = buffer.Cast<AddrInfo>();
+    info->type = RecordType::ADDR_INFO_RECORD;
+    info->addr = 123;
+    info->addrInfoType = AddrInfoType::PTA_OPTIMIZER_STEP;
+
     Config config;
     BitField<decltype(config.analysisType)> analysisBit;
     analysisBit.setBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS));
     config.analysisType = analysisBit.getValue();
     MemoryStateRecord memoryStateRecord{config};
-    memoryStateRecord.MemoryAddrInfoProcess(record, stack);
+    memoryStateRecord.MemoryAddrInfoProcess(static_cast<const RecordBase&>(*info));
 
-    record.eventRecord.type = RecordType::TORCH_NPU_RECORD;
-    auto memPoolRecord = MemPoolRecord{};
-    memPoolRecord.type = RecordType::TORCH_NPU_RECORD;
-    memPoolRecord.memoryUsage.ptr = 123;
-    memPoolRecord.recordIndex = 1;
-    memPoolRecord.pid = 1234;
-    memPoolRecord.tid = 1234;
-    memPoolRecord.timeStamp = 1000;
-    memPoolRecord.devId = 1;
+    auto buffer1 = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
+    MemPoolRecord* memPoolRecord = buffer1.Cast<MemPoolRecord>();
+    memPoolRecord->type = RecordType::TORCH_NPU_RECORD;
+    memPoolRecord->memoryUsage.ptr = 123;
+    memPoolRecord->recordIndex = 1;
+    memPoolRecord->pid = 1234;
+    memPoolRecord->tid = 1234;
+    memPoolRecord->timestamp = 1000;
+    memPoolRecord->devId = 1;
     auto ptaMemUsage = MemoryUsage{};
     ptaMemUsage.ptr = 123;
     ptaMemUsage.dataType = 1;
     ptaMemUsage.allocSize = 100;
-    memPoolRecord.memoryUsage = ptaMemUsage;
-    record.eventRecord.record.memPoolRecord = memPoolRecord;
+    memPoolRecord->memoryUsage = ptaMemUsage;
 
-    memoryStateRecord.MemoryPoolInfoProcess(record, stack);
-
-    record.eventRecord.type = RecordType::ADDR_INFO_RECORD;
-    record.eventRecord.record.addrInfo = info;
-    memoryStateRecord.MemoryAddrInfoProcess(record, stack);
+    memoryStateRecord.MemoryPoolInfoProcess(static_cast<const RecordBase&>(*memPoolRecord));
+    memoryStateRecord.MemoryAddrInfoProcess(static_cast<const RecordBase&>(*info));
 }
 
 TEST(MemoryStateRecordTest, memory_access_info_process_expect_success)
 {
-    auto record = Record{};
-    record.eventRecord.type = RecordType::MEM_ACCESS_RECORD;
-    auto memAccessRecord = MemAccessRecord{};
-    
-    memAccessRecord.eventType = AccessType::UNKNOWN;
-    memAccessRecord.memType = OpType::ATEN;
-    strncpy_s(memAccessRecord.name, sizeof(memAccessRecord.name),
-              "ElewiseOperation", sizeof(memAccessRecord.name) - 1);
-    strncpy_s(memAccessRecord.attr, sizeof(memAccessRecord.attr),
-              "{dtype:FLOAT,format:ACL_ND,shape:1 2 }", sizeof(memAccessRecord.attr) - 1);
-    memAccessRecord.timestamp = 7890;
-    memAccessRecord.pid = 10;
-    memAccessRecord.tid = 11;
-    memAccessRecord.devId = 3;
-    memAccessRecord.recordIndex = 1;
-    memAccessRecord.addr = 1234;
-    record.eventRecord.record.memAccessRecord = memAccessRecord;
+    auto buffer = RecordBuffer::CreateRecordBuffer<MemAccessRecord>(
+        TLVBlockType::OP_NAME, "ElewiseOperation", TLVBlockType::MEM_ATTR, "{dtype:FLOAT,format:ACL_ND,shape:1 2 }");
+    MemAccessRecord* memAccessRecord = buffer.Cast<MemAccessRecord>();
+    memAccessRecord->type = RecordType::MEM_ACCESS_RECORD;
+    memAccessRecord->eventType = AccessType::UNKNOWN;
+    memAccessRecord->memType = AccessMemType::ATEN;
+    memAccessRecord->timestamp = 7890;
+    memAccessRecord->pid = 10;
+    memAccessRecord->tid = 11;
+    memAccessRecord->devId = 3;
+    memAccessRecord->recordIndex = 1;
+    memAccessRecord->addr = 1234;
 
-    CallStackString stack{};
     Config config;
     MemoryStateRecord memoryStateRecord{config};
-    auto key = std::make_pair("PTA", memAccessRecord.addr);
-    memoryStateRecord.MemoryAccessInfoProcess(record, stack);
+    auto key = std::make_pair("PTA", memAccessRecord->addr);
+    memoryStateRecord.MemoryAccessInfoProcess(static_cast<const RecordBase&>(*memAccessRecord));
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 1);
 
-    memAccessRecord.eventType = AccessType::WRITE;
-    record.eventRecord.record.memAccessRecord = memAccessRecord;
-    memoryStateRecord.MemoryAccessInfoProcess(record, stack);
+    memAccessRecord->eventType = AccessType::WRITE;
+    memoryStateRecord.MemoryAccessInfoProcess(static_cast<const RecordBase&>(*memAccessRecord));
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 2);
 
-    memAccessRecord.eventType = AccessType::READ;
-    record.eventRecord.record.memAccessRecord = memAccessRecord;
-    memoryStateRecord.MemoryAccessInfoProcess(record, stack);
+    memAccessRecord->eventType = AccessType::READ;
+    memoryStateRecord.MemoryAccessInfoProcess(static_cast<const RecordBase&>(*memAccessRecord));
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 3);
 }
@@ -373,7 +329,7 @@ TEST(MemoryStateRecordTest, hal_memory_process_expect_success)
     Config config;
     MemoryStateRecord memoryStateRecord{config};
     auto record = MemOpRecord{};
-    record.memType = MemOpType::FREE;
+    record.subtype = RecordSubType::FREE;
     uint64_t siz = 0;
     std::string type = "test";
     memoryStateRecord.HalMemProcess(record, siz, type);
@@ -385,7 +341,7 @@ TEST(MemoryStateRecordTest, get_halattr_hccl_expect_success)
     memRecordMalloc.devType = DeviceType::NPU;
     memRecordMalloc.modid = 3;
     memRecordMalloc.addr = 1234;
-    memRecordMalloc.memType = MemOpType::MALLOC;
+    memRecordMalloc.subtype = RecordSubType::MALLOC;
  
     Config config;
     BitField<decltype(config.analysisType)> analysisTypeBit;
@@ -403,7 +359,7 @@ TEST(MemoryStateRecordTest, pack_malloc_and_free_container_info)
     memPoolRecord.recordIndex = 1;
     memPoolRecord.pid = 1234;
     memPoolRecord.tid = 1234;
-    memPoolRecord.timeStamp = 1000;
+    memPoolRecord.timestamp = 1000;
     memPoolRecord.devId = 1;
     auto ptaMemUsage = MemoryUsage{};
     ptaMemUsage.ptr = 123;
@@ -427,20 +383,17 @@ TEST(MemoryStateRecordTest, pack_malloc_and_free_container_info)
 TEST(MemoryStateRecordTest, pack_access_container_info)
 {
     DumpContainer container;
-    auto memAccessRecord = MemAccessRecord{};
-    
-    memAccessRecord.eventType = AccessType::UNKNOWN;
-    memAccessRecord.memType = OpType::ATEN;
-    strncpy_s(memAccessRecord.name, sizeof(memAccessRecord.name),
-              "ElewiseOperation", sizeof(memAccessRecord.name) - 1);
-    strncpy_s(memAccessRecord.attr, sizeof(memAccessRecord.attr),
-              "{dtype:FLOAT,format:ACL_ND,shape:1 2 }", sizeof(memAccessRecord.attr) - 1);
-    memAccessRecord.timestamp = 7890;
-    memAccessRecord.pid = 10;
-    memAccessRecord.tid = 11;
-    memAccessRecord.devId = 3;
-    memAccessRecord.recordIndex = 1;
-    memAccessRecord.addr = 1234;
+    auto buffer = RecordBuffer::CreateRecordBuffer<MemAccessRecord>(
+        TLVBlockType::OP_NAME, "ElewiseOperation", TLVBlockType::MEM_ATTR, "{dtype:FLOAT,format:ACL_ND,shape:1 2 }");
+    MemAccessRecord* memAccessRecord = buffer.Cast<MemAccessRecord>();
+    memAccessRecord->eventType = AccessType::UNKNOWN;
+    memAccessRecord->memType = AccessMemType::ATEN;
+    memAccessRecord->timestamp = 7890;
+    memAccessRecord->pid = 10;
+    memAccessRecord->tid = 11;
+    memAccessRecord->devId = 3;
+    memAccessRecord->recordIndex = 1;
+    memAccessRecord->addr = 1234;
 
     std::string eventType = "WRITE";
     std::string attr = "test";
@@ -449,7 +402,7 @@ TEST(MemoryStateRecordTest, pack_access_container_info)
     BitField<decltype(config.analysisType)> analysisTypeBit;
     analysisTypeBit.setBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS));
     MemoryStateRecord memoryStateRecord{config};
-    memoryStateRecord.PackDumpContainer(container, memAccessRecord, eventType, attr);
+    memoryStateRecord.PackDumpContainer(container, *memAccessRecord, eventType, attr);
 }
 
 TEST(MemoryStateRecordTest, update_leaks_defined_owner)

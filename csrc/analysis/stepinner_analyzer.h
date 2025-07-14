@@ -103,7 +103,7 @@ struct NpuMemUsage {
 class StepInnerAnalyzer {
 public:
     static StepInnerAnalyzer &GetInstance(Config config);
-    bool Record(const ClientId &clientId, const EventRecord &record);
+    bool Record(const ClientId &clientId, const RecordBase &record);
 private:
     explicit StepInnerAnalyzer(Config config);
     ~StepInnerAnalyzer();

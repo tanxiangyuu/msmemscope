@@ -72,13 +72,6 @@ void AtenManager::ProcessMsg(const char* msg, int32_t streamId)
 
 void AtenManager::ReportAtenLaunch(const char* msg, int32_t streamId, bool isAtenBegin)
 {
-    AtenOpLaunchRecord record;
-    if (isAtenBegin) {
-        record.eventType = OpEventType::ATEN_START;
-    } else {
-        record.eventType = OpEventType::ATEN_END;
-    }
-
     std::string name;
     ExtractTensorInfo(msg, "name=", name);
     int32_t devId = GD_INVALID_NUM;
@@ -87,18 +80,16 @@ void AtenManager::ReportAtenLaunch(const char* msg, int32_t streamId, bool isAte
     }
     uint64_t tid = Utility::GetTid();
 
-    strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1);
-
     std::string opName = std::to_string(devId) + "_" + std::to_string(tid) + "/" + name;
     if (isWatchEnable_ && isAtenBegin) {
-        OpExcuteWatch::GetInstance().OpExcuteBegin(nullptr, opName, OpType::ATEN);
+        OpExcuteWatch::GetInstance().OpExcuteBegin(nullptr, opName, AccessMemType ::ATEN);
     }
     if (isWatchEnable_ && !isAtenBegin) {
-        OpExcuteWatch::GetInstance().OpExcuteEnd(nullptr, opName, outputTensors_, OpType::ATEN);
-        if (IsFirstWatchedOp(record.name) && !isfirstWatchOpSet_) {
+        OpExcuteWatch::GetInstance().OpExcuteEnd(nullptr, opName, outputTensors_, AccessMemType ::ATEN);
+        if (IsFirstWatchedOp(name.c_str()) && !isfirstWatchOpSet_) {
             isfirstWatchOpSet_ = true;
         }
-        if (IsLastWatchedOp(record.name)) {
+        if (IsLastWatchedOp(name.c_str())) {
             outputTensors_.clear();
             isfirstWatchOpSet_ = false;
         }
@@ -109,54 +100,21 @@ void AtenManager::ReportAtenLaunch(const char* msg, int32_t streamId, bool isAte
     }
 
     auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
-    std::string cStack;
     std::string pyStack;
     if (config.enablePyStack) {
         Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
     }
-    CallStackString stack{cStack, pyStack};
-    if (!EventReport::Instance(CommType::SOCKET).ReportAtenLaunch(record, stack)) {
+    TLVBlockType pyStackType = pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<AtenOpLaunchRecord>(
+        TLVBlockType::ATEN_NAME, name, pyStackType, pyStack);
+
+    AtenOpLaunchRecord* record = buffer.Cast<AtenOpLaunchRecord>();
+    record->eventType = isAtenBegin ? OpEventType::ATEN_START : OpEventType::ATEN_END;
+
+    if (!EventReport::Instance(CommType::SOCKET).ReportAtenLaunch(buffer)) {
         CLIENT_ERROR_LOG("Report Aten Launch FAILED");
     }
     return;
-}
-
-void AtenManager::ParseAtenAccessMsg(const char* msg, MemAccessRecord &record, std::string &dtype,
-    std::string &shape, std::string &isOutput)
-{
-    std::string addr;
-    std::string size;
-    std::string name;
-    std::string isRead;
-    std::string isWrite;
-    ExtractTensorInfo(msg, "ptr=", addr);
-    ExtractTensorInfo(msg, "dtype=", dtype);
-    ExtractTensorInfo(msg, "shape=", shape);
-    ExtractTensorInfo(msg, "tensor_size=", size);
-    ExtractTensorInfo(msg, "name=", name);
-    ExtractTensorInfo(msg, "is_write=", isWrite);
-    ExtractTensorInfo(msg, "is_read=", isRead);
-    ExtractTensorInfo(msg, "is_output=", isOutput);
-
-    if (isWrite == "False" && isRead == "False") {
-        record.eventType = AccessType::UNKNOWN;
-    } else if (isWrite == "True") {
-        record.eventType = AccessType::WRITE;
-    } else {
-        record.eventType = AccessType::READ;
-    }
-    record.memType = OpType::ATEN;
-
-    if (!Utility::StrToUint64(record.addr, addr)) {
-        CLIENT_ERROR_LOG("Aten Tensor's addr StrToUint64 failed");
-    }
-    if (!Utility::StrToUint64(record.memSize, size)) {
-        CLIENT_ERROR_LOG("Aten Tensor's memSize StrToUint64 failed");
-    }
-    if (strncpy_s(record.name, sizeof(record.name), name.c_str(), sizeof(record.name) - 1) != EOK) {
-        CLIENT_ERROR_LOG("strncpy_s FAILED");
-        record.name[0] = '\0';
-    }
 }
 
 bool AtenManager::IsFirstWatchedOp(const char* name)
@@ -169,18 +127,42 @@ bool AtenManager::IsLastWatchedOp(const char* name)
     return lastWatchOp_ == std::string(name);
 }
 
+void AtenManager::ExtractTensorFields(const char* msg, AtenAccessTensorInfo& info)
+{
+    ExtractTensorInfo(msg, "ptr=", info.addr);
+    ExtractTensorInfo(msg, "dtype=", info.dtype);
+    ExtractTensorInfo(msg, "shape=", info.shape);
+    ExtractTensorInfo(msg, "tensor_size=", info.size);
+    ExtractTensorInfo(msg, "name=", info.name);
+    ExtractTensorInfo(msg, "is_write=", info.isWrite);
+    ExtractTensorInfo(msg, "is_read=", info.isRead);
+    ExtractTensorInfo(msg, "is_output=", info.isOutput);
+}
+
 void AtenManager::ReportAtenAccess(const char* msg, int32_t streamId)
 {
-    MemAccessRecord record;
-    std::string dtype;
-    std::string shape;
-    std::string isOutput;
-    ParseAtenAccessMsg(msg, record, dtype, shape, isOutput);
+    AtenAccessTensorInfo atenInfo;
+    ExtractTensorFields(msg, atenInfo);
 
-    if (isOutput == "True" && isWatchEnable_ && IsFirstWatchedOp(record.name) && !isfirstWatchOpSet_) {
+    // 组装attr属性
+    std::ostringstream oss;
+    oss << "dtype:" << atenInfo.dtype << ",shape:" << atenInfo.shape;
+    std::string attr = oss.str();
+    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
+    std::string pyStack;
+    if (config.enablePyStack) {
+        Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
+    }
+    TLVBlockType pyStackType = pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemAccessRecord>(
+        TLVBlockType::OP_NAME, atenInfo.name.c_str(), TLVBlockType::MEM_ATTR, attr.c_str(), pyStackType, pyStack);
+    MemAccessRecord* record = buffer.Cast<MemAccessRecord>();
+
+    if (atenInfo.isOutput == "True" && isWatchEnable_ && IsFirstWatchedOp(atenInfo.name.c_str())
+        && !isfirstWatchOpSet_) {
         MonitoredTensor tensorInfo{};
-        tensorInfo.data =  reinterpret_cast<void*>(reinterpret_cast<std::uintptr_t>(record.addr));
-        tensorInfo.dataSize = record.memSize;
+        tensorInfo.data =  reinterpret_cast<void*>(reinterpret_cast<std::uintptr_t>(record->addr));
+        tensorInfo.dataSize = record->memSize;
         outputTensors_.push_back(tensorInfo);
     }
 
@@ -188,20 +170,22 @@ void AtenManager::ReportAtenAccess(const char* msg, int32_t streamId)
         return ;
     }
 
-    // 组装attr属性
-    std::ostringstream oss;
-    oss << "dtype:" << dtype << ",shape:" << shape;
-    std::string attr = oss.str();
-    strncpy_s(record.attr, sizeof(record.attr), attr.c_str(), sizeof(record.attr) - 1);
-
-    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
-    std::string cStack;
-    std::string pyStack;
-    if (config.enablePyStack) {
-        Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
+    if (atenInfo.isWrite == "False" && atenInfo.isRead == "False") {
+        record->eventType = AccessType::UNKNOWN;
+    } else if (atenInfo.isWrite == "True") {
+        record->eventType = AccessType::WRITE;
+    } else {
+        record->eventType = AccessType::READ;
     }
-    CallStackString stack{cStack, pyStack};
-    if (!EventReport::Instance(CommType::SOCKET).ReportAtenAccess(record, stack)) {
+    record->memType = AccessMemType::ATEN;
+ 
+    if (!Utility::StrToUint64(record->addr, atenInfo.addr)) {
+        CLIENT_ERROR_LOG("Aten Tensor's addr StrToUint64 failed");
+    }
+    if (!Utility::StrToUint64(record->memSize, atenInfo.size)) {
+        CLIENT_ERROR_LOG("Aten Tensor's memSize StrToUint64 failed");
+    }
+    if (!EventReport::Instance(CommType::SOCKET).ReportAtenAccess(buffer)) {
         CLIENT_ERROR_LOG("Report Aten Access FAILED");
     }
     return;

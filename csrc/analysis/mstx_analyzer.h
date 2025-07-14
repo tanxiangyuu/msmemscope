@@ -4,6 +4,7 @@
 #define MSTX_ANALYZER_H
 
 #include <unordered_map>
+#include <mutex>
 #include "record_info.h"
 #include "host_injection/core/Communication.h"
 
@@ -37,7 +38,7 @@ private:
     MstxAnalyzer& operator=(MstxAnalyzer&&) = delete;
 
     void Notify(const MstxRecord &mstxRecord);
-
+    std::mutex mstxMutex_;
     std::unordered_map<MstxEventSubscriber, MstxEventCallBackFunc> subscriberList_;
 };
 

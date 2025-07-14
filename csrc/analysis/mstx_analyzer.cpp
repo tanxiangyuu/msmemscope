@@ -36,6 +36,7 @@ void MstxAnalyzer::UnSubscribe(const MstxEventSubscriber &subscriber)
 
 void MstxAnalyzer::Notify(const MstxRecord &mstxRecord)
 {
+    std::lock_guard<std::mutex> lock(mstxMutex_);
     for (auto &subscriber : subscriberList_) {
         if (subscriber.second != nullptr) {
             subscriber.second(mstxRecord);
@@ -49,15 +50,16 @@ bool MstxAnalyzer::RecordMstx(const ClientId &clientId, const MstxRecord &mstxRe
 {
     DeviceId deviceId = mstxRecord.devId;
     uint64_t stepId = mstxRecord.stepId;
-    std::string mstxMessage(mstxRecord.markMessage);
-    Utility::ToSafeString(mstxMessage);
+    const TLVBlock* tlv = GetTlvBlock(mstxRecord, TLVBlockType::MARK_MESSAGE);
+    std::string markMessage = tlv == nullptr ? "" : tlv->data;
+    Utility::ToSafeString(markMessage);
     if (mstxRecord.markType == MarkType::RANGE_START_A) {
         LOG_INFO("[npu %ld][client %u][stepid %llu][streamid %d][start]: %s",
             deviceId,
             clientId,
             stepId,
             mstxRecord.streamId,
-            mstxMessage.c_str());
+            markMessage.c_str());
         Notify(mstxRecord);
         return true;
     } else if (mstxRecord.markType == MarkType::RANGE_END) {
@@ -66,7 +68,7 @@ bool MstxAnalyzer::RecordMstx(const ClientId &clientId, const MstxRecord &mstxRe
             clientId,
             stepId,
             mstxRecord.streamId,
-            mstxMessage.c_str());
+            markMessage.c_str());
         Notify(mstxRecord);
         return true;
     } else if (mstxRecord.markType == MarkType::MARK_A) {
@@ -75,7 +77,7 @@ bool MstxAnalyzer::RecordMstx(const ClientId &clientId, const MstxRecord &mstxRe
             clientId,
             stepId,
             mstxRecord.streamId,
-            mstxMessage.c_str());
+            markMessage.c_str());
         return true;
     }
     return false;

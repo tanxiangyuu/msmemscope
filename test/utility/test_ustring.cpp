@@ -134,3 +134,14 @@ TEST(VersionClass, compare_version_test)
     EXPECT_TRUE(ver2 <= ver3);
     EXPECT_TRUE(ver2 < ver3);
 }
+ 
+TEST(ToSafeStringTest, log_safe_string_test)
+{
+    std::string testStr = "test\t1";
+    ToSafeString(testStr);
+    ASSERT_EQ(testStr, "test\\t1");
+ 
+    testStr = "test1";
+    ToSafeString(testStr);
+    ASSERT_EQ(testStr, "test1");
+}

@@ -3,6 +3,7 @@
 #include "utils.h"
 #include "event_report.h"
 #include "call_stack.h"
+#include "describe_trace.h"
 #include "atb_memory_pool_trace.h"
 
 namespace Leaks {
@@ -94,13 +95,15 @@ void ATBMemoryPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegionsReg
         auto handle = new mstxMemRegion_t {};
         desc->regionHandleArrayOut[i] = handle;
         regionHandleMp_[handle] = rangeDescArray[i];
-
-        MemPoolRecord record;
-        record.type = RecordType::ATB_MEMORY_POOL_RECORD;
-        record.memoryUsage = memUsageMp_[devId];
-        record.pid = Utility::GetPid();
-        record.tid = Utility::GetTid();
-        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(record, stack)) {
+        std::string owner = DescribeTrace::GetInstance().GetDescribe();
+        TLVBlockType cStackType = stack.cStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_C;
+        TLVBlockType pyStackType = stack.pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
+        RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>(
+            TLVBlockType::ADDR_OWNER, owner, cStackType, stack.cStack, pyStackType, stack.pyStack);
+        MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
+        record->type = RecordType::ATB_MEMORY_POOL_RECORD;
+        record->memoryUsage = memUsageMp_[devId];
+        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(buffer)) {
             CLIENT_ERROR_LOG("Report ATB Data Failed");
         }
     }
@@ -128,7 +131,6 @@ void ATBMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregi
         if (iter == regionHandleMp_.end()) {
             continue;
         }
-        MemPoolRecord record;
         mstxMemVirtualRangeDesc_t rangeDesc = iter->second;
         memUsageMp_[rangeDesc.deviceId].dataType = 1;
         memUsageMp_[rangeDesc.deviceId].deviceIndex = rangeDesc.deviceId;
@@ -136,15 +138,18 @@ void ATBMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregi
         memUsageMp_[rangeDesc.deviceId].totalAllocated =
             Utility::GetSubResult(memUsageMp_[rangeDesc.deviceId].totalAllocated, rangeDesc.size);
         memUsageMp_[rangeDesc.deviceId].allocSize = rangeDesc.size;
-        record.type = RecordType::ATB_MEMORY_POOL_RECORD;
-        record.memoryUsage = memUsageMp_[rangeDesc.deviceId];
-        record.pid = Utility::GetPid();
-        record.tid = Utility::GetTid();
-
+        std::string owner = "";
+        TLVBlockType cStackType = stack.cStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_C;
+        TLVBlockType pyStackType = stack.pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
+        RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>(
+            TLVBlockType::ADDR_OWNER, owner, cStackType, stack.cStack, pyStackType, stack.pyStack);
+        MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
+        record->type = RecordType::ATB_MEMORY_POOL_RECORD;
+        record->memoryUsage = memUsageMp_[rangeDesc.deviceId];
         regionHandleMp_.erase(handle);
         delete handle;
         handle = nullptr;
-        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(record, stack)) {
+        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(buffer)) {
             CLIENT_ERROR_LOG("Report ATB Data Failed");
         }
     }

@@ -11,7 +11,7 @@ TEST(MstxManagerTest, ReportMarkATest) {
 }
 
 TEST(MstxManagerTest, ReportMarkATest_Nullptr_Msg_Strcpy_Failed) {
-    const char* msg = nullptr;
+    const char* msg = "";
     uint32_t streamId = 0;
     MstxManager::GetInstance().ReportMarkA(msg, streamId);
 }
@@ -24,7 +24,7 @@ TEST(MstxManagerTest, ReportRangeStartTest) {
 }
 
 TEST(MstxManagerTest, ReportRangeStartTest_Nullptr_Msg_Strcpy_Failed) {
-    const char* msg = nullptr;
+    const char* msg = "";
     uint32_t streamId = 0;
     std::uint64_t rangeId = MstxManager::GetInstance().ReportRangeStart(msg, streamId);
     EXPECT_GT(rangeId, 0);
