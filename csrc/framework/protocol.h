@@ -8,6 +8,7 @@
 #include <mutex>
 #include "config_info.h"
 #include "record_info.h"
+#include "serializer.h"
 
 namespace Leaks {
 
@@ -16,11 +17,13 @@ constexpr size_t MAX_STRING_LEN = 65536;
 enum class PacketType : uint8_t {
     RECORD = 0,
     LOG,
+    RECORD_NEW,
     INVALID
 };
 
 struct PacketHead {
     PacketType type;
+    size_t length;
 };
 
 struct LogInfo {
@@ -97,38 +100,66 @@ private:
 // Protocol类接收数据，根据协议解包，后期可根据分析算法的不同进行扩展
 class Protocol {
 public:
+    class Extractor {
+    public:
+        Extractor() = default;
+        ~Extractor() = default;
+        void Feed(const std::string &msg);
+        uint64_t Size(void) const;
+        template<typename T>
+        bool Read(T &val);
+        bool Read(uint64_t size, std::string &buffer);
+        template<typename T>
+        bool View(T &val);
+        bool View(uint64_t size, std::string &buffer);
+
+    private:
+        static constexpr uint64_t MAX_STRING_LEN = 1024UL * 1024UL;
+        void DropUsedBytes(void);
+
+    private:
+        std::string bytes_;
+        std::string::size_type offset_{0UL};
+        std::mutex mutex_;
+    };
+
+public:
     Protocol();
     ~Protocol() = default;
     void Feed(std::string const &msg);
+    inline uint64_t Size() const {return extractor_->Size();}
+    template<typename T>
+    inline bool View(T &val) {return extractor_->View(val);}
+    template<typename T>
+    inline bool Read(T &val) {return extractor_->Read(val);}
+    bool GetStringData(std::string &data, uint64_t len);
     Packet GetPacket(void);
 private:
     Packet GetPayLoad(PacketHead head);
-    bool GetStringData(std::string &data);
     Packet GetRecord(void);
-    Packet GetLog(void);
-    class Extractor;
+    Packet GetLog(uint64_t);
     std::shared_ptr<Extractor> extractor_;
 };
 
-class Protocol::Extractor {
-public:
-    Extractor() = default;
-    ~Extractor() = default;
-    inline void Feed(const std::string &msg);
-    inline uint64_t Size(void) const;
-    template<typename T>
-    inline bool Read(T &val);
-    inline bool Read(uint64_t size, std::string &buffer);
+template <typename T>
+bool Protocol::Extractor::Read(T &val)
+{
+    std::string buffer;
+    if (!Read(sizeof(T), buffer)) {
+        return false;
+    }
+    return Deserialize<T>(buffer, val);
+}
 
-private:
-    static constexpr uint64_t MAX_STRING_LEN = 1024UL * 1024UL;
-    inline void DropUsedBytes(void);
-
-private:
-    std::string bytes_;
-    std::string::size_type offset_{0UL};
-    std::mutex mutex_;
-};
+template <typename T>
+bool Protocol::Extractor::View(T &val)
+{
+    std::string buffer;
+    if (!View(sizeof(T), buffer)) {
+        return false;
+    }
+    return Deserialize<T>(buffer, val);
+}
 
 }
 

@@ -5,12 +5,12 @@
 
 namespace Leaks {
 
-void OpExcuteWatch::BeginExcute(aclrtStream stream, const std::string &rawItem, OpType type)
+void OpExcuteWatch::BeginExcute(aclrtStream stream, const std::string &rawItem, AccessMemType type)
 {
     OpEventType opEventType;
-    if (type == OpType::ATB) {
+    if (type == AccessMemType::ATB) {
         opEventType = OpEventType::ATB_START;
-    } else if (type == OpType::ATEN) {
+    } else if (type == AccessMemType::ATEN) {
         opEventType = OpEventType::ATEN_START;
     } else {
         CLIENT_WARN_LOG("Get unknown type!");
@@ -24,12 +24,12 @@ void OpExcuteWatch::BeginExcute(aclrtStream stream, const std::string &rawItem, 
 }
 
 void OpExcuteWatch::EndExcute(aclrtStream stream, const std::string &excuteItem, const std::string &rawItem,
-    OpType type, const std::vector<MonitoredTensor> &outputTensors,  uint32_t outputId)
+    AccessMemType type, const std::vector<MonitoredTensor> &outputTensors,  uint32_t outputId)
 {
     OpEventType opEventType;
-    if (type == OpType::ATB) {
+    if (type == AccessMemType::ATB) {
         opEventType = OpEventType::ATB_END;
-    } else if (type == OpType::ATEN) {
+    } else if (type == AccessMemType::ATEN) {
         opEventType = OpEventType::ATEN_END;
     } else {
         CLIENT_WARN_LOG("Get unknown type!");
@@ -59,13 +59,13 @@ void OpExcuteWatch::EndExcute(aclrtStream stream, const std::string &excuteItem,
     return;
 }
 
-void OpExcuteBegin(aclrtStream stream, char *rawOp, OpType type)
+void OpExcuteBegin(aclrtStream stream, char *rawOp, AccessMemType type)
 {
     std::string str(rawOp);
-    return Leaks::OpExcuteWatch::GetInstance().OpExcuteBegin(stream, str, OpType::ATB);
+    return Leaks::OpExcuteWatch::GetInstance().OpExcuteBegin(stream, str, AccessMemType::ATB);
 }
 
-void OpExcuteEnd(aclrtStream stream, char *rawOp, MonitoredTensor* tensorsInput, size_t size, OpType type)
+void OpExcuteEnd(aclrtStream stream, char *rawOp, MonitoredTensor* tensorsInput, size_t size, AccessMemType type)
 {
     std::vector<MonitoredTensor> tensors;
 
@@ -75,17 +75,17 @@ void OpExcuteEnd(aclrtStream stream, char *rawOp, MonitoredTensor* tensorsInput,
         tensors.push_back(tensorsInput[i]);
     }
     std::string str(rawOp);
-    return Leaks::OpExcuteWatch::GetInstance().OpExcuteEnd(stream, str, tensors, OpType::ATB);
+    return Leaks::OpExcuteWatch::GetInstance().OpExcuteEnd(stream, str, tensors, AccessMemType::ATB);
 }
 
-void OpExcuteWatch::OpExcuteBegin(aclrtStream stream, const std::string &rawOp, OpType type)
+void OpExcuteWatch::OpExcuteBegin(aclrtStream stream, const std::string &rawOp, AccessMemType type)
 {
     std::lock_guard<std::mutex> guard(mutex_);
     return BeginExcute(stream, rawOp, type);
 }
 
 void OpExcuteWatch::OpExcuteEnd(aclrtStream stream,
-    const std::string &rawOp, const std::vector<MonitoredTensor>& tensors, OpType type)
+    const std::string &rawOp, const std::vector<MonitoredTensor>& tensors, AccessMemType type)
 {
     std::lock_guard<std::mutex> guard(mutex_);
     auto op = rawOp.substr(rawOp.find("/") + 1);
@@ -101,14 +101,14 @@ void OpExcuteWatch::OpExcuteEnd(aclrtStream stream,
     return EndExcute(stream, op, rawOp, type, tensors);
 }
 
-void KernelExcute(aclrtStream stream, char *rawOp, const Mki::SVector<Mki::Tensor>& tensors, OpType type)
+void KernelExcute(aclrtStream stream, char *rawOp, const Mki::SVector<Mki::Tensor>& tensors, AccessMemType type)
 {
     std::string str(rawOp);
-    return Leaks::OpExcuteWatch::GetInstance().KernelExcute(stream, str, tensors, OpType::ATB);
+    return Leaks::OpExcuteWatch::GetInstance().KernelExcute(stream, str, tensors, AccessMemType::ATB);
 }
 
 void OpExcuteWatch::KernelExcute(aclrtStream stream,
-    const std::string &rawKernel, const Mki::SVector<Mki::Tensor>& tensors, OpType type)
+    const std::string &rawKernel, const Mki::SVector<Mki::Tensor>& tensors, AccessMemType type)
 {
     std::lock_guard<std::mutex> guard(mutex_);
     auto beforPos = rawKernel.find("/before");

@@ -60,8 +60,8 @@ void ClientProcess::Log(LogLv level, std::string msg, const std::string fileName
     }
 
     std::string logMsg = levelStrMap[level] + " [" + fileName + ":" + std::to_string(line) + "] " + msg;
-    Leaks::PacketHead head {Leaks::PacketType::LOG};
-    std::string buffer = Leaks::Serialize<Leaks::PacketHead, uint64_t>(head, logMsg.size());
+    Leaks::PacketHead head {Leaks::PacketType::LOG, static_cast<size_t>(logMsg.size())};
+    std::string buffer = Leaks::Serialize<Leaks::PacketHead>(head);
     buffer += logMsg;
 
     if (client_ != nullptr && Notify(buffer) < 0) {
@@ -77,10 +77,13 @@ void ClientProcess::SetLogLevel(LogLv level)
 
 // 通过工具侧配合wait实现阻塞功能
 // 此处Notify的消息格式为[MESSAGE] xxx:xxx; 与log格式统一，降低工具侧消息解析复杂度
-int ClientProcess::Notify(std::string const &msg)
+int ClientProcess::Notify(const std::string &msg)
 {
+    std::lock_guard<std::mutex> lock(notifyMutex_);
     int32_t sentBytes = 0;
     std::size_t totalSent = 0;
+    /* 循环外部先发送一次，减少重复构造字符串 */
+    totalSent = client_->Write(msg);
     while (totalSent < msg.size()) {
         sentBytes = client_->Write(msg.substr(totalSent));
         // partial send return sent bytes
@@ -122,16 +125,6 @@ int ClientProcess::Wait(std::string& msg, uint32_t timeOut)
 int ClientProcess::TerminateWithSignal(int signal)
 {
     return kill(getpid(), signal);
-}
-
-int ClientNotify(std::string msg)
-{
-    return ClientProcess::GetInstance().Notify(msg);
-}
-
-int ClientWait(std::string& msg)
-{
-    return ClientProcess::GetInstance().Wait(msg);
 }
 
 }

@@ -51,12 +51,12 @@ public:
 
 // dump数据结构
 struct DumpContainer : public DumpDataClass {
-    DumpContainer() : DumpDataClass(DumpClass::LEAKS_RECORD), id(0), timeStamp(0), pid(0), tid(0) {}
+    DumpContainer() : DumpDataClass(DumpClass::LEAKS_RECORD), id(0), timestamp(0), pid(0), tid(0) {}
     uint64_t id;
     std::string event;
     std::string eventType;
     std::string name;
-    uint64_t timeStamp;
+    uint64_t timestamp;
     uint64_t pid;
     uint64_t tid;
     std::string deviceId;

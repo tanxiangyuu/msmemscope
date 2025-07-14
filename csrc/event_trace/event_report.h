@@ -50,17 +50,16 @@ public:
     bool ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo);
     bool ReportKernelExcute(const TaskKey &key, std::string &name, uint64_t time, KernelEventType type);
     bool ReportAclItf(AclOpType aclOpType);
-    bool ReportMark(MstxRecord &mstxRecord, CallStackString& stack);
-    int ReportRecordEvent(EventRecord &record, PacketHead &head, CallStackString& stack);
-    int ReportRecordEvent(EventRecord &record, PacketHead &head);
+    bool ReportMark(RecordBuffer &mstxRecordBuffer);
+    int ReportRecordEvent(const RecordBuffer& record);
     Config GetConfig();
-    bool ReportMemPoolRecord(MemPoolRecord &record, CallStackString& stack);
-    bool ReportAtbOpExecute(AtbOpExecuteRecord& atbOpExecuteRecord);
-    bool ReportAtbKernel(AtbKernelRecord& atbKernelRecord);
-    bool ReportAtbAccessMemory(std::vector<MemAccessRecord>& memAccessRecords);
-    bool ReportAtenLaunch(AtenOpLaunchRecord &atenOpLaunchRecord, CallStackString& stack);
-    bool ReportAtenAccess(MemAccessRecord &memAccessRecord, CallStackString &stack);
-    bool ReportAddrInfo(AddrInfo &info);
+    bool ReportMemPoolRecord(RecordBuffer &memPoolRecordBuffer);
+    bool ReportAtbOpExecute(RecordBuffer& atbOpExecuteRecordBuffer);
+    bool ReportAtbKernel(RecordBuffer& atbKernelRecordBuffer);
+    bool ReportAtbAccessMemory(std::vector<RecordBuffer>& memAccessRecordBuffers);
+    bool ReportAtenLaunch(RecordBuffer& atenOpLaunchRecordBuffer);
+    bool ReportAtenAccess(RecordBuffer &memAccessRecordBuffer);
+    bool ReportAddrInfo(RecordBuffer &infoBuffer);
 private:
     void Init();
     explicit EventReport(CommType type);

@@ -1,4 +1,5 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+#include <sstream>
 #define private public
 #include "event_trace/memory_pool_trace/memory_pool_trace_manager.h"
 #include "event_trace/mstx_hooks/mstx_inject.h"

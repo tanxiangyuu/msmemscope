@@ -257,3 +257,42 @@ TEST_F(TestCpython, PythonListObject)
     PythonTupleObject tuple = list3.ToTuple();
     EXPECT_FALSE(tuple.IsBad());
 }
+
+TEST_F(TestCpython, TestGetPyFuncInfoInputNullFrame)
+{
+    std::string info = "original_info";
+    std::string hash = "original_hash";
+    GetPyFuncInfo(nullptr, info, hash);
+    EXPECT_EQ(info, "original_info");
+    EXPECT_EQ(hash, "original_hash");
+}
+
+TEST_F(TestCpython, NotIgnoreCFunc)
+{
+    EXPECT_FALSE(IsIgnoreCFunc("anyfile.py:some_function"));
+    EXPECT_FALSE(IsIgnoreCFunc("contextlib.py:__init__"));
+    
+    EXPECT_FALSE(IsIgnoreCFunc("otherfile.py:__exit__"));
+    EXPECT_FALSE(IsIgnoreCFunc("/path/to/otherfile.py:__exit__"));
+}
+
+TEST_F(TestCpython, TrueMatch)
+{
+    EXPECT_TRUE(IsIgnoreCFunc("contextlib.py:__exit__"));
+    EXPECT_TRUE(IsIgnoreCFunc("dir/contextlib.py:__exit__"));
+    EXPECT_TRUE(IsIgnoreCFunc("/full/path/to/contextlib.py:__exit__"));
+}
+
+TEST_F(TestCpython, PyProfileFnNullptrTest)
+{
+    PyFrameObject* frame = nullptr;
+    int ret = pyProfileFn(nullptr, frame, PyTrace_CALL, nullptr);
+    ASSERT_EQ(ret, 0);
+}
+
+TEST_F(TestCpython, GetTraceCallStackTest)
+{
+    std::string type = "test";
+    uint64_t time = 123456;
+    GetTraceCallStack(type, time);
+}

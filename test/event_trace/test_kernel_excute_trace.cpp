@@ -43,6 +43,27 @@ TEST(TestKernelExcuteTrace, TestKernelExcuteTraceNormal)
     EndDriverKernelInfoTrace();
 }
 
+TEST(TestKernelExcuteTrace, TestCompactInfoReporterCallbackImpl)
+{
+    uint32_t agingFlag = 1;
+    const void* data = nullptr;
+    uint32_t length = sizeof(struct MsprofCompactInfo);
+    CompactInfoReporterCallbackImpl(agingFlag, data, length);
+
+    MsprofCompactInfo value;
+    value.level = MSPROF_REPORT_RUNTIME_LEVEL;
+    value.type = RT_PROFILE_TYPE_TASK_TRACK;
+    const void* data1 = static_cast<const void*>(&value);
+    CompactInfoReporterCallbackImpl(agingFlag, data1, length);
+}
+
+TEST(TestKernelExcuteTrace, TestGetHashIdCallBackImply)
+{
+    const char* hashInfo  = nullptr;
+    uint32_t length = sizeof(struct MsprofCompactInfo);
+    GetHashIdCallBackImply(hashInfo, length);
+}
+
 TEST(TestKernelExcuteTrace, TestGetStreamIdFuncAbnormalInput)
 {
     uint16_t streamId = STREAM_JUDGE_BIT12_OPERATOR;

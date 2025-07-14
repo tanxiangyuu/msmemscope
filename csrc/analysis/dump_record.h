@@ -19,7 +19,7 @@ namespace Leaks {
 class DumpRecord {
 public:
     static DumpRecord& GetInstance(Config config);
-    bool DumpData(const ClientId &clientId, const Record &record, const CallStackString &stack);
+    bool DumpData(const ClientId &clientId, const RecordBase *record);
     bool WriteToFile(DumpContainer &container, const CallStackString &stack);
     void SetAllocAttr(MemStateInfo& memInfo);
 private:
@@ -30,16 +30,17 @@ private:
     DumpRecord(DumpRecord&& other) = delete;
     DumpRecord& operator=(DumpRecord&& other) = delete;
 
-    bool DumpMemData(const ClientId &clientId, const MemOpRecord &memrecord);
-    bool DumpKernelData(const ClientId &clientId, const KernelLaunchRecord &kernelLaunchRecord);
-    bool DumpKernelExcuteData(const KernelExcuteRecord &record);
-    bool DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord);
-    bool DumpMstxData(const ClientId &clientId, const MstxRecord &msxtRecord, const CallStackString &stack);
-    bool DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord);
-    bool DumpAtbOpData(const ClientId &clientId, const AtbOpExecuteRecord &atbOpExecuteRecord);
-    bool DumpAtbKernelData(const ClientId &clientId, const AtbKernelRecord &atbKernelRecord);
-    bool DumpAtenOpLaunchData(const ClientId &clientId, const AtenOpLaunchRecord &atenOpLaunchRecord,
-    const CallStackString &stack);
+    bool DumpMemData(const ClientId &clientId, const MemOpRecord *memrecord);
+    bool DumpKernelData(const ClientId &clientId, const KernelLaunchRecord *kernelLaunchRecord);
+    bool DumpKernelExcuteData(const KernelExcuteRecord *record);
+    bool DumpAclItfData(const ClientId &clientId, const AclItfRecord *aclItfRecord);
+    bool DumpMstxData(const ClientId &clientId, const MstxRecord *msxtRecord);
+    bool DumpMemPoolData(const ClientId &clientId, const MemPoolRecord *memPoolRecord);
+    bool DumpAtbOpData(const ClientId &clientId, const AtbOpExecuteRecord *atbOpExecuteRecord);
+    bool DumpAtbKernelData(const ClientId &clientId, const AtbKernelRecord *atbKernelRecord);
+    bool DumpAtenOpLaunchData(const ClientId &clientId, const AtenOpLaunchRecord *atenOpLaunchRecord);
+    FILE *leaksDataFile_ = nullptr;
+    std::string dirPath_;
     std::mutex fileMutex_;
     Config config_;
     std::unique_ptr<DataHandler> handler_;

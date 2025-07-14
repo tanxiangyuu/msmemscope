@@ -124,6 +124,8 @@ TEST(Process, process_setpreloadenv_with_atb_abi_1_expect_success)
  
 TEST(Process, process_postprocess_exit_signal_expect_success)
 {
+    std::vector<std::string> eEmptyParams;
+    ExecCmd cmdEmpty(eEmptyParams);
     std::vector<std::string> execParams = {"ls"};
     ExecCmd cmd(execParams);
     ::pid_t pid = ::fork();
@@ -170,55 +172,55 @@ TEST(Process, process_postprocess_exit_abnormal_expect_success)
 TEST(Process, do_dump_record_except_success)
 {
     ClientId clientId = 0;
-    Record record{};
-
+    RecordBase *record = new RecordBase {};
     Config config;
     setConfig(config);
-    CallStackString stack{};
-    DumpRecord::GetInstance(config).DumpData(clientId, record, stack);
+    DumpRecord::GetInstance(config).DumpData(clientId, record);
 }
 
 TEST(Process, do_record_handler_except_success)
 {
     ClientId clientId = 0;
-    auto record1 = Record{};
-    record1.eventRecord.type = RecordType::TORCH_NPU_RECORD;
-    auto npuRecordMalloc = MemPoolRecord {};
-    npuRecordMalloc.recordIndex = 1;
+    auto buffer1 = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
+    MemPoolRecord* record1 = buffer1.Cast<MemPoolRecord>();
+    record1->type = RecordType::TORCH_NPU_RECORD;
+    record1->recordIndex = 1;
     auto memoryusage1 = MemoryUsage {};
     memoryusage1.dataType = 0;
     memoryusage1.ptr = 12345;
     memoryusage1.allocSize = 512;
     memoryusage1.totalAllocated = 512;
-    npuRecordMalloc.memoryUsage = memoryusage1;
-    record1.eventRecord.record.memPoolRecord = npuRecordMalloc;
+    record1->memoryUsage = memoryusage1;
 
-    auto record2 = Record{};
-    record2.eventRecord.type = RecordType::MSTX_MARK_RECORD;
-    auto mstxRecordStart = MstxRecord {};
-    mstxRecordStart.markType = MarkType::RANGE_START_A;
-    mstxRecordStart.rangeId = 0;
-    mstxRecordStart.stepId = 1;
-    mstxRecordStart.streamId = 123;
-    record2.eventRecord.record.mstxRecord = mstxRecordStart;
+    auto buffer2 = RecordBuffer::CreateRecordBuffer<MstxRecord>();
+    MstxRecord* record2 = buffer2.Cast<MstxRecord>();
+    record2->type = RecordType::MSTX_MARK_RECORD;
+    record2->markType = MarkType::RANGE_START_A;
+    record2->rangeId = 0;
+    record2->stepId = 1;
+    record2->streamId = 123;
 
-    auto record3 = Record{};
-    record3.eventRecord.type = RecordType::KERNEL_LAUNCH_RECORD;
-    auto kernelLaunchRecord = KernelLaunchRecord {};
-    record3.eventRecord.record.kernelLaunchRecord = kernelLaunchRecord;
+    auto buffer3 = RecordBuffer::CreateRecordBuffer<KernelLaunchRecord>();
+    KernelLaunchRecord* record3 = buffer3.Cast<KernelLaunchRecord>();
+    record3->type = RecordType::KERNEL_LAUNCH_RECORD;
 
-    auto record4 = Record{};
-    record4.eventRecord.type = RecordType::ACL_ITF_RECORD;
-    auto aclItfRecord = AclItfRecord {};
-    record4.eventRecord.record.aclItfRecord = aclItfRecord;
+    auto buffer4 = RecordBuffer::CreateRecordBuffer<AclItfRecord>();
+    AclItfRecord* record4 = buffer4.Cast<AclItfRecord>();
+    record4->type = RecordType::ACL_ITF_RECORD;
+
+    auto buffer5 = RecordBuffer::CreateRecordBuffer<MemOpRecord>();
+    MemOpRecord* record5 = buffer5.Cast<MemOpRecord>();
+    record5->type = RecordType::MEMORY_RECORD;
+    record5->subtype = RecordSubType::MALLOC;
 
     Config config;
     setConfig(config);
     Process process(config);
-    process.RecordHandler(clientId, record1);
-    process.RecordHandler(clientId, record2);
-    process.RecordHandler(clientId, record3);
-    process.RecordHandler(clientId, record4);
+    process.RecordHandler(clientId, buffer1);
+    process.RecordHandler(clientId, buffer2);
+    process.RecordHandler(clientId, buffer3);
+    process.RecordHandler(clientId, buffer4);
+    process.RecordHandler(clientId, buffer5);
 }
 
 TEST(Process, do_msg_handler_record_packet_type_except_success)
@@ -228,8 +230,6 @@ TEST(Process, do_msg_handler_record_packet_type_except_success)
     Process process(config);
 
     size_t clientId = 0;
-
-    PacketHead recordHead {PacketType::RECORD};
     auto record = EventRecord {};
     auto memRecord = MemOpRecord {};
     memRecord.recordIndex = 123;
@@ -238,26 +238,33 @@ TEST(Process, do_msg_handler_record_packet_type_except_success)
     memRecord.pid = 123;
     memRecord.tid = 321;
     memRecord.devId = 9;
-    memRecord.memType = MemOpType::MALLOC;
+    memRecord.subtype = RecordSubType::MALLOC;
     memRecord.space = MemOpSpace::HOST;
     memRecord.modid = 234;
     memRecord.addr = 0x758;
     memRecord.memSize = 10240;
-    memRecord.timeStamp = 1234567;
+    memRecord.timestamp = 1234567;
     record.type = RecordType::MEMORY_RECORD;
     record.record.memoryRecord = memRecord;
     std::string testMsg = "test";
     record.pyStackLen = testMsg.size();
     record.cStackLen = testMsg.size();
+    PacketHead recordHead {PacketType::RECORD, sizeof(MemOpRecord) + record.pyStackLen + record.cStackLen};
     std::string str = Serialize(recordHead, record);
     str += testMsg + testMsg;
     process.MsgHandle(clientId, str);
 
     std::string logMsg = "test";
-    PacketHead logHead {PacketType::LOG};
-    std::string buffer = Serialize<PacketHead, uint64_t>(logHead, logMsg.size());
+    PacketHead logHead {PacketType::LOG, logMsg.size()};
+    std::string buffer = Serialize<PacketHead>(logHead);
     buffer += logMsg;
     process.MsgHandle(clientId, buffer);
+
+    RecordBuffer rb = RecordBuffer::CreateRecordBuffer<MemOpRecord>(TLVBlockType::CALL_STACK_C, testMsg,
+                                                                    TLVBlockType::CALL_STACK_PYTHON, testMsg);
+    PacketHead newHead {PacketType::RECORD_NEW, rb.Size()};
+    std::string buffer2 = Serialize<PacketHead>(newHead) + rb.Get();
+    process.MsgHandle(clientId, buffer2);
 }
 
 TEST(Process, server_process_notify_test)

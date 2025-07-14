@@ -52,42 +52,40 @@ TEST(EventReportTest, ReportMallocTestDEVICE) {
 
 TEST(EventReportTest, ReportAddrInfoTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
-    AddrInfo info;
-    EXPECT_TRUE(instance.ReportAddrInfo(info));
+    auto buffer = RecordBuffer::CreateRecordBuffer<AddrInfo>();
+    EXPECT_TRUE(instance.ReportAddrInfo(buffer));
 }
 
 TEST(EventReportTest, ReportTorchNpuMallocTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
-
-    auto npuRecordMalloc = MemPoolRecord {};
-    npuRecordMalloc.recordIndex = 1;
+    auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
+    MemPoolRecord* npuRecordMalloc = buffer.Cast<MemPoolRecord>();
+    npuRecordMalloc->recordIndex = 1;
     auto memoryusage1 = MemoryUsage {};
     memoryusage1.deviceIndex = 0;
     memoryusage1.dataType = 0;
     memoryusage1.ptr = 12345;
     memoryusage1.allocSize = 512;
     memoryusage1.totalAllocated = 512;
-    npuRecordMalloc.memoryUsage = memoryusage1;
+    npuRecordMalloc->memoryUsage = memoryusage1;
     instance.isReceiveServerInfo_ = true;
-    CallStackString callStack;
-    EXPECT_TRUE(instance.ReportMemPoolRecord(npuRecordMalloc, callStack));
+    EXPECT_TRUE(instance.ReportMemPoolRecord(buffer));
 }
 
 TEST(EventReportTest, ReportTorchNpuFreeTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
-
-    auto npuRecordFree = MemPoolRecord {};
-    npuRecordFree.recordIndex = 3;
+    auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
+    MemPoolRecord* npuRecordFree = buffer.Cast<MemPoolRecord>();
+    npuRecordFree->recordIndex = 3;
     auto memoryusage1 = MemoryUsage {};
     memoryusage1.deviceIndex = 3;
     memoryusage1.dataType = 1;
     memoryusage1.ptr = 12345;
     memoryusage1.allocSize = 512;
     memoryusage1.totalAllocated = 512;
-    npuRecordFree.memoryUsage = memoryusage1;
+    npuRecordFree->memoryUsage = memoryusage1;
     instance.isReceiveServerInfo_ = true;
-    CallStackString callStack;
-    EXPECT_TRUE(instance.ReportMemPoolRecord(npuRecordFree, callStack));
+    EXPECT_TRUE(instance.ReportMemPoolRecord(buffer));
 }
 
 TEST(EventReportTest, ReportMallocTestHost) {
@@ -160,23 +158,22 @@ TEST(EventReportTest, ReportHostMallocTest) {
     eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
     instance.config_.eventType = eventBit.getValue();
     instance.isReceiveServerInfo_ = true;
-    auto mstxRecordStart = MstxRecord{};
-    CallStackString stack;
-    mstxRecordStart.markType = MarkType::RANGE_START_A;
-    mstxRecordStart.rangeId = 1;
-    strncpy_s(mstxRecordStart.markMessage, sizeof(mstxRecordStart.markMessage),
-        "report host memory info start", sizeof(mstxRecordStart.markMessage));
-    instance.ReportMark(mstxRecordStart, stack);
+    auto buffer1 = RecordBuffer::CreateRecordBuffer<MstxRecord>(
+        TLVBlockType::MARK_MESSAGE, "report host memory info start");
+    MstxRecord* mstxRecordStart = buffer1.Cast<MstxRecord>();
+    mstxRecordStart->markType = MarkType::RANGE_START_A;
+    mstxRecordStart->rangeId = 1;
+    instance.ReportMark(buffer1);
 
     uint64_t testAddr = 0x12345678;
     uint64_t testSize = 1024;
-    CallStackString callStack;
     EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize));
 
-    auto mstxRecordEnd = MstxRecord {};
-    mstxRecordEnd.markType = MarkType::RANGE_END;
-    mstxRecordEnd.rangeId = 1;
-    instance.ReportMark(mstxRecordEnd, stack);
+    auto buffer2 = RecordBuffer::CreateRecordBuffer<MstxRecord>();
+    MstxRecord* mstxRecordEnd = buffer2.Cast<MstxRecord>();
+    mstxRecordEnd->markType = MarkType::RANGE_END;
+    mstxRecordEnd->rangeId = 1;
+    instance.ReportMark(buffer2);
 }
  
 TEST(EventReportTest, ReportHostFreeTest) {
@@ -188,28 +185,29 @@ TEST(EventReportTest, ReportHostFreeTest) {
     instance.config_.eventType = eventBit.getValue();
     CallStackString callStack;
     instance.isReceiveServerInfo_ = true;
-    auto mstxRecordStart = MstxRecord {};
-    mstxRecordStart.markType = MarkType::RANGE_START_A;
-    mstxRecordStart.rangeId = 1;
-    strncpy_s(mstxRecordStart.markMessage, sizeof(mstxRecordStart.markMessage),
-        "report host memory info start", sizeof(mstxRecordStart.markMessage));
-    instance.ReportMark(mstxRecordStart, callStack);
+    auto buffer1 = RecordBuffer::CreateRecordBuffer<MstxRecord>(
+        TLVBlockType::MARK_MESSAGE, "report host memory info start");
+    MstxRecord* mstxRecordStart = buffer1.Cast<MstxRecord>();
+    mstxRecordStart->markType = MarkType::RANGE_START_A;
+    mstxRecordStart->rangeId = 1;
+    instance.ReportMark(buffer1);
     uint64_t testAddr = 0x12345678;
     EXPECT_TRUE(instance.ReportHostFree(testAddr));
 
-    auto mstxRecordEnd = MstxRecord {};
-    mstxRecordEnd.markType = MarkType::RANGE_END;
-    mstxRecordEnd.rangeId = 1;
-    instance.ReportMark(mstxRecordEnd, callStack);
+    auto buffer2 = RecordBuffer::CreateRecordBuffer<MstxRecord>();
+    MstxRecord* mstxRecordEnd = buffer2.Cast<MstxRecord>();
+    mstxRecordEnd->markType = MarkType::RANGE_END;
+    mstxRecordEnd->rangeId = 1;
+    instance.ReportMark(buffer2);
 }
 
 TEST(EventReportTest, ReportMarkTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    MstxRecord record;
-    record.rangeId = 123;
-    CallStackString callStack;
-    EXPECT_TRUE(instance.ReportMark(record, callStack));
+    auto buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>();
+    MstxRecord* record = buffer.Cast<MstxRecord>();
+    record->rangeId = 123;
+    EXPECT_TRUE(instance.ReportMark(buffer));
 }
 
 TEST(EventReportTest, ReportKernelLaunchTest) {
@@ -229,7 +227,7 @@ TEST(EventReportTest, ReportKernelLaunchTest) {
     auto taskKey = std::make_tuple(devId, streamId, taskId);
     AclnnKernelMapInfo kernelLaunchInfo {};
     kernelLaunchInfo.taskKey = taskKey;
-    kernelLaunchInfo.timeStamp = 123;
+    kernelLaunchInfo.timestamp = 123;
     kernelLaunchInfo.kernelName = "add";
     EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchInfo));
 }
@@ -243,22 +241,22 @@ TEST(EventReportTest, ReportAclItfTest) {
 TEST(EventReportTest, ReportAtbOpExecuteTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    AtbOpExecuteRecord atbOpExecuteRecord;
+    RecordBuffer atbOpExecuteRecord = RecordBuffer::CreateRecordBuffer<AtbOpExecuteRecord>();
     EXPECT_TRUE(instance.ReportAtbOpExecute(atbOpExecuteRecord));
 }
 
 TEST(EventReportTest, ReportAtbKernelTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    AtbKernelRecord atbKernelRecord;
+    RecordBuffer atbKernelRecord = RecordBuffer::CreateRecordBuffer<AtbKernelRecord>();
     EXPECT_TRUE(instance.ReportAtbKernel(atbKernelRecord));
 }
 
 TEST(EventReportTest, ReportAtbMemAccessTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    MemAccessRecord memAccessRecord;
-    std::vector<MemAccessRecord> records;
+    RecordBuffer memAccessRecord = RecordBuffer::CreateRecordBuffer<MemAccessRecord>();
+    std::vector<RecordBuffer> records;
     records.push_back(memAccessRecord);
     EXPECT_TRUE(instance.ReportAtbAccessMemory(records));
 }
@@ -267,36 +265,32 @@ TEST(EventReportTest, ReportAtenLaunchTestExpectSuccess)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    AtenOpLaunchRecord atenOpLaunchRecord{};
-    CallStackString stack;
-    EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord, stack));
+    auto atenOpLaunchRecord = RecordBuffer::CreateRecordBuffer<AtenOpLaunchRecord>();
+    EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord));
 }
 
 TEST(EventReportTest, ReportAtenAccessTestExpectSuccess)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    MemAccessRecord  memAccessRecord {};
-    CallStackString stack;
-    EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord, stack));
+    auto memAccessRecord = RecordBuffer::CreateRecordBuffer<MemAccessRecord>();
+    EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord));
 }
 
 TEST(EventReportTest, ReportAtenLaunchTestExpextSuccess)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    AtenOpLaunchRecord atenOpLaunchRecord {};
-    CallStackString stack;
-    EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord, stack));
+    auto atenOpLaunchRecord = RecordBuffer::CreateRecordBuffer<AtenOpLaunchRecord>();
+    EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord));
 }
 
 TEST(EventReportTest, ReportAtenAccessTestExpextSuccess)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    MemAccessRecord  memAccessRecord  {};
-    CallStackString stack;
-    EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord, stack));
+    auto memAccessRecord = RecordBuffer::CreateRecordBuffer<MemAccessRecord>();
+    EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord));
 }
 
 TEST(EventReportTest, ReportKernelExcuteTestExpextSuccess)
@@ -340,38 +334,37 @@ TEST(EventReportTest, TestReportSkipStepsNormal)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    MstxRecord mstxRecord = {};
-    mstxRecord.markType = MarkType::RANGE_START_A;
-    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage),
-        "step start", sizeof(mstxRecord.markMessage));
-    mstxRecord.rangeId = 8;
-    instance.SetStepInfo(mstxRecord);
+    auto buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>(TLVBlockType::MARK_MESSAGE, "step start");
+    MstxRecord* mstxRecord = buffer.Cast<MstxRecord>();
+    mstxRecord->markType = MarkType::RANGE_START_A;
+    mstxRecord->rangeId = 8;
+    instance.SetStepInfo(*mstxRecord);
     instance.config_.stepList.stepCount = 3;
     instance.config_.stepList.stepIdList[0] = 1;
     instance.config_.stepList.stepIdList[1] = 2;
     instance.config_.stepList.stepIdList[2] = 6;
     EXPECT_EQ(instance.IsNeedSkip(), false);
 
-    mstxRecord.markType = MarkType::RANGE_END;
-    instance.SetStepInfo(mstxRecord);
+    mstxRecord->markType = MarkType::RANGE_END;
+    instance.SetStepInfo(*mstxRecord);
     EXPECT_EQ(instance.IsNeedSkip(), true);
 
-    mstxRecord.markType = MarkType::RANGE_START_A;
-    mstxRecord.rangeId = 9;
-    instance.SetStepInfo(mstxRecord);
+    mstxRecord->markType = MarkType::RANGE_START_A;
+    mstxRecord->rangeId = 9;
+    instance.SetStepInfo(*mstxRecord);
     EXPECT_EQ(instance.IsNeedSkip(), false);
 
-    mstxRecord.markType = MarkType::RANGE_END;
-    instance.SetStepInfo(mstxRecord);
+    mstxRecord->markType = MarkType::RANGE_END;
+    instance.SetStepInfo(*mstxRecord);
     EXPECT_EQ(instance.IsNeedSkip(), true);
 
-    mstxRecord.markType = MarkType::RANGE_START_A;
-    mstxRecord.rangeId = 10;
-    instance.SetStepInfo(mstxRecord);
+    mstxRecord->markType = MarkType::RANGE_START_A;
+    mstxRecord->rangeId = 10;
+    instance.SetStepInfo(*mstxRecord);
     EXPECT_EQ(instance.IsNeedSkip(), true);
 
-    mstxRecord.markType = MarkType::RANGE_END;
-    instance.SetStepInfo(mstxRecord);
+    mstxRecord->markType = MarkType::RANGE_END;
+    instance.SetStepInfo(*mstxRecord);
     EXPECT_EQ(instance.IsNeedSkip(), true);
 
     ResetEventReportStepInfo();
@@ -394,12 +387,12 @@ TEST(EventReportTest, TestReportSkipStepsWithOtherMessageMstx)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    MstxRecord mstxRecord = {};
-    mstxRecord.markType = MarkType::RANGE_START_A;
-    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage),
-        "report host memory info start", sizeof(mstxRecord.markMessage));
-    mstxRecord.rangeId = 8;
-    instance.SetStepInfo(mstxRecord);
+    auto buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>(
+        TLVBlockType::MARK_MESSAGE, "report host memory info start");
+    MstxRecord* mstxRecord = buffer.Cast<MstxRecord>();
+    mstxRecord->markType = MarkType::RANGE_START_A;
+    mstxRecord->rangeId = 8;
+    instance.SetStepInfo(*mstxRecord);
     instance.config_.stepList.stepCount = 3;
     instance.config_.stepList.stepIdList[0] = 1;
     instance.config_.stepList.stepIdList[1] = 2;
@@ -413,21 +406,21 @@ TEST(EventReportTest, TestReportSkipStepsWithMstxEndMismatch)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    MstxRecord mstxRecord = {};
-    mstxRecord.markType = MarkType::RANGE_START_A;
-    strncpy_s(mstxRecord.markMessage, sizeof(mstxRecord.markMessage),
-        "step start", sizeof(mstxRecord.markMessage));
-    mstxRecord.rangeId = 8;
-    instance.SetStepInfo(mstxRecord);
+
+    auto buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>(TLVBlockType::MARK_MESSAGE, "step start");
+    MstxRecord* mstxRecord = buffer.Cast<MstxRecord>();
+    mstxRecord->markType = MarkType::RANGE_START_A;
+    mstxRecord->rangeId = 8;
+    instance.SetStepInfo(*mstxRecord);
     instance.config_.stepList.stepCount = 3;
     instance.config_.stepList.stepIdList[0] = 1;
     instance.config_.stepList.stepIdList[1] = 2;
     instance.config_.stepList.stepIdList[2] = 6;
     EXPECT_EQ(instance.IsNeedSkip(), false);
 
-    mstxRecord.markType = MarkType::RANGE_END;
-    mstxRecord.rangeId = 9;
-    instance.SetStepInfo(mstxRecord);
+    mstxRecord->markType = MarkType::RANGE_END;
+    mstxRecord->rangeId = 9;
+    instance.SetStepInfo(*mstxRecord);
     EXPECT_EQ(instance.IsNeedSkip(), false);
 
     ResetEventReportStepInfo();
@@ -470,18 +463,18 @@ TEST(EventReportTest, ReportTestWithNoReceiveServerInfo) {
     auto taskKey = std::make_tuple(devId, streamId, taskId);
     AclnnKernelMapInfo kernelLaunchInfo {};
     kernelLaunchInfo.taskKey = taskKey;
-    kernelLaunchInfo.timeStamp = 123;
+    kernelLaunchInfo.timestamp = 123;
     kernelLaunchInfo.kernelName = "add";
     EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchInfo));
 
     AclOpType aclOpType = {};
     EXPECT_TRUE(instance.ReportAclItf(aclOpType));
 
-    MemPoolRecord memPoolRecord = {};
-    EXPECT_TRUE(instance.ReportMemPoolRecord(memPoolRecord, callStack));
+    auto memPoolRecord = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
+    EXPECT_TRUE(instance.ReportMemPoolRecord(memPoolRecord));
 
-    MstxRecord mstxRecord = {};
-    EXPECT_TRUE(instance.ReportMark(mstxRecord, callStack));
+    auto mstxRecord = RecordBuffer::CreateRecordBuffer<MstxRecord>();
+    EXPECT_TRUE(instance.ReportMark(mstxRecord));
 }
 
 constexpr uint64_t MEM_VIRT_BIT = 10;
@@ -540,25 +533,11 @@ TEST(GetMemOpSpaceFuncTest, GetMemOpSpaceIfOverType1)
     EXPECT_EQ(result, Leaks::MemOpSpace::INVALID);
 }
 
-MemOpRecord CreateMemRecord(MemOpType type, unsigned long long flag, MemOpSpace space, uint64_t addr, uint64_t size)
-{
-    MemOpRecord record;
-    record.timeStamp = Utility::GetTimeNanoseconds();
-    record.flag = flag;
-    record.memType = type;
-    record.space = space;
-    record.addr = addr;
-    record.memSize = size;
-    record.pid = Utility::GetPid();
-    record.tid = Utility::GetTid();
-    return record;
-}
-
 AclItfRecord CreateAclItfRecord(AclOpType type)
 {
     auto record = AclItfRecord {};
-    record.timeStamp = Utility::GetTimeNanoseconds();
-    record.type = type;
+    record.timestamp = Utility::GetTimeNanoseconds();
+    record.aclOpType = type;
     record.pid = Utility::GetPid();
     record.tid = Utility::GetTid();
     return record;
@@ -568,99 +547,24 @@ KernelLaunchRecord CreateKernelLaunchRecord(KernelLaunchRecord kernelLaunchRecor
 {
     auto record = KernelLaunchRecord {};
     record = kernelLaunchRecord;
-    record.timeStamp = Utility::GetTimeNanoseconds();
+    record.timestamp = Utility::GetTimeNanoseconds();
     record.pid = Utility::GetPid();
     record.tid = Utility::GetTid();
     return record;
-}
-
-TEST(CreateMemRecordFuncTest, CreateMemRecordtestMalloc)
-{
-    Leaks::MemOpType type = Leaks::MemOpType::MALLOC;
-    unsigned long long flag = 2377900603261207558;
-    Leaks::MemOpSpace space = Leaks::MemOpSpace::SVM;
-    uint64_t addr = 0x12345678;
-    uint64_t size = 1024;
-    Leaks::MemOpRecord record = CreateMemRecord(type, flag, space, addr, size);
-    EXPECT_EQ(type, record.memType);
-    EXPECT_EQ(flag, record.flag);
-    EXPECT_EQ(space, record.space);
-    EXPECT_EQ(addr, record.addr);
-    EXPECT_EQ(size, record.memSize);
-}
-
-TEST(CreateMemRecordFuncTest, CreateMemRecordtestFree)
-{
-    Leaks::MemOpType type = Leaks::MemOpType::FREE;
-    unsigned long long flag = 2377900603261207558;
-    Leaks::MemOpSpace space = Leaks::MemOpSpace::SVM;
-    uint64_t addr = 0x12345678;
-    uint64_t size = 1024;
-    Leaks::MemOpRecord record = CreateMemRecord(type, flag, space, addr, size);
-    EXPECT_EQ(type, record.memType);
-    EXPECT_EQ(flag, record.flag);
-    EXPECT_EQ(space, record.space);
-    EXPECT_EQ(addr, record.addr);
-    EXPECT_EQ(size, record.memSize);
-}
-
-TEST(CreateMemRecordFuncTest, CreateMemRecordtestDevice)
-{
-    Leaks::MemOpType type = Leaks::MemOpType::FREE;
-    unsigned long long flag = 2377900603261207558;
-    Leaks::MemOpSpace space = Leaks::MemOpSpace::DEVICE;
-    uint64_t addr = 0x12345678;
-    uint64_t size = 1024;
-    Leaks::MemOpRecord record = CreateMemRecord(type, flag, space, addr, size);
-    EXPECT_EQ(type, record.memType);
-    EXPECT_EQ(flag, record.flag);
-    EXPECT_EQ(space, record.space);
-    EXPECT_EQ(addr, record.addr);
-    EXPECT_EQ(size, record.memSize);
-}
-
-TEST(CreateMemRecordFuncTest, CreateMemRecordtestHost)
-{
-    Leaks::MemOpType type = Leaks::MemOpType::FREE;
-    unsigned long long flag = 2377900603261207558;
-    Leaks::MemOpSpace space = Leaks::MemOpSpace::HOST;
-    uint64_t addr = 0x12345678;
-    uint64_t size = 1024;
-    Leaks::MemOpRecord record = CreateMemRecord(type, flag, space, addr, size);
-    EXPECT_EQ(type, record.memType);
-    EXPECT_EQ(flag, record.flag);
-    EXPECT_EQ(space, record.space);
-    EXPECT_EQ(addr, record.addr);
-    EXPECT_EQ(size, record.memSize);
-}
-
-TEST(CreateMemRecordFuncTest, CreateMemRecordtestDVPP)
-{
-    Leaks::MemOpType type = Leaks::MemOpType::FREE;
-    unsigned long long flag = 2377900603261207558;
-    Leaks::MemOpSpace space = Leaks::MemOpSpace::DVPP;
-    uint64_t addr = 0x12345678;
-    uint64_t size = 1024;
-    Leaks::MemOpRecord record = CreateMemRecord(type, flag, space, addr, size);
-    EXPECT_EQ(type, record.memType);
-    EXPECT_EQ(flag, record.flag);
-    EXPECT_EQ(space, record.space);
-    EXPECT_EQ(addr, record.addr);
-    EXPECT_EQ(size, record.memSize);
 }
 
 TEST(CreateAclItfRecordFuncTest, CreateAclItfRecordtestFinalize)
 {
     Leaks::AclOpType aclOpType = Leaks::AclOpType::FINALIZE;
     Leaks::AclItfRecord record = CreateAclItfRecord(aclOpType);
-    EXPECT_EQ(aclOpType, record.type);
+    EXPECT_EQ(aclOpType, record.aclOpType);
 }
 
 TEST(CreateAclItfRecordFuncTest, CreateAclItfRecordtestINIT)
 {
     Leaks::AclOpType aclOpType = Leaks::AclOpType::INIT;
     Leaks::AclItfRecord record = CreateAclItfRecord(aclOpType);
-    EXPECT_EQ(aclOpType, record.type);
+    EXPECT_EQ(aclOpType, record.aclOpType);
 }
 
 TEST(GetSpaceFunc, GetMemOpSpaceExpectSuccess)

@@ -25,7 +25,7 @@ TEST(Sample, sample)
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
     config.eventType = eventBit.getValue();
-    EventRecord record;
+    RecordBase record;
     HalAnalyzer::GetInstance(config).Record(0, record);
 
     std::string testString = "test";

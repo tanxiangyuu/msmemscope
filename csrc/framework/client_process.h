@@ -21,13 +21,10 @@ public:
     int Notify(std::string const &msg);
     int Wait(std::string& msg, uint32_t timeOut = 10);
     int TerminateWithSignal(int signal = SIGINT);
+    std::mutex notifyMutex_;
 private:
     LogLv logLevel_;
 };
-
-int ClientNotify(std::string msg);
-
-int ClientWait(std::string& msg);
 
 #define CLIENT_DEBUG_LOG(format)                                                                                      \
     do {                                                                                                              \

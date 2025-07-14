@@ -290,7 +290,7 @@ void StepInnerAnalyzer::RecordNpuMalloc(const ClientId &clientId, const DeviceId
     }
 
     NpuMemInfo npuMemInfo = {
-    memPoolRecord.type, memoryusage.allocSize, memPoolRecord.timeStamp, 0, npuMemUsages_[deviceId].mstxStep,
+    memPoolRecord.type, memoryusage.allocSize, memPoolRecord.timestamp, 0, npuMemUsages_[deviceId].mstxStep,
     memPoolRecord.kernelIndex};
     npuMemUsages_[deviceId].poolOpTable.emplace(NpuMemKey(npumemptr, memPoolRecord.type), npuMemInfo);
     UpdateAllocated(deviceId, memPoolRecord.type, memoryusage.totalAllocated);
@@ -343,13 +343,13 @@ void StepInnerAnalyzer::AddDuration(const DeviceId &deviceId)
     return;
 }
 
-bool StepInnerAnalyzer::Record(const ClientId &clientId, const EventRecord &record)
+bool StepInnerAnalyzer::Record(const ClientId &clientId, const RecordBase &record)
 {
     // 当开启--steps时，关闭所有step内分析功能
     if (!IsStepInnerAnalysisEnable()) {
         return true;
     }
-    MemPoolRecord memPoolRecord = record.record.memPoolRecord;
+    auto memPoolRecord = static_cast<const MemPoolRecord&>(record);
     DeviceId deviceId = memPoolRecord.memoryUsage.deviceIndex;
     if (!CreateTables(deviceId)) {
         LOG_ERROR("[device %ld]: Create npu Memory table failed.", deviceId);
@@ -395,8 +395,10 @@ void StepInnerAnalyzer::ReceiveMstxMsg(const MstxRecord &mstxRecord)
         LOG_WARN("[device %ld]: Create mstx-npu table failed.", deviceId);
         return;
     }
+    const TLVBlock* tlv = GetTlvBlock(mstxRecord, TLVBlockType::MARK_MESSAGE);
+    std::string markMessage = tlv == nullptr ? "" : tlv->data;
     if (markType == MarkType::RANGE_START_A) {
-        if (strcmp(mstxRecord.markMessage, "step start") != 0) {
+        if (strcmp(markMessage.c_str(), "step start") != 0) {
             return;
         }
         for (auto &poolStatus : npuMemUsages_[deviceId].poolStatusTable) {
