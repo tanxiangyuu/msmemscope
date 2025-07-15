@@ -4,6 +4,8 @@
 #include "event_trace/mstx_hooks/mstx_inject.h"
 #include "event_trace/memory_pool_trace/atb_memory_pool_trace.h"
 #include "event_trace/memory_pool_trace/mindspore_memory_pool_trace.h"
+#include "event_trace/memory_pool_trace/pta_memory_pool_trace.h"
+
 #undef private
 #include <gtest/gtest.h>
 
@@ -220,4 +222,59 @@ TEST(MemPoolTraceTest, MemoryPoolTraceManagerReallocate)
 TEST(MemPoolTraceTest, MindsporeMemoryPoolTraceCreateDomainReturnNull)
 {
     EXPECT_EQ(MindsporeMemoryPoolTrace::GetInstance().CreateDomain("mdspe"), nullptr);
+}
+
+TEST(MemPoolTraceTest, MemPoolTraceTestPtaHeapRegisterAndRegionRegister)
+{
+    auto domainHandle = MstxDomainCreateAFunc("msleaks");
+    EXPECT_EQ(domainHandle, PTAMemoryPoolTrace::GetInstance().ptaDomain_);
+ 
+    mstxMemHeapDesc_t heapDesc;
+    uint32_t deviceId = 1;
+    void const* ptrHeap = reinterpret_cast<void const*>(123);
+    mstxMemVirtualRangeDesc_t memRangeDesc{deviceId, ptrHeap, 500};                 // 生成一个虚拟内存结构体
+    heapDesc.typeSpecificDesc = reinterpret_cast<void const*>(&memRangeDesc);
+    auto HeapHandle = MstxMemHeapRegisterFunc(domainHandle, &heapDesc);
+    EXPECT_EQ(PTAMemoryPoolTrace::GetInstance().memUsageMp_[deviceId].totalReserved, 500);
+ 
+    void const* ptr = reinterpret_cast<void const*>(123);
+    memRangeDesc = {deviceId, ptr, 50};
+    mstxMemRegionsRegisterBatch_t desc;
+    desc.regionCount = 1;
+    desc.regionDescArray = reinterpret_cast<const void *>(&memRangeDesc);
+    auto mstxMemRegionHandle = mstxMemRegionHandle_t {};
+    auto handleArrayOut = &mstxMemRegionHandle;
+    desc.regionHandleArrayOut = handleArrayOut;
+    MstxMemRegionsRegisterFunc(domainHandle, &desc);
+    EXPECT_EQ(PTAMemoryPoolTrace::GetInstance().memUsageMp_[deviceId].totalAllocated, 50);
+ 
+    mstxMemRegionsUnregisterBatch_t unregisterBatch;
+    unregisterBatch.refCount = 1;
+    auto mstxMemRegionRef = new mstxMemRegionRef_t {};
+ 
+    mstxMemRegionRef->pointer = ptr;
+    unregisterBatch.refArray = mstxMemRegionRef;
+ 
+    MstxMemRegionsUnregisterFunc(domainHandle, &unregisterBatch);
+    EXPECT_EQ(PTAMemoryPoolTrace::GetInstance().memUsageMp_[deviceId].totalAllocated, 0);
+ 
+    MstxMemHeapUnregisterFunc(domainHandle, static_cast<mstxMemHeapHandle_t>(const_cast<void *>(ptrHeap)));
+    EXPECT_EQ(PTAMemoryPoolTrace::GetInstance().memUsageMp_[deviceId].totalReserved, 0);
+}
+
+TEST(MemPoolTraceTest, PtaMemoryPoolTraceReleaseRegionHandleMpNull)
+{
+    mstxDomainRegistration_t domainRegistration{};
+    mstxDomainHandle_t  domainHandle = &domainRegistration;
+    mstxMemRegionsUnregisterBatch_t desc;
+    void const* ptr = reinterpret_cast<void const*>(123);
+    mstxMemRegionRef_t memRangeDesc = {mstxMemRegionRefType::MSTX_MEM_REGION_REF_TYPE_HANDLE, ptr};
+    desc.refCount = 1;
+    desc.refArray = &memRangeDesc;
+    PTAMemoryPoolTrace::GetInstance().regionHandleMp_ = {};
+    PTAMemoryPoolTrace::GetInstance().Release(domainHandle, &desc);
+}
+TEST(MemPoolTraceTest, PtaMemoryPoolTraceCreateDomainReturnNull)
+{
+    EXPECT_EQ(PTAMemoryPoolTrace::GetInstance().CreateDomain("pta"), nullptr);
 }
