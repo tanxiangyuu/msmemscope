@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <vector>
 #include <string>
+#include <linux/limits.h>
 
 namespace Leaks {
 
@@ -91,9 +92,9 @@ struct Config {
     uint8_t eventType;
     uint8_t analysisType;
     uint8_t logLevel;
-    char outputDir[128];
+    char outputDir[PATH_MAX];
     uint8_t dataFormat;
-    char dbFileDir[128];
+    char dbFileName[PATH_MAX];
 };
 
 // 用于承载用户命令行参数的解析结果
