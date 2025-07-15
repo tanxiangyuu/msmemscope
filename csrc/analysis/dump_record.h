@@ -39,8 +39,6 @@ private:
     bool DumpAtbOpData(const ClientId &clientId, const AtbOpExecuteRecord *atbOpExecuteRecord);
     bool DumpAtbKernelData(const ClientId &clientId, const AtbKernelRecord *atbKernelRecord);
     bool DumpAtenOpLaunchData(const ClientId &clientId, const AtenOpLaunchRecord *atenOpLaunchRecord);
-    FILE *leaksDataFile_ = nullptr;
-    std::string dirPath_;
     std::mutex fileMutex_;
     Config config_;
     std::unique_ptr<DataHandler> handler_;
