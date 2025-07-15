@@ -78,6 +78,25 @@ struct RecordBase {
     uint64_t tid;
 };
 
+/**
+ * @brief 从 Record 对象中获取指定类型的 TLV 块指针。
+ *
+ * 本函数用于在一个基于 TLV（Type-Length-Value）布局的 Record 对象中，
+ * 按顺序查找第一个匹配指定类型的 TLV 块。TLV 块存储在 Record 尾部，
+ * 每个块由类型字段、长度字段和内容部分组成，通常紧跟在 Record 本体之后。
+ *
+ * 示例用法：
+ *   const TLVBlock* tlv = GetTlvBlock(RecordClass, TLVBlockType);
+ * @tparam RecordClass 要解析的具体 Record 类型
+ * @param record 引用或指针，表示包含 TLV 数据的 Record 实例。
+ * @param type TLV 块的类型标识符，用于查找对应数据块。
+ * @return 指向匹配 TLV 块起始地址的指针；如果未找到则返回 nullptr。
+ *
+ * @note
+ * - Record 对象必须包含合法的 TLV 数据区域。
+ * - 如果存在多个相同类型的 TLV 块，仅返回第一个。
+ * - 返回的指针指向整个 TLV 块的起始位置（即 type 字段）。
+ */
 template <typename RecordClass>
 const TLVBlock* GetTlvBlock(const RecordClass& record, TLVBlockType type)
 {
@@ -109,6 +128,19 @@ public:
         return v;
     }
 
+    /**
+    * @brief 构造一个 RecordBuffer 对象，用于client->server通信，支持通过参数包传入多组 type-value 键值对。
+    *
+    * 本函数是一个模板，用于构造 Record 类型的对象，其中每组参数应包括一个类型标识符（type）
+    * 和一个对应的值（value），可传入任意数量的 type-value 对。
+    *
+    * 示例用法：
+    *   RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<RecordClass>(TLVBlockType, vlaue);
+    *
+    * @tparam RecordClass 要构造的具体 Record 类型
+    * @param args 参数包，形式为 Type, Value, Type, Value...，数量应为偶数。
+    * @return 用于通信的RecordBuffer
+    */
     template <typename RecordClass, typename... Args>
     static RecordBuffer CreateRecordBuffer(Args&&... args)
     {

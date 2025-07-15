@@ -4,6 +4,7 @@
 #include "event_report.h"
 #include "call_stack.h"
 #include "pta_memory_pool_trace.h"
+#include "describe_trace.h"
 
 namespace Leaks {
 PTAMemoryPoolTrace::PTAMemoryPoolTrace()
@@ -78,12 +79,15 @@ void PTAMemoryPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegionsReg
             Utility::GetAddResult(memUsageMp_[devId].totalAllocated, memUsageMp_[devId].allocSize);
         regionHandleMp_[rangeDescArray[i].ptr] = rangeDescArray[i];
 
-        MemPoolRecord memPoolRecord;
-        memPoolRecord.type = RecordType::TORCH_NPU_RECORD;
-        memPoolRecord.memoryUsage = memUsageMp_[devId];
-        memPoolRecord.pid = Utility::GetPid();
-        memPoolRecord.tid = Utility::GetTid();
-        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(memPoolRecord, stack)) {
+        std::string owner = DescribeTrace::GetInstance().GetDescribe();
+        TLVBlockType cStackType = stack.cStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_C;
+        TLVBlockType pyStackType = stack.pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
+        RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>(
+            TLVBlockType::ADDR_OWNER, owner, cStackType, stack.cStack, pyStackType, stack.pyStack);
+        MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
+        record->type = RecordType::TORCH_NPU_RECORD;
+        record->memoryUsage = memUsageMp_[devId];
+        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(buffer)) {
             CLIENT_ERROR_LOG("Report PTA Data Failed");
         }
     }
@@ -118,11 +122,15 @@ void PTAMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregi
         memUsageMp_[rangeDesc.deviceId].totalAllocated =
             Utility::GetSubResult(memUsageMp_[rangeDesc.deviceId].totalAllocated, rangeDesc.size);
         memUsageMp_[rangeDesc.deviceId].allocSize = rangeDesc.size;
-        memPoolRecord.type = RecordType::TORCH_NPU_RECORD;
-        memPoolRecord.memoryUsage = memUsageMp_[rangeDesc.deviceId];
-        memPoolRecord.pid = Utility::GetPid();
-        memPoolRecord.tid = Utility::GetTid();
-        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(memPoolRecord, stack)) {
+        std::string owner = "";
+        TLVBlockType cStackType = stack.cStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_C;
+        TLVBlockType pyStackType = stack.pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
+        RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>(
+            TLVBlockType::ADDR_OWNER, owner, cStackType, stack.cStack, pyStackType, stack.pyStack);
+        MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
+        record->type = RecordType::TORCH_NPU_RECORD;
+        record->memoryUsage = memUsageMp_[rangeDesc.deviceId];
+        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(buffer)) {
             CLIENT_ERROR_LOG("Report PTA Data Failed");
         }
     }
