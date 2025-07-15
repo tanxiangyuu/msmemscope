@@ -23,7 +23,7 @@ TEST(DataHandler, CsvHandler_Write_LeakRecord)
     config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
     config.enableCStack = false;
     config.enablePyStack = false;
-    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testLeaksDumpResults", sizeof(config.outputDir) - 1);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
 
     CsvHandler handler(config, DumpClass::LEAKS_RECORD);
     handler.Init();
@@ -68,7 +68,7 @@ TEST(DataHandler, Sqlite3_open)
 {
     g_isDlsymNullptr = false;
     sqlite3* db = nullptr;
-    std::string path = "./testLeaksDumpResults/test.db";
+    std::string path = "./testmsleaks/test.db";
     int rc = Sqlite3Open(path.c_str(), &db);
     EXPECT_EQ(rc, 0);
     Sqlite3Errmsg(db);
@@ -81,7 +81,7 @@ TEST(DataHandler, DbHandler_Write_LeakRecord)
     config.dataFormat = static_cast<uint8_t>(DataFormat::DB);
     config.enableCStack = true;
     config.enablePyStack = true;
-    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testLeaksDumpResults", sizeof(config.outputDir) - 1);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
     Utility::CreateDbPath(config, DB_DUMP_FILE);
 
     std::unique_ptr<DataHandler> handler = MakeDataHandler(config, DumpClass::LEAKS_RECORD);
@@ -124,7 +124,7 @@ TEST(DataHandler, CsvHandler_InitSetParm_Default)
 {
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
-    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testLeaksDumpResults", sizeof(config.outputDir) - 1);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
     CsvHandler handler(config, static_cast<DumpClass>(999));
     EXPECT_TRUE(true);
 }
@@ -133,7 +133,7 @@ TEST(DataHandler, CsvHandler_Write_NullData)
 {
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
-    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testLeaksDumpResults", sizeof(config.outputDir) - 1);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
     CsvHandler handler(config, DumpClass::LEAKS_RECORD);
     handler.Init();
     ASSERT_FALSE(handler.Write(nullptr, {}));
@@ -143,7 +143,7 @@ TEST(DataHandler, DbHandler_InitSetParm_Default)
 {
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::DB);
-    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testLeaksDumpResults", sizeof(config.outputDir) - 1);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
     DbHandler handler(config, static_cast<DumpClass>(999));
     EXPECT_TRUE(true);
 }
@@ -155,7 +155,7 @@ TEST(DataHandler, DbHandler_Write_NullData)
     config.dataFormat = static_cast<uint8_t>(DataFormat::DB);
     config.enableCStack = false;
     config.enablePyStack = false;
-    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testLeaksDumpResults", sizeof(config.outputDir) - 1);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
     Utility::CreateDbPath(config, DB_DUMP_FILE);
     DbHandler handler(config, DumpClass::LEAKS_RECORD);
     handler.Init();
@@ -171,13 +171,15 @@ TEST(DataHandler, MakeDataHandler_FALSE)
     EXPECT_EQ(handler, nullptr);
 }
 
-TEST(DataHandler, write_false_type)
+TEST(DataHandler, DataHandler_Write_Type_False)
 {
     g_isDlsymNullptr = false;
     DumpDataClass data(static_cast<DumpClass>(2));
     CallStackString stack = {};
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::DB);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
+    Utility::CreateDbPath(config, DB_DUMP_FILE);
     DbHandler handler(config, DumpClass::LEAKS_RECORD);
     EXPECT_FALSE(handler.Write(&data, stack));
     config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
@@ -185,7 +187,7 @@ TEST(DataHandler, write_false_type)
     EXPECT_FALSE(handler_.Write(&data, stack));
 }
 
-TEST(DataHandler, fixjson)
+TEST(DataHandler, DataHandler_FixJson)
 {
     std::string input = "\"{addr:20616937226752,size:28160,total:2097152,used:1617920}\"";
     std::string expected = R"({"addr":"20616937226752","size":"28160","total":"2097152","used":"1617920"})";
