@@ -178,7 +178,7 @@ bool DumpRecord::DumpKernelExcuteData(const KernelExcuteRecord *record)
     DumpContainer container;
     container.id = record->recordIndex;
     container.event = "KERNEL_LAUNCH";
-    container.eventType = record->kernelEventType == KernelEventType::KERNEL_START ? "KERNEL_EXCUTE_START"
+    container.eventType = record->subtype == RecordSubType::KERNEL_START ? "KERNEL_EXCUTE_START"
                                                                                   : "KERNEL_EXCUTE_END";
     container.name = name;
     container.timestamp = record->timestamp;
@@ -260,12 +260,12 @@ bool DumpRecord::DumpAtenOpLaunchData(const ClientId &clientId, const AtenOpLaun
         return false;
     }
     std::string eventType;
-    switch (atenOpLaunchRecord->eventType) {
-        case Leaks::OpEventType::ATEN_START: {
+    switch (atenOpLaunchRecord->subtype) {
+        case Leaks::RecordSubType::ATEN_START: {
             eventType = "ATEN_START";
             break;
         }
-        case Leaks::OpEventType::ATEN_END: {
+        case Leaks::RecordSubType::ATEN_END: {
             eventType = "ATEN_END";
             break;
         }
@@ -304,11 +304,11 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord *ac
         return false;
     }
     std::string aclType;
-    switch (aclItfRecord->aclOpType) {
-        case AclOpType::INIT:
+    switch (aclItfRecord->subtype) {
+        case RecordSubType::INIT:
             aclType = "ACL_INIT";
             break;
-        case AclOpType::FINALIZE:
+        case RecordSubType::FINALIZE:
             aclType = "ACL_FINI";
             break;
         default:
@@ -377,12 +377,12 @@ bool DumpRecord::DumpAtbOpData(const ClientId &clientId, const AtbOpExecuteRecor
         return false;
     }
     std::string eventType;
-    switch (atbOpExecuteRecord->eventType) {
-        case Leaks::OpEventType::ATB_START: {
+    switch (atbOpExecuteRecord->subtype) {
+        case Leaks::RecordSubType::ATB_START: {
             eventType = "ATB_START";
             break;
         }
-        case Leaks::OpEventType::ATB_END: {
+        case Leaks::RecordSubType::ATB_END: {
             eventType = "ATB_END";
             break;
         }
@@ -423,12 +423,12 @@ bool DumpRecord::DumpAtbKernelData(const ClientId &clientId, const AtbKernelReco
         return false;
     }
     std::string eventType;
-    switch (atbKernelRecord->eventType) {
-        case Leaks::KernelEventType::KERNEL_START: {
+    switch (atbKernelRecord->subtype) {
+        case Leaks::RecordSubType::KERNEL_START: {
             eventType = "KERNEL_START";
             break;
         }
-        case Leaks::KernelEventType::KERNEL_END: {
+        case Leaks::RecordSubType::KERNEL_END: {
             eventType = "KERNEL_END";
             break;
         }

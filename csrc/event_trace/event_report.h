@@ -48,8 +48,8 @@ public:
     bool ReportHostMalloc(uint64_t addr, uint64_t size);
     bool ReportHostFree(uint64_t addr);
     bool ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo);
-    bool ReportKernelExcute(const TaskKey &key, std::string &name, uint64_t time, KernelEventType type);
-    bool ReportAclItf(AclOpType aclOpType);
+    bool ReportKernelExcute(const TaskKey &key, std::string &name, uint64_t time, RecordSubType type);
+    bool ReportAclItf(RecordSubType subtype);
     bool ReportMark(RecordBuffer &mstxRecordBuffer);
     int ReportRecordEvent(const RecordBuffer& record);
     Config GetConfig();

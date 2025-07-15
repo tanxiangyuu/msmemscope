@@ -73,7 +73,7 @@ TEST(ProtocolTest, test_protocol_parse_acl_itf_Init_record)
     aclItfRecord.tid = 123;
     aclItfRecord.aclItfRecordIndex = 123;
     aclItfRecord.timestamp = 234;
-    aclItfRecord.aclOpType = AclOpType::INIT;
+    aclItfRecord.subtype = RecordSubType::INIT;
     record.type = RecordType::ACL_ITF_RECORD;
     record.record.aclItfRecord = aclItfRecord;
     std::string str = Serialize(head, record);
@@ -104,7 +104,7 @@ TEST(ProtocolTest, test_protocol_parse_acl_itf_finalize_record)
     aclItfRecord.tid = 123;
     aclItfRecord.aclItfRecordIndex = 123;
     aclItfRecord.timestamp = 234;
-    aclItfRecord.aclOpType = AclOpType::FINALIZE;
+    aclItfRecord.subtype = RecordSubType::FINALIZE;
     record.type = RecordType::ACL_ITF_RECORD;
     record.record.aclItfRecord = aclItfRecord;
     std::string str = Serialize(head, record);
@@ -258,7 +258,7 @@ TEST(ProtocolTest, test_protocol_parse_kernerLaunch_Normal_record)
     
     auto kernelLaunchRecord = KernelLaunchRecord{};
     kernelLaunchRecord.recordIndex = 1345;
-    kernelLaunchRecord.kernelLaunchType = KernelLaunchType::NORMAL;
+    kernelLaunchRecord.subtype = RecordSubType::NORMAL;
 
     record.record.kernelLaunchRecord = kernelLaunchRecord;
     std::string testMsg = "test";
@@ -286,7 +286,7 @@ TEST(ProtocolTest, test_protocol_parse_kernerLaunch_HandleV2_record)
     
     auto kernelLaunchRecord = KernelLaunchRecord{};
     kernelLaunchRecord.recordIndex = 1345;
-    kernelLaunchRecord.kernelLaunchType = KernelLaunchType::HANDLEV2;
+    kernelLaunchRecord.subtype = RecordSubType::HANDLEV2;
 
     record.record.kernelLaunchRecord = kernelLaunchRecord;
     std::string testMsg = "test";
@@ -314,7 +314,7 @@ TEST(ProtocolTest, test_protocol_parse_kernerLaunch_FlagV2_record)
     
     auto kernelLaunchRecord = KernelLaunchRecord{};
     kernelLaunchRecord.recordIndex = 1345;
-    kernelLaunchRecord.kernelLaunchType = KernelLaunchType::FLAGV2;
+    kernelLaunchRecord.subtype = RecordSubType::FLAGV2;
 
     record.record.kernelLaunchRecord = kernelLaunchRecord;
     std::string testMsg = "test";
@@ -529,7 +529,7 @@ TEST(ProtocolTest, test_protocol_parse_kernellaunchrecord_min)
     kernelLaunchRecord.kernelLaunchIndex = 0;
     kernelLaunchRecord.pid = 0;
     kernelLaunchRecord.tid = 0;
-    kernelLaunchRecord.kernelLaunchType = KernelLaunchType::NORMAL;
+    kernelLaunchRecord.subtype = RecordSubType::NORMAL;
     kernelLaunchRecord.streamId = -2147483648;
     kernelLaunchRecord.blockDim = 0;
     kernelLaunchRecord.timestamp = 0;
@@ -568,7 +568,7 @@ TEST(ProtocolTest, test_protocol_parse_kernellaunchrecord_max)
     kernelLaunchRecord.kernelLaunchIndex = 18446744073709551615;
     kernelLaunchRecord.pid = 18446744073709551615;
     kernelLaunchRecord.tid = 18446744073709551615;
-    kernelLaunchRecord.kernelLaunchType = KernelLaunchType::NORMAL;
+    kernelLaunchRecord.subtype = RecordSubType::NORMAL;
     kernelLaunchRecord.streamId = 2147483647;
     kernelLaunchRecord.blockDim = 4294967295;
     kernelLaunchRecord.timestamp = 18446744073709551615;
@@ -607,7 +607,7 @@ TEST(ProtocolTest, test_protocol_parse_aclitfrecord_max)
     aclItfRecord.aclItfRecordIndex = 18446744073709551615;
     aclItfRecord.pid = 18446744073709551615;
     aclItfRecord.tid = 18446744073709551615;
-    aclItfRecord.aclOpType = AclOpType::INIT;
+    aclItfRecord.subtype = RecordSubType::INIT;
     aclItfRecord.timestamp = 18446744073709551615;
     record.record.aclItfRecord = aclItfRecord;
     std::string testMsg = "test";
@@ -642,7 +642,7 @@ TEST(ProtocolTest, test_protocol_parse_aclitfrecord_min)
     aclItfRecord.aclItfRecordIndex = 0;
     aclItfRecord.pid = 0;
     aclItfRecord.tid = 0;
-    aclItfRecord.aclOpType = AclOpType::INIT;
+    aclItfRecord.subtype = RecordSubType::INIT;
     aclItfRecord.timestamp = 0;
     record.record.aclItfRecord = aclItfRecord;
     std::string testMsg = "test";

@@ -7,17 +7,17 @@ namespace Leaks {
 
 void OpExcuteWatch::BeginExcute(aclrtStream stream, const std::string &rawItem, AccessMemType type)
 {
-    OpEventType opEventType;
+    RecordSubType subtype;
     if (type == AccessMemType::ATB) {
-        opEventType = OpEventType::ATB_START;
+        subtype = RecordSubType::ATB_START;
     } else if (type == AccessMemType::ATEN) {
-        opEventType = OpEventType::ATEN_START;
+        subtype = RecordSubType::ATEN_START;
     } else {
         CLIENT_WARN_LOG("Get unknown type!");
         return ;
     }
     if (IsInMonitoring()) {
-        TensorDumper::GetInstance().Dump(stream, rawItem, opEventType);
+        TensorDumper::GetInstance().Dump(stream, rawItem, subtype);
         return;
     }
     return;
@@ -26,11 +26,11 @@ void OpExcuteWatch::BeginExcute(aclrtStream stream, const std::string &rawItem, 
 void OpExcuteWatch::EndExcute(aclrtStream stream, const std::string &excuteItem, const std::string &rawItem,
     AccessMemType type, const std::vector<MonitoredTensor> &outputTensors,  uint32_t outputId)
 {
-    OpEventType opEventType;
+    RecordSubType subtype;
     if (type == AccessMemType::ATB) {
-        opEventType = OpEventType::ATB_END;
+        subtype = RecordSubType::ATB_END;
     } else if (type == AccessMemType::ATEN) {
-        opEventType = OpEventType::ATEN_END;
+        subtype = RecordSubType::ATEN_END;
     } else {
         CLIENT_WARN_LOG("Get unknown type!");
         return ;
@@ -39,12 +39,12 @@ void OpExcuteWatch::EndExcute(aclrtStream stream, const std::string &excuteItem,
     if (IsFirstWatchOp(excuteItem) && watchedOpName_.empty()) {
         SetWatchedOpName(excuteItem);
         TensorMonitor::GetInstance().AddWatchTensor(outputTensors, outputId);
-        TensorDumper::GetInstance().Dump(stream, rawItem, opEventType, true);
+        TensorDumper::GetInstance().Dump(stream, rawItem, subtype, true);
 
         return;
     }
     if (IsLastWatchOp(excuteItem)) {
-        TensorDumper::GetInstance().Dump(stream, rawItem, opEventType);
+        TensorDumper::GetInstance().Dump(stream, rawItem, subtype);
         
         ClearWatchedOpName();
         TensorMonitor::GetInstance().ClearCmdWatchTensor();
@@ -52,7 +52,7 @@ void OpExcuteWatch::EndExcute(aclrtStream stream, const std::string &excuteItem,
         return;
     }
     if (IsInMonitoring()) {
-        TensorDumper::GetInstance().Dump(stream, rawItem, opEventType);
+        TensorDumper::GetInstance().Dump(stream, rawItem, subtype);
         return;
     }
 

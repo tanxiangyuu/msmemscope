@@ -38,7 +38,7 @@ void DescribeTrace::DescribeAddr(uint64_t addr, std::string owner)
     RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<AddrInfo>(
         TLVBlockType::ADDR_OWNER, "@" + owner);
     AddrInfo* info = buffer.Cast<AddrInfo>();
-    info->addrInfoType = AddrInfoType::USER_DEFINED;
+    info->subtype = RecordSubType::USER_DEFINED;
     info->addr = addr;
     EventReport::Instance(CommType::SOCKET).ReportAddrInfo(buffer);
     return;

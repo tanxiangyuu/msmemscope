@@ -259,7 +259,7 @@ TEST(TraceRecord, process_acl_itf_record)
     aclItfRecord->kernelIndex = 123;
     aclItfRecord->devId = 2;
     aclItfRecord->aclItfRecordIndex = 0;
-    aclItfRecord->aclOpType = AclOpType::INIT;
+    aclItfRecord->subtype = RecordSubType::INIT;
 
     std::string result = "{\n"
 "    \"ph\": \"i\",\n"

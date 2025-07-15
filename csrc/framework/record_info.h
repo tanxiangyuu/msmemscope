@@ -43,6 +43,19 @@ enum class RecordType {
 enum class RecordSubType {
     MALLOC = 0,
     FREE,
+    USER_DEFINED,
+    PTA_OPTIMIZER_STEP,
+    INIT,
+    FINALIZE,
+    NORMAL,
+    HANDLEV2,
+    FLAGV2,
+    KERNEL_START,
+    KERNEL_END,
+    ATEN_START,
+    ATEN_END,
+    ATB_START,
+    ATB_END,
 };
 
 enum class TLVBlockType : int {
@@ -235,13 +248,8 @@ struct MemPoolRecord : public RecordBase {
     /* TLVBlockType::ADDR_OWNER */
 };
 
-enum class AddrInfoType : uint8_t {
-    USER_DEFINED = 0U,
-    PTA_OPTIMIZER_STEP,
-};
 
 struct AddrInfo : public RecordBase {
-    AddrInfoType addrInfoType;
     uint64_t addr;
     /* TLVBlockType::ADDR_OWNER */
 };
@@ -257,17 +265,6 @@ enum class MemOpSpace : uint8_t {
 enum class StepType : uint8_t {
     START = 0U,
     STOP,
-};
-
-enum class AclOpType : uint8_t {
-    INIT = 0U,
-    FINALIZE,
-};
-
-enum class KernelLaunchType : uint8_t {
-    NORMAL = 0U,
-    HANDLEV2,
-    FLAGV2,
 };
 
 enum class DeviceType : uint8_t {
@@ -286,18 +283,6 @@ enum class PyTraceType : uint8_t {
     PYOPCODE,
 };
 
-enum class OpEventType : uint8_t {
-    ATEN_START = 0,
-    ATEN_END,
-    ATB_START,
-    ATB_END,
-};
-
-enum class KernelEventType : uint8_t {
-    KERNEL_START = 0,
-    KERNEL_END,
-};
-
 struct MemOpRecord : public RecordBase {
     uint64_t kernelIndex;       // 当前所属kernellaunch索引
     unsigned long long flag;    // 内存属性
@@ -312,14 +297,12 @@ struct MemOpRecord : public RecordBase {
 struct AclItfRecord : public RecordBase {
     uint64_t kernelIndex;       // 当前所属kernellaunch索引
     uint64_t aclItfRecordIndex; // aclItf索引
-    AclOpType aclOpType;             // 资源申请还是释放
 };
 
 struct KernelLaunchRecord : public RecordBase {
     int16_t streamId;           // streamId
     int16_t taskId;
     uint64_t kernelLaunchIndex; // kernelLaunch索引
-    KernelLaunchType kernelLaunchType;      // KernelLaunch类型
     uint32_t blockDim;          // 算子核函数运行所需核数
     /* TLVBlockType::KERNEL_NAME */
 };
@@ -327,7 +310,6 @@ struct KernelLaunchRecord : public RecordBase {
 struct KernelExcuteRecord : public RecordBase {
     int16_t streamId;
     int16_t taskId;
-    KernelEventType kernelEventType;       // KernelLaunch类型
     /* TLVBlockType::KERNEL_NAME */
 };
 
@@ -347,19 +329,16 @@ struct MstxRecord : public RecordBase {
 };
 
 struct AtbOpExecuteRecord : public RecordBase {
-    OpEventType eventType;
     /* TLVBlockType::ATB_NAME */
     /* TLVBlockType::ATB_PARAMS */
 };
 
 struct AtbKernelRecord : public RecordBase {
-    KernelEventType eventType;
     /* TLVBlockType::ATB_NAME */
     /* TLVBlockType::ATB_PARAMS */
 };
 
 struct AtenOpLaunchRecord : public RecordBase {
-    OpEventType eventType;
     /* TLVBlockType::ATEN_NAME */
 };
 
