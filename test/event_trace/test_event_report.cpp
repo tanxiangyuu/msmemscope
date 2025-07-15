@@ -235,7 +235,7 @@ TEST(EventReportTest, ReportKernelLaunchTest) {
 TEST(EventReportTest, ReportAclItfTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    EXPECT_TRUE(instance.ReportAclItf(AclOpType::INIT));
+    EXPECT_TRUE(instance.ReportAclItf(RecordSubType::INIT));
 }
 
 TEST(EventReportTest, ReportAtbOpExecuteTest) {
@@ -301,7 +301,7 @@ TEST(EventReportTest, ReportKernelExcuteTestExpextSuccess)
     CallStackString stack;
     std::string name = "test";
     uint64_t time = 1234;
-    KernelEventType type = KernelEventType::KERNEL_START;
+    RecordSubType type = RecordSubType::KERNEL_START;
     TaskKey key;
     EXPECT_TRUE(instance.ReportKernelExcute(key, name, time, type));
 }
@@ -467,8 +467,8 @@ TEST(EventReportTest, ReportTestWithNoReceiveServerInfo) {
     kernelLaunchInfo.kernelName = "add";
     EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchInfo));
 
-    AclOpType aclOpType = {};
-    EXPECT_TRUE(instance.ReportAclItf(aclOpType));
+    RecordSubType subtype = {};
+    EXPECT_TRUE(instance.ReportAclItf(subtype));
 
     auto memPoolRecord = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     EXPECT_TRUE(instance.ReportMemPoolRecord(memPoolRecord));
@@ -533,11 +533,11 @@ TEST(GetMemOpSpaceFuncTest, GetMemOpSpaceIfOverType1)
     EXPECT_EQ(result, Leaks::MemOpSpace::INVALID);
 }
 
-AclItfRecord CreateAclItfRecord(AclOpType type)
+AclItfRecord CreateAclItfRecord(RecordSubType type)
 {
     auto record = AclItfRecord {};
     record.timestamp = Utility::GetTimeNanoseconds();
-    record.aclOpType = type;
+    record.subtype = type;
     record.pid = Utility::GetPid();
     record.tid = Utility::GetTid();
     return record;
@@ -555,16 +555,16 @@ KernelLaunchRecord CreateKernelLaunchRecord(KernelLaunchRecord kernelLaunchRecor
 
 TEST(CreateAclItfRecordFuncTest, CreateAclItfRecordtestFinalize)
 {
-    Leaks::AclOpType aclOpType = Leaks::AclOpType::FINALIZE;
-    Leaks::AclItfRecord record = CreateAclItfRecord(aclOpType);
-    EXPECT_EQ(aclOpType, record.aclOpType);
+    Leaks::RecordSubType subtype = Leaks::RecordSubType::FINALIZE;
+    Leaks::AclItfRecord record = CreateAclItfRecord(subtype);
+    EXPECT_EQ(subtype, record.subtype);
 }
 
 TEST(CreateAclItfRecordFuncTest, CreateAclItfRecordtestINIT)
 {
-    Leaks::AclOpType aclOpType = Leaks::AclOpType::INIT;
-    Leaks::AclItfRecord record = CreateAclItfRecord(aclOpType);
-    EXPECT_EQ(aclOpType, record.aclOpType);
+    Leaks::RecordSubType subtype = Leaks::RecordSubType::INIT;
+    Leaks::AclItfRecord record = CreateAclItfRecord(subtype);
+    EXPECT_EQ(subtype, record.subtype);
 }
 
 TEST(GetSpaceFunc, GetMemOpSpaceExpectSuccess)

@@ -218,9 +218,9 @@ void MemoryStateRecord::MemoryAddrInfoProcess(const RecordBase& record)
     const TLVBlock* ownerTlv = GetTlvBlock(addrInfoRecord, TLVBlockType::ADDR_OWNER);
     std::string owner = ownerTlv == nullptr ? "N/A" : ownerTlv->data;
 
-    if (addrInfoRecord.addrInfoType == AddrInfoType::USER_DEFINED) {
+    if (addrInfoRecord.subtype == RecordSubType::USER_DEFINED) {
         addrInfo.attr.userDefinedOwner += owner;
-    } else if (addrInfoRecord.addrInfoType == AddrInfoType::PTA_OPTIMIZER_STEP) {
+    } else if (addrInfoRecord.subtype == RecordSubType::PTA_OPTIMIZER_STEP) {
         UpdateLeaksDefinedOwner(addrInfo.attr.leaksDefinedOwner, owner);
     }
 }

@@ -60,7 +60,7 @@ static PyObject* PyLeaksReportTensor(PyObject *self,  PyObject *arg)
         
         RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<AddrInfo>(TLVBlockType::ADDR_OWNER, owner);
         AddrInfo* info = buffer.Cast<AddrInfo>();
-        info->addrInfoType = AddrInfoType::PTA_OPTIMIZER_STEP;
+        info->subtype = RecordSubType::PTA_OPTIMIZER_STEP;
         info->addr = addr;
         if (!EventReport::Instance(CommType::SOCKET).ReportAddrInfo(buffer)) {
             CLIENT_ERROR_LOG("Report optimizer step hook info failed.\n");

@@ -313,7 +313,7 @@ void TraceRecord::AclItfRecordToString(const AclItfRecord *aclItfRecord, std::st
     if (aclItfRecord->devId == GD_INVALID_NUM) {
         return;
     }
-    std::string name = aclItfRecord->aclOpType == AclOpType::INIT ? "acl_init" : "acl_finalize";
+    std::string name = aclItfRecord->subtype == RecordSubType::INIT ? "acl_init" : "acl_finalize";
     JsonBaseInfo baseInfo{
         name,
         aclItfRecord->pid,

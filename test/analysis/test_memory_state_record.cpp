@@ -220,7 +220,7 @@ TEST(MemoryStateRecordTest, state_addr_info_record_for_malloc)
     AddrInfo* info = buffer.Cast<AddrInfo>();
     info->type = RecordType::ADDR_INFO_RECORD;
     info->addr = 123;
-    info->addrInfoType = AddrInfoType::PTA_OPTIMIZER_STEP;
+    info->subtype = RecordSubType::PTA_OPTIMIZER_STEP;
     Config config;
     BitField<decltype(config.analysisType)> analysisBit;
     analysisBit.setBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS));
@@ -253,7 +253,7 @@ TEST(MemoryStateRecordTest, state_addr_info_record_for_free)
     AddrInfo* info = buffer.Cast<AddrInfo>();
     info->type = RecordType::ADDR_INFO_RECORD;
     info->addr = 123;
-    info->addrInfoType = AddrInfoType::PTA_OPTIMIZER_STEP;
+    info->subtype = RecordSubType::PTA_OPTIMIZER_STEP;
 
     Config config;
     BitField<decltype(config.analysisType)> analysisBit;

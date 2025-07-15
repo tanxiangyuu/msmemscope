@@ -114,7 +114,6 @@ void PTAMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregi
         if (!regionHandleMp_.count(desc->refArray[i].pointer)) {
             continue;
         }
-        MemPoolRecord memPoolRecord;
         mstxMemVirtualRangeDesc_t rangeDesc = regionHandleMp_[desc->refArray[i].pointer];
         memUsageMp_[rangeDesc.deviceId].dataType = 1;
         memUsageMp_[rangeDesc.deviceId].deviceIndex = rangeDesc.deviceId;

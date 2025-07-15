@@ -532,7 +532,7 @@ bool EventReport::ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
     return true;
 }
 
-bool EventReport::ReportKernelExcute(const TaskKey &key, std::string &name, uint64_t time, KernelEventType type)
+bool EventReport::ReportKernelExcute(const TaskKey &key, std::string &name, uint64_t time, RecordSubType type)
 {
     g_isInReportFunction = true;
 
@@ -547,7 +547,7 @@ bool EventReport::ReportKernelExcute(const TaskKey &key, std::string &name, uint
     RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<KernelExcuteRecord>(TLVBlockType::KERNEL_NAME, name);
     KernelExcuteRecord* record = buffer.Cast<KernelExcuteRecord>();
     record->type = RecordType::KERNEL_EXCUTE_RECORD;
-    record->kernelEventType = type;
+    record->subtype = type;
     record->devId = std::get<0>(key);
     record->streamId = std::get<1>(key);
     record->taskId = std::get<2>(key);
@@ -558,7 +558,7 @@ bool EventReport::ReportKernelExcute(const TaskKey &key, std::string &name, uint
     g_isInReportFunction = false;
     return (sendNums >= 0);
 }
-bool EventReport::ReportAclItf(AclOpType aclOpType)
+bool EventReport::ReportAclItf(RecordSubType subtype)
 {
     g_isInReportFunction = true;
 
@@ -570,7 +570,7 @@ bool EventReport::ReportAclItf(AclOpType aclOpType)
         return true;
     }
 
-    if (aclOpType == AclOpType::FINALIZE) {
+    if (subtype == RecordSubType::FINALIZE) {
         KernelEventTrace::GetInstance().EndKernelEventTrace();
     }
     int32_t devId = GD_INVALID_NUM;
@@ -578,7 +578,7 @@ bool EventReport::ReportAclItf(AclOpType aclOpType)
     RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<AclItfRecord>();
     AclItfRecord* record = buffer.Cast<AclItfRecord>();
     record->type = RecordType::ACL_ITF_RECORD;
-    record->aclOpType = aclOpType;
+    record->subtype = subtype;
     record->devId = devId;
     record->recordIndex = ++recordIndex_;
     record->aclItfRecordIndex = ++aclItfRecordIndex_;

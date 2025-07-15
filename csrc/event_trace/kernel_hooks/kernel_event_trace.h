@@ -67,7 +67,7 @@ public:
     void KernelLaunch();
     void SetHashInfo(uint64_t hashId, const std::string &hashInfo);
     std::string GetHashInfo(uint64_t hashId);
-    std::string GetKernelName(const TaskKey& key, KernelEventType type);
+    std::string GetKernelName(const TaskKey& key, RecordSubType type);
 private:
     RuntimeKernelLinker() = default;
     ~RuntimeKernelLinker() = default;

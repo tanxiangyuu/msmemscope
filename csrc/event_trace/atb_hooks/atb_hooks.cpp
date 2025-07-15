@@ -118,7 +118,7 @@ namespace atb {
         RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<AtbOpExecuteRecord>(
             TLVBlockType::ATB_NAME, name, TLVBlockType::ATB_PARAMS, params);
         AtbOpExecuteRecord* record = buffer.Cast<AtbOpExecuteRecord>();
-        record->eventType = isStart ? OpEventType::ATB_START : OpEventType::ATB_END;
+        record->subtype = isStart ? RecordSubType::ATB_START : RecordSubType::ATB_END;
 
         if (!EventReport::Instance(CommType::SOCKET).ReportAtbOpExecute(buffer)) {
             CLIENT_ERROR_LOG("Report atb op start event failed.\n");
@@ -189,7 +189,7 @@ namespace atb {
             TLVBlockType::ATB_NAME, name, TLVBlockType::ATB_PARAMS, params);
 
         AtbKernelRecord* record = buffer.Cast<AtbKernelRecord>();
-        record->eventType = isBeforeLaunch ? KernelEventType::KERNEL_START : KernelEventType::KERNEL_END;
+        record->subtype = isBeforeLaunch ? RecordSubType::KERNEL_START : RecordSubType::KERNEL_END;
 
         if (!EventReport::Instance(CommType::SOCKET).ReportAtbKernel(buffer)) {
             CLIENT_ERROR_LOG("Report atb run kernel event failed.\n");

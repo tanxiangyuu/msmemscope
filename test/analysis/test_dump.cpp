@@ -136,7 +136,7 @@ TEST(DumpRecord, dump_aclItf_record_expect_success)
     ClientId clientId = 0;
     config.dataFormat = 0;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, static_cast<const RecordBase*>(record)));
-    record->aclOpType = AclOpType::FINALIZE;
+    record->subtype = RecordSubType::FINALIZE;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, static_cast<const RecordBase*>(record)));
 }
 TEST(DumpRecord, dump_torchnpu_record_expect_success)
@@ -292,7 +292,7 @@ TEST(DumpRecord, dump_aten_launch_start_expect_success)
         TLVBlockType::ATEN_NAME, "leaks-aten-b: {func.__module__}.{func.__name__}");
     AtenOpLaunchRecord* record = buffer.Cast<AtenOpLaunchRecord>();
     record->type = RecordType::ATEN_OP_LAUNCH_RECORD;
-    record->eventType = Leaks::OpEventType::ATEN_START;
+    record->subtype = Leaks::RecordSubType::ATEN_START;
     record->timestamp = 1234;
     record->pid = 10;
     record->tid = 10;
@@ -309,7 +309,7 @@ TEST(DumpRecord, dump_aten_launch_end_expect_success)
         TLVBlockType::ATEN_NAME, "leaks-aten-b: {func.__module__}.{func.__name__}");
     AtenOpLaunchRecord* record = buffer.Cast<AtenOpLaunchRecord>();
     record->type = RecordType::ATEN_OP_LAUNCH_RECORD;
-    record->eventType = Leaks::OpEventType::ATEN_END;
+    record->subtype = Leaks::RecordSubType::ATEN_END;
     record->timestamp = 1234;
     record->pid = 10;
     record->tid = 10;
@@ -383,7 +383,7 @@ TEST(DumpRecord, dump_atb_op_start_expect_success)
         TLVBlockType::ATB_PARAMS, "{path:0_784115/0/0_ElewiseOperation,workspace ptr:0,workspace size:0}");
     AtbOpExecuteRecord* record = buffer.Cast<AtbOpExecuteRecord>();
     record->type = RecordType::ATB_OP_EXECUTE_RECORD;
-    record->eventType = OpEventType::ATB_START;
+    record->subtype = RecordSubType::ATB_START;
     record->timestamp = 7890;
     record->pid = 10;
     record->tid = 11;
@@ -402,7 +402,7 @@ TEST(DumpRecord, dump_atb_op_end_expect_success)
         TLVBlockType::ATB_PARAMS, "{path:0_784115/0/0_ElewiseOperation,workspace ptr:0,workspace size:0}");
     AtbOpExecuteRecord* record = buffer.Cast<AtbOpExecuteRecord>();
     record->type = RecordType::ATB_OP_EXECUTE_RECORD;
-    record->eventType = OpEventType::ATB_END;
+    record->subtype = RecordSubType::ATB_END;
     record->timestamp = 7890;
     record->pid = 10;
     record->tid = 11;
@@ -421,7 +421,7 @@ TEST(DumpRecord, dump_atb_kernel_start_expect_success)
         TLVBlockType::ATB_PARAMS, "{path:0_784115/0/0_ElewiseOperation/0_AddI32Kernel}");
     AtbKernelRecord* record = buffer.Cast<AtbKernelRecord>();
     record->type = RecordType::ATB_KERNEL_RECORD;
-    record->eventType = KernelEventType::KERNEL_START;
+    record->subtype = RecordSubType::KERNEL_START;
     record->timestamp = 7890;
     record->pid = 10;
     record->tid = 11;
@@ -440,7 +440,7 @@ TEST(DumpRecord, dump_atb_kernel_end_expect_success)
         TLVBlockType::ATB_PARAMS, "{path:0_784115/0/0_ElewiseOperation/0_AddI32Kernel}");
     AtbKernelRecord* record = buffer.Cast<AtbKernelRecord>();
     record->type = RecordType::ATB_KERNEL_RECORD;
-    record->eventType = KernelEventType::KERNEL_END;
+    record->subtype = RecordSubType::KERNEL_END;
     record->timestamp = 7890;
     record->pid = 10;
     record->tid = 11;
@@ -459,7 +459,7 @@ TEST(DumpRecord, dump_kernel_execute_data_expect_success)
     config.dataFormat = 0;
     kernelExcuteRecord.recordIndex = 1;
     kernelExcuteRecord.devId = 0;
-    kernelExcuteRecord.kernelEventType = KernelEventType::KERNEL_START;
+    kernelExcuteRecord.subtype = RecordSubType::KERNEL_START;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpKernelExcuteData(&kernelExcuteRecord));
 }
 

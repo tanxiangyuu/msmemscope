@@ -109,7 +109,7 @@ void AtenManager::ReportAtenLaunch(const char* msg, int32_t streamId, bool isAte
         TLVBlockType::ATEN_NAME, name, pyStackType, pyStack);
 
     AtenOpLaunchRecord* record = buffer.Cast<AtenOpLaunchRecord>();
-    record->eventType = isAtenBegin ? OpEventType::ATEN_START : OpEventType::ATEN_END;
+    record->subtype = isAtenBegin ? RecordSubType::ATEN_START : RecordSubType::ATEN_END;
 
     if (!EventReport::Instance(CommType::SOCKET).ReportAtenLaunch(buffer)) {
         CLIENT_ERROR_LOG("Report Aten Launch FAILED");
