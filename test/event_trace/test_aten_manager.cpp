@@ -75,21 +75,6 @@ TEST(AtenManagerTest, ExtractTensorInfoTest) {
     MstxManager::GetInstance().ReportMarkA(msg, streamId);
 }
 
-TEST(AtenManagerTest, ParseAtenAccessMsgTest)
-{
-    const char* msg = "ac:ptr=1000.0;is_write=False;is_read=True;is_output=True;"\
-        "name=test;shape=value.shape;dtype=value.dtype;tensor_size=500;device=0";
-    MemAccessRecord record= {};
-    std::string type = "";
-    std::string shape = "";
-    std::string isOutput = "";
-    AtenManager::GetInstance().ParseAtenAccessMsg(msg, record, type, shape, isOutput);
-    EXPECT_EQ(type, "value.dtype");
-    EXPECT_EQ(shape, "value.shape");
-    EXPECT_EQ(isOutput, "True");
-    EXPECT_EQ(record.memSize, 500);
-}
-
 TEST(AtenManagerTest, ExtractTensorInfoSuccessTest)
 {
     const char* msg = "ac:ptr=1000;is_write=False;is_read=True;is_output=True;"\

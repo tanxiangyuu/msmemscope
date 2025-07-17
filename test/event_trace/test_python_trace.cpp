@@ -27,14 +27,14 @@ TEST(PythonTrace, RecordReturnTest)
 
     std::string hash;
     std::string info;
-    uint64_t timeStamp = 0;
+    uint64_t timestamp = 0;
     PyTraceType what = PyTraceType::PYCALL;
-    callback(hash, info, what, timeStamp);
+    callback(hash, info, what, timestamp);
     what = PyTraceType::PYRETURN;
-    callback(hash, info, what, timeStamp);
+    callback(hash, info, what, timestamp);
     what = PyTraceType::CCALL;
-    callback(hash, info, what, timeStamp);
+    callback(hash, info, what, timestamp);
     what = PyTraceType::CRETURN;
-    callback(hash, info, what, timeStamp);
+    callback(hash, info, what, timestamp);
     PythonTrace::GetInstance().Stop();
 }

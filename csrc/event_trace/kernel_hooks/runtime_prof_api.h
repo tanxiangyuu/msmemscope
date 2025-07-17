@@ -61,7 +61,7 @@ struct MsprofEvent {  // for MsprofReportEvent
     uint32_t type;
     uint32_t threadId;
     uint32_t requestId; // 0xFFFF means single event
-    uint64_t timeStamp;
+    uint64_t timestamp;
     uint64_t reserve = MSPROF_EVENT_FLAG;
     uint64_t itemId;
 };
@@ -127,7 +127,7 @@ struct MsprofCompactInfo {
     uint32_t type;
     uint32_t threadId;
     uint32_t dataLen;
-    uint64_t timeStamp;
+    uint64_t timestamp;
     union {
         uint8_t info[MSPROF_COMPACT_INFO_DATA_LENGTH];
         MsprofRuntimeTrack runtimeTrack;

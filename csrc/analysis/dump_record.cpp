@@ -28,51 +28,53 @@ DumpRecord::DumpRecord(Config config)
     handler_ = MakeDataHandler(config_, DumpClass::LEAKS_RECORD);
 }
 
-bool DumpRecord::DumpData(const ClientId &clientId, const Record &record, const CallStackString &stack)
+bool DumpRecord::DumpData(const ClientId &clientId, const RecordBase *record)
 {
-    switch (record.eventRecord.type) {
+    switch (record->type) {
+        case RecordType::ACL_ITF_RECORD: {
+            auto aclItfRecord = static_cast<const AclItfRecord*>(record);
+            return DumpAclItfData(clientId, aclItfRecord);
+        }
         case RecordType::MEMORY_RECORD: {
-            auto memRecord = record.eventRecord.record.memoryRecord;
+            auto memRecord = static_cast<const MemOpRecord*>(record);
             return DumpMemData(clientId, memRecord);
         }
         case RecordType::KERNEL_LAUNCH_RECORD: {
-            auto kernelLaunchRecord = record.eventRecord.record.kernelLaunchRecord;
+            auto kernelLaunchRecord = static_cast<const KernelLaunchRecord*>(record);
             return DumpKernelData(clientId, kernelLaunchRecord);
         }
         case RecordType::KERNEL_EXCUTE_RECORD: {
-            auto kernelExcuteRecord = record.eventRecord.record.kernelExcuteRecord;
+            auto kernelExcuteRecord = static_cast<const KernelExcuteRecord*>(record);
             return DumpKernelExcuteData(kernelExcuteRecord);
         }
-        case RecordType::ACL_ITF_RECORD: {
-            auto aclItfRecord = record.eventRecord.record.aclItfRecord;
-            return DumpAclItfData(clientId, aclItfRecord);
+        case RecordType::ATB_OP_EXECUTE_RECORD: {
+            auto atbOpExecuteRecord = static_cast<const AtbOpExecuteRecord*>(record);
+            return DumpAtbOpData(clientId, atbOpExecuteRecord);
         }
         case RecordType::ATB_MEMORY_POOL_RECORD:
         case RecordType::TORCH_NPU_RECORD:
         case RecordType::MINDSPORE_NPU_RECORD: {
-            return DumpMemPoolData(clientId, record.eventRecord);
+            auto memPoolRecord = static_cast<const MemPoolRecord*>(record);
+            return DumpMemPoolData(clientId, memPoolRecord);
         }
         case RecordType::MSTX_MARK_RECORD: {
-            auto mstxRecord = record.eventRecord.record.mstxRecord;
-            return DumpMstxData(clientId, mstxRecord, stack);
-        }
-        case RecordType::ATB_OP_EXECUTE_RECORD: {
-            auto atbOpExecuteRecord = record.eventRecord.record.atbOpExecuteRecord;
-            return DumpAtbOpData(clientId, atbOpExecuteRecord);
+            const MstxRecord* mstxRecord = static_cast<const MstxRecord*>(record);
+            return DumpMstxData(clientId, mstxRecord);
         }
         case RecordType::ATB_KERNEL_RECORD: {
-            auto atbKernelRecord = record.eventRecord.record.atbKernelRecord;
+            auto atbKernelRecord = static_cast<const AtbKernelRecord*>(record);
             return DumpAtbKernelData(clientId, atbKernelRecord);
         }
         case RecordType::ATEN_OP_LAUNCH_RECORD:{
-            auto atenOpLaunchRecord = record.eventRecord.record.atenOpLaunchRecord;
-            return DumpAtenOpLaunchData(clientId, atenOpLaunchRecord, stack);
+            auto atenOpLaunchRecord = static_cast<const AtenOpLaunchRecord*>(record);
+            return DumpAtenOpLaunchData(clientId, atenOpLaunchRecord);
         }
         default:
             break;
     }
     return true;
 }
+
 
 bool DumpRecord::WriteToFile(DumpContainer &container, const CallStackString &stack)
 {
@@ -101,9 +103,9 @@ void DumpRecord::SetAllocAttr(MemStateInfo& memInfo)
     memInfo.container.attr = attr;
 }
 
-bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRecord)
+bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord *memRecord)
 {
-    if (memRecord.memType == MemOpType::MALLOC) {
+    if (memRecord->subtype == RecordSubType::MALLOC) {
         return true;
     }
     if (!handler_->Init()) {
@@ -111,7 +113,7 @@ bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRec
     }
 
     // free事件，落盘记录的全部内存状态数据
-    auto ptr = memRecord.addr;
+    auto ptr = memRecord->addr;
     auto key = std::make_pair("common", ptr);
     auto memoryStateRecord = DeviceManager::GetInstance(config_).GetMemoryStateRecord(clientId);
     auto memInfoLists = memoryStateRecord->GetPtrMemInfoList(key);
@@ -132,33 +134,29 @@ bool DumpRecord::DumpMemData(const ClientId &clientId, const MemOpRecord &memRec
     return true;
 }
 
-bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchRecord &kernelLaunchRecord)
+bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchRecord *kernelLaunchRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
     if (!handler_->Init()) {
         return false;
     }
-    std::string name;
-    if (kernelLaunchRecord.kernelName[0] == '\0') {
-        name = "N/A";
-    } else {
-        name = kernelLaunchRecord.kernelName;
-    }
+    const TLVBlock* tlv = GetTlvBlock(*kernelLaunchRecord, TLVBlockType::KERNEL_NAME);
+    std::string name = tlv == nullptr ? "N/A" : tlv->data;
 
     DumpContainer container;
-    container.id = kernelLaunchRecord.recordIndex;
+    container.id = kernelLaunchRecord->recordIndex;
     container.event = "KERNEL_LAUNCH";
     container.eventType = "KERNEL_LAUNCH";
     container.name = name;
-    container.timeStamp = kernelLaunchRecord.timeStamp;
-    container.pid = kernelLaunchRecord.pid;
-    container.tid = kernelLaunchRecord.tid;
-    container.deviceId = std::to_string(kernelLaunchRecord.devId);
+    container.timestamp = kernelLaunchRecord->timestamp;
+    container.pid = kernelLaunchRecord->pid;
+    container.tid = kernelLaunchRecord->tid;
+    container.deviceId = std::to_string(kernelLaunchRecord->devId);
     container.addr = "N/A";
 
     // 组装attr属性
     std::ostringstream oss;
-    oss << "{steamId:" << kernelLaunchRecord.streamId << ",taskId:" << kernelLaunchRecord.taskId << "}";
+    oss << "{steamId:" << kernelLaunchRecord->streamId << ",taskId:" << kernelLaunchRecord->taskId << "}";
     std::string attr = "\"" + oss.str() + "\"";
     container.attr = attr;
 
@@ -167,27 +165,31 @@ bool DumpRecord::DumpKernelData(const ClientId &clientId, const KernelLaunchReco
     return isWriteSuccess;
 }
 
-bool DumpRecord::DumpKernelExcuteData(const KernelExcuteRecord &record)
+bool DumpRecord::DumpKernelExcuteData(const KernelExcuteRecord *record)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
     if (!handler_->Init()) {
         return false;
     }
 
+    const TLVBlock* tlv = GetTlvBlock(*record, TLVBlockType::KERNEL_NAME);
+    std::string name = tlv == nullptr ? "N/A" : tlv->data;
+
     DumpContainer container;
-    container.id = record.recordIndex;
+    container.id = record->recordIndex;
     container.event = "KERNEL_LAUNCH";
-    container.eventType = record.type == KernelEventType::KERNEL_START ? "KERNEL_EXCUTE_START" : "KERNEL_EXCUTE_END";
-    container.name = record.kernelName;
-    container.timeStamp = record.timeStamp;
+    container.eventType = record->subtype == RecordSubType::KERNEL_START ? "KERNEL_EXCUTE_START"
+                                                                                  : "KERNEL_EXCUTE_END";
+    container.name = name;
+    container.timestamp = record->timestamp;
     container.pid = INVALID_PROCESSID;
     container.tid = INVALID_THREADID;
-    container.deviceId = std::to_string(record.devId);
+    container.deviceId = std::to_string(record->devId);
     container.addr = "N/A";
 
     // 组装attr属性
     std::ostringstream oss;
-    oss << "{steamId:" << record.streamId << ",taskId:" << record.taskId << "}";
+    oss << "{steamId:" << record->streamId << ",taskId:" << record->taskId << "}";
     std::string attr = "\"" + oss.str() + "\"";
     container.attr = attr;
 
@@ -196,7 +198,7 @@ bool DumpRecord::DumpKernelExcuteData(const KernelExcuteRecord &record)
     return isWriteSuccess;
 }
 
-bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRecord, const CallStackString &stack)
+bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord *mstxRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
     if (!handler_->Init()) {
@@ -204,7 +206,7 @@ bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRe
     }
 
     std::string markType;
-    switch (mstxRecord.markType) {
+    switch (mstxRecord->markType) {
         case Leaks::MarkType::MARK_A: {
             markType = "Mark";
             break;
@@ -223,41 +225,47 @@ bool DumpRecord::DumpMstxData(const ClientId &clientId, const MstxRecord &mstxRe
         }
     }
 
-    std::string mstxMsgString = mstxRecord.markMessage;
+    const TLVBlock* msgTlv = GetTlvBlock(*mstxRecord, TLVBlockType::MARK_MESSAGE);
+    std::string mstxMsgString = msgTlv == nullptr ? "N/A" : msgTlv->data;
     if (Utility::CheckStrIsStartsWithInvalidChar(mstxMsgString.c_str())) {
         Utility::ToSafeString(mstxMsgString);
         LOG_ERROR("mstx msg %s is invalid!", mstxMsgString.c_str());
         mstxMsgString = "";
     }
+
     DumpContainer container;
-    container.id = mstxRecord.recordIndex;
+    container.id = mstxRecord->recordIndex;
     container.event = "MSTX";
     container.eventType = markType;
     container.name = "\"" + mstxMsgString + "\""; // 用引号包住防止逗号影响判断
-    container.timeStamp = mstxRecord.timeStamp;
-    container.pid = mstxRecord.pid;
-    container.tid = mstxRecord.tid;
-    container.deviceId = std::to_string(mstxRecord.devId);
+    container.timestamp = mstxRecord->timestamp;
+    container.pid = mstxRecord->pid;
+    container.tid = mstxRecord->tid;
+    container.deviceId = std::to_string(mstxRecord->devId);
     container.addr = "N/A";
 
+    const TLVBlock* cStackTlv = GetTlvBlock(*mstxRecord, TLVBlockType::CALL_STACK_C);
+    std::string cStack = cStackTlv == nullptr ? "N/A" : cStackTlv->data;
+    const TLVBlock* pyStackTlv = GetTlvBlock(*mstxRecord, TLVBlockType::CALL_STACK_PYTHON);
+    std::string pyStack = pyStackTlv == nullptr ? "N/A" : pyStackTlv->data;
+    CallStackString stack{cStack, pyStack};
     bool isWriteSuccess = handler_->Write(&container, stack);
     return isWriteSuccess;
 }
 
-bool DumpRecord::DumpAtenOpLaunchData(const ClientId &clientId, const AtenOpLaunchRecord &atenOpLaunchRecord,
-    const CallStackString &stack)
+bool DumpRecord::DumpAtenOpLaunchData(const ClientId &clientId, const AtenOpLaunchRecord *atenOpLaunchRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
     if (!handler_->Init()) {
         return false;
     }
     std::string eventType;
-    switch (atenOpLaunchRecord.eventType) {
-        case Leaks::OpEventType::ATEN_START: {
+    switch (atenOpLaunchRecord->subtype) {
+        case Leaks::RecordSubType::ATEN_START: {
             eventType = "ATEN_START";
             break;
         }
-        case Leaks::OpEventType::ATEN_END: {
+        case Leaks::RecordSubType::ATEN_END: {
             eventType = "ATEN_END";
             break;
         }
@@ -266,34 +274,41 @@ bool DumpRecord::DumpAtenOpLaunchData(const ClientId &clientId, const AtenOpLaun
             break;
         }
     }
+    const TLVBlock* nameTlv = GetTlvBlock(*atenOpLaunchRecord, TLVBlockType::ATEN_NAME);
+    std::string name = nameTlv == nullptr ? "N/A" : nameTlv->data;
 
     DumpContainer container;
-    container.id = atenOpLaunchRecord.recordIndex;
+    container.id = atenOpLaunchRecord->recordIndex;
     container.event = "OP_LAUNCH";
     container.eventType = eventType;
-    container.name = atenOpLaunchRecord.name;
-    container.timeStamp = atenOpLaunchRecord.timestamp;
-    container.pid = atenOpLaunchRecord.pid;
-    container.tid = atenOpLaunchRecord.tid;
-    container.deviceId = std::to_string(atenOpLaunchRecord.devId);
+    container.name = name;
+    container.timestamp = atenOpLaunchRecord->timestamp;
+    container.pid = atenOpLaunchRecord->pid;
+    container.tid = atenOpLaunchRecord->tid;
+    container.deviceId = std::to_string(atenOpLaunchRecord->devId);
     container.addr = "N/A";
-    
+
+    const TLVBlock* cStackTlv = GetTlvBlock(*atenOpLaunchRecord, TLVBlockType::CALL_STACK_C);
+    std::string cStack = cStackTlv == nullptr ? "N/A" : cStackTlv->data;
+    const TLVBlock* pyStackTlv = GetTlvBlock(*atenOpLaunchRecord, TLVBlockType::CALL_STACK_PYTHON);
+    std::string pyStack = pyStackTlv == nullptr ? "N/A" : pyStackTlv->data;
+    CallStackString stack{cStack, pyStack};
     bool isWriteSuccess = handler_->Write(&container, stack);
     return isWriteSuccess;
 }
 
-bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &aclItfRecord)
+bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord *aclItfRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
     if (!handler_->Init()) {
         return false;
     }
     std::string aclType;
-    switch (aclItfRecord.type) {
-        case AclOpType::INIT:
+    switch (aclItfRecord->subtype) {
+        case RecordSubType::INIT:
             aclType = "ACL_INIT";
             break;
-        case AclOpType::FINALIZE:
+        case RecordSubType::FINALIZE:
             aclType = "ACL_FINI";
             break;
         default:
@@ -302,13 +317,13 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
     }
 
     DumpContainer container;
-    container.id = aclItfRecord.recordIndex;
+    container.id = aclItfRecord->recordIndex;
     container.event = "SYSTEM";
     container.eventType = aclType;
     container.name = "N/A";
-    container.timeStamp = aclItfRecord.timeStamp;
-    container.pid = aclItfRecord.pid;
-    container.tid = aclItfRecord.tid;
+    container.timestamp = aclItfRecord->timestamp;
+    container.pid = aclItfRecord->pid;
+    container.tid = aclItfRecord->tid;
     container.deviceId = "N/A";
     container.addr = "N/A";
 
@@ -317,10 +332,10 @@ bool DumpRecord::DumpAclItfData(const ClientId &clientId, const AclItfRecord &ac
     return isWriteSuccess;
 }
 
-bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &eventRecord)
+bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const MemPoolRecord *memPoolRecord)
 {
     // 内存事件类型为malloc
-    if (eventRecord.record.memPoolRecord.memoryUsage.dataType == 0) {
+    if (memPoolRecord->memoryUsage.dataType == 0) {
         return true;
     }
     static auto getMemPoolName = [](RecordType type) -> std::string {
@@ -334,8 +349,8 @@ bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &ev
     };
 
     // free事件，落盘记录的全部内存状态数据
-    auto ptr = eventRecord.record.memPoolRecord.memoryUsage.ptr;
-    auto key = std::make_pair(getMemPoolName(eventRecord.type), ptr);
+    auto ptr = memPoolRecord->memoryUsage.ptr;
+    auto key = std::make_pair(getMemPoolName(memPoolRecord->type), ptr);
     auto memoryStateRecord = DeviceManager::GetInstance(config_).GetMemoryStateRecord(clientId);
     auto memInfoLists = memoryStateRecord->GetPtrMemInfoList(key);
     {
@@ -355,19 +370,19 @@ bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const EventRecord &ev
     return true;
 }
 
-bool DumpRecord::DumpAtbOpData(const ClientId &clientId, const AtbOpExecuteRecord &atbOpExecuteRecord)
+bool DumpRecord::DumpAtbOpData(const ClientId &clientId, const AtbOpExecuteRecord *atbOpExecuteRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
     if (!handler_->Init()) {
         return false;
     }
     std::string eventType;
-    switch (atbOpExecuteRecord.eventType) {
-        case Leaks::OpEventType::ATB_START: {
+    switch (atbOpExecuteRecord->subtype) {
+        case Leaks::RecordSubType::ATB_START: {
             eventType = "ATB_START";
             break;
         }
-        case Leaks::OpEventType::ATB_END: {
+        case Leaks::RecordSubType::ATB_END: {
             eventType = "ATB_END";
             break;
         }
@@ -376,20 +391,24 @@ bool DumpRecord::DumpAtbOpData(const ClientId &clientId, const AtbOpExecuteRecor
             break;
         }
     }
+    const TLVBlock* nameTlv = GetTlvBlock(*atbOpExecuteRecord, TLVBlockType::ATB_NAME);
+    std::string name = nameTlv == nullptr ? "N/A" : nameTlv->data;
+    const TLVBlock* paramsTlv = GetTlvBlock(*atbOpExecuteRecord, TLVBlockType::ATB_PARAMS);
+    std::string params = paramsTlv == nullptr ? "N/A" : paramsTlv->data;
 
     std::ostringstream oss;
-    oss << "\"{" << atbOpExecuteRecord.params << "}\"";
+    oss << "\"{" << params << "}\"";
     std::string attr = oss.str();
 
     DumpContainer container;
-    container.id = atbOpExecuteRecord.recordIndex;
+    container.id = atbOpExecuteRecord->recordIndex;
     container.event = "OP_LAUNCH";
     container.eventType = eventType;
-    container.name = atbOpExecuteRecord.name;
-    container.timeStamp = atbOpExecuteRecord.timestamp;
-    container.pid = atbOpExecuteRecord.pid;
-    container.tid = atbOpExecuteRecord.tid;
-    container.deviceId = std::to_string(atbOpExecuteRecord.devId);
+    container.name = name;
+    container.timestamp = atbOpExecuteRecord->timestamp;
+    container.pid = atbOpExecuteRecord->pid;
+    container.tid = atbOpExecuteRecord->tid;
+    container.deviceId = std::to_string(atbOpExecuteRecord->devId);
     container.addr = "N/A";
     container.attr = attr;
 
@@ -397,19 +416,19 @@ bool DumpRecord::DumpAtbOpData(const ClientId &clientId, const AtbOpExecuteRecor
     return handler_->Write(&container, emptyStack);
 }
 
-bool DumpRecord::DumpAtbKernelData(const ClientId &clientId, const AtbKernelRecord &atbKernelRecord)
+bool DumpRecord::DumpAtbKernelData(const ClientId &clientId, const AtbKernelRecord *atbKernelRecord)
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
     if (!handler_->Init()) {
         return false;
     }
     std::string eventType;
-    switch (atbKernelRecord.eventType) {
-        case Leaks::KernelEventType::KERNEL_START: {
+    switch (atbKernelRecord->subtype) {
+        case Leaks::RecordSubType::KERNEL_START: {
             eventType = "KERNEL_START";
             break;
         }
-        case Leaks::KernelEventType::KERNEL_END: {
+        case Leaks::RecordSubType::KERNEL_END: {
             eventType = "KERNEL_END";
             break;
         }
@@ -418,20 +437,24 @@ bool DumpRecord::DumpAtbKernelData(const ClientId &clientId, const AtbKernelReco
             break;
         }
     }
+    const TLVBlock* nameTlv = GetTlvBlock(*atbKernelRecord, TLVBlockType::ATB_NAME);
+    std::string name = nameTlv == nullptr ? "N/A" : nameTlv->data;
+    const TLVBlock* paramsTlv = GetTlvBlock(*atbKernelRecord, TLVBlockType::ATB_PARAMS);
+    std::string params = paramsTlv == nullptr ? "N/A" : paramsTlv->data;
 
     std::ostringstream oss;
-    oss << "\"{" << atbKernelRecord.params << "}\"";
+    oss << "\"{" << params << "}\"";
     std::string attr = oss.str();
 
     DumpContainer container;
-    container.id = atbKernelRecord.recordIndex;
+    container.id = atbKernelRecord->recordIndex;
     container.event = "KERNEL_LAUNCH";
     container.eventType = eventType;
-    container.name = atbKernelRecord.name;
-    container.timeStamp = atbKernelRecord.timestamp;
-    container.pid = atbKernelRecord.pid;
-    container.tid = atbKernelRecord.tid;
-    container.deviceId = std::to_string(atbKernelRecord.devId);
+    container.name = name;
+    container.timestamp = atbKernelRecord->timestamp;
+    container.pid = atbKernelRecord->pid;
+    container.tid = atbKernelRecord->tid;
+    container.deviceId = std::to_string(atbKernelRecord->devId);
     container.addr = "N/A";
     container.attr = attr;
 

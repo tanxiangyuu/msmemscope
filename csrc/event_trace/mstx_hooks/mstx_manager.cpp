@@ -24,23 +24,21 @@ void MstxManager::ReportMarkA(const char* msg, int32_t streamId)
         AtenManager::GetInstance().ProcessMsg(atenMsg, streamId);
         return ;
     }
-    MstxRecord record;
-    record.markType = MarkType::MARK_A;
-    record.rangeId = onlyMarkId_;
-    record.streamId = streamId;
-
-    if (strncpy_s(record.markMessage, sizeof(record.markMessage), msg, sizeof(record.markMessage) - 1) != EOK) {
-        CLIENT_ERROR_LOG("strncpy_s FAILED");
-    }
-    record.markMessage[sizeof(record.markMessage) - 1] = '\0';
     auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
-    std::string cStack;
     std::string pyStack;
     if (config.enablePyStack) {
         Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
     }
-    CallStackString stack{cStack, pyStack};
-    if (!EventReport::Instance(CommType::SOCKET).ReportMark(record, stack)) {
+    TLVBlockType pyStackType = pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>(
+        TLVBlockType::MARK_MESSAGE, msg, pyStackType, pyStack);
+ 
+    MstxRecord* record = buffer.Cast<MstxRecord>();
+    record->markType = MarkType::MARK_A;
+    record->rangeId = onlyMarkId_;
+    record->streamId = streamId;
+
+    if (!EventReport::Instance(CommType::SOCKET).ReportMark(buffer)) {
         CLIENT_ERROR_LOG("Report Mark FAILED");
     }
 }
@@ -48,35 +46,31 @@ void MstxManager::ReportMarkA(const char* msg, int32_t streamId)
 // 组装Range开始打点信息
 uint64_t MstxManager::ReportRangeStart(const char* msg, int32_t streamId)
 {
-    MstxRecord record;
-    record.markType = MarkType::RANGE_START_A;
-    record.streamId = streamId;
-    if (strncpy_s(record.markMessage, sizeof(record.markMessage), msg, sizeof(record.markMessage) - 1) != EOK) {
-        CLIENT_ERROR_LOG("strncpy_s FAILED");
-    }
-    record.markMessage[sizeof(record.markMessage) - 1] = '\0';
-    record.rangeId = GetRangeId();
-    CallStackString stack;
-    if (!EventReport::Instance(CommType::SOCKET).ReportMark(record, stack)) {
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>(TLVBlockType::MARK_MESSAGE, msg);
+ 
+    MstxRecord* record = buffer.Cast<MstxRecord>();
+    record->markType = MarkType::RANGE_START_A;
+    record->streamId = streamId;
+    record->rangeId = GetRangeId();
+    const TLVBlock* msgTlv = GetTlvBlock(*record, TLVBlockType::MARK_MESSAGE);
+    std::string mstxMsgString = msgTlv == nullptr ? "N/A" : msgTlv->data;
+    if (!EventReport::Instance(CommType::SOCKET).ReportMark(buffer)) {
         CLIENT_ERROR_LOG("Report Mark FAILED");
     }
-    return record.rangeId;
+    return record->rangeId;
 }
 
 // 组装Range结束打点信息
 void MstxManager::ReportRangeEnd(uint64_t id)
 {
-    MstxRecord record;
-    record.markType = MarkType::RANGE_END;
-    record.rangeId = id;
-    record.streamId = -1;
     std::string msg = "Range end from id " + std::to_string(id);
-    if (strncpy_s(record.markMessage, sizeof(record.markMessage), msg.c_str(), sizeof(record.markMessage) - 1) != EOK) {
-        CLIENT_ERROR_LOG("strncpy_s FAILED");
-    }
-    record.markMessage[sizeof(record.markMessage) - 1] = '\0';
-    CallStackString stack;
-    if (!EventReport::Instance(CommType::SOCKET).ReportMark(record, stack)) {
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>(TLVBlockType::MARK_MESSAGE, msg);
+    MstxRecord* record = buffer.Cast<MstxRecord>();
+    record->markType = MarkType::RANGE_END;
+    record->streamId = -1;
+    record->rangeId = id;
+
+    if (!EventReport::Instance(CommType::SOCKET).ReportMark(buffer)) {
         CLIENT_ERROR_LOG("Report Mark FAILED");
     }
 }

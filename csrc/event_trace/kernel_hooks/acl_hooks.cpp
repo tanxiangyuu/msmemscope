@@ -58,7 +58,7 @@ ACL_FUNC_VISIBILITY aclError aclInit(const char *configPath)
     }
 
     aclError ret = vallina(configPath);
-    if (!EventReport::Instance(CommType::SOCKET).ReportAclItf(AclOpType::INIT)) {
+    if (!EventReport::Instance(CommType::SOCKET).ReportAclItf(RecordSubType::INIT)) {
         CLIENT_ERROR_LOG("aclInit report FAILED");
     }
 
@@ -87,7 +87,7 @@ ACL_FUNC_VISIBILITY aclError aclFinalize()
     }
 
     aclError ret = vallina();
-    if (!EventReport::Instance(CommType::SOCKET).ReportAclItf(AclOpType::FINALIZE)) {
+    if (!EventReport::Instance(CommType::SOCKET).ReportAclItf(RecordSubType::FINALIZE)) {
         CLIENT_ERROR_LOG("aclInit report FAILED");
     }
 

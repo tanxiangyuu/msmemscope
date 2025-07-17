@@ -18,14 +18,14 @@ bool PythonTrace::IsIgnore(std::string funcName)
     return false;
 }
 
-void PythonTrace::RecordPyCall(std::string funcHash, std::string funcInfo, uint64_t timeStamp)
+void PythonTrace::RecordPyCall(const std::string& funcHash, const std::string& funcInfo, uint64_t timestamp)
 {
     uint64_t tid = Utility::GetTid();
     if (throw_[tid]) {
         return;
     }
     TraceEvent event{};
-    event.startTs = timeStamp ? timeStamp : Utility::GetTimeNanoseconds();
+    event.startTs = timestamp ? timestamp : Utility::GetTimeNanoseconds();
     event.hash = funcHash;
     event.info = funcInfo;
     event.pid = Utility::GetPid();
@@ -79,11 +79,11 @@ void PythonTrace::RecordReturn(std::string funcHash, std::string funcInfo)
     }
 }
 
-void callback(std::string hash, std::string info, PyTraceType what, uint64_t timeStamp)
+void callback(const std::string& hash, const std::string& info, PyTraceType what, uint64_t timestamp)
 {
     switch (what) {
         case PyTraceType::PYCALL: {
-            PythonTrace::GetInstance().RecordPyCall(hash, info, timeStamp);
+            PythonTrace::GetInstance().RecordPyCall(hash, info, timestamp);
             break;
         }
         case PyTraceType::PYRETURN: {

@@ -16,6 +16,7 @@
 namespace Leaks {
 
 using HandlerFunc = std::function<void(const Record&, CallStackString&)>;
+using HandlerFuncV2 = std::function<void(const RecordBase&)>;
 
 class MemRecordAttr {
 public:
@@ -37,19 +38,19 @@ public:
 
 class MemoryStateRecord {
 public:
-    void RecordMemoryState(const Record& record, CallStackString& stack);
-    void MemoryInfoProcess(const Record& record, CallStackString& stack);
-    void MemoryPoolInfoProcess(const Record& record, CallStackString& stack);
-    void MemoryAccessInfoProcess(const Record& record, CallStackString& stack);
-    void MemoryAddrInfoProcess(const Record& record, CallStackString& stack);
+    void RecordMemoryState(const RecordBase& record);
+    void MemoryInfoProcess(const RecordBase& record);
+    void MemoryPoolInfoProcess(const RecordBase& record);
+    void MemoryAccessInfoProcess(const RecordBase& record);
+    void MemoryAddrInfoProcess(const RecordBase& record);
     const std::vector<MemStateInfo>& GetPtrMemInfoList(std::pair<std::string, int64_t> key);
     std::map<std::pair<std::string, uint64_t>, std::vector<MemStateInfo>>& GetPtrMemInfoMap();
     void DeleteMemStateInfo(std::pair<std::string, uint64_t> key);
     explicit MemoryStateRecord(Config config);
 private:
     void HostMemProcess(const MemOpRecord& memRecord, uint64_t& currentSize);
-    void HalMemProcess(MemOpRecord& memRecord, uint64_t& currentSize, std::string& deviceType);
-    MemRecordAttr GetMemInfoAttr(MemOpRecord& memRecord, uint64_t currentSize);
+    void HalMemProcess(const MemOpRecord& memRecord, uint64_t& currentSize, std::string& deviceType);
+    MemRecordAttr GetMemInfoAttr(const MemOpRecord& memRecord, uint64_t currentSize);
     void PackDumpContainer(
         DumpContainer &container, const MemPoolRecord &memPool, const std::string& memPoolType, MemRecordAttr &attr);
     void PackDumpContainer(DumpContainer& container,
@@ -59,19 +60,19 @@ private:
     std::map<std::pair<std::string, uint64_t>, std::vector<MemStateInfo>> ptrMemoryInfoMap_;
     std::unordered_map<uint64_t, uint64_t> hostMemSizeMap_;
     std::unordered_map<uint64_t, uint64_t> memSizeMap_;
-    std::map<RecordType, HandlerFunc> memInfoProcessFuncMap_ = {
+    std::map<RecordType, HandlerFuncV2> memInfoProcessFuncMapV2_ = {
         {RecordType::MEMORY_RECORD,
-            std::bind(&MemoryStateRecord::MemoryInfoProcess, this, std::placeholders::_1, std::placeholders::_2)},
+            std::bind(&MemoryStateRecord::MemoryInfoProcess, this, std::placeholders::_1)},
         {RecordType::ATB_MEMORY_POOL_RECORD,
-            std::bind(&MemoryStateRecord::MemoryPoolInfoProcess, this, std::placeholders::_1, std::placeholders::_2)},
+            std::bind(&MemoryStateRecord::MemoryPoolInfoProcess, this, std::placeholders::_1)},
         {RecordType::TORCH_NPU_RECORD,
-            std::bind(&MemoryStateRecord::MemoryPoolInfoProcess, this, std::placeholders::_1, std::placeholders::_2)},
+            std::bind(&MemoryStateRecord::MemoryPoolInfoProcess, this, std::placeholders::_1)},
         {RecordType::MINDSPORE_NPU_RECORD,
-            std::bind(&MemoryStateRecord::MemoryPoolInfoProcess, this, std::placeholders::_1, std::placeholders::_2)},
+            std::bind(&MemoryStateRecord::MemoryPoolInfoProcess, this, std::placeholders::_1)},
         {RecordType::MEM_ACCESS_RECORD,
-            std::bind(&MemoryStateRecord::MemoryAccessInfoProcess, this, std::placeholders::_1, std::placeholders::_2)},
+            std::bind(&MemoryStateRecord::MemoryAccessInfoProcess, this, std::placeholders::_1)},
         {RecordType::ADDR_INFO_RECORD,
-            std::bind(&MemoryStateRecord::MemoryAddrInfoProcess, this, std::placeholders::_1, std::placeholders::_2)},
+            std::bind(&MemoryStateRecord::MemoryAddrInfoProcess, this, std::placeholders::_1)},
     };
     std::mutex memSizeMutex_;
     std::mutex memInfoMutex_;

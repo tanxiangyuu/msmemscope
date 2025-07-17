@@ -16,7 +16,7 @@ using TaskKey = std::tuple<int16_t, int16_t, int16_t>; // <deviceId, streamId, t
 using ThreadId = uint64_t;
 
 struct AclnnKernelMapInfo {
-    uint64_t timeStamp;
+    uint64_t timestamp;
     TaskKey taskKey;
     std::string kernelName;
 };
@@ -67,7 +67,7 @@ public:
     void KernelLaunch();
     void SetHashInfo(uint64_t hashId, const std::string &hashInfo);
     std::string GetHashInfo(uint64_t hashId);
-    std::string GetKernelName(const TaskKey& key, KernelEventType type);
+    std::string GetKernelName(const TaskKey& key, RecordSubType type);
 private:
     RuntimeKernelLinker() = default;
     ~RuntimeKernelLinker() = default;

@@ -27,7 +27,7 @@ TEST(TesnorDumperTest, dump_tensor_MD5_expect_success)
 
 TEST(TesnorDumperTest, dump_expect_success)
 {
-    OpEventType type = OpEventType::ATEN_START;
+    RecordSubType type = RecordSubType::ATEN_START;
     std::string fileName = "test";
     MonitoredTensor tensor = {};
     uint64_t ptr = 6666;
