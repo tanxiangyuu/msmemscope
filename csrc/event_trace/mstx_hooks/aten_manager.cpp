@@ -158,18 +158,6 @@ void AtenManager::ReportAtenAccess(const char* msg, int32_t streamId)
         TLVBlockType::OP_NAME, atenInfo.name.c_str(), TLVBlockType::MEM_ATTR, attr.c_str(), pyStackType, pyStack);
     MemAccessRecord* record = buffer.Cast<MemAccessRecord>();
 
-    if (atenInfo.isOutput == "True" && isWatchEnable_ && IsFirstWatchedOp(atenInfo.name.c_str())
-        && !isfirstWatchOpSet_) {
-        MonitoredTensor tensorInfo{};
-        tensorInfo.data =  reinterpret_cast<void*>(reinterpret_cast<std::uintptr_t>(record->addr));
-        tensorInfo.dataSize = record->memSize;
-        outputTensors_.push_back(tensorInfo);
-    }
-
-    if (!isAtenAccessEnable_) {
-        return ;
-    }
-
     if (atenInfo.isWrite == "False" && atenInfo.isRead == "False") {
         record->eventType = AccessType::UNKNOWN;
     } else if (atenInfo.isWrite == "True") {
@@ -185,6 +173,19 @@ void AtenManager::ReportAtenAccess(const char* msg, int32_t streamId)
     if (!Utility::StrToUint64(record->memSize, atenInfo.size)) {
         CLIENT_ERROR_LOG("Aten Tensor's memSize StrToUint64 failed");
     }
+
+    if (atenInfo.isOutput == "True" && isWatchEnable_ && IsFirstWatchedOp(atenInfo.name.c_str())
+        && !isfirstWatchOpSet_) {
+        MonitoredTensor tensorInfo{};
+        tensorInfo.data =  reinterpret_cast<void*>(reinterpret_cast<std::uintptr_t>(record->addr));
+        tensorInfo.dataSize = record->memSize;
+        outputTensors_.push_back(tensorInfo);
+    }
+
+    if (!isAtenAccessEnable_) {
+        return ;
+    }
+    
     if (!EventReport::Instance(CommType::SOCKET).ReportAtenAccess(buffer)) {
         CLIENT_ERROR_LOG("Report Aten Access FAILED");
     }
