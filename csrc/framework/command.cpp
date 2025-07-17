@@ -3,7 +3,7 @@
 #include <map>
 #include "process.h"
 #include "utils.h"
-#include "analysis/stepinter_analyzer.h"
+#include "analysis/memory_compare.h"
 #include "analysis/dump_record.h"
 #include "analysis/device_manager.h"
 
@@ -38,7 +38,7 @@ void Command::Exec() const
     LOG_INFO("Msleaks starts executing commands");
 
     if (userCommand_.config.enableCompare) {
-        StepInterAnalyzer::GetInstance(userCommand_.config).StepInterCompare(userCommand_.inputPaths);
+        MemoryCompare::GetInstance(userCommand_.config).RunComparison(userCommand_.inputPaths);
         return;
     }
 
