@@ -124,16 +124,16 @@ uint64_t TensorDumper::CountOpName(const std::string& name)
     return opNameCnt_[name];
 }
 
-std::string TensorDumper::GetFileName(const std::string &op, OpEventType eventType,
+std::string TensorDumper::GetFileName(const std::string &op, RecordSubType eventType,
     std::string wathcedOpName, uint64_t index, bool isFirstOp)
 {
     std::string type;
     std::string opName = op;
-    if (eventType == OpEventType::ATB_START || eventType == OpEventType::ATEN_START) {
+    if (eventType == RecordSubType::ATB_START || eventType == RecordSubType::ATEN_START) {
         opName += "_" + std::to_string(CountOpName(op));
         type = "before";
     }
-    if (eventType == OpEventType::ATB_END || eventType == OpEventType::ATEN_END) {
+    if (eventType == RecordSubType::ATB_END || eventType == RecordSubType::ATEN_END) {
         if (isFirstOp) {
             opName += "_" + std::to_string(CountOpName(op));
         } else {
@@ -162,7 +162,7 @@ void TensorDumper::SynchronizeStream(aclrtStream stream)
     return;
 }
 
-void TensorDumper::Dump(aclrtStream stream, const std::string &op, OpEventType eventType, bool isFirstOp)
+void TensorDumper::Dump(aclrtStream stream, const std::string &op, RecordSubType eventType, bool isFirstOp)
 {
     SynchronizeStream(stream);
     std::unordered_map<uint64_t, MonitoredTensor> tensorsMap = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();

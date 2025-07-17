@@ -32,7 +32,7 @@ TEST(DataHandler, CsvHandler_Write_LeakRecord)
     data.event = "memory_leak";
     data.eventType = "type1";
     data.name = "obj1";
-    data.timeStamp = 123456789;
+    data.timestamp = 123456789;
     data.pid = 1234;
     data.tid = 5678;
     data.deviceId = "dev1";
@@ -91,7 +91,7 @@ TEST(DataHandler, DbHandler_Write_LeakRecord)
     data.event = "memory_leak";
     data.eventType = "type1";
     data.name = "obj1";
-    data.timeStamp = 123456789;
+    data.timestamp = 123456789;
     data.pid = 1234;
     data.tid = 5678;
     data.deviceId = "dev1";

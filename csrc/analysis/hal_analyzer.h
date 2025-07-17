@@ -31,7 +31,7 @@ using MemoryRecordTable = std::unordered_map<uint64_t, HalMemInfo>;
 class HalAnalyzer {
 public:
     static HalAnalyzer& GetInstance(Config config);
-    bool Record(const ClientId &clientId, const EventRecord &record);
+    bool Record(const ClientId &clientId, const RecordBase &record);
 private:
     explicit HalAnalyzer(Config config);
     ~HalAnalyzer();

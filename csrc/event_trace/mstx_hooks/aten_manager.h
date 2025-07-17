@@ -12,6 +12,17 @@
 
 namespace Leaks {
 
+struct AtenAccessTensorInfo {
+    std::string addr;
+    std::string dtype;
+    std::string shape;
+    std::string size;
+    std::string name;
+    std::string isWrite;
+    std::string isRead;
+    std::string isOutput;
+};
+
 class AtenManager {
 public:
     static AtenManager& GetInstance();
@@ -25,12 +36,11 @@ private:
     AtenManager& operator=(AtenManager&& other) = delete;
 
     bool ExtractTensorInfo(const char* msg, const std::string &key, std::string &value);
+    void ExtractTensorFields(const char* msg, AtenAccessTensorInfo& info);
     void ReportAtenLaunch(const char* msg, int32_t streamId, bool isAtenBegin);
     void ReportAtenAccess(const char* msg, int32_t streamId);
     bool IsFirstWatchedOp(const char* name);
     bool IsLastWatchedOp(const char* name);
-    void ParseAtenAccessMsg(const char* msg, MemAccessRecord &record, std::string &dtype,
-        std::string &shape, std::string &isOutput);
 private:
     std::vector<MonitoredTensor> outputTensors_ = {};
     bool isAtenAccessEnable_ = false;

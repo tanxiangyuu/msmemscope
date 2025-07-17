@@ -67,7 +67,7 @@ bool CsvHandler::WriteDumpRecord(const DumpContainer* container, const CallStack
     std::string tid = container->tid == INVALID_THREADID ? "N/A" : std::to_string(container->tid);
     if (!Utility::Fprintf(file_, "%lu,%s,%s,%s,%lu,%s,%s,%s,%s,%s",
         container->id, container->event.c_str(), container->eventType.c_str(), container->name.c_str(),
-        container->timeStamp, pid.c_str(), tid.c_str(), container->deviceId.c_str(),
+        container->timestamp, pid.c_str(), tid.c_str(), container->deviceId.c_str(),
         container->addr.c_str(), container->attr.c_str())) {
         return false;
     }
@@ -195,7 +195,7 @@ bool DbHandler::WriteDumpRecord(const DumpContainer* container, const CallStackS
     Sqlite3BindText(insertLeakStmt_, paramIndex++, container->event.c_str(), -1, SQLITE_STATIC);
     Sqlite3BindText(insertLeakStmt_, paramIndex++, container->eventType.c_str(), -1, SQLITE_STATIC);
     Sqlite3BindText(insertLeakStmt_, paramIndex++, container->name.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindInt64(insertLeakStmt_, paramIndex++, container->timeStamp);
+    Sqlite3BindInt64(insertLeakStmt_, paramIndex++, container->timestamp);
     Sqlite3BindInt(insertLeakStmt_, paramIndex++, container->pid);
     Sqlite3BindInt(insertLeakStmt_, paramIndex++, container->tid);
     Sqlite3BindText(insertLeakStmt_, paramIndex++, container->deviceId.c_str(), -1, SQLITE_STATIC);

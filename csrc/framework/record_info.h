@@ -7,6 +7,10 @@
 #include <string>
 #include <unordered_map>
 #include <sys/types.h>
+#include <memory>
+
+#include "securec.h"
+#include "utils.h"
 
 namespace Leaks {
 
@@ -36,6 +40,182 @@ enum class RecordType {
     INVALID_RECORD,
 };
 
+enum class RecordSubType {
+    MALLOC = 0,
+    FREE,
+    USER_DEFINED,
+    PTA_OPTIMIZER_STEP,
+    INIT,
+    FINALIZE,
+    NORMAL,
+    HANDLEV2,
+    FLAGV2,
+    KERNEL_START,
+    KERNEL_END,
+    ATEN_START,
+    ATEN_END,
+    ATB_START,
+    ATB_END,
+};
+
+enum class TLVBlockType : int {
+    SKIP,
+    CALL_STACK_C,
+    CALL_STACK_PYTHON,
+    MEM_OWNER,
+    KERNEL_NAME,
+    ATB_NAME,
+    ATB_PARAMS,
+    ATEN_NAME,
+    OP_NAME,
+    MEM_ATTR,
+    ADDR_OWNER,
+    MARK_MESSAGE,
+};
+
+struct TLVBlock {
+    TLVBlockType type;
+    uint32_t len;
+    char data[0];
+};
+
+struct RecordBase {
+    /* 注意！！！此处length必须放在结构体开头，不要移动!!! */
+    uint32_t length;
+    RecordType type;
+    RecordSubType subtype;
+    int32_t devId;
+    uint64_t recordIndex;
+    uint64_t timestamp;
+    uint64_t pid;
+    uint64_t tid;
+};
+
+/**
+ * @brief 从 Record 对象中获取指定类型的 TLV 块指针。
+ *
+ * 本函数用于在一个基于 TLV（Type-Length-Value）布局的 Record 对象中，
+ * 按顺序查找第一个匹配指定类型的 TLV 块。TLV 块存储在 Record 尾部，
+ * 每个块由类型字段、长度字段和内容部分组成，通常紧跟在 Record 本体之后。
+ *
+ * 示例用法：
+ *   const TLVBlock* tlv = GetTlvBlock(RecordClass, TLVBlockType);
+ * @tparam RecordClass 要解析的具体 Record 类型
+ * @param record 引用或指针，表示包含 TLV 数据的 Record 实例。
+ * @param type TLV 块的类型标识符，用于查找对应数据块。
+ * @return 指向匹配 TLV 块起始地址的指针；如果未找到则返回 nullptr。
+ *
+ * @note
+ * - Record 对象必须包含合法的 TLV 数据区域。
+ * - 如果存在多个相同类型的 TLV 块，仅返回第一个。
+ * - 返回的指针指向整个 TLV 块的起始位置（即 type 字段）。
+ */
+template <typename RecordClass>
+const TLVBlock* GetTlvBlock(const RecordClass& record, TLVBlockType type)
+{
+    const char* begin = static_cast<const char*>(static_cast<const void*>(&record));
+    uint32_t alloffset = sizeof(RecordClass);
+    const char* data = nullptr;
+    while (alloffset < record.length) {
+        if (alloffset + sizeof(TLVBlock) > record.length) {
+            return nullptr;
+        }
+        data = begin + alloffset;
+        if (static_cast<const TLVBlock*>(static_cast<const void*>(data))->type == type) {
+            return static_cast<const TLVBlock*>(static_cast<const void*>(data));
+        }
+        alloffset += (sizeof(TLVBlock) + static_cast<const TLVBlock*>(static_cast<const void*>(data))->len);
+    }
+    return nullptr;
+}
+
+class RecordBuffer {
+public:
+    ~RecordBuffer() = default;
+
+    template <typename RecordClass>
+    static RecordBuffer CreateRecordBuffer()
+    {
+        RecordBuffer v;
+        v.MakeRecordBuffer(sizeof(RecordClass));
+        return v;
+    }
+
+    /**
+    * @brief 构造一个 RecordBuffer 对象，用于client->server通信，支持通过参数包传入多组 type-value 键值对。
+    *
+    * 本函数是一个模板，用于构造 Record 类型的对象，其中每组参数应包括一个类型标识符（type）
+    * 和一个对应的值（value），可传入任意数量的 type-value 对。
+    *
+    * 示例用法：
+    *   RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<RecordClass>(TLVBlockType, vlaue);
+    *
+    * @tparam RecordClass 要构造的具体 Record 类型
+    * @param args 参数包，形式为 Type, Value, Type, Value...，数量应为偶数。
+    * @return 用于通信的RecordBuffer
+    */
+    template <typename RecordClass, typename... Args>
+    static RecordBuffer CreateRecordBuffer(Args&&... args)
+    {
+        RecordBuffer v;
+        v.MakeRecordBuffer(sizeof(RecordClass), std::forward<Args>(args)...);
+        return v;
+    }
+
+    explicit RecordBuffer(std::string&& msg)
+    {
+        buffer_ = std::move(msg);
+    }
+
+    /* 调用者自行保证转换合法 */
+    template <typename RecordClass>
+    RecordClass* Cast() const
+    {
+        return static_cast<RecordClass*>(static_cast<void*>(const_cast<char*>(buffer_.c_str())));
+    }
+
+    inline const std::string& Get() const
+    {
+        return buffer_;
+    }
+
+    inline uint32_t Size() const {return static_cast<uint32_t>(buffer_.size());}
+
+private:
+    RecordBuffer() = default;
+
+    void MakeRecordBuffer(size_t len)
+    {
+        buffer_.resize(len);
+
+        RecordBase* record = Cast<RecordBase>();
+        record->length = len;
+        record->timestamp = Utility::GetTimeNanoseconds();
+        record->pid = Utility::GetPid();
+        record->tid = Utility::GetTid();
+    }
+
+    template <typename... Args>
+    void MakeRecordBuffer(size_t len, const TLVBlockType& type, const std::string& value, Args&&... args)
+    {
+        if (type == TLVBlockType::SKIP) {
+            return MakeRecordBuffer(len, std::forward<Args>(args)...);
+        }
+        uint32_t blockLength = sizeof(TLVBlock) + value.length() + 1;
+        MakeRecordBuffer(len + blockLength, std::forward<Args>(args)...);
+        char* data = const_cast<char*>(buffer_.c_str()) + len;
+        *(static_cast<TLVBlockType*>(static_cast<void*>(data))) = type;
+        data += sizeof(TLVBlockType);
+        *(static_cast<uint32_t*>(static_cast<void*>(data))) = static_cast<uint32_t>(value.length() + 1);
+        data += sizeof(uint32_t);
+        /* 此处data buffer长度为blockLength，减去T和L后长度为 value.length() + 1；使用memcpy而非strcpy是为了拷贝效率更高 */
+        memcpy_s(data, value.length() + 1, value.c_str(), value.length());
+        data[value.length()] = '\0';
+    }
+
+    std::string buffer_;
+};
+
 enum class MemoryDataType {
     MEMORY_MALLOC = 0,
     MEMORY_FREE,
@@ -62,32 +242,16 @@ struct MemoryUsage {
     int64_t streamPtr;
 };
 
-struct MemPoolRecord {
-    RecordType type;
-    uint64_t recordIndex;
+struct MemPoolRecord : public RecordBase {
     uint64_t kernelIndex;       // 当前所属kernellaunch索引
-    uint64_t pid;
-    uint64_t tid;
-    uint64_t timeStamp;
-    int32_t devId;
     MemoryUsage memoryUsage;
-    char owner[ADDR_OWNER_SIZE];
+    /* TLVBlockType::ADDR_OWNER */
 };
 
-enum class AddrInfoType : uint8_t {
-    USER_DEFINED = 0U,
-    PTA_OPTIMIZER_STEP,
-};
 
-struct AddrInfo {
-    AddrInfoType type;
+struct AddrInfo : public RecordBase {
     uint64_t addr;
-    char owner[ADDR_OWNER_SIZE];
-};
-
-enum class MemOpType : uint8_t {
-    MALLOC = 0U,
-    FREE,
+    /* TLVBlockType::ADDR_OWNER */
 };
 
 enum class MemOpSpace : uint8_t {
@@ -101,17 +265,6 @@ enum class MemOpSpace : uint8_t {
 enum class StepType : uint8_t {
     START = 0U,
     STOP,
-};
-
-enum class AclOpType : uint8_t {
-    INIT = 0U,
-    FINALIZE,
-};
-
-enum class KernelLaunchType : uint8_t {
-    NORMAL = 0U,
-    HANDLEV2,
-    FLAGV2,
 };
 
 enum class DeviceType : uint8_t {
@@ -130,68 +283,34 @@ enum class PyTraceType : uint8_t {
     PYOPCODE,
 };
 
-enum class OpEventType : uint8_t {
-    ATEN_START = 0,
-    ATEN_END,
-    ATB_START,
-    ATB_END,
-};
-
-enum class KernelEventType : uint8_t {
-    KERNEL_START = 0,
-    KERNEL_END,
-};
-
-struct MemOpRecord {
-    uint64_t recordIndex;       // 记录索引
+struct MemOpRecord : public RecordBase {
     uint64_t kernelIndex;       // 当前所属kernellaunch索引
     unsigned long long flag;    // 内存属性
     int32_t modid;              // moduleID
-    uint64_t pid;
-    uint64_t tid;
     DeviceType devType;         // 所属device类型，0为npu，1为cpu
-    int32_t devId;              // 所属device id
-    MemOpType memType;          // 内存操作类型：malloc还是free
     MemOpSpace space;           // 内存操作空间：device还是host
     uint64_t addr;              // 地址
     uint64_t memSize;           // 操作大小
-    uint64_t timeStamp;
-    char owner[ADDR_OWNER_SIZE];
+    /* TLVBlockType::MEM_OWNER */
 };
 
-struct AclItfRecord {
-    uint64_t pid;
-    uint64_t tid;
-    int32_t devId;              // 所属device id
-    uint64_t recordIndex;       // 记录索引
+struct AclItfRecord : public RecordBase {
     uint64_t kernelIndex;       // 当前所属kernellaunch索引
     uint64_t aclItfRecordIndex; // aclItf索引
-    AclOpType type;             // 资源申请还是释放
-    uint64_t timeStamp;
 };
 
-struct KernelLaunchRecord {
-    uint64_t pid;
-    uint64_t tid;
-    int32_t devId;              // 所属device id
+struct KernelLaunchRecord : public RecordBase {
     int16_t streamId;           // streamId
     int16_t taskId;
     uint64_t kernelLaunchIndex; // kernelLaunch索引
-    uint64_t recordIndex;       // 记录索引
-    KernelLaunchType type;      // KernelLaunch类型
-    uint64_t timeStamp;
     uint32_t blockDim;          // 算子核函数运行所需核数
-    char kernelName[KERNELNAME_MAX_SIZE];  // kernel名称
+    /* TLVBlockType::KERNEL_NAME */
 };
 
-struct KernelExcuteRecord {
-    uint64_t recordIndex;       // 记录索引
-    int16_t devId;              // 所属device id
+struct KernelExcuteRecord : public RecordBase {
     int16_t streamId;
     int16_t taskId;
-    KernelEventType type;       // KernelLaunch类型
-    uint64_t timeStamp;
-    char kernelName[KERNELNAME_MAX_SIZE];  // kernel名称
+    /* TLVBlockType::KERNEL_NAME */
 };
 
 enum class MarkType : int32_t {
@@ -200,50 +319,27 @@ enum class MarkType : int32_t {
     RANGE_END,
 };
 
-struct MstxRecord {
+struct MstxRecord : public RecordBase {
     MarkType markType;
-    uint64_t timeStamp;
-    uint64_t pid;
-    uint64_t tid;
-    int32_t devId;              // 所属device id
     uint64_t rangeId;           // 只有Range才会存在ID，纯mark默认为0, Rangeid从1开始递增
     int32_t streamId;           // streamId, range end对应的值为-1
     uint64_t stepId;            // 只有Range类型才有stepId, 默认为0, 记录当前step的ID编号，从1开始递增
-    char markMessage[256U];
-    uint64_t recordIndex;       // 记录索引
     uint64_t kernelIndex;       // 当前所属kernellaunch索引
+    /* TLVBlockType::MARK_MESSAGE */
 };
 
-struct AtbOpExecuteRecord {
-    OpEventType eventType;
-    int32_t devId;
-    uint64_t timestamp;
-    uint64_t pid;
-    uint64_t tid;
-    uint64_t recordIndex;
-    char name[ATB_NAME_MAX_SIZE];
-    char params[ATB_PARAMS_MAX_SIZE];
+struct AtbOpExecuteRecord : public RecordBase {
+    /* TLVBlockType::ATB_NAME */
+    /* TLVBlockType::ATB_PARAMS */
 };
 
-struct AtbKernelRecord {
-    KernelEventType eventType;
-    int32_t devId;
-    uint64_t timestamp;
-    uint64_t pid;
-    uint64_t tid;
-    uint64_t recordIndex;
-    char name[ATB_NAME_MAX_SIZE];
-    char params[ATB_PARAMS_MAX_SIZE];
+struct AtbKernelRecord : public RecordBase {
+    /* TLVBlockType::ATB_NAME */
+    /* TLVBlockType::ATB_PARAMS */
 };
 
-struct AtenOpLaunchRecord {
-    OpEventType eventType;
-    int32_t devId;
-    uint64_t timestamp;
-    uint64_t pid;
-    uint64_t tid;
-    uint64_t recordIndex;
-    char name[ATEN_NAME_MAX_SIZE];
+struct AtenOpLaunchRecord : public RecordBase {
+    /* TLVBlockType::ATEN_NAME */
 };
 
 enum class AccessType : uint8_t {
@@ -252,24 +348,19 @@ enum class AccessType : uint8_t {
     UNKNOWN,
 };
 
-enum class OpType : uint8_t {
+enum class AccessMemType : uint8_t {
     ATEN = 0,
     ATB,
 };
 
-struct MemAccessRecord {
+struct MemAccessRecord : public RecordBase {
     AccessType eventType;
-    OpType memType;     // 所属的mem类型
-    int32_t devId;
-    uint64_t timestamp;
-    uint64_t pid;
-    uint64_t tid;
-    uint64_t recordIndex;
+    AccessMemType memType;     // 所属的mem类型
     DeviceType devType;         // 所属device类型，0为npu，1为cpu
     uint64_t addr;              // 地址
     uint64_t memSize;           // 操作大小
-    char name[OP_NAME_MAX_SIZE];
-    char attr[MEM_ATTR_MAX_SIZE];
+    /* TLVBlockType::OP_NAME */
+    /* TLVBlockType::MEM_ATTR */
 };
 
 // 事件记录载体
@@ -302,19 +393,12 @@ struct CallStackInfo {
     char *cStack;
 };
 struct CallStackString {
-    std::string pyStack;
     std::string cStack;
-    CallStackString()
-    {
-        pyStack = "\"\"";
-        cStack = "\"\"";
-    }
-    CallStackString(std::string& c, std::string& python)
-    {
-        pyStack = python == "" ? "\"\"" : python;
-        cStack = c == "" ? "\"\"" : c;
-    }
+    std::string pyStack;
+    CallStackString() {}
+    CallStackString(std::string& c, std::string& python) : cStack(c), pyStack(python) {}
 };
+
 struct Record {
     EventRecord eventRecord;
     CallStackInfo callStackInfo;

@@ -22,10 +22,10 @@ void KernelEventTrace::KernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
 
 void KernelEventTrace::KernelStartExcute(const TaskKey& key, uint64_t time)
 {
-    auto kernelName = RuntimeKernelLinker::GetInstance().GetKernelName(key, KernelEventType::KERNEL_START);
+    auto kernelName = RuntimeKernelLinker::GetInstance().GetKernelName(key, RecordSubType::KERNEL_START);
     if (!kernelName.empty()) {
         if (!EventReport::Instance(CommType::SOCKET).ReportKernelExcute(key,
-            kernelName, time, KernelEventType::KERNEL_START)) {
+            kernelName, time, RecordSubType::KERNEL_START)) {
             CLIENT_ERROR_LOG("Kernel excute start report failed");
         }
     }
@@ -34,10 +34,10 @@ void KernelEventTrace::KernelStartExcute(const TaskKey& key, uint64_t time)
 
 void KernelEventTrace::KernelEndExcute(const TaskKey& key, uint64_t time)
 {
-    auto kernelName = RuntimeKernelLinker::GetInstance().GetKernelName(key, KernelEventType::KERNEL_END);
+    auto kernelName = RuntimeKernelLinker::GetInstance().GetKernelName(key, RecordSubType::KERNEL_END);
     if (!kernelName.empty()) {
         if (!EventReport::Instance(CommType::SOCKET).ReportKernelExcute(key,
-            kernelName, time, KernelEventType::KERNEL_END)) {
+            kernelName, time, RecordSubType::KERNEL_END)) {
             CLIENT_ERROR_LOG("Kernel excute end report failed");
         }
     }
@@ -178,10 +178,10 @@ void RuntimeKernelLinker::RuntimeTaskInfoLaunch(const TaskKey& key, uint64_t has
 
 void RuntimeKernelLinker::KernelLaunch()
 {
-    uint64_t timeStamp = Utility::GetTimeNanoseconds();
+    uint64_t timestamp = Utility::GetTimeNanoseconds();
     std::lock_guard<std::mutex> lock(mutex_);
 
-    AclnnKernelMapInfo value = {timeStamp, std::make_tuple(-1, -1, -1), ""};
+    AclnnKernelMapInfo value = {timestamp, std::make_tuple(-1, -1, -1), ""};
     auto iter = kernelNameMp_.find(Utility::GetTid());
     if (iter == kernelNameMp_.end()) {
         std::vector<AclnnKernelMapInfo> vec {};
@@ -195,7 +195,7 @@ void RuntimeKernelLinker::KernelLaunch()
     return;
 }
 
-std::string RuntimeKernelLinker::GetKernelName(const TaskKey& key, KernelEventType type)
+std::string RuntimeKernelLinker::GetKernelName(const TaskKey& key, RecordSubType type)
 {
     std::lock_guard<std::mutex> lock(mutex_);
     for (auto &pair : kernelNameMp_) {
@@ -203,7 +203,7 @@ std::string RuntimeKernelLinker::GetKernelName(const TaskKey& key, KernelEventTy
         for (auto it = vec.begin(); it != vec.end(); ++it) {
             if (it->taskKey == key) {
                 std::string name = it->kernelName;
-                if (type == KernelEventType::KERNEL_END) {
+                if (type == RecordSubType::KERNEL_END) {
                     vec.erase(it); // 使用完删除
                 }
                 return name;

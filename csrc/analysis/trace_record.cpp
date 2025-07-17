@@ -99,7 +99,7 @@ TraceRecord::TraceRecord()
     eventPids_.emplace_back(EventPid{leakEventPid_, "leak"});
 }
 
-void TraceRecord::TraceHandler(const EventRecord &record)
+void TraceRecord::TraceHandler(const RecordBase *record)
 {
     ProcessRecord(record);
 }
@@ -183,47 +183,41 @@ void TraceRecord::TorchMemLeakInfoToString(const TorchMemLeakInfo &info, std::st
     str = FormatCompleteEvent(baseInfo, info.duration, args);
 }
 
-void TraceRecord::ProcessRecord(const EventRecord &record)
+void TraceRecord::ProcessRecord(const RecordBase *record)
 {
     std::string str = "";
     Device device{DeviceType::NPU, GD_INVALID_NUM};
-
-    switch (record.type) {
+    device.index = record->devId;
+    switch (record->type) {
         case RecordType::MEMORY_RECORD: {
-            auto memRecord = record.record.memoryRecord;
+            auto memRecord = static_cast<const MemOpRecord*>(record);
             MemRecordToString(memRecord, str);
-            device.type = memRecord.devType;
-            device.index = memRecord.devId;
+            device.type = memRecord->devType;
             break;
         }
         case RecordType::KERNEL_LAUNCH_RECORD: {
-            auto kernelLaunchRecord = record.record.kernelLaunchRecord;
-            device.index = kernelLaunchRecord.devId;
+            auto kernelLaunchRecord = static_cast<const KernelLaunchRecord*>(record);
             KernelLaunchRecordToString(kernelLaunchRecord, str);
-            // kernellaunch record should be shown in cpu_trace and npu_trace simutanously
             SaveKernelLaunchRecordToCpuTrace(str);
             break;
         }
         case RecordType::ACL_ITF_RECORD: {
-            auto aclItfRecord = record.record.aclItfRecord;
-            device.index = aclItfRecord.devId;
+            auto aclItfRecord = static_cast<const AclItfRecord*>(record);
             AclItfRecordToString(aclItfRecord, str);
             break;
         }
         case RecordType::TORCH_NPU_RECORD: {
-            MemPoolRecord memPoolRecord = record.record.memPoolRecord;
-            device.index = memPoolRecord.devId;
+            auto memPoolRecord = static_cast<const MemPoolRecord*>(record);
             TorchRecordToString(memPoolRecord, str);
             break;
         }
         case RecordType::MINDSPORE_NPU_RECORD: {
-            device.index = record.record.memPoolRecord.devId;
-            MindsporeRecordToString(record.record.memPoolRecord, str);
+            auto memPoolRecord = static_cast<const MemPoolRecord*>(record);
+            MindsporeRecordToString(memPoolRecord, str);
             break;
         }
         case RecordType::MSTX_MARK_RECORD: {
-            MstxRecord mstxRecord = record.record.mstxRecord;
-            device.index = mstxRecord.devId;
+            auto mstxRecord = static_cast<const MstxRecord*>(record);
             MstxRecordToString(mstxRecord, str);
             break;
         }
@@ -238,16 +232,16 @@ void TraceRecord::ProcessRecord(const EventRecord &record)
     return;
 }
 
-void TraceRecord::NpuMemRecordToString(MemOpRecord &memRecord, std::string &str)
+void TraceRecord::NpuMemRecordToString(MemOpRecord *memRecord, std::string &str)
 {
-    int32_t devId = memRecord.devId;
-    uint64_t addr = memRecord.addr;
-    uint64_t size = memRecord.memSize;
-    MemOpSpace space = memRecord.space;
-    uint64_t pid = memRecord.pid;
+    int32_t devId = memRecord->devId;
+    uint64_t addr = memRecord->addr;
+    uint64_t size = memRecord->memSize;
+    MemOpSpace space = memRecord->space;
+    uint64_t pid = memRecord->pid;
 
     std::lock_guard<std::mutex> lock(halMemMutex_);
-    if (space == MemOpSpace::HOST && memRecord.memType == MemOpType::MALLOC) {
+    if (space == MemOpSpace::HOST && memRecord->subtype == RecordSubType::MALLOC) {
         halHostMemAllocation_[pid][addr] = MemAllocationInfo{size, devId};
         halHostMemUsage_[pid][devId] = Utility::GetAddResult(halHostMemUsage_[pid][devId], size);
     } else if (halHostMemAllocation_.find(pid) != halHostMemAllocation_.end()
@@ -260,19 +254,19 @@ void TraceRecord::NpuMemRecordToString(MemOpRecord &memRecord, std::string &str)
         return;
     }
 
-    JsonBaseInfo baseInfo{"pin memory", pid, memRecord.tid, memRecord.kernelIndex};
+    JsonBaseInfo baseInfo{"pin memory", pid, memRecord->tid, memRecord->kernelIndex};
     str = FormatCounterEvent(baseInfo, std::to_string(halHostMemUsage_[pid][devId]));
-    memRecord.devType = DeviceType::CPU;
-    memRecord.devId = 0;
+    memRecord->devType = DeviceType::CPU;
+    memRecord->devId = 0;
 }
 
-void TraceRecord::CpuMemRecordToString(const MemOpRecord &memRecord, std::string &str)
+void TraceRecord::CpuMemRecordToString(const MemOpRecord *memRecord, std::string &str)
 {
-    uint64_t addr = memRecord.addr;
-    uint64_t size = memRecord.memSize;
+    uint64_t addr = memRecord->addr;
+    uint64_t size = memRecord->memSize;
 
     std::lock_guard<std::mutex> lock(hostMemMutex_);
-    if (memRecord.memType == MemOpType::MALLOC) {
+    if (memRecord->subtype == RecordSubType::MALLOC) {
         hostMemAllocation_[addr] = size;
         hostMemUsage_ = Utility::GetAddResult(hostMemUsage_, size);
     } else {
@@ -285,59 +279,59 @@ void TraceRecord::CpuMemRecordToString(const MemOpRecord &memRecord, std::string
         }
     }
 
-    JsonBaseInfo baseInfo{"memory", memRecord.pid, memRecord.tid, memRecord.kernelIndex};
+    JsonBaseInfo baseInfo{"memory", memRecord->pid, memRecord->tid, memRecord->kernelIndex};
     str = FormatCounterEvent(baseInfo, std::to_string(hostMemUsage_));
     return;
 }
 
-void TraceRecord::MemRecordToString(MemOpRecord &memRecord, std::string &str)
+void TraceRecord::MemRecordToString(const MemOpRecord *memRecord, std::string &str)
 {
-    if (memRecord.devType == DeviceType::NPU) {
-        NpuMemRecordToString(memRecord, str);
+    if (memRecord->devType == DeviceType::NPU) {
+        NpuMemRecordToString(const_cast<MemOpRecord*>(memRecord), str);
     } else {
         CpuMemRecordToString(memRecord, str);
     }
 
-    truePids_[Device{memRecord.devType, memRecord.devId}].insert(memRecord.pid);
+    truePids_[Device{memRecord->devType, memRecord->devId}].insert(memRecord->pid);
     return;
 }
 
-void TraceRecord::KernelLaunchRecordToString(const KernelLaunchRecord &kernelLaunchRecord, std::string &str)
+void TraceRecord::KernelLaunchRecordToString(const KernelLaunchRecord *kernelLaunchRecord, std::string &str)
 {
     JsonBaseInfo baseInfo{
-        "kernel_" + std::to_string(kernelLaunchRecord.kernelLaunchIndex),
-        kernelLaunchRecord.pid,
-        kernelLaunchRecord.tid,
-        kernelLaunchRecord.kernelLaunchIndex
+        "kernel_" + std::to_string(kernelLaunchRecord->kernelLaunchIndex),
+        kernelLaunchRecord->pid,
+        kernelLaunchRecord->tid,
+        kernelLaunchRecord->kernelLaunchIndex
     };
     str = FormatInstantEvent(baseInfo);
     return;
 }
 
-void TraceRecord::AclItfRecordToString(const AclItfRecord &aclItfRecord, std::string &str)
+void TraceRecord::AclItfRecordToString(const AclItfRecord *aclItfRecord, std::string &str)
 {
-    if (aclItfRecord.devId == GD_INVALID_NUM) {
+    if (aclItfRecord->devId == GD_INVALID_NUM) {
         return;
     }
-    std::string name = aclItfRecord.type == AclOpType::INIT ? "acl_init" : "acl_finalize";
+    std::string name = aclItfRecord->subtype == RecordSubType::INIT ? "acl_init" : "acl_finalize";
     JsonBaseInfo baseInfo{
         name,
-        aclItfRecord.pid,
-        aclItfRecord.tid,
-        aclItfRecord.kernelIndex
+        aclItfRecord->pid,
+        aclItfRecord->tid,
+        aclItfRecord->kernelIndex
     };
     str = FormatInstantEvent(baseInfo);
     return;
 }
 
-void TraceRecord::TorchRecordToString(const MemPoolRecord &memPoolRecord, std::string &str)
+void TraceRecord::TorchRecordToString(const MemPoolRecord *memPoolRecord, std::string &str)
 {
-    MemoryUsage memoryUsage = memPoolRecord.memoryUsage;
-    uint64_t kernelIndex = memPoolRecord.kernelIndex;
-    uint64_t pid = memPoolRecord.pid;
-    uint64_t tid = memPoolRecord.tid;
+    MemoryUsage memoryUsage = memPoolRecord->memoryUsage;
+    uint64_t kernelIndex = memPoolRecord->kernelIndex;
+    uint64_t pid = memPoolRecord->pid;
+    uint64_t tid = memPoolRecord->tid;
 
-    truePids_[Device{DeviceType::NPU, memPoolRecord.devId}].insert(pid);
+    truePids_[Device{DeviceType::NPU, memPoolRecord->devId}].insert(pid);
     JsonBaseInfo reservedBaseInfo{"torch reserved memory", pid, tid, kernelIndex};
     JsonBaseInfo allocatedBaseInfo{"torch allocated memory", pid, tid, kernelIndex};
 
@@ -347,14 +341,14 @@ void TraceRecord::TorchRecordToString(const MemPoolRecord &memPoolRecord, std::s
     return;
 }
 
-void TraceRecord::MindsporeRecordToString(const MemPoolRecord &memPoolRecord, std::string &str)
+void TraceRecord::MindsporeRecordToString(const MemPoolRecord *memPoolRecord, std::string &str)
 {
-    MemoryUsage memoryUsage = memPoolRecord.memoryUsage;
-    uint64_t kernelIndex = memPoolRecord.kernelIndex;
-    uint64_t pid = memPoolRecord.pid;
-    uint64_t tid = memPoolRecord.tid;
+    MemoryUsage memoryUsage = memPoolRecord->memoryUsage;
+    uint64_t kernelIndex = memPoolRecord->kernelIndex;
+    uint64_t pid = memPoolRecord->pid;
+    uint64_t tid = memPoolRecord->tid;
 
-    truePids_[Device{DeviceType::NPU, memPoolRecord.devId}].insert(pid);
+    truePids_[Device{DeviceType::NPU, memPoolRecord->devId}].insert(pid);
     JsonBaseInfo reservedBaseInfo{"mindspore reserved memory", pid, tid, kernelIndex};
     JsonBaseInfo allocatedBaseInfo{"mindspore allocated memory", pid, tid, kernelIndex};
 
@@ -364,45 +358,47 @@ void TraceRecord::MindsporeRecordToString(const MemPoolRecord &memPoolRecord, st
     return;
 }
 
-void TraceRecord::MstxRecordToString(const MstxRecord &mstxRecord, std::string &str)
+void TraceRecord::MstxRecordToString(const MstxRecord *mstxRecord, std::string &str)
 {
-    int32_t devId = mstxRecord.devId;
+    int32_t devId = mstxRecord->devId;
     std::string mstxEventName;
 
     std::lock_guard<std::mutex> lock(stepStartIndexMutex_);
-    if (mstxRecord.markType == MarkType::MARK_A) {
+    const TLVBlock* tlv = GetTlvBlock(*mstxRecord, TLVBlockType::MARK_MESSAGE);
+    std::string markMessage = tlv == nullptr ? "N/A" : tlv->data;
+    if (mstxRecord->markType == MarkType::MARK_A) {
         mstxEventName = "mstx_mark";
-    } else if (mstxRecord.markType == MarkType::RANGE_START_A) {
-        if (strcmp(mstxRecord.markMessage, "step start") == 0) {
-            mstxEventName = "mstx_step" + std::to_string(mstxRecord.stepId) + "_start";
-            stepStartIndex_[devId][mstxRecord.rangeId] = mstxRecord.kernelIndex;
+    } else if (mstxRecord->markType == MarkType::RANGE_START_A) {
+        if (strcmp(markMessage.c_str(), "step start") == 0) {
+            mstxEventName = "mstx_step" + std::to_string(mstxRecord->stepId) + "_start";
+            stepStartIndex_[devId][mstxRecord->rangeId] = mstxRecord->kernelIndex;
         } else {
-            mstxEventName = "mstx_range" + std::to_string(mstxRecord.rangeId) + "_start";
+            mstxEventName = "mstx_range" + std::to_string(mstxRecord->rangeId) + "_start";
         }
     } else {
         if (stepStartIndex_.find(devId) == stepStartIndex_.end() ||
-            stepStartIndex_[devId].find(mstxRecord.rangeId) == stepStartIndex_[devId].end()) {
-            mstxEventName = "mstx_range" + std::to_string(mstxRecord.rangeId) + "_end";
+            stepStartIndex_[devId].find(mstxRecord->rangeId) == stepStartIndex_[devId].end()) {
+            mstxEventName = "mstx_range" + std::to_string(mstxRecord->rangeId) + "_end";
         } else {
-            mstxEventName = "mstx_step" + std::to_string(mstxRecord.stepId) + "_end";
+            mstxEventName = "mstx_step" + std::to_string(mstxRecord->stepId) + "_end";
             JsonBaseInfo stepBaseInfo{
-                "step " + std::to_string(mstxRecord.stepId),
+                "step " + std::to_string(mstxRecord->stepId),
                 mstxEventPid_,
-                mstxRecord.tid,
-                stepStartIndex_[devId][mstxRecord.rangeId]
+                mstxRecord->tid,
+                stepStartIndex_[devId][mstxRecord->rangeId]
             };
             str = FormatCompleteEvent(stepBaseInfo,
-                                      mstxRecord.kernelIndex - stepStartIndex_[devId][mstxRecord.rangeId]);
+                                      mstxRecord->kernelIndex - stepStartIndex_[devId][mstxRecord->rangeId]);
         }
     }
 
     JsonBaseInfo baseInfo{
         mstxEventName,
         mstxEventPid_,
-        mstxRecord.tid,
-        mstxRecord.kernelIndex
+        mstxRecord->tid,
+        mstxRecord->kernelIndex
     };
-    str += FormatInstantEvent(baseInfo, mstxRecord.markMessage);
+    str += FormatInstantEvent(baseInfo, markMessage);
     return;
 }
 

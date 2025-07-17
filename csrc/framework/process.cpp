@@ -68,52 +68,42 @@ Process::Process(const Config &config)
     server_->Start();
 }
 
-void Process::MemoryRecordPreprocess(const ClientId &clientId, const Record &record, CallStackString& stack)
+void Process::MemoryRecordPreprocess(const ClientId &clientId, const RecordBase &record)
 {
-    auto type = record.eventRecord.type;
+    auto type = record.type;
     auto it = preprocessTypeList_.find(type);
     if (it == preprocessTypeList_.end()) {
         return;
     }
 
     auto memoryStateRecord = DeviceManager::GetInstance(config_).GetMemoryStateRecord(clientId);
-    std::string pyStack = "";
-    std::string cStack = "";
-    if (config_.enablePyStack) {
-        pyStack.assign(record.callStackInfo.pyStack, record.callStackInfo.pyStack + record.callStackInfo.pyLen);
+    if (memoryStateRecord != nullptr) {
+        memoryStateRecord->RecordMemoryState(record);
     }
-    if (config_.enableCStack) {
-        cStack.assign(record.callStackInfo.cStack, record.callStackInfo.cStack + record.callStackInfo.cLen);
-    }
-    stack.cStack = cStack;
-    stack.pyStack = pyStack;
-    memoryStateRecord->RecordMemoryState(record, stack);
 }
 
-void Process::RecordHandler(const ClientId &clientId, const Record &record)
+void Process::RecordHandler(const ClientId &clientId, const RecordBuffer& buffer)
 {
-    CallStackString stack{};
-    MemoryRecordPreprocess(clientId, record, stack);
-    DumpRecord::GetInstance(config_).DumpData(clientId, record, stack);
-    TraceRecord::GetInstance().TraceHandler(record.eventRecord);
+    RecordBase* record = buffer.Cast<RecordBase>();
+    MemoryRecordPreprocess(clientId, *record);
+    DumpRecord::GetInstance(config_).DumpData(clientId, record);
+    TraceRecord::GetInstance().TraceHandler(record);
 
-    switch (record.eventRecord.type) {
-        case RecordType::MSTX_MARK_RECORD:
-            MstxAnalyzer::Instance().RecordMstx(clientId, record.eventRecord.record.mstxRecord);
-            break;
+    switch (record->type) {
         case RecordType::MEMORY_RECORD:
-            HalAnalyzer::GetInstance(config_).Record(clientId, record.eventRecord);
+            HalAnalyzer::GetInstance(config_).Record(clientId, *record);
+            break;
+        case RecordType::MSTX_MARK_RECORD:
+            MstxAnalyzer::Instance().RecordMstx(clientId, static_cast<const MstxRecord&>(*record));
             break;
         case RecordType::TORCH_NPU_RECORD:
         case RecordType::ATB_MEMORY_POOL_RECORD:
         case RecordType::MINDSPORE_NPU_RECORD:
-            StepInnerAnalyzer::GetInstance(config_).Record(clientId, record.eventRecord);
+            StepInnerAnalyzer::GetInstance(config_).Record(clientId, *record);
             break;
         default:
             break;
     }
-
-    return;
 }
 
 void Process::MsgHandle(size_t &clientId, std::string &msg)
@@ -129,23 +119,34 @@ void Process::MsgHandle(size_t &clientId, std::string &msg)
     Protocol protocol = protocolList_[clientId];
     protocol.Feed(msg);
 
+    PacketHead head;
     while (true) {
-        auto packet = protocol.GetPacket();
-        switch (packet.GetPacketHead().type) {
-            case PacketType::RECORD:
-                RecordHandler(clientId, packet.GetPacketBody().record);
-                break;
+        if (!protocol.View(head)) {
+            return;
+        }
+        if (protocol.Size() < sizeof(head) + head.length) {
+            return;
+        }
+
+        switch (head.type) {
             case PacketType::LOG: {
+                auto packet = protocol.GetPacket();
                 auto log = packet.GetPacketBody().log;
                 LOG_RECV("%s", std::string(log.buf, log.buf + log.len).c_str());
                 break;
             }
-            case PacketType::INVALID:
+            case PacketType::RECORD_NEW: {
+                std::string data;
+                protocol.Read(head);
+                protocol.GetStringData(data, head.length);
+                RecordBuffer buffer(std::move(data));
+                RecordHandler(clientId, buffer);
+                break;
+            }
             default:
                 return;
         }
     }
-
     return;
 }
 

@@ -20,6 +20,10 @@ void UnRegisterTraceCb();
 bool IsPyInterpRepeInited();
 void PythonCallstack(uint32_t pyDepth, std::string& pyStack);
 Version GetPyVersion();
+void GetPyFuncInfo(PyFrameObject *frame, std::string &info, std::string &hash);
+bool IsIgnoreCFunc(std::string hash);
+int pyProfileFn(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg);
+void GetTraceCallStack(std::string type, uint64_t time);
 
 class PythonObject {
 public:

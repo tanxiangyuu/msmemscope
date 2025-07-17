@@ -35,15 +35,12 @@ bool DescribeTrace::IsRepeat(uint64_t threadId, std::string owner)
 void DescribeTrace::DescribeAddr(uint64_t addr, std::string owner)
 {
     Utility::ToSafeString(owner);
-    owner = "@" + owner;
-    AddrInfo info;
-    info.type = AddrInfoType::USER_DEFINED;
-    info.addr = addr;
-    if (strncpy_s(info.owner, sizeof(info.owner), owner.c_str(), sizeof(info.owner) - 1) != EOK) {
-        CLIENT_ERROR_LOG("strncpy_s FAILED");
-    }
-    info.owner[sizeof(info.owner) - 1] = '\0';
-    EventReport::Instance(CommType::SOCKET).ReportAddrInfo(info);
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<AddrInfo>(
+        TLVBlockType::ADDR_OWNER, "@" + owner);
+    AddrInfo* info = buffer.Cast<AddrInfo>();
+    info->subtype = RecordSubType::USER_DEFINED;
+    info->addr = addr;
+    EventReport::Instance(CommType::SOCKET).ReportAddrInfo(buffer);
     return;
 }
 
