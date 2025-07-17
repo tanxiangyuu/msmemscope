@@ -110,6 +110,43 @@ bool UserCommandPrecheck(const UserCommand &userCommand)
     return true;
 }
 
+void SetEventDefaultConfig(UserCommand &userCommand)
+{
+    std::vector<std::pair<EventType, EventType>> eventsMatchLists = {
+        {EventType::ALLOC_EVENT, EventType::FREE_EVENT},
+        {EventType::FREE_EVENT, EventType::ALLOC_EVENT},
+        {EventType::ACCESS_EVENT, EventType::ALLOC_EVENT},
+        {EventType::ACCESS_EVENT, EventType::FREE_EVENT}
+    };
+
+    BitField<decltype(userCommand.config.eventType)> eventTypeBit(userCommand.config.eventType);
+    for (auto it : eventsMatchLists) {
+        if (eventTypeBit.checkBit(static_cast<size_t>(it.first))) {
+            eventTypeBit.setBit(static_cast<size_t>(it.second));
+        }
+    }
+    userCommand.config.eventType = eventTypeBit.getValue();
+}
+
+void SetAnalysisDefaultConfig(UserCommand &userCommand)
+{
+    std::vector<std::pair<AnalysisType, EventType>> analysisMatchLists = {
+        {AnalysisType::LEAKS_ANALYSIS, EventType::ALLOC_EVENT},
+        {AnalysisType::LEAKS_ANALYSIS, EventType::FREE_EVENT},
+        {AnalysisType::DECOMPOSE_ANALYSIS, EventType::ALLOC_EVENT},
+        {AnalysisType::DECOMPOSE_ANALYSIS, EventType::FREE_EVENT}
+    };
+    
+    BitField<decltype(userCommand.config.analysisType)> analysisTypeBit(userCommand.config.analysisType);
+    BitField<decltype(userCommand.config.eventType)> eventTypeBit(userCommand.config.eventType);
+    for (auto it : analysisMatchLists) {
+        if (analysisTypeBit.checkBit(static_cast<size_t>(it.first))) {
+            eventTypeBit.setBit(static_cast<size_t>(it.second));
+        }
+    }
+    userCommand.config.eventType = eventTypeBit.getValue();
+}
+
 void DoUserCommand(UserCommand userCommand)
 {
     if (userCommand.printHelpInfo) {
@@ -126,6 +163,9 @@ void DoUserCommand(UserCommand userCommand)
         ShowHelpInfo();
         return;
     }
+
+    SetEventDefaultConfig(userCommand);
+    SetAnalysisDefaultConfig(userCommand);
 
     Utility::SetDirPath(userCommand.outputPath, std::string(OUTPUT_PATH));
     if (strncpy_s(userCommand.config.outputDir, sizeof(userCommand.config.outputDir), Utility::g_dirPath.c_str(),
