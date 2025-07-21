@@ -1,6 +1,6 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
-#include "stepinter_analyzer.h"
+#include "memory_compare.h"
 #include <fstream>
 #include <sstream>
 #include "file.h"
@@ -11,13 +11,13 @@
 
 namespace Leaks {
 
-StepInterAnalyzer& StepInterAnalyzer::GetInstance(Config config)
+MemoryCompare& MemoryCompare::GetInstance(Config config)
 {
-    static StepInterAnalyzer instance(config);
+    static MemoryCompare instance(config);
     return instance;
 }
 
-StepInterAnalyzer::StepInterAnalyzer(Config config)
+MemoryCompare::MemoryCompare(Config config)
 {
     config_ = config;
     std::string cStack = config.enableCStack ? ",Call Stack(C)" : "";
@@ -26,15 +26,8 @@ StepInterAnalyzer::StepInterAnalyzer(Config config)
     SetDirPath();
 }
 
-std::vector<std::string> StepInterAnalyzer::SplitLineData(std::string line)
-{
-    std::vector<std::string> lineData;
-    Utility::Split(line, std::back_inserter(lineData), ",");
-    return lineData;
-}
-
 // 用此方式依次读取CSV的每一行，不会被单格数据的逗号干扰
-std::string StepInterAnalyzer::ReadQuotedField(std::stringstream& ss)
+std::string MemoryCompare::ReadQuotedField(std::stringstream& ss)
 {
     std::string field;
     if (ss.peek() == '"') {  // 检查是否以引号开头，如果是就跳过（因为其中可能存在逗号）
@@ -75,36 +68,65 @@ bool Compare(const std::unordered_map<std::string, std::string> &a,
     return compareA < compareB;
 }
 
-void StepInterAnalyzer::ReadCsvFile(std::string &path, std::unordered_map<DEVICEID, CSV_FIELD_DATA> &data)
+void MemoryCompare::ReadFile(std::string &path, std::unordered_map<DEVICEID, ORIGINAL_FILE_DATA> &data)
 {
-    std::ifstream csvFile(path, std::ios::in);
-    if (!csvFile.is_open()) {
-        LOG_ERROR("The path: %s open failed!", path.c_str());
-        return ;
+    std::vector<std::string> fileName;
+    Utility::Split(path, std::back_inserter(fileName), ".");
+    if (fileName.size() > 0 && fileName.back() == "csv") {
+        LOG_INFO("Read csv file: %s.", path.c_str());
+        ReadCsvFile(path, data);
+        for (const auto& pair : data) {
+            uint64_t deviceId = pair.first;
+            // 需要根据timestamp排序保证顺序
+            sort(data[deviceId].begin(), data[deviceId].end(), Compare);
+        }
+    } else {
+        LOG_ERROR("The file %s is an unsupported format.", path.c_str());
     }
+}
 
+bool MemoryCompare::CheckCsvHeader(std::string &path, std::ifstream& file, std::vector<std::string> &headerData)
+{
+    if (!file.is_open()) {
+        LOG_ERROR("The path: %s open failed!", path.c_str());
+        return false;
+    }
     std::string line;
-    getline(csvFile, line);
+    getline(file, line);
 
     if (line + "\n" != std::string(csvHeader_)) {
+        return false;
+    }
+
+    Utility::Split(line, std::back_inserter(headerData), ",");
+    return true;
+}
+
+bool IsSupportedFramework(const std::string& name)
+{
+    static const std::unordered_set<std::string> supportedFrameworks = {"PTA", "MINDSPORE"};
+    return supportedFrameworks.find(name) != supportedFrameworks.end();
+}
+
+void MemoryCompare::ReadCsvFile(std::string &path, std::unordered_map<DEVICEID, ORIGINAL_FILE_DATA> &data)
+{
+    std::ifstream csvFile(path, std::ios::in);
+    std::vector<std::string> headerData;
+    if (!CheckCsvHeader(path, csvFile, headerData)) {
         LOG_ERROR("The headers of %s file is illegal!", path.c_str());
         return ;
     }
-    std::vector<std::string> headerData;
-    headerData = SplitLineData(line);
+    std::string line;
     uint64_t countLine = 1;
     while (getline(csvFile, line)) {
         ++countLine;
         std::vector<std::string> lineData;
         std::stringstream ss(line);
-
-        // 获取每一行的数据
         while (ss.good()) {
             std::string singleValue = ReadQuotedField(ss);
             Utility::ToSafeString(singleValue);
             lineData.emplace_back(singleValue);
         }
-
         if (lineData.size() != headerData.size()) {
             LOG_ERROR("The file %s on line %d is invalid!", path.c_str(), countLine);
             data.clear();
@@ -113,6 +135,16 @@ void StepInterAnalyzer::ReadCsvFile(std::string &path, std::unordered_map<DEVICE
         std::unordered_map<std::string, std::string> tempLine;
         for (size_t index = 0; index < headerData.size(); ++index) {
             tempLine.insert({headerData[index], lineData[index]});
+        }
+        if (IsSupportedFramework(tempLine["Event Type"])) {
+            if (framework_.empty()) {
+                framework_ = tempLine["Event Type"];
+            }
+            if (framework_ != tempLine["Event Type"]) {
+                LOG_ERROR("The content of the file %s is invalid.", path.c_str());
+                data.clear();
+                return ;
+            }
         }
         uint64_t deviceId;
         if (tempLine["Device Id"] == std::to_string(GD_INVALID_NUM) || tempLine["Device Id"] == "host" ||
@@ -125,37 +157,32 @@ void StepInterAnalyzer::ReadCsvFile(std::string &path, std::unordered_map<DEVICE
         }
         data[deviceId].emplace_back(tempLine);
     }
-
-    for (const auto& pair : data) {
-        uint64_t deviceId = pair.first;
-        // kernelName解析使用多线程，需要根据timestamp排序保证顺序
-        sort(data[deviceId].begin(), data[deviceId].end(), Compare);
-    }
     csvFile.close();
 }
 
-bool StepInterAnalyzer::ReadKernelLaunchData(const CSV_FIELD_DATA &data, KERNELNAME_INDEX &result)
+void MemoryCompare::ReadNameIndexData(const ORIGINAL_FILE_DATA &originData, NAME_WITH_INDEX &dataList)
 {
-    for (size_t index = 0; index < data.size(); ++index) {
-        auto lineData = data[index];
-        if (lineData["Event"] == "KERNEL_LAUNCH") {
+    LOG_DEBUG("Read kernelLaunch/op data.");
+    for (size_t index = 0; index < originData.size(); ++index) {
+        auto lineData = originData[index];
+        if (lineData["Event Type"] == "KERNEL_LAUNCH") {
             if (Utility::CheckStrIsStartsWithInvalidChar(lineData["Name"].c_str())) {
-                LOG_ERROR("KenelName %s is invalid!", lineData["Name"].c_str());
-                result.clear();
-                return false;
+                LOG_ERROR("Name %s is invalid!", lineData["Name"].c_str());
+                dataList.clear();
+                return ;
             }
-            result.emplace_back(std::make_pair(lineData["Name"], index));
+            dataList.emplace_back(std::make_pair(lineData["Name"], index));
         }
     }
-    return true;
 }
 
-void StepInterAnalyzer::GetKernelMemoryDiff(size_t index, const CSV_FIELD_DATA &data, int64_t &memDiff)
+void MemoryCompare::GetMemoryUsage(size_t index, const ORIGINAL_FILE_DATA &data, int64_t &memDiff)
 {
+    LOG_DEBUG("Get memorypool usage.");
     std::unordered_map<std::string, std::string> frameworkMemory;
     for (size_t i = index; i < data.size(); ++i) {
         auto lineData = data[i];
-        if (lineData["Event Type"] == "PTA") {
+        if (lineData["Event Type"] == framework_) {
             frameworkMemory = lineData;
             break;
         }
@@ -177,23 +204,24 @@ void StepInterAnalyzer::GetKernelMemoryDiff(size_t index, const CSV_FIELD_DATA &
     }
 }
 
-bool StepInterAnalyzer::WriteCompareDataToCsv()
+bool MemoryCompare::WriteCompareDataToCsv()
 {
-    if (compareOut_.empty()) {
-        LOG_WARN("Empty stepinter compare data!");
+    LOG_DEBUG("Write compare result data to csv file.");
+    if (result_.empty()) {
+        LOG_WARN("Empty comparison result data!");
         return false;
     }
 
     if (!Utility::CreateCsvFile(&compareFile_, dirPath_, fileNamePrefix_, std::string(STEP_INTER_HEADERS))) {
-        LOG_ERROR("Create stepintercompare csv file failed!");
+        LOG_ERROR("Create comparison csv file failed!");
         return false;
     }
 
-    for (const auto& pair : compareOut_) {
+    for (const auto& pair : result_) {
         uint64_t deviceId = pair.first;
-        std::reverse(compareOut_[deviceId].begin(), compareOut_[deviceId].end());
+        std::reverse(result_[deviceId].begin(), result_[deviceId].end());
 
-        for (const auto& str : compareOut_[deviceId]) {
+        for (const auto& str : result_[deviceId]) {
             int fpRes = fprintf(compareFile_, "%s\n", str.c_str());
             if (fpRes < 0) {
                 std::cout << "[msleaks] Error: Fail to write data to csv file, errno:" << fpRes << std::endl;
@@ -205,8 +233,8 @@ bool StepInterAnalyzer::WriteCompareDataToCsv()
     return true;
 }
 
-void StepInterAnalyzer::SaveCompareKernelMemory(const DEVICEID deviceId,
-    const std::pair<std::string, size_t> &kernelBase, const std::pair<std::string, size_t> &kernelCompare)
+void MemoryCompare::CalcuMemoryDiff(const DEVICEID deviceId, const std::pair<std::string, size_t> &baseData,
+    const std::pair<std::string, size_t> &compareData)
 {
     std::string temp;
     std::string name;
@@ -214,18 +242,18 @@ void StepInterAnalyzer::SaveCompareKernelMemory(const DEVICEID deviceId,
     int64_t compareAllocSize = 0;
 
     std::string baseMemDiff;
-    if (!kernelBase.first.empty()) {
-        name = kernelBase.first;
-        GetKernelMemoryDiff(kernelBase.second, output_[deviceId], baseAllocSize);
+    if (!baseData.first.empty()) {
+        name = baseData.first;
+        GetMemoryUsage(baseData.second, baseFileOriginData_[deviceId], baseAllocSize);
         baseMemDiff = std::to_string(baseAllocSize);
     } else {
         baseMemDiff = "N/A";
     }
 
     std::string compareMemDiff;
-    if (!kernelCompare.first.empty()) {
-        name = kernelCompare.first;
-        GetKernelMemoryDiff(kernelCompare.second, outputCompare_[deviceId], compareAllocSize);
+    if (!compareData.first.empty()) {
+        name = compareData.first;
+        GetMemoryUsage(compareData.second, compareFileOriginData_[deviceId], compareAllocSize);
         compareMemDiff = std::to_string(compareAllocSize);
     } else {
         compareMemDiff = "N/A";
@@ -236,14 +264,15 @@ void StepInterAnalyzer::SaveCompareKernelMemory(const DEVICEID deviceId,
 
     int64_t diffAllocSize = Utility::GetSubResult(compareAllocSize, baseAllocSize);
     temp = temp + "," + std::to_string(diffAllocSize);
-    compareOut_[deviceId].emplace_back(temp);
+    result_[deviceId].emplace_back(temp);
 }
 
-std::shared_ptr<PathNode> StepInterAnalyzer::buildPath(const KERNELNAME_INDEX &kernelIndexMap,
-    const KERNELNAME_INDEX &kernelIndexCompareMap)
+std::shared_ptr<PathNode> MemoryCompare::BuildPath(const NAME_WITH_INDEX &baseLists,
+    const NAME_WITH_INDEX &compareLists)
 {
-    const int64_t n = static_cast<int64_t>(kernelIndexMap.size());
-    const int64_t m = static_cast<int64_t>(kernelIndexCompareMap.size());
+    LOG_DEBUG("Start to build myers path.");
+    const int64_t n = static_cast<int64_t>(baseLists.size());
+    const int64_t m = static_cast<int64_t>(compareLists.size());
     const int64_t max = m + n + 1;
     const int64_t size = 1 + 2 * max;
     const int64_t middle = size / 2;
@@ -254,7 +283,7 @@ std::shared_ptr<PathNode> StepInterAnalyzer::buildPath(const KERNELNAME_INDEX &k
         for (int64_t k = -d; k <= d; k += KSTEPSIZE) {
             auto end_time = Utility::GetTimeMicroseconds();
             if ((end_time - start_time) >= MAXLOOPTIME) {
-                LOG_ERROR("Stepinter analyze build path failed! Reaching maximum loop time limit!");
+                LOG_ERROR("Memory comparison build path failed! Reaching maximum loop time limit!");
                 break;
             }
             int64_t kmiddle = middle + k;
@@ -272,8 +301,8 @@ std::shared_ptr<PathNode> StepInterAnalyzer::buildPath(const KERNELNAME_INDEX &k
             int64_t j = i - k;
             diagonal[kminus] = nullptr;
             std::shared_ptr<PathNode> node = std::make_shared<DiffNode>(i, j, prev);
-            // 判断两个kernelname是否相同
-            while (i < n && j < m && (kernelIndexMap[i].first == kernelIndexCompareMap[j].first)) {
+            // 判断两个name是否相同
+            while (i < n && j < m && (baseLists[i].first == compareLists[j].first)) {
                 ++i;
                 ++j;
             }
@@ -289,92 +318,92 @@ std::shared_ptr<PathNode> StepInterAnalyzer::buildPath(const KERNELNAME_INDEX &k
     return nullptr;
 }
 
-void StepInterAnalyzer::buildDiff(std::shared_ptr<PathNode> path, const DEVICEID deviceId,
-    const KERNELNAME_INDEX &kernelIndexMap, const KERNELNAME_INDEX &kernelIndexCompareMap)
+void MemoryCompare::BuildDiff(std::shared_ptr<PathNode> path, const DEVICEID deviceId,
+    const NAME_WITH_INDEX &baseLists, const NAME_WITH_INDEX &compareLists)
 {
+    LOG_DEBUG("Start to build myers diff.");
     if (path == nullptr) {
-        LOG_WARN("Empty stepinter myers path!");
+        LOG_WARN("Empty myers path!");
         return ;
     }
     auto start_time = Utility::GetTimeMicroseconds();
     while (path && path->prev && path->prev->j >= 0) {
         auto end_time = Utility::GetTimeMicroseconds();
         if ((end_time - start_time) >= MAXLOOPTIME) {
-                LOG_ERROR("Stepinter analyze build diff failed! Reaching maximum loop time limit!");
+                LOG_ERROR("Memory compare build diff failed! Reaching maximum loop time limit!");
                 break;
             }
-        if (path->IsSnake()) { // base kernelName = compare kernelName
+        if (path->IsSnake()) { // base name = compare name
             int endi = path->i;
 
             int endj = path->j;
             int beginj = path->prev->j;
             for (int i = endi - 1, j = endj - 1; j >= beginj; --i, --j) {
-                SaveCompareKernelMemory(deviceId, kernelIndexMap[i], kernelIndexCompareMap[j]);
+                CalcuMemoryDiff(deviceId, baseLists[i], compareLists[j]);
             }
         } else {
             int i = path->i;
             int j = path->j;
             int prei = path->prev->i;
-            if (prei < i) { // base kernelName diff
-                SaveCompareKernelMemory(deviceId, kernelIndexMap[i - 1], {});
-            } else { // compare kernelName diff
-                SaveCompareKernelMemory(deviceId, {}, kernelIndexCompareMap[j - 1]);
+            if (prei < i) { // base name diff
+                CalcuMemoryDiff(deviceId, baseLists[i - 1], {});
+            } else { // compare name diff
+                CalcuMemoryDiff(deviceId, {}, compareLists[j - 1]);
             }
         }
         path = path->prev;
     }
 }
 
-void StepInterAnalyzer::MyersDiff(const DEVICEID deviceId, const KERNELNAME_INDEX &kernelIndexMap,
-    const KERNELNAME_INDEX &kernelIndexCompareMap)
+void MemoryCompare::MyersDiff(const DEVICEID deviceId, const NAME_WITH_INDEX &baseLists,
+    const NAME_WITH_INDEX &compareLists)
 {
-    if (kernelIndexMap.empty() && kernelIndexCompareMap.empty()) {
-        LOG_WARN("Empty kernelLaunch data!");
+    LOG_DEBUG("Start to compare with Myers algorithm.");
+    if (baseLists.empty() && compareLists.empty()) {
+        LOG_WARN("Empty kernelLaunch/op data!");
         return ;
     } else {
-        auto pathNode = buildPath(kernelIndexMap, kernelIndexCompareMap);
-        buildDiff(pathNode, deviceId, kernelIndexMap, kernelIndexCompareMap);
+        auto pathNode = BuildPath(baseLists, compareLists);
+        BuildDiff(pathNode, deviceId, baseLists, compareLists);
     }
 }
 
-void StepInterAnalyzer::StepInterCompare(const std::vector<std::string> &paths)
+void MemoryCompare::RunComparison(const std::vector<std::string> &paths)
 {
-    LOG_INFO("Start to analyze stepinter memory data.");
+    LOG_INFO("Start to compare memory data.");
     auto start_time = Utility::GetTimeMicroseconds();
-    std::string path = paths[0];
+    // 已在命令行输入处校验path长度
+    std::string pathBase = paths[0];
     std::string pathCompare = paths[1];
     
-    ReadCsvFile(path, output_);
-    ReadCsvFile(pathCompare, outputCompare_);
+    ReadFile(pathBase, baseFileOriginData_);
+    ReadFile(pathCompare, compareFileOriginData_);
 
-    if (output_.empty() || outputCompare_.empty()) {
-        std::cout << "[msleaks] ERROR: Stepinter analyze failed!" << std::endl;
+    if (baseFileOriginData_.empty() || compareFileOriginData_.empty()) {
+        std::cout << "[msleaks] ERROR: Memory comparison failed!" << std::endl;
         return ;
     }
 
-    for (const auto& pair : output_) {
+    for (const auto& pair : baseFileOriginData_) {
         uint64_t deviceId = pair.first;
-        KERNELNAME_INDEX kernelIndexMap {};
-        KERNELNAME_INDEX kernelIndexCompareMap {};
-        if (!ReadKernelLaunchData(output_[deviceId], kernelIndexMap) ||
-            !ReadKernelLaunchData(outputCompare_[deviceId], kernelIndexCompareMap)) {
-            compareOut_.clear();
-            break;
-        }
-        MyersDiff(deviceId, kernelIndexMap, kernelIndexCompareMap);
+        NAME_WITH_INDEX baseLists {};
+        NAME_WITH_INDEX compareLists {};
+        ReadNameIndexData(baseFileOriginData_[deviceId], baseLists);
+        ReadNameIndexData(compareFileOriginData_[deviceId], compareLists);
+        MyersDiff(deviceId, baseLists, compareLists);
     }
 
     if (!WriteCompareDataToCsv()) {
-        std::cout << "[msleaks] ERROR: Stepinter analyze failed!" << std::endl;
+        std::cout << "[msleaks] ERROR: Memory comparison failed!" << std::endl;
     } else {
         auto end_time = Utility::GetTimeMicroseconds();
-        LOG_INFO("The stepinter memory analysis has been completed"
+        LOG_INFO("The memory comparison has been completed "
             "in a total time of %.6f(s)", (end_time-start_time) / MICROSEC);
     }
     return ;
 }
 
-void StepInterAnalyzer::SetDirPath()
+void MemoryCompare::SetDirPath()
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
     dirPath_ = Utility::g_dirPath + "/" + std::string(COMPARE_FILE);
