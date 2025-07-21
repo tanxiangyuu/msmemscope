@@ -201,11 +201,11 @@ bool DbHandler::WriteDumpRecord(const DumpContainer* container, const CallStackS
     Sqlite3BindText(insertLeakStmt_, paramIndex++, container->deviceId.c_str(), -1, SQLITE_STATIC);
     Sqlite3BindText(insertLeakStmt_, paramIndex++, container->addr.c_str(), -1, SQLITE_STATIC);
     Sqlite3BindText(insertLeakStmt_, paramIndex++, attrJson.c_str(), -1, SQLITE_STATIC);
-    if (config_.enableCStack) {
-        Sqlite3BindText(insertLeakStmt_, paramIndex++, stack.cStack.c_str(), -1, SQLITE_STATIC);
-    }
     if (config_.enablePyStack) {
         Sqlite3BindText(insertLeakStmt_, paramIndex++, stack.pyStack.c_str(), -1, SQLITE_STATIC);
+    }
+    if (config_.enableCStack) {
+        Sqlite3BindText(insertLeakStmt_, paramIndex++, stack.cStack.c_str(), -1, SQLITE_STATIC);
     }
     Sqlite3BusyTimeout(dataFileDb_, SQLITE_TIME_OUT);
     int rc = Sqlite3Step(insertLeakStmt_);
