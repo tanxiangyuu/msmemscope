@@ -6,11 +6,14 @@
 #undef private
 #include "event_trace/op_watch/op_excute_watch.h"
 #include "event_trace/op_watch/tensor_monitor.h"
+#include "file.h"
 
 using namespace Leaks;
 
 TEST(TesnorDumperTest, dump_tensor_binary_expect_success)
 {
+    TensorDumper::GetInstance().dumpDir_ = "./testmsleaks/watch_dump";
+    Utility::MakeDir(TensorDumper::GetInstance().dumpDir_);
     std::string fileName = "test";
     std::vector<uint8_t> hostData(fileName.begin(), fileName.end());
     auto ret = TensorDumper::GetInstance().DumpTensorBinary(hostData, fileName);
@@ -19,6 +22,8 @@ TEST(TesnorDumperTest, dump_tensor_binary_expect_success)
 
 TEST(TesnorDumperTest, dump_tensor_MD5_expect_success)
 {
+    TensorDumper::GetInstance().dumpDir_ = "./testmsleaks/watch_dump";
+    Utility::MakeDir(TensorDumper::GetInstance().dumpDir_);
     std::string fileName = "test";
     std::vector<uint8_t> hostData(fileName.begin(), fileName.end());
     auto ret = TensorDumper::GetInstance().DumpTensorHashValue(hostData, fileName);

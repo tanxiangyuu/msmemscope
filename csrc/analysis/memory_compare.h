@@ -7,6 +7,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <iostream>
 #include <dirent.h>
 #include <algorithm>
@@ -22,15 +23,9 @@ constexpr uint32_t KSTEPSIZE = 2;
 constexpr uint32_t MAXLOOPTIME = 60 * 1000000; // 最大处理时间1分钟
 constexpr double MICROSEC = 1000000.0;
 
-struct TorchNouMemoryDiff {
-    int64_t totalAllocated = 0;
-    int64_t totalReserved = 0;
-    int64_t totalActive = 0;
-};
-
 using DEVICEID = uint64_t;
-using CSV_FIELD_DATA = std::vector<std::unordered_map<std::string, std::string>>;
-using KERNELNAME_INDEX = std::vector<std::pair<std::string, size_t>>;
+using ORIGINAL_FILE_DATA = std::vector<std::unordered_map<std::string, std::string>>;
+using NAME_WITH_INDEX = std::vector<std::pair<std::string, size_t>>;
 
 /* PathNode基类
  * 1. 存储最优节点的坐标(i , j)，以及前驱节点prev
@@ -78,34 +73,38 @@ public:
     }
 };
 
-class StepInterAnalyzer {
+class MemoryCompare {
 public:
-    static StepInterAnalyzer& GetInstance(Config config);
-    void StepInterCompare(const std::vector<std::string> &paths);
+    static MemoryCompare& GetInstance(Config config);
+    void RunComparison(const std::vector<std::string> &paths);
 private:
-    explicit StepInterAnalyzer(Config config);
+    explicit MemoryCompare(Config config);
     void SetDirPath();
     std::vector<std::string> SplitLineData(std::string line);
     std::string ReadQuotedField(std::stringstream& ss);
-    void ReadCsvFile(std::string &path, std::unordered_map<DEVICEID, CSV_FIELD_DATA> &data);
-    bool ReadKernelLaunchData(const CSV_FIELD_DATA &data, KERNELNAME_INDEX &result);
-    void GetKernelMemoryDiff(size_t index, const CSV_FIELD_DATA &data, int64_t &memDiff);
-    void SaveCompareKernelMemory(const DEVICEID deviceId, const std::pair<std::string, size_t> &kernelBase,
-        const std::pair<std::string, size_t> &kernelCompare);
-    std::shared_ptr<PathNode> buildPath(const KERNELNAME_INDEX &kernelIndexMap,
-        const KERNELNAME_INDEX &kernelIndexCompareMap);
-    void buildDiff(std::shared_ptr<PathNode> path, const DEVICEID deviceId, const KERNELNAME_INDEX &kernelIndexMap,
-        const KERNELNAME_INDEX &kernelIndexCompareMap);
+    void ReadCsvFile(std::string &path, std::unordered_map<DEVICEID, ORIGINAL_FILE_DATA> &data);
+    std::shared_ptr<PathNode> BuildPath(const NAME_WITH_INDEX &baseLists,
+        const NAME_WITH_INDEX &compareLists);
+    void BuildDiff(std::shared_ptr<PathNode> path, const DEVICEID deviceId, const NAME_WITH_INDEX &baseLists,
+        const NAME_WITH_INDEX &compareLists);
     bool WriteCompareDataToCsv();
-    void MyersDiff(const DEVICEID deviceId, const KERNELNAME_INDEX &kernelIndexMap,
-        const KERNELNAME_INDEX &kernelIndexCompareMap);
+    void MyersDiff(const DEVICEID deviceId, const NAME_WITH_INDEX &baseLists,
+        const NAME_WITH_INDEX &compareLists);
+    void ReadNameIndexData(const ORIGINAL_FILE_DATA &data, NAME_WITH_INDEX &dataLists);
+    void GetMemoryUsage(size_t index, const ORIGINAL_FILE_DATA &data, int64_t &memDiff);
+    void CalcuMemoryDiff(const DEVICEID deviceId, const std::pair<std::string, size_t> &baseData,
+        const std::pair<std::string, size_t> &compareData);
+    void ReadFile(std::string &path, std::unordered_map<DEVICEID, ORIGINAL_FILE_DATA> &data);
+    bool CheckCsvHeader(std::string &path, std::ifstream& file, std::vector<std::string> &headerData);
+private:
     FILE* compareFile_ = nullptr;
-    std::unordered_map<DEVICEID, CSV_FIELD_DATA> output_;
-    std::unordered_map<DEVICEID, CSV_FIELD_DATA> outputCompare_;
-    std::unordered_map<DEVICEID, std::vector<std::string>> compareOut_;
-    std::string fileNamePrefix_ = "stepintercompare_";
+    std::unordered_map<DEVICEID, ORIGINAL_FILE_DATA> baseFileOriginData_;
+    std::unordered_map<DEVICEID, ORIGINAL_FILE_DATA> compareFileOriginData_;
+    std::unordered_map<DEVICEID, std::vector<std::string>> result_;
+    std::string fileNamePrefix_ = "memory_compare_";
     std::string dirPath_;
     std::string csvHeader_;
+    std::string framework_;
     std::mutex fileMutex_;
     Config config_;
 };
