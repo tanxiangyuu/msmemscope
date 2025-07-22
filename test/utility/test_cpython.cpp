@@ -6,20 +6,23 @@
 
 using namespace Utility;
 
-class TestCpython : public ::testing::Test {
-protected:
-    void SetUp() override
+class PythonGlobalInit {
+public:
+    PythonGlobalInit()
     {
         Py_Initialize();
     }
 
-    void TearDown() override
+    ~PythonGlobalInit()
     {
         Py_Finalize();
     }
 };
 
-TEST_F(TestCpython, BeforeInit)
+// 使用静态对象，构造/析构时初始化Python，防止多个套件重复初始化和释放导致core dump
+static PythonGlobalInit GlobalPythonInit;
+
+TEST(TestCpython, BeforeInit)
 {
     Py_Finalize();
     EXPECT_FALSE(IsPyInterpRepeInited());
@@ -33,7 +36,7 @@ TEST_F(TestCpython, BeforeInit)
     Py_Initialize();
 }
 
-TEST_F(TestCpython, PythonObjectFromTo)
+TEST(TestCpython, PythonObjectFromTo)
 {
     // 测试PythonObject的From和To转换
     int32_t inputInt = -42;
@@ -92,7 +95,7 @@ TEST_F(TestCpython, PythonObjectFromTo)
     EXPECT_EQ(obj2.Cast<int32_t>(), 0);
 }
 
-TEST_F(TestCpython, PythonObjectImport)
+TEST(TestCpython, PythonObjectImport)
 {
     PythonObject sys = PythonObject::Import("sys");
     EXPECT_FALSE(sys.IsBad());
@@ -106,7 +109,7 @@ TEST_F(TestCpython, PythonObjectImport)
     EXPECT_TRUE(invalid.IsBad());
 }
 
-TEST_F(TestCpython, PythonObjectGetAttr)
+TEST(TestCpython, PythonObjectGetAttr)
 {
     PythonObject sys = PythonObject::Import("sys");
     PythonObject sysPath = sys.Get("path");
@@ -129,7 +132,7 @@ TEST_F(TestCpython, PythonObjectGetAttr)
     EXPECT_TRUE(invalid.Get("invalid", false).IsBad());
 }
 
-TEST_F(TestCpython, PythonObjectType)
+TEST(TestCpython, PythonObjectType)
 {
     PythonObject none(Py_None);
     EXPECT_EQ(none.Type(), "NoneType");
@@ -142,7 +145,7 @@ TEST_F(TestCpython, PythonObjectType)
     EXPECT_EQ(builtins.Type(), "module");
 }
 
-TEST_F(TestCpython, PythonObjectCall)
+TEST(TestCpython, PythonObjectCall)
 {
     PythonObject intClass = PythonObject::Import("builtins").Get("int");
     EXPECT_TRUE(intClass.IsCallable());
@@ -177,7 +180,7 @@ TEST_F(TestCpython, PythonObjectCall)
     EXPECT_TRUE(intClass(args2, kws).IsBad());
 }
 
-TEST_F(TestCpython, PythonNumberObject)
+TEST(TestCpython, PythonNumberObject)
 {
     PythonNumberObject o1;
     PythonNumberObject o2(PyLong_FromLong(123));
@@ -195,7 +198,7 @@ TEST_F(TestCpython, PythonNumberObject)
     EXPECT_TRUE(PythonNumberObject(static_cast<PyObject*>(nullptr)).IsBad());
 }
 
-TEST_F(TestCpython, PythonStringObject)
+TEST(TestCpython, PythonStringObject)
 {
     PythonStringObject o1;
     PythonStringObject o2(PyUnicode_FromString("hello"));
@@ -211,7 +214,7 @@ TEST_F(TestCpython, PythonStringObject)
     EXPECT_TRUE(PythonStringObject(static_cast<PyObject*>(nullptr)).IsBad());
 }
 
-TEST_F(TestCpython, PythonBoolObject)
+TEST(TestCpython, PythonBoolObject)
 {
     PythonBoolObject o1;
     PythonBoolObject o2(Py_True);
@@ -224,7 +227,7 @@ TEST_F(TestCpython, PythonBoolObject)
     EXPECT_EQ(o4.Cast<bool>(), true);
 }
 
-TEST_F(TestCpython, PythonListObject)
+TEST(TestCpython, PythonListObject)
 {
     PythonListObject empty_list(5);
     PythonListObject sys_path(static_cast<PyObject*>(PythonObject::Import("sys").Get("path")));
@@ -258,7 +261,7 @@ TEST_F(TestCpython, PythonListObject)
     EXPECT_FALSE(tuple.IsBad());
 }
 
-TEST_F(TestCpython, TestGetPyFuncInfoInputNullFrame)
+TEST(TestCpython, TestGetPyFuncInfoInputNullFrame)
 {
     std::string info = "original_info";
     std::string hash = "original_hash";
@@ -267,7 +270,7 @@ TEST_F(TestCpython, TestGetPyFuncInfoInputNullFrame)
     EXPECT_EQ(hash, "original_hash");
 }
 
-TEST_F(TestCpython, NotIgnoreCFunc)
+TEST(TestCpython, NotIgnoreCFunc)
 {
     EXPECT_FALSE(IsIgnoreCFunc("anyfile.py:some_function"));
     EXPECT_FALSE(IsIgnoreCFunc("contextlib.py:__init__"));
@@ -276,21 +279,21 @@ TEST_F(TestCpython, NotIgnoreCFunc)
     EXPECT_FALSE(IsIgnoreCFunc("/path/to/otherfile.py:__exit__"));
 }
 
-TEST_F(TestCpython, TrueMatch)
+TEST(TestCpython, TrueMatch)
 {
     EXPECT_TRUE(IsIgnoreCFunc("contextlib.py:__exit__"));
     EXPECT_TRUE(IsIgnoreCFunc("dir/contextlib.py:__exit__"));
     EXPECT_TRUE(IsIgnoreCFunc("/full/path/to/contextlib.py:__exit__"));
 }
 
-TEST_F(TestCpython, PyProfileFnNullptrTest)
+TEST(TestCpython, PyProfileFnNullptrTest)
 {
     PyFrameObject* frame = nullptr;
     int ret = pyProfileFn(nullptr, frame, PyTrace_CALL, nullptr);
     ASSERT_EQ(ret, 0);
 }
 
-TEST_F(TestCpython, GetTraceCallStackTest)
+TEST(TestCpython, GetTraceCallStackTest)
 {
     std::string type = "test";
     uint64_t time = 123456;
