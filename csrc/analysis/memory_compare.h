@@ -25,7 +25,7 @@ constexpr double MICROSEC = 1000000.0;
 
 using DEVICEID = uint64_t;
 using ORIGINAL_FILE_DATA = std::vector<std::unordered_map<std::string, std::string>>;
-using NAME_WITH_INDEX = std::vector<std::pair<std::string, size_t>>;
+using NAME_WITH_INDEX = std::vector<std::tuple<std::string, std::string, size_t>>;
 
 /* PathNode基类
  * 1. 存储最优节点的坐标(i , j)，以及前驱节点prev
@@ -92,8 +92,8 @@ private:
         const NAME_WITH_INDEX &compareLists);
     void ReadNameIndexData(const ORIGINAL_FILE_DATA &data, NAME_WITH_INDEX &dataLists);
     void GetMemoryUsage(size_t index, const ORIGINAL_FILE_DATA &data, int64_t &memDiff);
-    void CalcuMemoryDiff(const DEVICEID deviceId, const std::pair<std::string, size_t> &baseData,
-        const std::pair<std::string, size_t> &compareData);
+    void CalcuMemoryDiff(const DEVICEID deviceId, const std::tuple<std::string, std::string, size_t> &baseData,
+        const std::tuple<std::string, std::string, size_t> &compareData);
     void ReadFile(std::string &path, std::unordered_map<DEVICEID, ORIGINAL_FILE_DATA> &data);
     bool CheckCsvHeader(std::string &path, std::ifstream& file, std::vector<std::string> &headerData);
 private:

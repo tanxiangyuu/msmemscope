@@ -8,6 +8,7 @@
 #include "config_info.h"
 #include "record_info.h"
 #include "ustring.h"
+#include "bit_field.h"
 
 namespace Leaks {
 
@@ -163,15 +164,28 @@ void MemoryCompare::ReadCsvFile(std::string &path, std::unordered_map<DEVICEID, 
 void MemoryCompare::ReadNameIndexData(const ORIGINAL_FILE_DATA &originData, NAME_WITH_INDEX &dataList)
 {
     LOG_DEBUG("Read kernelLaunch/op data.");
+    std::unordered_set<std::string> eventMap;
+    BitField<decltype(config_.levelType)> levelType(config_.levelType);
+    if (levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_OP))) {
+        if (framework_ == "MINDSPORE") {
+            LOG_ERROR("Comparison of the MindSpore framework under the op level is not supported.");
+            return ;
+        }
+        eventMap.insert("ATB_END");
+        eventMap.insert("ATEN_END");
+    }
+    if (levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_KERNEL))) {
+        eventMap.insert("KERNEL_LAUNCH");
+    }
     for (size_t index = 0; index < originData.size(); ++index) {
         auto lineData = originData[index];
-        if (lineData["Event Type"] == "KERNEL_LAUNCH") {
+        if (eventMap.find(lineData["Event Type"]) != eventMap.end()) {
             if (Utility::CheckStrIsStartsWithInvalidChar(lineData["Name"].c_str())) {
                 LOG_ERROR("Name %s is invalid!", lineData["Name"].c_str());
                 dataList.clear();
                 return ;
             }
-            dataList.emplace_back(std::make_pair(lineData["Name"], index));
+            dataList.emplace_back(std::make_tuple(lineData["Name"], lineData["Event"], index));
         }
     }
 }
@@ -233,34 +247,38 @@ bool MemoryCompare::WriteCompareDataToCsv()
     return true;
 }
 
-void MemoryCompare::CalcuMemoryDiff(const DEVICEID deviceId, const std::pair<std::string, size_t> &baseData,
-    const std::pair<std::string, size_t> &compareData)
+void MemoryCompare::CalcuMemoryDiff(const DEVICEID deviceId,
+    const std::tuple<std::string, std::string, size_t> &baseData,
+    const std::tuple<std::string, std::string, size_t> &compareData)
 {
     std::string temp;
     std::string name;
+    std::string event;
     int64_t baseAllocSize = 0;
     int64_t compareAllocSize = 0;
 
     std::string baseMemDiff;
-    if (!baseData.first.empty()) {
-        name = baseData.first;
-        GetMemoryUsage(baseData.second, baseFileOriginData_[deviceId], baseAllocSize);
+    if (!std::get<0>(baseData).empty()) {
+        name = std::get<0>(baseData);
+        event = std::get<1>(baseData);
+        GetMemoryUsage(std::get<2>(baseData), baseFileOriginData_[deviceId], baseAllocSize);
         baseMemDiff = std::to_string(baseAllocSize);
     } else {
         baseMemDiff = "N/A";
     }
 
     std::string compareMemDiff;
-    if (!compareData.first.empty()) {
-        name = compareData.first;
-        GetMemoryUsage(compareData.second, compareFileOriginData_[deviceId], compareAllocSize);
+    if (!std::get<0>(compareData).empty()) {
+        name = std::get<0>(compareData);
+        event = std::get<1>(compareData);
+        GetMemoryUsage(std::get<2>(compareData), compareFileOriginData_[deviceId], compareAllocSize);
         compareMemDiff = std::to_string(compareAllocSize);
     } else {
         compareMemDiff = "N/A";
     }
 
-    temp += name;
-    temp = temp + "," + std::to_string(deviceId) + "," + baseMemDiff + "," + compareMemDiff;
+    temp += event;
+    temp = temp + "," + name + "," + std::to_string(deviceId) + "," + baseMemDiff + "," + compareMemDiff;
 
     int64_t diffAllocSize = Utility::GetSubResult(compareAllocSize, baseAllocSize);
     temp = temp + "," + std::to_string(diffAllocSize);
@@ -302,7 +320,7 @@ std::shared_ptr<PathNode> MemoryCompare::BuildPath(const NAME_WITH_INDEX &baseLi
             diagonal[kminus] = nullptr;
             std::shared_ptr<PathNode> node = std::make_shared<DiffNode>(i, j, prev);
             // 判断两个name是否相同
-            while (i < n && j < m && (baseLists[i].first == compareLists[j].first)) {
+            while (i < n && j < m && (std::get<0>(baseLists[i]) == std::get<0>(compareLists[j]))) {
                 ++i;
                 ++j;
             }

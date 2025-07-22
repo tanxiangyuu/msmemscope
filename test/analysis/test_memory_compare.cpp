@@ -3,6 +3,7 @@
 #include <gtest/internal/gtest-port.h>
 #include "config_info.h"
 #include "file.h"
+#include "bit_field.h"
 
 #define private public
 #include "memory_compare.h"
@@ -44,7 +45,7 @@ TEST(MemoryCompareTest, do_read_csv_file_expect_read_correct_data)
     fprintf(fp, testHeader.c_str());
 
     for (int index = 0; index < 10; ++index) {
-        fprintf(fp, "1,MALLOC,PTA,N/A,%d,123,234,0,0,N/A\n", index);
+        fprintf(fp, "1,MALLOC,PTA,N/A,%d,123,234,0,0,{size:124}\n", index);
     }
 
     for (int index = 0; index < 5; ++index) {
@@ -56,7 +57,7 @@ TEST(MemoryCompareTest, do_read_csv_file_expect_read_correct_data)
     }
 
     for (int index = 4; index >= 0; --index) {
-        fprintf(fp, "4,KERNEL_LAUNCH,KERNEL_LAUNCH,null,%d,123,234,2,0,N/A\n", index+1);
+        fprintf(fp, "4,KERNEL_LAUNCH,KERNEL_LAUNCH,null,%d,123,234,2,0,{size:224}\n", index+1);
     }
 
     fclose(fp);
@@ -105,16 +106,19 @@ TEST(MemoryCompareTest, do_read_invalid_csv_file_expect_empty_data)
 TEST(MemoryCompareTest, do_read_kernelLaunch_data_expect_return_true_and_correct_data)
 {
     Config config;
+    BitField<decltype(config.levelType)> levelBit;
+    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
+    config.levelType = levelBit.getValue();
     ORIGINAL_FILE_DATA data;
     CreateCsvData(data);
     MemoryCompare memCompare{config};
     NAME_WITH_INDEX result;
     memCompare.ReadNameIndexData(data, result);
     ASSERT_EQ(result.size(), 2);
-    ASSERT_EQ(result[0].first, "matmul_v1");
-    ASSERT_EQ(result[0].second, 1);
-    ASSERT_EQ(result[1].first, "matmul_v2");
-    ASSERT_EQ(result[1].second, 2);
+    ASSERT_EQ(std::get<0>(result[0]), "matmul_v1");
+    ASSERT_EQ(std::get<2>(result[0]), 1);
+    ASSERT_EQ(std::get<0>(result[1]), "matmul_v2");
+    ASSERT_EQ(std::get<2>(result[1]), 2);
 }
 
 TEST(MemoryCompareTest, do_read_no_kernelLaunch_data_expect_return_false_and_empty_data)
@@ -200,24 +204,24 @@ TEST(MemoryCompareTest, do_save_compare_kernel_memory_expect_correct_data)
     memCompare.compareFileOriginData_[0] = data;
 
     std::string temp;
-    temp = "matmul_v1,0,124,130,6";
+    temp = "KERNEL_LAUNCH,matmul_v1,0,124,130,6";
 
-    memCompare.CalcuMemoryDiff(0, {"matmul_v1", 1}, {"matmul_v1", 1});
+    memCompare.CalcuMemoryDiff(0, {"matmul_v1", "KERNEL_LAUNCH", 1}, {"matmul_v1", "KERNEL_LAUNCH", 1});
     ASSERT_EQ(memCompare.result_[0][0], temp);
 
-    memCompare.CalcuMemoryDiff(0, {"matmul_v2", 2}, {"matmul_v2", 2});
-    temp = "matmul_v2,0,124,130,6";
+    memCompare.CalcuMemoryDiff(0, {"matmul_v2", "KERNEL_LAUNCH", 2}, {"matmul_v2", "KERNEL_LAUNCH", 2});
+    temp = "KERNEL_LAUNCH,matmul_v2,0,124,130,6";
     ASSERT_EQ(memCompare.result_[0][1], temp);
 }
 
 TEST(MemoryCompareTest, do_build_path_expect_coorrect_data)
 {
     NAME_WITH_INDEX kernelIndexMap {};
-    kernelIndexMap.emplace_back(std::make_pair("matmul_v1", 1));
-    kernelIndexMap.emplace_back(std::make_pair("matmul_v2", 2));
+    kernelIndexMap.emplace_back(std::make_tuple("matmul_v1", "KERNEL_LAUNCH", 1));
+    kernelIndexMap.emplace_back(std::make_tuple("matmul_v2", "KERNEL_LAUNCH", 2));
     NAME_WITH_INDEX kernelIndexCompareMap {};
-    kernelIndexCompareMap.emplace_back(std::make_pair("mul", 1));
-    kernelIndexCompareMap.emplace_back(std::make_pair("matmul_v2", 2));
+    kernelIndexCompareMap.emplace_back(std::make_tuple("mul", "KERNEL_LAUNCH", 1));
+    kernelIndexCompareMap.emplace_back(std::make_tuple("matmul_v2", "KERNEL_LAUNCH", 2));
 
     std::shared_ptr<PathNode> pathNode1 = std::make_shared<DiffNode>(0, 0, nullptr);
     std::shared_ptr<PathNode> pathNode2 = std::make_shared<DiffNode>(1, 0, pathNode1);
@@ -266,11 +270,11 @@ TEST(MemoryCompareTest, do_build_diff_expect_correct_data)
     data[1]["name"] = "mul";
     memCompare.compareFileOriginData_[0] = data;
     NAME_WITH_INDEX kernelIndexMap {};
-    kernelIndexMap.emplace_back(std::make_pair("matmul_v1", 1));
-    kernelIndexMap.emplace_back(std::make_pair("matmul_v2", 2));
+    kernelIndexMap.emplace_back(std::make_tuple("matmul_v1", "KERNEL_LAUNCH", 1));
+    kernelIndexMap.emplace_back(std::make_tuple("matmul_v2", "KERNEL_LAUNCH", 2));
     NAME_WITH_INDEX kernelIndexCompareMap {};
-    kernelIndexCompareMap.emplace_back(std::make_pair("mul", 1));
-    kernelIndexCompareMap.emplace_back(std::make_pair("matmul_v2", 2));
+    kernelIndexCompareMap.emplace_back(std::make_tuple("mul", "KERNEL_LAUNCH", 1));
+    kernelIndexCompareMap.emplace_back(std::make_tuple("matmul_v2", "KERNEL_LAUNCH", 2));
 
     memCompare.BuildDiff(pathNode4, 0, kernelIndexMap, kernelIndexCompareMap);
     ASSERT_EQ(memCompare.result_[0].size(), 3);
@@ -297,11 +301,11 @@ TEST(MemoryCompareTest, do_myersdiff_input_kernelLaunch_data)
     CreateCsvData(data);
     data[1]["name"] = "mul";
     kernelIndexMap.clear();
-    kernelIndexMap.emplace_back(std::make_pair("matmul_v1", 1));
-    kernelIndexMap.emplace_back(std::make_pair("matmul_v2", 2));
+    kernelIndexMap.emplace_back(std::make_tuple("matmul_v1", "KERNEL_LAUNCH", 1));
+    kernelIndexMap.emplace_back(std::make_tuple("matmul_v2", "KERNEL_LAUNCH", 2));
     kernelIndexCompareMap.clear();
-    kernelIndexCompareMap.emplace_back(std::make_pair("mul", 1));
-    kernelIndexCompareMap.emplace_back(std::make_pair("matmul_v2", 2));
+    kernelIndexCompareMap.emplace_back(std::make_tuple("mul", "KERNEL_LAUNCH", 1));
+    kernelIndexCompareMap.emplace_back(std::make_tuple("matmul_v2", "KERNEL_LAUNCH", 2));
 
     memCompare.MyersDiff(0, kernelIndexMap, kernelIndexCompareMap);
     ASSERT_EQ(memCompare.result_[0].size(), 3);
@@ -319,9 +323,12 @@ TEST(MemoryCompareTest, do_stepinter_compare_input_invalid_path_return_empty_dat
     ASSERT_EQ(memCompare.baseFileOriginData_.size(), 0);
 }
 
-TEST(MemoryCompareTest, do_stepinter_compare)
+TEST(MemoryCompareTest, do_kernel_launch_compare)
 {
     Config config;
+    BitField<decltype(config.levelType)> levelBit;
+    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
+    config.levelType = levelBit.getValue();
     config.enableCStack = false;
     config.enablePyStack = false;
     Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
@@ -330,7 +337,7 @@ TEST(MemoryCompareTest, do_stepinter_compare)
     fprintf(fp, testHeader.c_str());
 
     for (int index = 0; index < 10; ++index) {
-        fprintf(fp, "1,MALLOC,PTA,N/A,%d,123,234,0,0,N/A\n", index);
+        fprintf(fp, "1,MALLOC,PTA,N/A,%d,123,234,0,0,{size:1024}\n", index);
     }
 
     for (int index = 0; index < 5; ++index) {
@@ -338,12 +345,14 @@ TEST(MemoryCompareTest, do_stepinter_compare)
     }
 
     for (int index = 0; index < 5; ++index) {
-        fprintf(fp, "3,MALLOC,PTA,N/A,%d,123,234,2,0,N/A\n", index+2);
+        fprintf(fp, "3,MALLOC,PTA,N/A,%d,123,234,2,0,{size:1024}\n", index+2);
     }
 
     for (int index = 4; index >= 0; --index) {
         fprintf(fp, "4,KERNEL_LAUNCH,KERNEL_LAUNCH,null,%d,123,234,2,0,N/A\n", index+1);
     }
+
+    fprintf(fp, "5,MALLOC,PTA,N/A,5,123,234,2,0,{size:1024}\n");
 
     fclose(fp);
 
