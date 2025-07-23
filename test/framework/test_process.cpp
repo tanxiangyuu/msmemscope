@@ -262,7 +262,7 @@ TEST(Process, do_msg_handler_record_packet_type_except_success)
 
     RecordBuffer rb = RecordBuffer::CreateRecordBuffer<MemOpRecord>(TLVBlockType::CALL_STACK_C, testMsg,
                                                                     TLVBlockType::CALL_STACK_PYTHON, testMsg);
-    PacketHead newHead {PacketType::RECORD_NEW, rb.Size()};
+    PacketHead newHead {PacketType::RECORD, rb.Size()};
     std::string buffer2 = Serialize<PacketHead>(newHead) + rb.Get();
     process.MsgHandle(clientId, buffer2);
 }
