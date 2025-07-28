@@ -1,19 +1,23 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
 #include "process.h"
+
 #include <unistd.h>
 #include <sys/wait.h>
 #include <iostream>
+#include <memory>
+
 #include "path.h"
 #include "ustring.h"
 #include "log.h"
 #include "serializer.h"
-#include "analysis/dump_record.h"
 #include "analysis/trace_record.h"
 #include "analysis/mstx_analyzer.h"
 #include "analysis/hal_analyzer.h"
 #include "analysis/stepinner_analyzer.h"
-#include "analysis/device_manager.h"
+#include "analysis/event.h"
+#include "analysis/memory_state_manager.h"
+#include "analysis/event_dispatcher.h"
 
 namespace Leaks {
 
@@ -68,25 +72,57 @@ Process::Process(const Config &config)
     server_->Start();
 }
 
-void Process::MemoryRecordPreprocess(const ClientId &clientId, const RecordBase &record)
+std::shared_ptr<EventBase> Process::RecordToEvent(RecordBase* record)
 {
-    auto type = record.type;
-    auto it = preprocessTypeList_.find(type);
-    if (it == preprocessTypeList_.end()) {
-        return;
+    // 定义工厂函数类型
+    using EventFactory = std::function<std::shared_ptr<EventBase>(RecordBase*)>;
+
+    // 静态映射表：RecordType -> 对应的工厂函数
+    static const std::unordered_map<RecordType, EventFactory> kRecordToEventMap = {
+        {RecordType::MEMORY_RECORD, [](RecordBase* r) {
+            return std::make_shared<MemoryEvent>(*(static_cast<MemOpRecord*>(r))); }},
+        {RecordType::TORCH_NPU_RECORD, [](RecordBase* r) {
+            return std::make_shared<MemoryEvent>(*(static_cast<MemPoolRecord*>(r))); }},
+        {RecordType::ATB_MEMORY_POOL_RECORD, [](RecordBase* r) {
+            return std::make_shared<MemoryEvent>(*(static_cast<MemPoolRecord*>(r))); }},
+        {RecordType::MINDSPORE_NPU_RECORD, [](RecordBase* r) {
+            return std::make_shared<MemoryEvent>(*(static_cast<MemPoolRecord*>(r))); }},
+        {RecordType::MEM_ACCESS_RECORD, [](RecordBase* r) {
+            return std::make_shared<MemoryEvent>(*(static_cast<MemAccessRecord*>(r))); }},
+        {RecordType::ADDR_INFO_RECORD, [](RecordBase* r) {
+            return std::make_shared<MemoryOwnerEvent>(*(static_cast<AddrInfo*>(r))); }},
+        {RecordType::ATB_OP_EXECUTE_RECORD, [](RecordBase* r) {
+            return std::make_shared<OpLaunchEvent>(*(static_cast<AtbOpExecuteRecord*>(r))); }},
+        {RecordType::ATEN_OP_LAUNCH_RECORD, [](RecordBase* r) {
+            return std::make_shared<OpLaunchEvent>(*(static_cast<AtenOpLaunchRecord*>(r))); }},
+        {RecordType::KERNEL_LAUNCH_RECORD, [](RecordBase* r) {
+            return std::make_shared<KernelLaunchEvent>(*(static_cast<KernelLaunchRecord*>(r))); }},
+        {RecordType::KERNEL_EXCUTE_RECORD, [](RecordBase* r) {
+            return std::make_shared<KernelLaunchEvent>(*(static_cast<KernelExcuteRecord*>(r))); }},
+        {RecordType::ATB_KERNEL_RECORD, [](RecordBase* r) {
+            return std::make_shared<KernelLaunchEvent>(*(static_cast<AtbKernelRecord*>(r))); }},
+        {RecordType::MSTX_MARK_RECORD, [](RecordBase* r) {
+            return std::make_shared<MstxEvent>(*(static_cast<MstxRecord*>(r))); }},
+        {RecordType::ACL_ITF_RECORD, [](RecordBase* r) {
+            return std::make_shared<SystemEvent>(*(static_cast<AclItfRecord*>(r))); }},
+    };
+
+    if (record == nullptr) {
+        return nullptr;
     }
 
-    auto memoryStateRecord = DeviceManager::GetInstance(config_).GetMemoryStateRecord(clientId);
-    if (memoryStateRecord != nullptr) {
-        memoryStateRecord->RecordMemoryState(record);
+    auto it = kRecordToEventMap.find(record->type);
+    if (it == kRecordToEventMap.end()) {
+        return nullptr;
     }
+    return it->second(record);
 }
 
 void Process::RecordHandler(const ClientId &clientId, const RecordBuffer& buffer)
 {
     RecordBase* record = buffer.Cast<RecordBase>();
-    MemoryRecordPreprocess(clientId, *record);
-    DumpRecord::GetInstance(config_).DumpData(clientId, record);
+    EventHandler(RecordToEvent(record));
+
     TraceRecord::GetInstance().TraceHandler(record);
 
     switch (record->type) {
@@ -104,6 +140,34 @@ void Process::RecordHandler(const ClientId &clientId, const RecordBuffer& buffer
         default:
             break;
     }
+}
+
+void Process::EventHandler(std::shared_ptr<EventBase> event)
+{
+    if (event == nullptr) {
+        return;
+    }
+
+    MemoryState* state = nullptr;
+    if (event->eventType == EventBaseType::MALLOC
+        || event->eventType == EventBaseType::FREE
+        || event->eventType == EventBaseType::ACCESS
+    ) {
+        auto memEvent = std::dynamic_pointer_cast<MemoryEvent>(event);
+        if (memEvent) {
+            MemoryStateManager::GetInstance().AddEvent(memEvent);
+            state = MemoryStateManager::GetInstance().GetState(
+                memEvent->poolType, MemoryStateKey{memEvent->pid, memEvent->addr});
+        }
+    } else if (event->eventType == EventBaseType::MEMORY_OWNER) {
+        auto memOwnerEvent = std::dynamic_pointer_cast<MemoryOwnerEvent>(event);
+        if (memOwnerEvent) {
+            state = MemoryStateManager::GetInstance().GetState(
+                memOwnerEvent->poolType, MemoryStateKey{memOwnerEvent->pid, memOwnerEvent->addr});
+        }
+    }
+
+    EventDispatcher::GetInstance().DispatchEvent(event, state);
 }
 
 void Process::MsgHandle(size_t &clientId, std::string &msg)
@@ -247,4 +311,11 @@ void Process::PostProcess(const ExecCmd &cmd)
     return;
 }
 
+Process::~Process()
+{
+    for (auto& state : MemoryStateManager::GetInstance().GetAllStateKeys()) {
+        std::shared_ptr<EventBase> event = std::make_shared<CleanUpEvent>(state.first, state.second.pid, state.second.addr);
+        EventHandler(event);
+    }
+}
 }  // namespace Leaks

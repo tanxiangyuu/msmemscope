@@ -10,6 +10,7 @@
 #include <thread>
 #include "server_process.h"
 #include "protocol.h"
+#include "analysis/event.h"
 
 namespace Leaks {
 struct ExecCmd {
@@ -32,7 +33,7 @@ private:
 class Process {
 public:
     explicit Process(const Config &config);
-    ~Process() = default;
+    ~Process();
     void Launch(const std::vector<std::string> &execParams);
 private:
     void SetPreloadEnv();
@@ -41,19 +42,13 @@ private:
 
     void MsgHandle(size_t &clientId, std::string &msg);
     void RecordHandler(const ClientId &clientId, const RecordBuffer& record);
+    std::shared_ptr<EventBase> RecordToEvent(RecordBase* record);
+    void EventHandler(std::shared_ptr<EventBase> event);
     void MemoryRecordPreprocess(const ClientId &clientId, const RecordBase &record);
 private:
     std::unique_ptr<ServerProcess> server_;
     std::map<ClientId, Protocol> protocolList_;
     Config config_;
-    std::set<RecordType> preprocessTypeList_ = {
-        RecordType::MEMORY_RECORD,
-        RecordType::ATB_MEMORY_POOL_RECORD,
-        RecordType::TORCH_NPU_RECORD,
-        RecordType::MEM_ACCESS_RECORD,
-        RecordType::MINDSPORE_NPU_RECORD,
-        RecordType::ADDR_INFO_RECORD,
-    };
 };
 
 }
