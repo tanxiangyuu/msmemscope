@@ -135,7 +135,7 @@ void Process::MsgHandle(size_t &clientId, std::string &msg)
                 LOG_RECV("%s", std::string(log.buf, log.buf + log.len).c_str());
                 break;
             }
-            case PacketType::RECORD_NEW: {
+            case PacketType::RECORD: {
                 std::string data;
                 protocol.Read(head);
                 protocol.GetStringData(data, head.length);

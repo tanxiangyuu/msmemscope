@@ -77,8 +77,7 @@ RTS_API rtError_t GetDevice(int32_t *devId)
 
 int EventReport::ReportRecordEvent(const RecordBuffer& record)
 {
-    /* head仅在接口切换期间用于标记数据格式，当全量接口替换完成之后应废弃 */
-    std::string head = Serialize<PacketHead>(PacketHead{PacketType::RECORD_NEW, record.Size()});
+    std::string head = Serialize<PacketHead>(PacketHead{PacketType::RECORD, record.Size()});
     std::string buffer =  head + record.Get();
     auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(buffer);
     return sendNums;

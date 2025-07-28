@@ -17,8 +17,8 @@ MemoryStateRecord::MemoryStateRecord(Config config)
 void MemoryStateRecord::RecordMemoryState(const RecordBase& record)
 {
     auto type = record.type;
-    auto it = memInfoProcessFuncMapV2_.find(type);
-    if (it == memInfoProcessFuncMapV2_.end()) {
+    auto it = memInfoProcessFuncMap_.find(type);
+    if (it == memInfoProcessFuncMap_.end()) {
         return;
     }
     it->second(record);
