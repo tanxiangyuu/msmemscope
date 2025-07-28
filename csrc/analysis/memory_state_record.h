@@ -15,8 +15,7 @@
 
 namespace Leaks {
 
-using HandlerFunc = std::function<void(const Record&, CallStackString&)>;
-using HandlerFuncV2 = std::function<void(const RecordBase&)>;
+using HandlerFunc = std::function<void(const RecordBase&)>;
 
 class MemRecordAttr {
 public:
@@ -60,7 +59,7 @@ private:
     std::map<std::pair<std::string, uint64_t>, std::vector<MemStateInfo>> ptrMemoryInfoMap_;
     std::unordered_map<uint64_t, uint64_t> hostMemSizeMap_;
     std::unordered_map<uint64_t, uint64_t> memSizeMap_;
-    std::map<RecordType, HandlerFuncV2> memInfoProcessFuncMapV2_ = {
+    std::map<RecordType, HandlerFunc> memInfoProcessFuncMap_ = {
         {RecordType::MEMORY_RECORD,
             std::bind(&MemoryStateRecord::MemoryInfoProcess, this, std::placeholders::_1)},
         {RecordType::ATB_MEMORY_POOL_RECORD,

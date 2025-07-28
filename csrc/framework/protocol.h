@@ -17,7 +17,6 @@ constexpr size_t MAX_STRING_LEN = 65536;
 enum class PacketType : uint8_t {
     RECORD = 0,
     LOG,
-    RECORD_NEW,
     INVALID
 };
 
