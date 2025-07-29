@@ -139,11 +139,11 @@ TEST(DumpRecord, dump_aclItf_record_expect_success)
     record->subtype = RecordSubType::FINALIZE;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, static_cast<const RecordBase*>(record)));
 }
-TEST(DumpRecord, dump_torchnpu_record_expect_success)
+TEST(DumpRecord, dump_pta_caching_record_expect_success)
 {
     auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
-    record->type = RecordType::TORCH_NPU_RECORD;
+    record->type = RecordType::PTA_CACHING_POOL_RECORD;
     record->recordIndex = 101;
     MemoryUsage memoryUsage;
     memoryUsage.allocSize = 128;
@@ -173,11 +173,11 @@ TEST(DumpRecord, dump_torchnpu_record_expect_success)
     memoryUsage.allocSize = 128;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, static_cast<const RecordBase*>(record)));
 }
-TEST(DumpRecord, dump_empty_torchnpu_record)
+TEST(DumpRecord, dump_empty_pta_caching_record)
 {
     auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
-    record->type = RecordType::TORCH_NPU_RECORD;
+    record->type = RecordType::PTA_CACHING_POOL_RECORD;
     MemoryUsage memoryUsage;
     record->memoryUsage = memoryUsage;
     Config config;
@@ -188,6 +188,58 @@ TEST(DumpRecord, dump_empty_torchnpu_record)
     MemStateInfo info;
     meminfoList.push_back(info);
     memoryStateRecord->ptrMemoryInfoMap_.insert({{"PTA", 123}, meminfoList});
+    DeviceManager::GetInstance(config).memoryStateRecordMap_[clientId] = memoryStateRecord;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, static_cast<const RecordBase*>(record)));
+}
+TEST(DumpRecord, dump_pta_workspace_record_expect_success)
+{
+    auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
+    MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
+    record->type = RecordType::PTA_WORKSPACE_POOL_RECORD;
+    record->recordIndex = 1010;
+    MemoryUsage memoryUsage;
+    memoryUsage.allocSize = 128;
+    memoryUsage.totalActive = 128;
+    memoryUsage.totalReserved = 128;
+    memoryUsage.totalAllocated = 128;
+    memoryUsage.ptr = 123;
+    memoryUsage.streamPtr = 123;
+    memoryUsage.deviceIndex = 10;
+    memoryUsage.allocatorType = 0;
+    memoryUsage.dataType = 0;
+    record->memoryUsage = memoryUsage;
+    Config config;
+    ClientId clientId = 0;
+    config.dataFormat = 0;
+    CallStackString stack{};
+    std::shared_ptr<MemoryStateRecord> memoryStateRecord = std::make_shared<MemoryStateRecord>(config);
+    std::vector<MemStateInfo> meminfoList = {};
+    MemStateInfo info;
+    meminfoList.push_back(info);
+    memoryStateRecord->ptrMemoryInfoMap_.insert({{"PTA_WORKSPACE", 123}, meminfoList});
+    DeviceManager::GetInstance(config).memoryStateRecordMap_[clientId] = memoryStateRecord;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, static_cast<const RecordBase*>(record)));
+    config.enableCStack = true;
+    config.enablePyStack = true;
+    memoryUsage.dataType = 1;
+    memoryUsage.allocSize = 128;
+    EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, static_cast<const RecordBase*>(record)));
+}
+TEST(DumpRecord, dump_empty_pta_workspace_record)
+{
+    auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
+    MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
+    record->type = RecordType::PTA_WORKSPACE_POOL_RECORD;
+    MemoryUsage memoryUsage;
+    record->memoryUsage = memoryUsage;
+    Config config;
+    config.dataFormat = 0;
+    ClientId clientId = 0;
+    std::shared_ptr<MemoryStateRecord> memoryStateRecord = std::make_shared<MemoryStateRecord>(config);
+    std::vector<MemStateInfo> meminfoList = {};
+    MemStateInfo info;
+    meminfoList.push_back(info);
+    memoryStateRecord->ptrMemoryInfoMap_.insert({{"PTA_WORKSPACE", 123}, meminfoList});
     DeviceManager::GetInstance(config).memoryStateRecordMap_[clientId] = memoryStateRecord;
     EXPECT_TRUE(DumpRecord::GetInstance(config).DumpData(clientId, static_cast<const RecordBase*>(record)));
 }

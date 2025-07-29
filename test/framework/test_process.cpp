@@ -183,7 +183,7 @@ TEST(Process, do_record_handler_except_success)
     ClientId clientId = 0;
     auto buffer1 = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* record1 = buffer1.Cast<MemPoolRecord>();
-    record1->type = RecordType::TORCH_NPU_RECORD;
+    record1->type = RecordType::PTA_CACHING_POOL_RECORD;
     record1->recordIndex = 1;
     auto memoryusage1 = MemoryUsage {};
     memoryusage1.dataType = 0;
@@ -213,6 +213,17 @@ TEST(Process, do_record_handler_except_success)
     record5->type = RecordType::MEMORY_RECORD;
     record5->subtype = RecordSubType::MALLOC;
 
+    auto buffer6 = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
+    MemPoolRecord* record6 = buffer6.Cast<MemPoolRecord>();
+    record6->type = RecordType::PTA_WORKSPACE_POOL_RECORD;
+    record6->recordIndex = 2;
+    auto memoryusage6 = MemoryUsage {};
+    memoryusage6.dataType = 0;
+    memoryusage6.ptr = 12347;
+    memoryusage6.allocSize = 512;
+    memoryusage6.totalAllocated = 512;
+    record6->memoryUsage = memoryusage6;
+
     Config config;
     setConfig(config);
     Process process(config);
@@ -221,6 +232,7 @@ TEST(Process, do_record_handler_except_success)
     process.RecordHandler(clientId, buffer3);
     process.RecordHandler(clientId, buffer4);
     process.RecordHandler(clientId, buffer5);
+    process.RecordHandler(clientId, buffer6);
 }
 
 TEST(Process, do_msg_handler_record_packet_type_except_success)

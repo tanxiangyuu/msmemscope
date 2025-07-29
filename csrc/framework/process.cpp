@@ -96,7 +96,7 @@ void Process::RecordHandler(const ClientId &clientId, const RecordBuffer& buffer
         case RecordType::MSTX_MARK_RECORD:
             MstxAnalyzer::Instance().RecordMstx(clientId, static_cast<const MstxRecord&>(*record));
             break;
-        case RecordType::TORCH_NPU_RECORD:
+        case RecordType::PTA_CACHING_POOL_RECORD:
         case RecordType::ATB_MEMORY_POOL_RECORD:
         case RecordType::MINDSPORE_NPU_RECORD:
             StepInnerAnalyzer::GetInstance(config_).Record(clientId, *record);
