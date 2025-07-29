@@ -159,8 +159,11 @@ void MemoryStateRecord::MemoryPoolInfoProcess(const RecordBase& record)
     memoryUsage = memPoolRecord.memoryUsage;
     CopyMemPoolRecordMember(memPoolRecord, container);
     switch (memPoolRecord.type) {
-        case RecordType::TORCH_NPU_RECORD:
+        case RecordType::PTA_CACHING_POOL_RECORD:
             memPoolType = "PTA";
+            break;
+        case RecordType::PTA_WORKSPACE_POOL_RECORD:
+            memPoolType = "PTA_WORKSPACE";
             break;
         case RecordType::MINDSPORE_NPU_RECORD:
             memPoolType = "MINDSPORE";

@@ -52,7 +52,8 @@ bool DumpRecord::DumpData(const ClientId &clientId, const RecordBase *record)
             return DumpAtbOpData(clientId, atbOpExecuteRecord);
         }
         case RecordType::ATB_MEMORY_POOL_RECORD:
-        case RecordType::TORCH_NPU_RECORD:
+        case RecordType::PTA_CACHING_POOL_RECORD:
+        case RecordType::PTA_WORKSPACE_POOL_RECORD:
         case RecordType::MINDSPORE_NPU_RECORD: {
             auto memPoolRecord = static_cast<const MemPoolRecord*>(record);
             return DumpMemPoolData(clientId, memPoolRecord);
@@ -91,7 +92,7 @@ void DumpRecord::SetAllocAttr(MemStateInfo& memInfo)
     if (memInfo.container.eventType == "HAL") {
         oss << ",MID:" << memInfo.attr.modid;
     } else if (memInfo.container.eventType == "PTA" || memInfo.container.eventType == "MINDSPORE"
-        || memInfo.container.eventType == "ATB") {
+        || memInfo.container.eventType == "ATB" || memInfo.container.eventType == "PTA_WORKSPACE") {
         oss << ",total:" << memInfo.attr.totalReserved << ",used:" << memInfo.attr.totalAllocated;
     }
 
@@ -339,8 +340,10 @@ bool DumpRecord::DumpMemPoolData(const ClientId &clientId, const MemPoolRecord *
         return true;
     }
     static auto getMemPoolName = [](RecordType type) -> std::string {
-        if (type == RecordType::TORCH_NPU_RECORD) {
+        if (type == RecordType::PTA_CACHING_POOL_RECORD) {
             return "PTA";
+        } else if (type == RecordType::PTA_WORKSPACE_POOL_RECORD) {
+            return "PTA_WORKSPACE";
         } else if (type == RecordType::MINDSPORE_NPU_RECORD) {
             return "MINDSPORE";
         } else {

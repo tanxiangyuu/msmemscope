@@ -20,7 +20,7 @@ constexpr double  PERCENT_SCALE_FACTOR = 100.0;
 
 const std::unordered_map<RecordType, std::string> RecordTypeToString = {
     {RecordType::ATB_MEMORY_POOL_RECORD, "ATB memory pool"},
-    {RecordType::TORCH_NPU_RECORD, "Pytorch memory pool"},
+    {RecordType::PTA_CACHING_POOL_RECORD, "Pytorch Caching memory pool"},
     {RecordType::MINDSPORE_NPU_RECORD, "Mindspore memory pool"}
 };
 

@@ -71,10 +71,10 @@ TEST(MemoryStateRecordTest, state_ATB_memory_pool_record_expect_success)
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 2);
 }
 
-TEST(MemoryStateRecordTest, state_PTA_memory_pool_record_with_decompose_expect_success)
+TEST(MemoryStateRecordTest, state_PTA_caching_pool_record_with_decompose_expect_success)
 {
     auto ptaPoolRecord = MemPoolRecord{};
-    ptaPoolRecord.type = RecordType::TORCH_NPU_RECORD;
+    ptaPoolRecord.type = RecordType::PTA_CACHING_POOL_RECORD;
     ptaPoolRecord.recordIndex = 1;
     ptaPoolRecord.pid = 1234;
     ptaPoolRecord.tid = 1234;
@@ -92,6 +92,38 @@ TEST(MemoryStateRecordTest, state_PTA_memory_pool_record_with_decompose_expect_s
     config.analysisType = 2;
     MemoryStateRecord memoryStateRecord{config};
     auto key = std::make_pair("PTA", ptaPoolRecord.memoryUsage.ptr);
+    memoryStateRecord.MemoryPoolInfoProcess(static_cast<const RecordBase&>(ptaPoolRecord));
+    ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
+    ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 1);
+
+    ptaPoolRecord.memoryUsage.dataType = 1;
+    ptaPoolRecord.memoryUsage.allocSize = 100;
+    memoryStateRecord.MemoryPoolInfoProcess(static_cast<const RecordBase&>(ptaPoolRecord));
+    ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
+    ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 2);
+}
+
+TEST(MemoryStateRecordTest, state_PTA_workspace_pool_record_with_decompose_expect_success)
+{
+    auto ptaPoolRecord = MemPoolRecord{};
+    ptaPoolRecord.type = RecordType::PTA_WORKSPACE_POOL_RECORD;
+    ptaPoolRecord.recordIndex = 2;
+    ptaPoolRecord.pid = 1234;
+    ptaPoolRecord.tid = 1234;
+    ptaPoolRecord.timestamp = 1001;
+    ptaPoolRecord.devId = 1;
+    auto ptaMemUsage = MemoryUsage{};
+    ptaMemUsage.ptr = 1234;
+    ptaMemUsage.dataType = 0;
+    ptaMemUsage.allocSize = 100;
+    ptaMemUsage.totalAllocated = 10000;
+    ptaMemUsage.totalReserved = 30000;
+    ptaPoolRecord.memoryUsage = ptaMemUsage;
+
+    Config config;
+    config.analysisType = 2;
+    MemoryStateRecord memoryStateRecord{config};
+    auto key = std::make_pair("PTA_WORKSPACE", ptaPoolRecord.memoryUsage.ptr);
     memoryStateRecord.MemoryPoolInfoProcess(static_cast<const RecordBase&>(ptaPoolRecord));
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_.size(), 1);
     ASSERT_EQ(memoryStateRecord.ptrMemoryInfoMap_[key].size(), 1);
@@ -158,7 +190,7 @@ TEST(MemoryStateRecordTest, state_addr_info_record_expect_success)
 
     auto buffer1 = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* memPoolRecord = buffer1.Cast<MemPoolRecord>();
-    memPoolRecord->type = RecordType::TORCH_NPU_RECORD;
+    memPoolRecord->type = RecordType::PTA_CACHING_POOL_RECORD;
     memPoolRecord->memoryUsage.ptr = 123;
     memPoolRecord->recordIndex = 1;
     memPoolRecord->pid = 1234;
@@ -194,7 +226,7 @@ TEST(MemoryStateRecordTest, state_addr_info_record_set_config)
 
     auto buffer1 = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* memPoolRecord = buffer1.Cast<MemPoolRecord>();
-    memPoolRecord->type = RecordType::TORCH_NPU_RECORD;
+    memPoolRecord->type = RecordType::PTA_CACHING_POOL_RECORD;
     memPoolRecord->memoryUsage.ptr = 123;
     memPoolRecord->recordIndex = 1;
     memPoolRecord->pid = 1234;
@@ -230,7 +262,7 @@ TEST(MemoryStateRecordTest, state_addr_info_record_for_malloc)
 
     auto buffer1 = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* memPoolRecord = buffer1.Cast<MemPoolRecord>();
-    memPoolRecord->type = RecordType::TORCH_NPU_RECORD;
+    memPoolRecord->type = RecordType::PTA_CACHING_POOL_RECORD;
     memPoolRecord->memoryUsage.ptr = 123;
     memPoolRecord->recordIndex = 1;
     memPoolRecord->pid = 1234;
@@ -264,7 +296,7 @@ TEST(MemoryStateRecordTest, state_addr_info_record_for_free)
 
     auto buffer1 = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* memPoolRecord = buffer1.Cast<MemPoolRecord>();
-    memPoolRecord->type = RecordType::TORCH_NPU_RECORD;
+    memPoolRecord->type = RecordType::PTA_CACHING_POOL_RECORD;
     memPoolRecord->memoryUsage.ptr = 123;
     memPoolRecord->recordIndex = 1;
     memPoolRecord->pid = 1234;
@@ -354,7 +386,7 @@ TEST(MemoryStateRecordTest, pack_malloc_and_free_container_info)
 {
     DumpContainer container;
     auto memPoolRecord = MemPoolRecord{};
-    memPoolRecord.type = RecordType::TORCH_NPU_RECORD;
+    memPoolRecord.type = RecordType::PTA_CACHING_POOL_RECORD;
     memPoolRecord.memoryUsage.ptr = 123;
     memPoolRecord.recordIndex = 1;
     memPoolRecord.pid = 1234;

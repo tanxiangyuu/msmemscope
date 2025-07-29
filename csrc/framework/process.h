@@ -49,7 +49,8 @@ private:
     std::set<RecordType> preprocessTypeList_ = {
         RecordType::MEMORY_RECORD,
         RecordType::ATB_MEMORY_POOL_RECORD,
-        RecordType::TORCH_NPU_RECORD,
+        RecordType::PTA_CACHING_POOL_RECORD,
+        RecordType::PTA_WORKSPACE_POOL_RECORD,
         RecordType::MEM_ACCESS_RECORD,
         RecordType::MINDSPORE_NPU_RECORD,
         RecordType::ADDR_INFO_RECORD,

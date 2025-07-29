@@ -11,7 +11,8 @@
 #include "memory_pool_trace/memory_pool_trace_manager.h"
 #include "memory_pool_trace/atb_memory_pool_trace.h"
 #include "memory_pool_trace/mindspore_memory_pool_trace.h"
-#include "memory_pool_trace/pta_memory_pool_trace.h"
+#include "memory_pool_trace/pta_caching_pool_trace.h"
+#include "memory_pool_trace/pta_workspace_pool_trace.h"
 
 namespace Leaks {
 
@@ -94,9 +95,14 @@ mstxDomainHandle_t MstxManager::ReportDomainCreateA(char const *domainName)
             return MemoryPoolTraceManager::GetInstance().CreateDomain(domainName);
         }
     }
-    if (std::string(domainName) == "msleaks") {
-        // PTA会进行多次内存池注册 已经注册过就返回之前注册的domain
-        MemoryPoolTraceManager::GetInstance().RegisterMemoryPoolTracer("msleaks", &PTAMemoryPoolTrace::GetInstance());
+    // PTA会进行多次内存池注册 已经注册过就返回之前注册的domain
+    if (std::string(domainName) == "ptaCaching") {
+        MemoryPoolTraceManager::GetInstance().RegisterMemoryPoolTracer("ptaCaching", &PTACachingPoolTrace::GetInstance());
+        return MemoryPoolTraceManager::GetInstance().CreateDomain(domainName);
+    }
+    // PTAWorkspace与PTACaching由不同的内存池进行管理
+    if (std::string(domainName) == "ptaWorkspace") {
+        MemoryPoolTraceManager::GetInstance().RegisterMemoryPoolTracer("ptaWorkspace", &PTAWorkspacePoolTrace::GetInstance());
         return MemoryPoolTraceManager::GetInstance().CreateDomain(domainName);
     }
     return nullptr;
