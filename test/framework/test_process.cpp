@@ -8,7 +8,6 @@
 #include "process.h"
 #undef private
 #include "analysis/mstx_analyzer.h"
-#include "analysis/dump_record.h"
 #include "analysis/trace_record.h"
 #include "client_process.h"
 #include "client_parser.h"
@@ -167,15 +166,6 @@ TEST(Process, process_postprocess_exit_abnormal_expect_success)
         EXPECT_NE(captureInfo.find(outputInfo), std::string::npos);
         std::cout.rdbuf(sbuf);
     }
-}
-
-TEST(Process, do_dump_record_except_success)
-{
-    ClientId clientId = 0;
-    RecordBase *record = new RecordBase {};
-    Config config;
-    setConfig(config);
-    DumpRecord::GetInstance(config).DumpData(clientId, record);
 }
 
 TEST(Process, do_record_handler_except_success)
