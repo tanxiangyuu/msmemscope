@@ -4,6 +4,7 @@
 #include "file.h"
 #include "utils.h"
 #include "data_handler.h"
+
 namespace Leaks {
 
 DataHandler::DataHandler(const Config config)
@@ -11,15 +12,16 @@ DataHandler::DataHandler(const Config config)
     config_ = config;
 }
 
-CsvHandler::CsvHandler(const Config config, DumpClass dumpType) : DataHandler(config), dumpType_(dumpType)
+// csv handler
+CsvHandler::CsvHandler(const Config config, DataType dataType) : DataHandler(config), dataType_(dataType)
 {
     InitSetParm();
 }
 
 void CsvHandler::InitSetParm()
 {
-    switch (dumpType_) {
-        case DumpClass::LEAKS_RECORD: {
+    switch (dataType_) {
+        case DataType::LEAKS_EVENT: {
             prefix_ = "leaks_dump_";
             dirPath_ = std::string(config_.outputDir) + "/" + std::string(DUMP_FILE);
             std::string cStack = config_.enableCStack ? ",Call Stack(C)" : "";
@@ -27,54 +29,78 @@ void CsvHandler::InitSetParm()
             csvHeader_ = LEAKS_HEADERS + pyStack + cStack + "\n";
             break;
         }
-        case DumpClass::PYTHON_TRACE:
+        case DataType::PYTHON_TRACE_EVENT:
             prefix_ = "python_trace_" + std::to_string(Utility::GetPid()) + "_";
             dirPath_ = std::string(config_.outputDir) + "/" + std::string(DUMP_FILE);
             csvHeader_ = TRACE_HEADERS;
             break;
         default:
-            LOG_ERROR("Unsupported data type : %d\n", static_cast<int>(dumpType_));
+            LOG_ERROR("Unsupported data type : %d\n", static_cast<int>(dataType_));
             break;
     }
 }
+
 bool CsvHandler::Init()
 {
+    std::lock_guard<std::mutex> lock(csvFileMutex_);
     return Utility::CreateCsvFile(&file_, dirPath_, prefix_, csvHeader_);
 }
 
-bool CsvHandler::Write(DumpDataClass *data, const CallStackString &stack)
+bool CsvHandler::Write(std::shared_ptr<DataBase> data)
 {
     if (!data) {
         LOG_ERROR("Null data pointer");
         return false;
     }
 
-    switch (data->dumpType) {
-        case DumpClass::LEAKS_RECORD:
-            return WriteDumpRecord(static_cast<DumpContainer*>(data), stack);
-        case DumpClass::PYTHON_TRACE:
-            return WriteTraceEvent(static_cast<TraceEvent*>(data));
+    if (!Init()) {
+        LOG_ERROR("Create csv file failed.");
+        return false;
+    }
+
+    switch (data->dataType) {
+        case DataType::LEAKS_EVENT: {
+            auto event = std::dynamic_pointer_cast<EventBase>(data);
+            if (event) {
+                return WriteDumpRecord(event);
+            }
+            break;
+        }
+        case DataType::PYTHON_TRACE_EVENT: {
+            auto event = std::dynamic_pointer_cast<TraceEvent>(data);
+            if (event) {
+                return WriteTraceEvent(event);
+            }
+            break;
+        }
         default:
-            LOG_ERROR("Unsupported data type : %d\n", static_cast<int>(data->dumpType));
+            LOG_ERROR("Unsupported data type : %d\n", static_cast<int>(data->dataType));
             return false;
     }
     return false;
 }
 
-bool CsvHandler::WriteDumpRecord(const DumpContainer* container, const CallStackString& stack)
+bool CsvHandler::WriteDumpRecord(std::shared_ptr<EventBase>& event)
 {
-    std::string pid = container->pid == INVALID_PROCESSID ? "N/A" : std::to_string(container->pid);
-    std::string tid = container->tid == INVALID_THREADID ? "N/A" : std::to_string(container->tid);
+    std::lock_guard<std::mutex> lock(dumpFileMutex_);
+    std::string pid = event->pid == INVALID_PROCESSID ? "N/A" : std::to_string(event->pid);
+    std::string tid = event->tid == INVALID_THREADID ? "N/A" : std::to_string(event->tid);
+    std::string eventType = EVENT_BASE_TYPE_MAP.find(event->eventType) == EVENT_BASE_TYPE_MAP.end()
+        ? "N/A" : EVENT_BASE_TYPE_MAP.at(event->eventType);
+    std::string eventSubType = EVENT_SUB_TYPE_MAP.find(event->eventSubType) == EVENT_SUB_TYPE_MAP.end()
+        ? "N/A" : EVENT_SUB_TYPE_MAP.at(event->eventSubType);
+    std::string addr = (event->eventType == EventBaseType::MALLOC
+        || event->eventType == EventBaseType::FREE
+        || event->eventType == EventBaseType::ACCESS) ? std::to_string(event->addr) : "N/A";
     if (!Utility::Fprintf(file_, "%lu,%s,%s,%s,%lu,%s,%s,%s,%s,%s",
-        container->id, container->event.c_str(), container->eventType.c_str(), container->name.c_str(),
-        container->timestamp, pid.c_str(), tid.c_str(), container->deviceId.c_str(),
-        container->addr.c_str(), container->attr.c_str())) {
+        event->id, eventType.c_str(), eventSubType.c_str(), event->name.c_str(), event->timestamp,
+        pid.c_str(), tid.c_str(), event->device.c_str(), addr.c_str(), event->attr.c_str())) {
         return false;
     }
-    if (config_.enablePyStack && !Utility::Fprintf(file_, ",%s", stack.pyStack.c_str())) {
+    if (config_.enablePyStack && !Utility::Fprintf(file_, ",%s", event->pyCallStack.c_str())) {
         return false;
     }
-    if (config_.enableCStack && !Utility::Fprintf(file_, ",%s", stack.cStack.c_str())) {
+    if (config_.enableCStack && !Utility::Fprintf(file_, ",%s", event->cCallStack.c_str())) {
         return false;
     }
     if (!Utility::Fprintf(file_, "\n")) {
@@ -83,8 +109,9 @@ bool CsvHandler::WriteDumpRecord(const DumpContainer* container, const CallStack
     return true;
 }
 
-bool CsvHandler::WriteTraceEvent(const TraceEvent* event)
+bool CsvHandler::WriteTraceEvent(std::shared_ptr<TraceEvent>& event)
 {
+    std::lock_guard<std::mutex> lock(traceFileMutex_);
     std::string startTime = event->startTs ? std::to_string(event->startTs) : "N/A";
     std::string endTime = event->endTs ? std::to_string(event->endTs) : "N/A";
     if (!Utility::Fprintf(file_, "%s,%s,%s,%lu,%lu\n", event->info.c_str(), startTime.c_str(),
@@ -92,12 +119,6 @@ bool CsvHandler::WriteTraceEvent(const TraceEvent* event)
         return false;
     }
     return true;
-}
-
-bool CsvHandler::Read(std::vector<DumpContainer>& data)
-{
-    // 还未适配
-    return false;
 }
 
 CsvHandler::~CsvHandler()
@@ -108,15 +129,15 @@ CsvHandler::~CsvHandler()
     }
 }
 
-DbHandler::DbHandler(const Config config, DumpClass dumpType) : DataHandler(config), dumpType_(dumpType)
+DbHandler::DbHandler(const Config config, DataType dataType) : DataHandler(config), dataType_(dataType)
 {
     InitSetParm();
 }
 
 void DbHandler::InitSetParm()
 {
-    switch (dumpType_) {
-        case DumpClass::LEAKS_RECORD: {
+    switch (dataType_) {
+        case DataType::LEAKS_EVENT: {
             std::vector<std::pair<std::string, std::string>> schema = DUMP_RECORD_TABLE_SQL;
             leakColumns_ = ParserHeader(DUMP_RECORD_TABLE_SQL);
             if (config_.enablePyStack) {
@@ -141,7 +162,7 @@ void DbHandler::InitSetParm()
             }
             break;
         }
-        case DumpClass::PYTHON_TRACE: {
+        case DataType::PYTHON_TRACE_EVENT: {
             tableName_ = "python_trace_" + std::to_string(Utility::GetPid());
             dbHeader_ = BuildCreateStatement(tableName_, PYTHON_TRACE_TABLE_SQL);
             traceColumns_ = ParserHeader(PYTHON_TRACE_TABLE_SQL);
@@ -158,7 +179,7 @@ void DbHandler::InitSetParm()
             break;
         }
         default:
-            LOG_ERROR("Unsupported data type : %d\n", static_cast<int>(dumpType_));
+            LOG_ERROR("Unsupported data type : %d\n", static_cast<int>(dataType_));
             break;
     }
 }
@@ -166,46 +187,71 @@ void DbHandler::InitSetParm()
 bool DbHandler::Init()
 {
     std::string filePath = std::string(config_.outputDir) + "/" + Leaks::DUMP_FILE + "/" + config_.dbFileName;
+    std::lock_guard<std::mutex> lock(dbFileMutex_);
     return Utility::CreateDbFile(&dataFileDb_, filePath, tableName_, dbHeader_);
 }
 
-bool DbHandler::Write(DumpDataClass *data, const CallStackString &stack)
+bool DbHandler::Write(std::shared_ptr<DataBase> data)
 {
     if (!data) {
         LOG_ERROR("Null data pointer");
         return false;
     }
-    switch (data->dumpType) {
-        case DumpClass::LEAKS_RECORD:
-            return WriteDumpRecord(static_cast<DumpContainer*>(data), stack);
-        case DumpClass::PYTHON_TRACE:
-            return WriteTraceEvent(static_cast<TraceEvent*>(data), tableName_);
+
+    if (!Init()) {
+        LOG_ERROR("Create db file failed.");
+        return false;
+    }
+
+    switch (data->dataType) {
+        case DataType::LEAKS_EVENT: {
+            auto event = std::dynamic_pointer_cast<EventBase>(data);
+            if (event) {
+                return WriteDumpRecord(event);
+            }
+            break;
+        }
+        case DataType::PYTHON_TRACE_EVENT: {
+            auto event = std::dynamic_pointer_cast<TraceEvent>(data);
+            if (event) {
+                return WriteTraceEvent(event, tableName_);
+            }
+            break;
+        }
         default:
-            LOG_ERROR("Unsupported data type : %d\n", static_cast<int>(data->dumpType));
+            LOG_ERROR("Unsupported data type : %d\n", static_cast<int>(data->dataType));
             return false;
     }
     return false;
 }
 
-bool DbHandler::WriteDumpRecord(const DumpContainer* container, const CallStackString& stack)
+bool DbHandler::WriteDumpRecord(std::shared_ptr<EventBase>& event)
 {
-    std::string attrJson = FixJson(container->attr);
+    std::string eventType = EVENT_BASE_TYPE_MAP.find(event->eventType) == EVENT_BASE_TYPE_MAP.end()
+        ? "N/A" : EVENT_BASE_TYPE_MAP.at(event->eventType);
+    std::string eventSubType = EVENT_SUB_TYPE_MAP.find(event->eventSubType) == EVENT_SUB_TYPE_MAP.end()
+        ? "N/A" : EVENT_SUB_TYPE_MAP.at(event->eventSubType);
+    std::string addr = (event->eventType == EventBaseType::MALLOC
+        || event->eventType == EventBaseType::FREE
+        || event->eventType == EventBaseType::ACCESS) ? std::to_string(event->addr) : "N/A";
+    std::string attrJson = FixJson(event->attr);
     int paramIndex = 1;
-    Sqlite3BindInt64(insertLeakStmt_, paramIndex++, container->id);
-    Sqlite3BindText(insertLeakStmt_, paramIndex++, container->event.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(insertLeakStmt_, paramIndex++, container->eventType.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(insertLeakStmt_, paramIndex++, container->name.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindInt64(insertLeakStmt_, paramIndex++, container->timestamp);
-    Sqlite3BindInt(insertLeakStmt_, paramIndex++, container->pid);
-    Sqlite3BindInt(insertLeakStmt_, paramIndex++, container->tid);
-    Sqlite3BindText(insertLeakStmt_, paramIndex++, container->deviceId.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(insertLeakStmt_, paramIndex++, container->addr.c_str(), -1, SQLITE_STATIC);
+    std::lock_guard<std::mutex> lock(dbFileMutex_);
+    Sqlite3BindInt64(insertLeakStmt_, paramIndex++, event->id);
+    Sqlite3BindText(insertLeakStmt_, paramIndex++, eventType.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(insertLeakStmt_, paramIndex++, eventSubType.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(insertLeakStmt_, paramIndex++, event->name.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindInt64(insertLeakStmt_, paramIndex++, event->timestamp);
+    Sqlite3BindInt(insertLeakStmt_, paramIndex++, event->pid);
+    Sqlite3BindInt(insertLeakStmt_, paramIndex++, event->tid);
+    Sqlite3BindText(insertLeakStmt_, paramIndex++, event->device.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(insertLeakStmt_, paramIndex++, addr.c_str(), -1, SQLITE_STATIC);
     Sqlite3BindText(insertLeakStmt_, paramIndex++, attrJson.c_str(), -1, SQLITE_STATIC);
     if (config_.enablePyStack) {
-        Sqlite3BindText(insertLeakStmt_, paramIndex++, stack.pyStack.c_str(), -1, SQLITE_STATIC);
+        Sqlite3BindText(insertLeakStmt_, paramIndex++, event->pyCallStack.c_str(), -1, SQLITE_STATIC);
     }
     if (config_.enableCStack) {
-        Sqlite3BindText(insertLeakStmt_, paramIndex++, stack.cStack.c_str(), -1, SQLITE_STATIC);
+        Sqlite3BindText(insertLeakStmt_, paramIndex++, event->cCallStack.c_str(), -1, SQLITE_STATIC);
     }
     Sqlite3BusyTimeout(dataFileDb_, SQLITE_TIME_OUT);
     int rc = Sqlite3Step(insertLeakStmt_);
@@ -218,8 +264,9 @@ bool DbHandler::WriteDumpRecord(const DumpContainer* container, const CallStackS
     return true;
 }
 
-bool DbHandler::WriteTraceEvent(const TraceEvent* event, const std::string &tableName)
+bool DbHandler::WriteTraceEvent(std::shared_ptr<TraceEvent>& event, const std::string &tableName)
 {
+    std::lock_guard<std::mutex> lock(dbFileMutex_);
     std::string startTime = event->startTs ? std::to_string(event->startTs) : "N/A";
     std::string endTime = event->endTs ? std::to_string(event->endTs) : "N/A";
     int paramIndex = 1;
@@ -237,12 +284,6 @@ bool DbHandler::WriteTraceEvent(const TraceEvent* event, const std::string &tabl
         return false;
     }
     Sqlite3Reset(insertTraceStmt_);
-    return true;
-}
-
-bool DbHandler::Read(std::vector<DumpContainer>& data)
-{
-    // 还未适配
     return true;
 }
 
@@ -298,7 +339,7 @@ std::string BuildCreateStatement(const std::string& table,
     return oss.str();
 }
 
-std::unique_ptr<DataHandler> MakeDataHandler(Config config, DumpClass data)
+std::unique_ptr<DataHandler> MakeDataHandler(Config config, DataType data)
 {
     switch (config.dataFormat) {
         case static_cast<uint8_t>(DataFormat::CSV):
