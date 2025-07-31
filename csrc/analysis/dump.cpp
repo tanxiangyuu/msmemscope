@@ -3,7 +3,6 @@
 #include "dump.h"
 
 #include "event_dispatcher.h"
-#include "module_info.h"
 #include "memory_state_manager.h"
 
 namespace Leaks {
@@ -17,7 +16,7 @@ Dump& Dump::GetInstance(Config config)
 Dump::Dump(Config config)
 {
     config_ = config;
-    handler_ = MakeDataHandler(config_, DumpClass::LEAKS_RECORD);
+    handler_ = MakeDataHandler(config_, DataType::LEAKS_EVENT);
     auto func = std::bind(&Dump::EventHandle, this, std::placeholders::_1, std::placeholders::_2);
     std::vector<EventBaseType> eventList{
         EventBaseType::MALLOC,
@@ -112,28 +111,8 @@ void Dump::DumpMemEventBeforeCleanUp(std::shared_ptr<CleanUpEvent>& event)
     }
 }
 
-inline DumpContainer EventToContainer(const std::shared_ptr<EventBase>& event)
-{
-    DumpContainer container;
-    container.id = event->id;
-    container.event = EVENT_BASE_TYPE_MAP.find(event->eventType) == EVENT_BASE_TYPE_MAP.end()
-                    ? "N/A" : EVENT_BASE_TYPE_MAP.at(event->eventType);
-    container.eventType = EVENT_SUB_TYPE_MAP.find(event->eventSubType) == EVENT_SUB_TYPE_MAP.end()
-                    ? "N/A" : EVENT_SUB_TYPE_MAP.at(event->eventSubType);
-    container.name = event->name;
-    container.timestamp = event->timestamp;
-    container.pid = event->pid;
-    container.tid = event->tid;
-    container.deviceId = event->device;
-
-    return container;
-}
-
 void Dump::DumpMemoryEvent(std::shared_ptr<MemoryEvent>& event, MemoryState* state)
 {
-    auto container = EventToContainer(event);
-    container.addr = std::to_string(event->addr);
-
     // 组装attr
     std::string attr;
     attr += "addr:" + std::to_string(event->addr) + ",";
@@ -160,47 +139,28 @@ void Dump::DumpMemoryEvent(std::shared_ptr<MemoryEvent>& event, MemoryState* sta
     if (!attr.empty() && attr.back() == ',') {
         attr.pop_back();
     }
-    container.attr = "\"{" + attr + "}\"";
+    event->attr = "\"{" + attr + "}\"";
 
-    std::lock_guard<std::mutex> lock(fileMutex_);
-    if (handler_->Init()) {
-        handler_->Write(&container, CallStackString{event->cCallStack, event->pyCallStack});
-    }
+    handler_->Write(event);
 }
 
 void Dump::DumpMstxEvent(std::shared_ptr<MstxEvent>& event)
 {
-    auto container = EventToContainer(event);
-    container.addr = "N/A";
-
-    std::lock_guard<std::mutex> lock(fileMutex_);
-    if (handler_->Init()) {
-        handler_->Write(&container, CallStackString{event->cCallStack, event->pyCallStack});
-    }
+    handler_->Write(event);
 }
 
 void Dump::DumpOpLaunchEvent(std::shared_ptr<OpLaunchEvent>& event)
 {
-    auto container = EventToContainer(event);
-    container.addr = "N/A";
-
     // 组装attr
-    std::string attr = event->attr.empty() ? "" : event->attr;
-    if (!attr.empty()) {
-        container.attr = "\"{" + attr + "}\"";
+    if (!event->attr.empty()) {
+        event->attr = "\"{" + event->attr + "}\"";
     }
 
-    std::lock_guard<std::mutex> lock(fileMutex_);
-    if (handler_->Init()) {
-        handler_->Write(&container, CallStackString{event->cCallStack, event->pyCallStack});
-    }
+    handler_->Write(event);
 }
 
 void Dump::DumpKernelLaunchEvent(std::shared_ptr<KernelLaunchEvent>& event)
 {
-    auto container = EventToContainer(event);
-    container.addr = "N/A";
-
     // 组装attr
     std::string attr;
     if (event->eventSubType == EventSubType::ATB_KERNEL_START || event->eventSubType == EventSubType::ATB_KERNEL_END) {
@@ -209,22 +169,13 @@ void Dump::DumpKernelLaunchEvent(std::shared_ptr<KernelLaunchEvent>& event)
         attr += "streamId:" + event->streamId + ",";
         attr += "taskId:" + event->taskId;
     }
-    container.attr = "\"{" + attr + "}\"";
+    event->attr = "\"{" + attr + "}\"";
 
-    std::lock_guard<std::mutex> lock(fileMutex_);
-    if (handler_->Init()) {
-        handler_->Write(&container, CallStackString{event->cCallStack, event->pyCallStack});
-    }
+    handler_->Write(event);
 }
 
 void Dump::DumpSystemEvent(std::shared_ptr<SystemEvent>& event)
 {
-    auto container = EventToContainer(event);
-    container.addr = "N/A";
-
-    std::lock_guard<std::mutex> lock(fileMutex_);
-    if (handler_->Init()) {
-        handler_->Write(&container, CallStackString{event->cCallStack, event->pyCallStack});
-    }
+    handler_->Write(event);
 }
 }

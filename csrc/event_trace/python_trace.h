@@ -33,18 +33,17 @@ public:
     void Start();
     void Stop();
 private:
-    bool DumpTraceEvent(TraceEvent &event);
+    bool DumpTraceEvent(std::shared_ptr<TraceEvent>& event);
     bool IsIgnore(std::string funcName);
     PythonTrace()
     {
         config_ = EventReport::Instance(CommType::SOCKET).GetConfig();
-        handler_ = MakeDataHandler(config_, DumpClass::PYTHON_TRACE);
+        handler_ = MakeDataHandler(config_, DataType::PYTHON_TRACE_EVENT);
     }
     ~PythonTrace() = default;
-    std::unordered_map<uint64_t, std::stack<TraceEvent>> frameStack_;
+    std::unordered_map<uint64_t, std::stack<std::shared_ptr<TraceEvent>>> frameStack_;
     std::atomic<bool> active_{false};
     std::unordered_map<uint64_t, bool> throw_;
-    std::mutex mutex_;
     std::string prefix_;
     std::string dirPath_;
     std::vector<std::string> ignorePyFunc_ = {"__torch_dispatch__"};
