@@ -24,12 +24,12 @@ void PythonTrace::RecordPyCall(const std::string& funcHash, const std::string& f
     if (throw_[tid]) {
         return;
     }
-    TraceEvent event{};
-    event.startTs = timestamp ? timestamp : Utility::GetTimeNanoseconds();
-    event.hash = funcHash;
-    event.info = funcInfo;
-    event.pid = Utility::GetPid();
-    event.tid = tid;
+    std::shared_ptr<TraceEvent> event = std::make_shared<TraceEvent>();
+    event->startTs = timestamp ? timestamp : Utility::GetTimeNanoseconds();
+    event->hash = funcHash;
+    event->info = funcInfo;
+    event->pid = Utility::GetPid();
+    event->tid = tid;
     std::string funcName = funcHash.substr(funcHash.find(":") + 1);
     if (IsIgnore(funcName) && !throw_[tid]) {
         throw_[tid] = true;
@@ -37,14 +37,12 @@ void PythonTrace::RecordPyCall(const std::string& funcHash, const std::string& f
     frameStack_[tid].push(event);
 }
 
-bool PythonTrace::DumpTraceEvent(TraceEvent &event)
+bool PythonTrace::DumpTraceEvent(std::shared_ptr<TraceEvent>& event)
 {
-    std::lock_guard<std::mutex> lock(mutex_);
     if (!handler_->Init()) {
         return false;
     }
-    CallStackString emptyStack {};
-    return handler_->Write(&event, emptyStack);
+    return handler_->Write(event);
 }
 
 void PythonTrace::RecordCCall(std::string funcHash, std::string funcInfo)
@@ -53,12 +51,12 @@ void PythonTrace::RecordCCall(std::string funcHash, std::string funcInfo)
     if (throw_[tid]) {
         return;
     }
-    TraceEvent event{};
-    event.startTs = Utility::GetTimeNanoseconds();
-    event.hash = funcHash;
-    event.info = funcInfo;
-    event.pid = Utility::GetPid();
-    event.tid = tid;
+    std::shared_ptr<TraceEvent> event = std::make_shared<TraceEvent>();
+    event->startTs = Utility::GetTimeNanoseconds();
+    event->hash = funcHash;
+    event->info = funcInfo;
+    event->pid = Utility::GetPid();
+    event->tid = tid;
     frameStack_[tid].push(event);
 }
 
@@ -67,13 +65,14 @@ void PythonTrace::RecordReturn(std::string funcHash, std::string funcInfo)
     uint64_t tid = Utility::GetTid();
     if (!frameStack_[tid].empty()) {
         auto event = frameStack_[tid].top();
-        if (funcHash == event.hash) {
+        if (funcHash == event->hash) {
             throw_[tid] = false;
-            event.endTs = Utility::GetTimeNanoseconds();
+            event->endTs = Utility::GetTimeNanoseconds();
             DumpTraceEvent(event);
             frameStack_[tid].pop();
         } else if (throw_[tid] == false) {
-            TraceEvent event{0, Utility::GetTimeNanoseconds(), tid, Utility::GetPid(), funcInfo, funcHash};
+            std::shared_ptr<TraceEvent> event = std::make_shared<TraceEvent>(
+                0, Utility::GetTimeNanoseconds(), tid, Utility::GetPid(), funcInfo, funcHash);
             DumpTraceEvent(event);
         }
     }

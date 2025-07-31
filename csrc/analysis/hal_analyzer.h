@@ -4,7 +4,7 @@
 #define HAL_ANALYZER_H
 
 #include <unordered_map>
-#include "module_info.h"
+#include "constant.h"
 #include "record_info.h"
 #include "config_info.h"
 #include "host_injection/core/Communication.h"

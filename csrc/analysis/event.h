@@ -5,9 +5,9 @@
  
 #include <cstdint>
 #include <string>
-#include <regex>
 #include <tuple>
  
+#include "data.h"
 #include "state_manager.h"
 #include "framework/record_info.h"
 #include "utility/ustring.h"
@@ -78,7 +78,7 @@ inline bool IsInvalidDevice(const std::string& device)
     return false;
 }
  
-class EventBase {
+class EventBase : public DataBase {
 public:
     Leaks::PoolType poolType = PoolType::INVALID;
     EventBaseType eventType = EventBaseType::INVALID;
@@ -90,11 +90,11 @@ public:
     uint64_t addr = 0;
     std::string name;
     std::string device;
+    std::string attr;
     std::string cCallStack;
     std::string pyCallStack;
  
-    // 必须有虚函数才能使用dynamic_cast
-    virtual ~EventBase() {};
+    EventBase() : DataBase(DataType::LEAKS_EVENT) {}
 };
  
 class MemoryEvent : public EventBase {
@@ -105,7 +105,6 @@ public:
     uint64_t eventIndex = 0;
     int32_t moduleId = -1;
     std::string describeOwner;
-    std::string attr;
  
     MemoryEvent() {}
  
@@ -223,8 +222,6 @@ public:
  
 class OpLaunchEvent : public EventBase {
 public:
-    std::string attr;
- 
     OpLaunchEvent() {}
  
     explicit OpLaunchEvent(AtbOpExecuteRecord& record)
@@ -264,7 +261,6 @@ public:
  
 class KernelLaunchEvent : public EventBase {
 public:
-    std::string attr;
     std::string streamId;
     std::string taskId;
  
