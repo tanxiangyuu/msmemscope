@@ -25,11 +25,8 @@ void MstxManager::ReportMarkA(const char* msg, int32_t streamId)
         AtenManager::GetInstance().ProcessMsg(atenMsg, streamId);
         return ;
     }
-    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
     std::string pyStack;
-    if (config.enablePyStack) {
-        Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
-    }
+
     TLVBlockType pyStackType = pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
     RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>(
         TLVBlockType::MARK_MESSAGE, msg, pyStackType, pyStack);
@@ -96,9 +93,9 @@ mstxDomainHandle_t MstxManager::ReportDomainCreateA(char const *domainName)
         }
     }
     // PTA会进行多次内存池注册 已经注册过就返回之前注册的domain
-    if (std::string(domainName) == "ptaCaching") {
+    if (std::string(domainName) == "ptaCaching" || std::string(domainName) == "msleaks") {
         MemoryPoolTraceManager::GetInstance().RegisterMemoryPoolTracer("ptaCaching", &PTACachingPoolTrace::GetInstance());
-        return MemoryPoolTraceManager::GetInstance().CreateDomain(domainName);
+        return MemoryPoolTraceManager::GetInstance().CreateDomain("ptaCaching"); // 考虑到PTA的兼容性，目前不论接受到老的还是新的都统一为ptaCaching
     }
     // PTAWorkspace与PTACaching由不同的内存池进行管理
     if (std::string(domainName) == "ptaWorkspace") {

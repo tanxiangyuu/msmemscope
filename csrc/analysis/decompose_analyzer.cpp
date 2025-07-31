@@ -5,7 +5,7 @@
 #include <string>
 
 #include "event_dispatcher.h"
-#include "module_info.h"
+#include "constant.h"
 
 namespace Leaks {
 

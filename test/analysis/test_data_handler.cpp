@@ -25,43 +25,38 @@ TEST(DataHandler, CsvHandler_Write_LeakRecord)
     config.enablePyStack = false;
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
 
-    CsvHandler handler(config, DumpClass::LEAKS_RECORD);
+    CsvHandler handler(config, DataType::LEAKS_EVENT);
     handler.Init();
-    DumpContainer data;
-    data.id = 1;
-    data.event = "memory_leak";
-    data.eventType = "type1";
-    data.name = "obj1";
-    data.timestamp = 123456789;
-    data.pid = 1234;
-    data.tid = 5678;
-    data.deviceId = "dev1";
-    data.addr = "0x1234";
-    data.attr = "size=1024";
-    data.dumpType = DumpClass::LEAKS_RECORD;
-    CallStackString stack = {};
-    ASSERT_TRUE(handler.Write(&data, stack));
-    std::vector<DumpContainer> dataVec = {};
-    handler.Read(dataVec);
+    std::shared_ptr<EventBase> data1 = std::make_shared<EventBase>();
+    data1->id = 1;
+    data1->eventType = EventBaseType::MALLOC;
+    data1->eventSubType = EventSubType::PTA_CACHING;
+    data1->name = "obj1";
+    data1->timestamp = 123456789;
+    data1->pid = 1234;
+    data1->tid = 5678;
+    data1->device = "1";
+    data1->addr = 0x1234;
+    data1->attr = "size=1024";
+    ASSERT_TRUE(handler.Write(data1));
 
     config.enablePyStack = true;
-    CsvHandler handlerPy(config, DumpClass::LEAKS_RECORD);
+    CsvHandler handlerPy(config, DataType::LEAKS_EVENT);
     handlerPy.Init();
     CallStackString stack_;
-    stack_.pyStack = "call_stack_py";
-    ASSERT_TRUE(handlerPy.Write(&data, stack_));
+    data1->pyCallStack = "call_stack_py";
+    ASSERT_TRUE(handlerPy.Write(data1));
 
-    CsvHandler handler_(config, DumpClass::PYTHON_TRACE);
+    CsvHandler handler_(config, DataType::PYTHON_TRACE_EVENT);
     handler_.Init();
-    TraceEvent event;
-    event.startTs = 1000;
-    event.endTs = 2000;
-    event.tid = 123;
-    event.pid = 456;
-    event.info = "function_call";
-    event.hash = "hash123";
-    event.dumpType = DumpClass::PYTHON_TRACE;
-    ASSERT_TRUE(handler_.Write(&event, {}));
+    std::shared_ptr<TraceEvent> data2 = std::make_shared<TraceEvent>();
+    data2->startTs = 1000;
+    data2->endTs = 2000;
+    data2->tid = 123;
+    data2->pid = 456;
+    data2->info = "function_call";
+    data2->hash = "hash123";
+    ASSERT_TRUE(handler_.Write(data2));
 }
 
 TEST(DataHandler, Sqlite3_open)
@@ -84,40 +79,35 @@ TEST(DataHandler, DbHandler_Write_LeakRecord)
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
     Utility::CreateDbPath(config, DB_DUMP_FILE);
 
-    std::unique_ptr<DataHandler> handler = MakeDataHandler(config, DumpClass::LEAKS_RECORD);
+    std::unique_ptr<DataHandler> handler = MakeDataHandler(config, DataType::LEAKS_EVENT);
     handler->Init();
-    DumpContainer data;
-    data.id = 1;
-    data.event = "memory_leak";
-    data.eventType = "type1";
-    data.name = "obj1";
-    data.timestamp = 123456789;
-    data.pid = 1234;
-    data.tid = 5678;
-    data.deviceId = "dev1";
-    data.addr = "0x1234";
-    data.attr = "size=1024";
-    data.dumpType = DumpClass::LEAKS_RECORD;
-    CallStackString stack;
-    stack.cStack = "call_stack_c";
-    stack.pyStack = "call_stack_py";
-    ASSERT_TRUE(handler->Write(&data, stack));
-    std::vector<DumpContainer> dataVec = {};
+    std::shared_ptr<EventBase> data1 = std::make_shared<EventBase>();
+    data1->id = 1;
+    data1->eventType = EventBaseType::MALLOC;
+    data1->eventSubType = EventSubType::PTA_CACHING;
+    data1->name = "obj1";
+    data1->timestamp = 123456789;
+    data1->pid = 1234;
+    data1->tid = 5678;
+    data1->device = "1";
+    data1->addr = 0x1234;
+    data1->attr = "size=1024";
+    data1->cCallStack = "call_stack_c";
+    data1->pyCallStack = "call_stack_py";
+    ASSERT_TRUE(handler->Write(data1));
 
     config.enableCStack = false;
     config.enablePyStack = false;
-    DbHandler handler_(config, DumpClass::PYTHON_TRACE);
+    DbHandler handler_(config, DataType::PYTHON_TRACE_EVENT);
     handler_.Init();
-    TraceEvent event;
-    event.startTs = 1000;
-    event.endTs = 2000;
-    event.tid = 123;
-    event.pid = 456;
-    event.info = "function_call";
-    event.hash = "hash123";
-    event.dumpType = DumpClass::PYTHON_TRACE;
-    handler_.Read(dataVec);
-    ASSERT_TRUE(handler_.Write(&event, {}));
+    std::shared_ptr<TraceEvent> data2 = std::make_shared<TraceEvent>();
+    data2->startTs = 1000;
+    data2->endTs = 2000;
+    data2->tid = 123;
+    data2->pid = 456;
+    data2->info = "function_call";
+    data2->hash = "hash123";
+    ASSERT_TRUE(handler_.Write(data2));
 }
 
 TEST(DataHandler, CsvHandler_InitSetParm_Default)
@@ -125,7 +115,7 @@ TEST(DataHandler, CsvHandler_InitSetParm_Default)
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
-    CsvHandler handler(config, static_cast<DumpClass>(999));
+    CsvHandler handler(config, static_cast<DataType>(999));
     EXPECT_TRUE(true);
 }
 
@@ -134,9 +124,9 @@ TEST(DataHandler, CsvHandler_Write_NullData)
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
-    CsvHandler handler(config, DumpClass::LEAKS_RECORD);
+    CsvHandler handler(config, DataType::LEAKS_EVENT);
     handler.Init();
-    ASSERT_FALSE(handler.Write(nullptr, {}));
+    ASSERT_FALSE(handler.Write(nullptr));
 }
 
 TEST(DataHandler, DbHandler_InitSetParm_Default)
@@ -144,8 +134,7 @@ TEST(DataHandler, DbHandler_InitSetParm_Default)
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::DB);
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
-    DbHandler handler(config, static_cast<DumpClass>(999));
-    EXPECT_TRUE(true);
+    DbHandler handler(config, static_cast<DataType>(999));
 }
 
 TEST(DataHandler, DbHandler_Write_NullData)
@@ -157,34 +146,33 @@ TEST(DataHandler, DbHandler_Write_NullData)
     config.enablePyStack = false;
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
     Utility::CreateDbPath(config, DB_DUMP_FILE);
-    DbHandler handler(config, DumpClass::LEAKS_RECORD);
+    DbHandler handler(config, DataType::LEAKS_EVENT);
     handler.Init();
-    ASSERT_FALSE(handler.Write(nullptr, {}));
+    ASSERT_FALSE(handler.Write(nullptr));
 }
 
 TEST(DataHandler, MakeDataHandler_FALSE)
 {
     Config config;
     config.dataFormat = 2;
-    DumpClass data = static_cast<DumpClass>(999);
-    auto handler = Leaks::MakeDataHandler(config, data);
+    auto handler = Leaks::MakeDataHandler(config, static_cast<DataType>(999));
     EXPECT_EQ(handler, nullptr);
 }
 
 TEST(DataHandler, DataHandler_Write_Type_False)
 {
     g_isDlsymNullptr = false;
-    DumpDataClass data(static_cast<DumpClass>(2));
-    CallStackString stack = {};
+    std::shared_ptr<EventBase> data = std::make_shared<EventBase>();
+    data->dataType = static_cast<DataType>(999);
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::DB);
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
     Utility::CreateDbPath(config, DB_DUMP_FILE);
-    DbHandler handler(config, DumpClass::LEAKS_RECORD);
-    EXPECT_FALSE(handler.Write(&data, stack));
+    DbHandler handler(config, DataType::LEAKS_EVENT);
+    EXPECT_FALSE(handler.Write(data));
     config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
-    CsvHandler handler_(config, DumpClass::LEAKS_RECORD);
-    EXPECT_FALSE(handler_.Write(&data, stack));
+    CsvHandler handler_(config, DataType::LEAKS_EVENT);
+    EXPECT_FALSE(handler_.Write(data));
 }
 
 TEST(DataHandler, DataHandler_FixJson)
