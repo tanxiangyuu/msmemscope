@@ -1,9 +1,12 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
-#ifndef MODULE_INFO_H
-#define MODULE_INFO_H
+#ifndef CONSTANT_H
+#define CONSTANT_H
 
 #include <string>
+#include <unordered_map>
+
+#include "event.h"
 
 namespace Leaks {
 
@@ -86,6 +89,70 @@ const std::unordered_map<int, std::string> MODULE_HASH_TABLE = {
     {74, "AML"},
     {75, "INVLID_MOUDLE_ID"}    // add new module before INVLID_MOUDLE_ID
 };
+
+const std::unordered_map<EventBaseType, std::string> EVENT_BASE_TYPE_MAP = {
+    {EventBaseType::MALLOC, "MALLOC"},
+    {EventBaseType::ACCESS, "ACCESS"},
+    {EventBaseType::FREE, "FREE"},
+    {EventBaseType::MSTX, "MSTX"},
+    {EventBaseType::OP_LAUNCH, "OP_LAUNCH"},
+    {EventBaseType::KERNEL_LAUNCH, "KERNEL_LAUNCH"},
+    {EventBaseType::SYSTEM, "SYSTEM"},
+    {EventBaseType::CLEAN_UP, "CLEAN_UP"},
+};
+
+const std::unordered_map<EventSubType, std::string> EVENT_SUB_TYPE_MAP = {
+    {EventSubType::PTA, "PTA"},
+    {EventSubType::ATB, "ATB"},
+    {EventSubType::MINDSPORE, "MINDSPORE"},
+    {EventSubType::HAL, "HAL"},
+    {EventSubType::HOST, "HAL"},
+    {EventSubType::ATB_READ, "READ"},
+    {EventSubType::ATB_WRITE, "WRITE"},
+    {EventSubType::ATB_READ_OR_WRITE, "UNKNOWN"},
+    {EventSubType::ATEN_READ, "READ"},
+    {EventSubType::ATEN_WRITE, "WRITE"},
+    {EventSubType::ATEN_READ_OR_WRITE, "UNKNOWN"},
+    {EventSubType::ATB_START, "ATB_START"},
+    {EventSubType::ATB_END, "ATB_END"},
+    {EventSubType::ATEN_START, "ATEN_START"},
+    {EventSubType::ATEN_END, "ATEN_END"},
+    {EventSubType::KERNEL_LAUNCH, "KERNEL_LAUNCH"},
+    {EventSubType::KERNEL_EXECUTE_START, "KERNEL_EXECUTE_START"},
+    {EventSubType::KERNEL_EXECUTE_END, "KERNEL_EXECUTE_END"},
+    {EventSubType::ATB_KERNEL_START, "KERNEL_START"},
+    {EventSubType::ATB_KERNEL_END, "KERNEL_END"},
+    {EventSubType::ACL_INIT, "ACL_INIT"},
+    {EventSubType::ACL_FINI, "ACL_FINI"},
+    {EventSubType::MSTX_MARK, "Mark"},
+    {EventSubType::MSTX_RANGE_START, "Range_start"},
+    {EventSubType::MSTX_RANGE_END, "Range_end"},
+    {EventSubType::CLEAN_UP, "CLEAN_UP"},
+};
+
+const std::vector<std::pair<std::string, std::string>> DUMP_RECORD_TABLE_SQL = {
+    {"ID", "INTEGER"},
+    {"Event", "TEXT"},
+    {"Event Type", "TEXT"},
+    {"Name", "TEXT"},
+    {"Timestamp(ns)", "INTEGER"},
+    {"Process Id", "INTEGER"},
+    {"Thread Id", "INTEGER"},
+    {"Device Id", "TEXT"},
+    {"Ptr", "TEXT"},
+    {"Attr", "TEXT"}
+};
+
+const std::vector<std::pair<std::string, std::string>> PYTHON_TRACE_TABLE_SQL = {
+    {"FuncInfo", "TEXT"},
+    {"StartTime(ns)", "TEXT"},
+    {"EndTime(ns)", "TEXT"},
+    {"Thread Id", "INTEGER"},
+    {"Process Id", "INTEGER"}
+};
+
+const std::string DUMP_RECORD_TABLE = "leaks_dump";
+const std::string PYTHON_TRACE_TABLE = "python_trace";
 
 }
 
