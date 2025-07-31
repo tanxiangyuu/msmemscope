@@ -162,8 +162,7 @@ TEST(DataHandler, MakeDataHandler_FALSE)
 TEST(DataHandler, DataHandler_Write_Type_False)
 {
     g_isDlsymNullptr = false;
-    std::shared_ptr<EventBase> data = std::make_shared<EventBase>();
-    data->dataType = static_cast<DataType>(999);
+    std::shared_ptr<DataBase> data = std::make_shared<DataBase>(static_cast<DataType>(999));
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::DB);
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);

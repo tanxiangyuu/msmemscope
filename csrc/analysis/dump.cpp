@@ -141,12 +141,12 @@ void Dump::DumpMemoryEvent(std::shared_ptr<MemoryEvent>& event, MemoryState* sta
     }
     event->attr = "\"{" + attr + "}\"";
 
-    handler_->Write(event);
+    WriteToFile(event);
 }
 
 void Dump::DumpMstxEvent(std::shared_ptr<MstxEvent>& event)
 {
-    handler_->Write(event);
+    WriteToFile(event);
 }
 
 void Dump::DumpOpLaunchEvent(std::shared_ptr<OpLaunchEvent>& event)
@@ -156,7 +156,7 @@ void Dump::DumpOpLaunchEvent(std::shared_ptr<OpLaunchEvent>& event)
         event->attr = "\"{" + event->attr + "}\"";
     }
 
-    handler_->Write(event);
+    WriteToFile(event);
 }
 
 void Dump::DumpKernelLaunchEvent(std::shared_ptr<KernelLaunchEvent>& event)
@@ -171,11 +171,20 @@ void Dump::DumpKernelLaunchEvent(std::shared_ptr<KernelLaunchEvent>& event)
     }
     event->attr = "\"{" + attr + "}\"";
 
-    handler_->Write(event);
+    WriteToFile(event);
 }
 
 void Dump::DumpSystemEvent(std::shared_ptr<SystemEvent>& event)
 {
+    WriteToFile(event);
+}
+
+void Dump::WriteToFile(const std::shared_ptr<EventBase>& event)
+{
+    if (!handler_) {
+        LOG_ERROR("Write into file failed.");
+        return;
+    }
     handler_->Write(event);
 }
 }

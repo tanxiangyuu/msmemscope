@@ -34,6 +34,8 @@ private:
     void DumpKernelLaunchEvent(std::shared_ptr<KernelLaunchEvent>& event);
     void DumpSystemEvent(std::shared_ptr<SystemEvent>& event);
 
+    void WriteToFile(const std::shared_ptr<EventBase>& event);
+
     Config config_;
     std::unique_ptr<DataHandler> handler_;
 };
