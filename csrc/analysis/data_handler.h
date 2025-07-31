@@ -1,7 +1,7 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 
-#ifndef FILE_HANDLER_H
-#define FILE_HANDLER_H
+#ifndef DATA_HANDLER_H
+#define DATA_HANDLER_H
 
 #include <string>
 #include <vector>
@@ -15,86 +15,18 @@
 #include "file.h"
 #include "utility/log.h"
 #include "utility/sqlite_loader.h"
+#include "constant.h"
+#include "python_trace_event.h"
+#include "event.h"
 
 namespace Leaks {
-
-const std::vector<std::pair<std::string, std::string>> DUMP_RECORD_TABLE_SQL = {
-    {"ID", "INTEGER"},
-    {"Event", "TEXT"},
-    {"Event Type", "TEXT"},
-    {"Name", "TEXT"},
-    {"Timestamp(ns)", "INTEGER"},
-    {"Process Id", "INTEGER"},
-    {"Thread Id", "INTEGER"},
-    {"Device Id", "TEXT"},
-    {"Ptr", "TEXT"},
-    {"Attr", "TEXT"}
-};
-
-const std::vector<std::pair<std::string, std::string>> PYTHON_TRACE_TABLE_SQL = {
-    {"FuncInfo", "TEXT"},
-    {"StartTime(ns)", "TEXT"},
-    {"EndTime(ns)", "TEXT"},
-    {"Thread Id", "INTEGER"},
-    {"Process Id", "INTEGER"}
-};
-
-const std::string DUMP_RECORD_TABLE = "leaks_dump";
-const std::string PYTHON_TRACE_TABLE = "python_trace";
-
-class DumpDataClass {
-public:
-    virtual ~DumpDataClass() = default;
-    explicit DumpDataClass(DumpClass type) : dumpType(type) {}
-    DumpClass dumpType;
-};
-
-// dump数据结构
-struct DumpContainer : public DumpDataClass {
-    DumpContainer() : DumpDataClass(DumpClass::LEAKS_RECORD), id(0), timestamp(0), pid(0), tid(0) {}
-    uint64_t id;
-    std::string event;
-    std::string eventType;
-    std::string name;
-    uint64_t timestamp;
-    uint64_t pid;
-    uint64_t tid;
-    std::string deviceId;
-    std::string addr;
-    std::string owner = "";
-    std::string callStack = "";
-    std::string attr = "";
-};
-
-struct TraceEvent : public DumpDataClass {
-    TraceEvent() : DumpDataClass(DumpClass::PYTHON_TRACE), startTs(0), endTs(0), tid(0), pid(0) {}
-    TraceEvent(const TraceEvent&) = default;
-    TraceEvent& operator=(const TraceEvent&) = default;
-    TraceEvent(
-        uint64_t startTs,
-        uint64_t endTs,
-        uint64_t tid,
-        uint64_t pid,
-        const std::string& info,
-        const std::string& hash
-    ) : DumpDataClass(DumpClass::PYTHON_TRACE), startTs(startTs), endTs(endTs),
-        tid(tid), pid(pid), info(info), hash(hash) {}
-
-    uint64_t startTs = 0;
-    uint64_t endTs = 0;
-    uint64_t tid;
-    uint64_t pid;
-    std::string info;
-    std::string hash;
-};
 
 // DumpHandler类主要用于将analyzer分析的数据dump至csv或者db文件
 class DataHandler {
 public:
     virtual ~DataHandler() = default;
     virtual bool Init() = 0;
-    virtual bool Write(DumpDataClass *data, const CallStackString &stack) = 0;
-    virtual bool Read(std::vector<DumpContainer>& data) = 0;
+    virtual bool Write(std::shared_ptr<DataBase> data) = 0;
 
 protected:
     explicit DataHandler(const Config config);
@@ -110,34 +42,35 @@ private:
 class CsvHandler : public DataHandler {
 public:
     ~CsvHandler() override;
-    explicit CsvHandler(const Config config, DumpClass data);
+    explicit CsvHandler(const Config config, DataType dataType);
     bool Init() override;
-    bool Write(DumpDataClass *data, const CallStackString &stack) override;
-    bool Read(std::vector<DumpContainer>& data) override;
+    bool Write(std::shared_ptr<DataBase> data) override;
 
 private:
     void InitSetParm();
-    bool WriteDumpRecord(const DumpContainer* container, const CallStackString& stack);
-    bool WriteTraceEvent(const TraceEvent* event);
+    bool WriteDumpRecord(std::shared_ptr<EventBase>& event);
+    bool WriteTraceEvent(std::shared_ptr<TraceEvent>& event);
     FILE *file_ = nullptr;
     std::string csvHeader_;
     std::string prefix_;
-    DumpClass dumpType_;
+    DataType dataType_;
     std::string dirPath_;
+    std::mutex csvFileMutex_;
+    std::mutex dumpFileMutex_;
+    std::mutex traceFileMutex_;
 };
 
 class DbHandler : public DataHandler {
 public:
-    explicit DbHandler(const Config config, DumpClass data);
+    explicit DbHandler(const Config config, DataType dataType);
     ~DbHandler() override;
     bool Init() override;
-    bool Write(DumpDataClass *data, const CallStackString &stack) override;
-    bool Read(std::vector<DumpContainer>& data) override;
+    bool Write(std::shared_ptr<DataBase> data) override;
 
 private:
     void InitSetParm();
-    bool WriteDumpRecord(const DumpContainer* container, const CallStackString& stack);
-    bool WriteTraceEvent(const TraceEvent* event, const std::string &tableName);
+    bool WriteDumpRecord(std::shared_ptr<EventBase>& event);
+    bool WriteTraceEvent(std::shared_ptr<TraceEvent>& event, const std::string &tableName);
     sqlite3 *dataFileDb_ = nullptr;
     sqlite3_stmt *insertLeakStmt_ = nullptr;
     sqlite3_stmt *insertTraceStmt_ = nullptr;
@@ -146,14 +79,15 @@ private:
     std::string dbHeader_;
     std::string tableName_;
     std::string dirPath_;
-    DumpClass dumpType_;
+    DataType dataType_;
+    std::mutex dbFileMutex_;
 };
 
 std::string BuildInsertStatement(const std::string& table, const std::vector<std::string>& columns);
 std::string BuildCreateStatement(const std::string& table,
     const std::vector<std::pair<std::string, std::string>>& columns);
 
-std::unique_ptr<DataHandler> MakeDataHandler(Config config, DumpClass data);
+std::unique_ptr<DataHandler> MakeDataHandler(Config config, DataType dataType);
 std::string FixJson(const std::string& input);
 std::vector<std::string> ParserHeader(const std::vector<std::pair<std::string, std::string>>& header);
 }

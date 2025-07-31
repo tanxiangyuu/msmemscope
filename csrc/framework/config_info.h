@@ -46,10 +46,6 @@ enum class DataFormat : uint8_t {
     DB = 1,
 };
 
-enum class DumpClass : uint8_t {
-    LEAKS_RECORD = 0,
-    PYTHON_TRACE = 1,
-};
 // analysis type可以多选，每一种type占一个bit位
 enum class AnalysisType : uint8_t {
     LEAKS_ANALYSIS = 0,

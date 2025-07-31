@@ -651,7 +651,7 @@ TEST_F(TestProcess, process_host_memory_event)
     config.dataFormat = 0;
     std::string path = "test_process";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DumpClass::LEAKS_RECORD);    // 重置文件指针
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
@@ -681,7 +681,7 @@ TEST_F(TestProcess, process_hal_device_memory_event)
     config.dataFormat = 0;
     std::string path = "test_process";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DumpClass::LEAKS_RECORD);    // 重置文件指针
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
@@ -707,7 +707,7 @@ TEST_F(TestProcess, process_pta_memory_event)
     config.dataFormat = 0;
     std::string path = "test_process";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DumpClass::LEAKS_RECORD);    // 重置文件指针
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
@@ -737,7 +737,7 @@ TEST_F(TestProcess, process_atb_memory_event)
     config.dataFormat = 0;
     std::string path = "test_process";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DumpClass::LEAKS_RECORD);    // 重置文件指针
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
@@ -765,7 +765,7 @@ TEST_F(TestProcess, process_mindspore_memory_event)
     config.dataFormat = 0;
     std::string path = "test_process";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DumpClass::LEAKS_RECORD);    // 重置文件指针
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
@@ -791,7 +791,7 @@ TEST_F(TestProcess, process_aten_op_event)
     config.dataFormat = 0;
     std::string path = "test_process";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DumpClass::LEAKS_RECORD);    // 重置文件指针
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
@@ -817,7 +817,7 @@ TEST_F(TestProcess, process_atb_op_event)
     config.dataFormat = 0;
     std::string path = "test_process";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DumpClass::LEAKS_RECORD);    // 重置文件指针
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
@@ -843,7 +843,7 @@ TEST_F(TestProcess, process_kernel_event)
     config.dataFormat = 0;
     std::string path = "test_process";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DumpClass::LEAKS_RECORD);    // 重置文件指针
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
@@ -876,7 +876,7 @@ TEST_F(TestProcess, process_mstx_event)
     config.dataFormat = 0;
     std::string path = "test_process";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DumpClass::LEAKS_RECORD);    // 重置文件指针
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
@@ -904,7 +904,7 @@ TEST_F(TestProcess, process_system_event)
     config.dataFormat = 0;
     std::string path = "test_process";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DumpClass::LEAKS_RECORD);    // 重置文件指针
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
@@ -930,7 +930,7 @@ TEST_F(TestProcess, process_clean_up_event)
     config.dataFormat = 0;
     std::string path = "test_process";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DumpClass::LEAKS_RECORD);    // 重置文件指针
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
@@ -957,7 +957,7 @@ TEST_F(TestProcess, dump_event_before_malloc)
     config.dataFormat = 0;
     std::string path = "test_process";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DumpClass::LEAKS_RECORD);    // 重置文件指针
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
@@ -984,7 +984,7 @@ TEST_F(TestProcess, dump_two_malloc_event)
     config.dataFormat = 0;
     std::string path = "test_process";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DumpClass::LEAKS_RECORD);    // 重置文件指针
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
@@ -1013,7 +1013,7 @@ TEST_F(TestProcess, clean_up_event_failed)
     config.dataFormat = 0;
     std::string path = "test_process";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DumpClass::LEAKS_RECORD);    // 重置文件指针
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
@@ -1036,7 +1036,7 @@ TEST_F(TestProcess, process_memory_owner_event)
     config.dataFormat = 0;
     std::string path = "test_process";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DumpClass::LEAKS_RECORD);    // 重置文件指针
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
@@ -1072,7 +1072,7 @@ TEST_F(TestProcess, process_memory_owner_event_in_torch_step)
     config.dataFormat = 0;
     std::string path = "test_process";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DumpClass::LEAKS_RECORD);    // 重置文件指针
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
@@ -1105,7 +1105,7 @@ TEST_F(TestProcess, process_memory_owner_event_without_malloc)
     config.dataFormat = 0;
     std::string path = "test_process";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DumpClass::LEAKS_RECORD);    // 重置文件指针
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
@@ -1139,7 +1139,7 @@ TEST_F(TestProcess, init_memory_owner)
     config.dataFormat = 0;
     std::string path = "test_process";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DumpClass::LEAKS_RECORD);    // 重置文件指针
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
@@ -1187,7 +1187,7 @@ TEST_F(TestProcess, updata_owner_by_access_event)
     config.dataFormat = 0;
     std::string path = "test_process";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DumpClass::LEAKS_RECORD);    // 重置文件指针
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
@@ -1221,7 +1221,7 @@ TEST_F(TestProcess, updata_owner_failed_by_atb_access_event)
     config.dataFormat = 0;
     std::string path = "test_process";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DumpClass::LEAKS_RECORD);    // 重置文件指针
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
