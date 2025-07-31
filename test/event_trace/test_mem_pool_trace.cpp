@@ -279,7 +279,7 @@ TEST(MemPoolTraceTest, PTACachingPoolTraceReleaseRegionHandleMpNull)
 
 TEST(MemPoolTraceTest, PTACachingPoolTraceCreateDomainReturnNull)
 {
-    EXPECT_EQ(PTACachingPoolTrace::GetInstance().CreateDomain("ptaCaching"), nullptr);
+    EXPECT_EQ(PTACachingPoolTrace::GetInstance().CreateDomain("msleaks"), nullptr);
 }
 
 TEST(MemPoolTraceTest, PTAWorkspacePoolTraceTestPtaHeapRegisterAndRegionRegister)
@@ -335,5 +335,5 @@ TEST(MemPoolTraceTest, PTAWorkspacePoolTraceReleaseRegionHandleMpNull)
 
 TEST(MemPoolTraceTest, PTAWorkspacePoolTraceCreateDomainReturnNull)
 {
-    EXPECT_EQ(PTACachingPoolTrace::GetInstance().CreateDomain("ptaWorkspace"), nullptr);
+    EXPECT_EQ(PTAWorkspacePoolTrace::GetInstance().CreateDomain("msleaks"), nullptr);
 }

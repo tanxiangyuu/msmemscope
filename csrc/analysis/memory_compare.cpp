@@ -104,7 +104,7 @@ bool MemoryCompare::CheckCsvHeader(std::string &path, std::ifstream& file, std::
 
 bool IsSupportedFramework(const std::string& name)
 {
-    static const std::unordered_set<std::string> supportedFrameworks = {"PTA", "MINDSPORE"};
+    static const std::unordered_set<std::string> supportedFrameworks = {"PTA", "MINDSPORE"}; // 暂不支持PTA_WORKSPACE的比对
     return supportedFrameworks.find(name) != supportedFrameworks.end();
 }
 
