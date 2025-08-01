@@ -167,6 +167,10 @@ bool EventReport::ReportMemPoolRecord(RecordBuffer &memPoolRecordBuffer)
 {
     g_isInReportFunction = true;
 
+    if (!EventTraceManager::Instance().IsNeedTrace()) {
+        return true;
+    }
+    
     if (!IsConnectToServer()) {
         return true;
     }
@@ -490,6 +494,10 @@ bool EventReport::ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
 {
     g_isInReportFunction = true;
 
+    if (!EventTraceManager::Instance().IsNeedTrace()) {
+        return true;
+    }
+
     if (!IsConnectToServer()) {
         return true;
     }
@@ -534,6 +542,10 @@ bool EventReport::ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
 bool EventReport::ReportKernelExcute(const TaskKey &key, std::string &name, uint64_t time, RecordSubType type)
 {
     g_isInReportFunction = true;
+
+    if (!EventTraceManager::Instance().IsNeedTrace()) {
+        return true;
+    }
 
     if (!IsConnectToServer()) {
         return true;
@@ -582,6 +594,30 @@ bool EventReport::ReportAclItf(RecordSubType subtype)
     record->recordIndex = ++recordIndex_;
     record->aclItfRecordIndex = ++aclItfRecordIndex_;
     record->kernelIndex = kernelLaunchRecordIndex_;
+    auto sendNums = ReportRecordEvent(buffer);
+
+    g_isInReportFunction = false;
+    return (sendNums >= 0);
+}
+
+bool EventReport::ReportTraceStatus(const EventTraceStatus status)
+{
+    g_isInReportFunction = true;
+
+    if (!IsConnectToServer()) {
+        return true;
+    }
+    
+    if (IsNeedSkip()) {
+        return true;
+    }
+
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<TraceStatusRecord>();
+    TraceStatusRecord* record = buffer.Cast<TraceStatusRecord>();
+    record->type = RecordType::TRACE_STATUS_RECORD;
+    record->devId = GD_INVALID_NUM;
+    record->recordIndex = ++recordIndex_;
+    record->status = static_cast<uint8_t>(status);
     auto sendNums = ReportRecordEvent(buffer);
 
     g_isInReportFunction = false;

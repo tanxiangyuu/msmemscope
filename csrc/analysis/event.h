@@ -13,6 +13,7 @@
 #include "utility/ustring.h"
 #include "utils.h"
 #include "log.h"
+#include "trace_manager/event_trace_manager.h"
  
 namespace Leaks {
  
@@ -60,7 +61,10 @@ enum class EventSubType : uint8_t {
  
     ACL_INIT,
     ACL_FINI,
- 
+
+    TRACE_START,
+    TRACE_STOP,
+
     MSTX_MARK,
     MSTX_RANGE_START,
     MSTX_RANGE_END,
@@ -363,6 +367,20 @@ public:
         name = "N/A";
         eventType = EventBaseType::SYSTEM;
         eventSubType = record.subtype == RecordSubType::INIT ? EventSubType::ACL_INIT : EventSubType::ACL_FINI;
+    }
+
+    explicit SystemEvent(TraceStatusRecord& record)
+    {
+        id = record.recordIndex;
+        timestamp = record.timestamp;
+        pid = record.pid;
+        tid = record.tid;
+        device = "N/A";
+        name = "N/A";
+        eventType = EventBaseType::SYSTEM;
+
+        eventSubType = (record.status == static_cast<uint8_t>(EventTraceStatus::IN_TRACING)) ?
+            EventSubType::TRACE_START : EventSubType::TRACE_STOP;
     }
 };
  

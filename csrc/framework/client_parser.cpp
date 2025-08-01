@@ -30,6 +30,7 @@ enum class OptVal : int32_t {
     OUTPUT,
     DATA_TRACE_LEVEL,
     LOG_LEVEL,
+    COLLECT_MODE,
     EVENT_TRACE_TYPE,
     DATA_FORMAT,
     ANALYSIS,
@@ -86,7 +87,8 @@ void ShowHelpInfo()
         << "                                             The input paths need to be separated by, or ，." << std::endl
         << "    --output=path                            The path to store the generated files." << std::endl
         << "    --log-level                              Set log level to <level> [warn]." << std::endl
-        << "    --data-format=<db|csv>                   Set data format to <format> (default:csv)." << std::endl;
+        << "    --data-format=<db|csv>                   Set data format to <format> (default:csv)." << std::endl
+        << "    --collect-mode=<full|custom>             Set data collect mode. Default: full." << std::endl;
 }
 
 void ShowVersion()
@@ -212,6 +214,7 @@ std::vector<option> GetLongOptArray()
         {"level", required_argument, nullptr, static_cast<int32_t>(OptVal::DATA_TRACE_LEVEL)},
         {"events", required_argument, nullptr, static_cast<int32_t>(OptVal::EVENT_TRACE_TYPE)},
         {"log-level", required_argument, nullptr, static_cast<int32_t>(OptVal::LOG_LEVEL)},
+        {"collect-mode", required_argument, nullptr, static_cast<int32_t>(OptVal::COLLECT_MODE)},
         {"data-format", required_argument, nullptr, static_cast<int32_t>(OptVal::DATA_FORMAT)},
         {nullptr, 0, nullptr, 0},
     };
@@ -620,6 +623,21 @@ static void ParseDataFormat(const std::string &param, UserCommand &userCommand)
     return;
 }
 
+static void ParseCollectMode(const std::string &param, UserCommand &userCommand)
+{
+    if (param == "full") {
+        userCommand.config.collectMode = static_cast<uint8_t>(CollectMode::FULL);
+    } else if (param == "custom") {
+        userCommand.config.collectMode = static_cast<uint8_t>(CollectMode::CUSTOM);
+    } else {
+        std::cout << "[msleaks] ERROR: --collect-mode param is invalid. "
+                  << "Collect mode can only be set to full,custom." << std::endl;
+        userCommand.printHelpInfo = true;
+    }
+
+    return;
+}
+
 void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand &userCommand)
 {
     switch (opt) {
@@ -666,6 +684,9 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
         case static_cast<int32_t>(OptVal::DATA_FORMAT):
             ParseDataFormat(param, userCommand);
             break;
+        case static_cast<int32_t>(OptVal::COLLECT_MODE):
+            ParseCollectMode(param, userCommand);
+            break;
         default:
             ;
     }
@@ -684,6 +705,7 @@ void ClientParser::InitialUserCommand(UserCommand &userCommand)
     userCommand.config.levelType = 1;
     userCommand.config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
     userCommand.config.logLevel = static_cast<uint8_t>(LogLv::WARN);
+    userCommand.config.collectMode = static_cast<uint8_t>(CollectMode::FULL);
 
     BitField<decltype(userCommand.config.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));

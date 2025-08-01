@@ -82,6 +82,10 @@ bool StepInnerAnalyzer::IsStepInnerAnalysisEnable()
     if (config_.stepList.stepCount!=0) {
         return false;
     }
+    // 当开启自定义采集时，关闭分析功能
+    if (config_.collectMode == static_cast<uint8_t>(CollectMode::CUSTOM)) {
+        return false;
+    }
 
     // 当malloc和free采集并非都开启时，关闭分析功能
     BitField<decltype(config_.eventType)> eventType(config_.eventType);

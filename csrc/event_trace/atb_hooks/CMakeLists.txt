@@ -21,7 +21,7 @@ target_include_directories(atb_abi_0_hook PUBLIC
   ${SECUREC_INC_DIR}
 )
 
-target_link_libraries(atb_abi_0_hook dl)
+target_link_libraries(atb_abi_0_hook ascend_leaks dl)
 
 
 add_library(atb_abi_1_hook SHARED atb_hooks.cpp)
@@ -50,4 +50,4 @@ target_include_directories(atb_abi_1_hook PUBLIC
   ${SECUREC_INC_DIR}
 )
 
-target_link_libraries(atb_abi_1_hook dl)
+target_link_libraries(atb_abi_1_hook ascend_leaks dl)

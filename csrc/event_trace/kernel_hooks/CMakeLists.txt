@@ -26,6 +26,7 @@ target_sources(ascend_kernel_hook PRIVATE
   ${UTILITY_INC_DIR}/ustring.cpp
   ${FUNC_HOSTINJECTION_DIR}/utils/FileSystem.cpp
   ${FUNC_HOSTINJECTION_DIR}/utils/Ustring.cpp
+  ${EVENT_TRACE_INC_DIR}/trace_manager/event_trace_manager.cpp
 )
 
 target_include_directories(ascend_kernel_hook PUBLIC
@@ -36,7 +37,6 @@ target_include_directories(ascend_kernel_hook PUBLIC
   ${FUNC_HOSTINJECTION_DIR}
   ${UTILITY_INC_DIR}
   ${SECUREC_INC_DIR}
-  ${Python3_INCLUDE_DIRS}
 )
 target_link_options(ascend_kernel_hook PRIVATE "-Wl,--disable-new-dtags")
 target_link_libraries(ascend_kernel_hook ascend_hal dl pthread stdc++fs c_sec)
