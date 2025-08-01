@@ -7,6 +7,7 @@
 #include "tracerobject.h"
 #include "describerobject.h"
 #include "report_tensor.h"
+#include "trace_manager/event_trace_manager.h"
 
 namespace Leaks {
 
@@ -22,8 +23,26 @@ static PyObject* MsleaksStep(PyObject *self)
     Py_RETURN_NONE;
 }
 
+PyDoc_STRVAR(StartDoc,
+"start()\n--\n\nstart trace data.");
+static PyObject* MsleaksStart()
+{
+    EventTraceManager::Instance().SetTraceStatus(EventTraceStatus::IN_TRACING);
+    Py_RETURN_NONE;
+}
+
+PyDoc_STRVAR(StopDoc,
+"stop()\n--\n\nstop trace data.");
+static PyObject* MsleaksStop()
+{
+    EventTraceManager::Instance().SetTraceStatus(EventTraceStatus::NOT_IN_TRACING);
+    Py_RETURN_NONE;
+}
+
 static PyMethodDef g_MsleaksMethods[] = {
     {"step", reinterpret_cast<PyCFunction>(MsleaksStep), METH_NOARGS, StepDoc},
+    {"start", reinterpret_cast<PyCFunction>(MsleaksStart), METH_NOARGS, StartDoc},
+    {"stop", reinterpret_cast<PyCFunction>(MsleaksStop), METH_NOARGS, StopDoc},
     {nullptr, nullptr, 0, nullptr}
 };
 

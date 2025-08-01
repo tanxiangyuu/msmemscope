@@ -8,6 +8,7 @@ target_sources(host_memory_hook PRIVATE
   ${UTILITY_INC_DIR}/log.cpp
   ${FUNC_HOSTINJECTION_DIR}/utils/FileSystem.cpp
   ${FUNC_HOSTINJECTION_DIR}/utils/Ustring.cpp
+  ${EVENT_TRACE_INC_DIR}/trace_manager/event_trace_manager.cpp
 )
  
 target_include_directories(host_memory_hook PUBLIC

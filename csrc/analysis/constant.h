@@ -124,6 +124,8 @@ const std::unordered_map<EventSubType, std::string> EVENT_SUB_TYPE_MAP = {
     {EventSubType::ATB_KERNEL_END, "KERNEL_END"},
     {EventSubType::ACL_INIT, "ACL_INIT"},
     {EventSubType::ACL_FINI, "ACL_FINI"},
+    {EventSubType::TRACE_START, "START_TRACE"},
+    {EventSubType::TRACE_STOP, "STOP_TRACE"},
     {EventSubType::MSTX_MARK, "Mark"},
     {EventSubType::MSTX_RANGE_START, "Range_start"},
     {EventSubType::MSTX_RANGE_END, "Range_end"},

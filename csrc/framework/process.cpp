@@ -105,6 +105,8 @@ std::shared_ptr<EventBase> Process::RecordToEvent(RecordBase* record)
             return std::make_shared<MstxEvent>(*(static_cast<MstxRecord*>(r))); }},
         {RecordType::ACL_ITF_RECORD, [](RecordBase* r) {
             return std::make_shared<SystemEvent>(*(static_cast<AclItfRecord*>(r))); }},
+        {RecordType::TRACE_STATUS_RECORD, [](RecordBase* r) {
+            return std::make_shared<SystemEvent>(*(static_cast<TraceStatusRecord*>(r))); }},
     };
 
     if (record == nullptr) {

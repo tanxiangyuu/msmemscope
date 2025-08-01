@@ -6,18 +6,22 @@
 #include <iostream>
 #include "call_stack.h"
 #include "log.h"
+#include "trace_manager/event_trace_manager.h"
 
 using namespace Leaks;
 
-
 drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long flag)
 {
-    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
     drvError_t ret = halMemAllocInner(pp, size, flag);
     if (ret != DRV_ERROR_NONE) {
         return ret;
     }
 
+    if (!EventTraceManager::Instance().IsNeedTrace()) {
+        return ret;
+    }
+
+    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
     CallStackString stack;
     if (config.enableCStack) {
         Utility::GetCCallstack(config.cStackDepth, stack.cStack, SKIP_DEPTH);
@@ -38,6 +42,15 @@ drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long fl
 
 drvError_t halMemFree(void *pp)
 {
+    drvError_t ret = halMemFreeInner(pp);
+    if (ret != DRV_ERROR_NONE) {
+        return ret;
+    }
+
+    if (!EventTraceManager::Instance().IsNeedTrace()) {
+        return ret;
+    }
+    
     // report to leaks here
     auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
     std::string cStack;
@@ -52,11 +65,6 @@ drvError_t halMemFree(void *pp)
     uintptr_t addr = reinterpret_cast<uintptr_t>(pp);
     if (!EventReport::Instance(CommType::SOCKET).ReportFree(reinterpret_cast<uint64_t>(addr), stack)) {
         CLIENT_ERROR_LOG("halMemFree report failed");
-    }
-
-    drvError_t ret = halMemFreeInner(pp);
-    if (ret != DRV_ERROR_NONE) {
-        return ret;
     }
 
     return ret;
