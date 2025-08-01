@@ -415,7 +415,7 @@ static void ParseDataLevel(const std::string param, UserCommand &userCommand)
     std::sregex_token_iterator it(param.begin(), param.end(), dividePattern, -1);
     std::sregex_token_iterator end;
 
-    std::regex numberPattern(R"(^[01]$)");
+    std::regex pattern(R"(^(0|1|op|launch)$)");
 
     auto parseFailed = [&userCommand](void) {
         std::cout << "[msleaks] ERROR: invalid data trace level input." << std::endl;
@@ -427,12 +427,12 @@ static void ParseDataLevel(const std::string param, UserCommand &userCommand)
     while (it != end) {
         std::string level = it->str();
         if (!level.empty()) {
-            if (!std::regex_match(level, numberPattern)) {
+            if (!std::regex_match(level, pattern)) {
                 return parseFailed();
             }
-            if (level == "0") {
+            if (level == "0" || level == "op") {
                 levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_OP));
-            } else if (level == "1") {
+            } else if (level == "1" || level == "launch") {
                 levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
             }
         }
