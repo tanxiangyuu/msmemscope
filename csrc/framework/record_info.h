@@ -37,6 +37,7 @@ enum class RecordType {
     ATEN_OP_LAUNCH_RECORD,
     MEM_ACCESS_RECORD,
     ADDR_INFO_RECORD,
+    TRACE_STATUS_RECORD,
     INVALID_RECORD,
 };
 
@@ -299,6 +300,10 @@ struct AclItfRecord : public RecordBase {
     uint64_t aclItfRecordIndex; // aclItf索引
 };
 
+struct TraceStatusRecord : public RecordBase {
+    uint8_t status;
+};
+
 struct KernelLaunchRecord : public RecordBase {
     int16_t streamId;           // streamId
     int16_t taskId;
@@ -370,6 +375,7 @@ struct EventRecord {
         MemPoolRecord memPoolRecord;
         MemOpRecord memoryRecord;
         AclItfRecord aclItfRecord;
+        TraceStatusRecord traceStatusRecord;
         KernelLaunchRecord kernelLaunchRecord;
         KernelExcuteRecord kernelExcuteRecord;
         MstxRecord mstxRecord;

@@ -3,6 +3,7 @@
 #include <dlfcn.h>
 #include <cstdio>
 #include "event_report.h"
+#include "trace_manager/event_trace_manager.h"
 
 using namespace Leaks;
 
@@ -26,6 +27,9 @@ extern "C" void* malloc(size_t size)
 
     if (g_reportInfo) {
         g_reportInfo = false;
+        if (!EventTraceManager::Instance().IsNeedTrace()) {
+            return ptr;
+        }
         if (!EventReport::Instance(CommType::SOCKET).ReportHostMalloc(reinterpret_cast<uint64_t>(ptr),
             static_cast<uint64_t>(size))) {
             printf("Report host malloc event failed.\n");
@@ -49,6 +53,9 @@ extern "C" void free(void* ptr)
 
     if (g_reportInfo) {
         g_reportInfo = false;
+        if (!EventTraceManager::Instance().IsNeedTrace()) {
+            return;
+        }
         if (!EventReport::Instance(CommType::SOCKET)
                  .ReportHostFree(reinterpret_cast<uint64_t>(ptr))) {
             printf("Report host free event failed.\n");

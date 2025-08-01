@@ -10,6 +10,7 @@ target_sources(leaks_ascend_hal_hook PRIVATE
   ${UTILITY_INC_DIR}/cpython.cpp
   ${FUNC_HOSTINJECTION_DIR}/utils/FileSystem.cpp
   ${FUNC_HOSTINJECTION_DIR}/utils/Ustring.cpp
+  ${EVENT_TRACE_INC_DIR}/trace_manager/event_trace_manager.cpp
 )
 
 target_include_directories(leaks_ascend_hal_hook PUBLIC
