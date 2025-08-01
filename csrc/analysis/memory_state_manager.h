@@ -39,6 +39,7 @@ struct MemoryStateKeyHasher {
 class MemoryState : public StateBase {
 public:
     std::vector<std::shared_ptr<MemoryEvent>> events;
+    std::vector<uint64_t> apiId;
     uint64_t size = 0;
     uint64_t allocationId = 0;
     std::string leaksDefinedOwner;
