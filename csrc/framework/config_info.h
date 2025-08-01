@@ -51,6 +51,7 @@ enum class DataFormat : uint8_t {
 enum class AnalysisType : uint8_t {
     LEAKS_ANALYSIS = 0,
     DECOMPOSE_ANALYSIS = 1,
+    INEFFICIENCY_ANALYSIS = 2,
 };
 
 enum class LogLv : uint8_t {
