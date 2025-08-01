@@ -617,6 +617,62 @@ TEST(ClientParser, test_watch_config_error_full_content)
     ASSERT_TRUE(cmd.printHelpInfo);
 }
 
+TEST(ClientParser, test_collect_mode_full)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--collect-mode=full"
+    };
+
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_FALSE(cmd.printHelpInfo);
+    ASSERT_EQ(cmd.config.collectMode, static_cast<std::uint8_t>(CollectMode::FULL));
+}
+
+TEST(ClientParser, test_collect_mode_custom)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--collect-mode=custom"
+    };
+
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_FALSE(cmd.printHelpInfo);
+    ASSERT_EQ(cmd.config.collectMode, static_cast<std::uint8_t>(CollectMode::CUSTOM));
+}
+
+TEST(ClientParser, test_collect_mode_empty)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--collect-mode="
+    };
+
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.printHelpInfo);
+    ASSERT_EQ(cmd.config.collectMode, static_cast<std::uint8_t>(CollectMode::FULL));
+}
+
+TEST(ClientParser, test_collect_mode_input_error)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--collect-mode=full2"
+    };
+
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.printHelpInfo);
+    ASSERT_EQ(cmd.config.collectMode, static_cast<std::uint8_t>(CollectMode::FULL));
+}
+
 TEST(ClientParser, test_print_version)
 {
     std::vector<const char*> argv = {

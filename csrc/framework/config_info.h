@@ -60,6 +60,11 @@ enum class LogLv : uint8_t {
     COUNT,
 };
 
+enum class CollectMode : uint8_t {
+    FULL = 0,
+    CUSTOM,
+};
+
 struct SelectedStepList {
     uint32_t stepIdList[SELECTED_STEP_MAX_NUM];
     uint8_t stepCount;
@@ -88,6 +93,7 @@ struct Config {
     uint8_t eventType;
     uint8_t analysisType;
     uint8_t logLevel;
+    uint8_t collectMode;
     char outputDir[PATH_MAX];
     uint8_t dataFormat;
     char dbFileName[PATH_MAX];

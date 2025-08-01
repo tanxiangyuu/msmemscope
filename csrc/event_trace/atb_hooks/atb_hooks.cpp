@@ -12,6 +12,7 @@
 #include "bit_field.h"
 #include "securec.h"
 #include "op_watch/op_excute_watch.h"
+#include "trace_manager/event_trace_manager.h"
 
 using namespace Leaks;
 
@@ -207,6 +208,9 @@ extern "C" atb::Status _ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE(atb::Runn
         CLIENT_ERROR_LOG("Cannot find origin function of atb.\n");
         return 0;
     }
+    if (!EventTraceManager::Instance().IsNeedTrace()) {
+        return funcExecute(thisPtr, runnerVariantPack);
+    }
     static Config config = EventReport::Instance(CommType::SOCKET).GetConfig();
     static BitField<decltype(config.levelType)> levelType(config.levelType);
     static bool isReportOp = levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_OP));
@@ -269,6 +273,9 @@ extern "C" void _ZN3atb9StoreUtil15SaveLaunchParamEPvRKN3Mki11LaunchParamERKNSt7
 #endif
 (aclrtStream stream, const Mki::LaunchParam& launchParam, const std::string& dirPath)
 {
+    if (!EventTraceManager::Instance().IsNeedTrace()) {
+        return;
+    }
     static Config config = EventReport::Instance(CommType::SOCKET).GetConfig();
     static BitField<decltype(config.levelType)> levelType(config.levelType);
     static bool isReportKernel = levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));

@@ -15,6 +15,7 @@
 #include "config_info.h"
 #include "protocol.h"
 #include "kernel_hooks/kernel_event_trace.h"
+#include "trace_manager/event_trace_manager.h"
 
 namespace Leaks {
 extern thread_local bool g_isReportHostMem;
@@ -50,6 +51,7 @@ public:
     bool ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo);
     bool ReportKernelExcute(const TaskKey &key, std::string &name, uint64_t time, RecordSubType type);
     bool ReportAclItf(RecordSubType subtype);
+    bool ReportTraceStatus(const EventTraceStatus status);
     bool ReportMark(RecordBuffer &mstxRecordBuffer);
     int ReportRecordEvent(const RecordBuffer& record);
     Config GetConfig();

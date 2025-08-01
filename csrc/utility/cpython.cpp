@@ -4,6 +4,7 @@
 #include <frameobject.h>
 #include "utils.h"
 #include "cpython.h"
+#include "client_process.h"
 
 extern "C" {
 int Py_IsInitialized(void) __attribute__((weak));
@@ -812,6 +813,34 @@ PythonDictObject::PythonDictObject(PyObject* o)
         return;
     }
     SetPtr(o);
+}
+
+void LeaksPythonCall(const std::string& module, const std::string& function)
+{
+    if (!Utility::IsPyInterpRepeInited()) {
+        CLIENT_ERROR_LOG("Python Interpreter initialization FAILED");
+        return;
+    }
+
+    Utility::PyInterpGuard stat;
+    Utility::PythonObject sys = Utility::PythonObject::Import("sys");
+    Utility::PythonObject modules = sys.Get("modules");
+    Utility::PythonObject torch = modules.GetItem(Utility::PythonObject("torch"));
+    if (!torch.IsBad()) {
+        Utility::PythonObject pythonModule = Utility::PythonObject::Import(module, false);
+        if (pythonModule.IsBad()) {
+            CLIENT_ERROR_LOG("import " + module + " FAILED");
+            return;
+        }
+ 
+        Utility::PythonObject pythonFunction = pythonModule.Get(function);
+        if (pythonFunction.IsBad()) {
+            CLIENT_ERROR_LOG("cannot get function " + function);
+            return;
+        }
+        pythonFunction.Call();
+    }
+    return;
 }
 
 }

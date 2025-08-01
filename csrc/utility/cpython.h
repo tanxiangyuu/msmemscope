@@ -161,6 +161,9 @@ public:
 private:
     PyGILState_STATE gstate;
 };
+
+void LeaksPythonCall(const std::string& module, const std::string& function);
+
 }
 
 /**************************** 以下为模板函数的实现，调用者无需关注 ***********************************/
@@ -390,5 +393,4 @@ PythonObject PythonDictObject::GetItem(T key, bool ignore)
     }
     return PythonObject(item);
 }
-
 }
