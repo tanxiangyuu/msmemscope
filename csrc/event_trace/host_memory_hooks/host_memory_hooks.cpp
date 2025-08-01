@@ -3,6 +3,7 @@
 #include <dlfcn.h>
 #include <cstdio>
 #include "event_report.h"
+#include "call_stack.h"
 #include "trace_manager/event_trace_manager.h"
 
 using namespace Leaks;
@@ -30,8 +31,17 @@ extern "C" void* malloc(size_t size)
         if (!EventTraceManager::Instance().IsNeedTrace()) {
             return ptr;
         }
+        auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
+        CallStackString stack;
+        if (config.enableCStack) {
+            Utility::GetCCallstack(config.cStackDepth, stack.cStack, SKIP_DEPTH);
+        }
+        if (config.enablePyStack) {
+            Utility::GetPythonCallstack(config.pyStackDepth, stack.pyStack);
+        }
+ 
         if (!EventReport::Instance(CommType::SOCKET).ReportHostMalloc(reinterpret_cast<uint64_t>(ptr),
-            static_cast<uint64_t>(size))) {
+            static_cast<uint64_t>(size), stack)) {
             printf("Report host malloc event failed.\n");
         }
         g_reportInfo = true;

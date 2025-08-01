@@ -286,7 +286,7 @@ bool EventReport::ReportFree(uint64_t addr, CallStackString& stack)
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size)
+bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size, CallStackString& stack)
 {
     g_isInReportFunction = true;
 
@@ -299,8 +299,12 @@ bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size)
         return true;
     }
 
+    TLVBlockType cStack = stack.cStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_C;
+    TLVBlockType pyStack = stack.pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
+
     std::string owner = DescribeTrace::GetInstance().GetDescribe();
-    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemOpRecord>(TLVBlockType::MEM_OWNER, owner);
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemOpRecord>(TLVBlockType::MEM_OWNER, owner,
+        cStack, stack.cStack, pyStack, stack.pyStack);
     MemOpRecord* record = buffer.Cast<MemOpRecord>();
     record->type = RecordType::MEMORY_RECORD;
     record->subtype = RecordSubType::MALLOC;
