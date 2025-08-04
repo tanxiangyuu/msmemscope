@@ -26,6 +26,7 @@ constexpr const char *COMPARE_FILE = "compare";
 constexpr uint16_t WATCH_OP_DIR_MAX_LENGTH = 255;
 constexpr const char *DB_DUMP_FILE = "leaks_dump";
 constexpr int SQLITE_TIME_OUT = 5000;
+constexpr const char *ENABLE_CPU_IN_CMD = "MSLEAKS_ENABLE_CPU_IN_CMD";
 
 // level type可以多选，每一种type占一个bit位
 enum class LevelType : uint8_t {
@@ -97,6 +98,10 @@ struct Config {
     char outputDir[PATH_MAX];
     uint8_t dataFormat;
     char dbFileName[PATH_MAX];
+    bool collectCpu;
+    bool collectAllNpu;
+    /* 当前单机最多16卡，用32bits表示足够了，后续有需要再扩充 */
+    uint32_t npuSlots;
 };
 
 // 用于承载用户命令行参数的解析结果

@@ -18,8 +18,9 @@
 #include "describe_trace.h"
 
 namespace Leaks {
-thread_local bool g_isReportHostMem = false;
+bool g_isReportHostMem = false;
 thread_local bool g_isInReportFunction = false;
+static std::unordered_set<uint64_t> g_halPtrs;
 
 constexpr uint64_t MEM_MODULE_ID_BIT = 56;
 constexpr uint64_t MEM_VIRT_BIT = 10;
@@ -66,7 +67,10 @@ RTS_API rtError_t GetDevice(int32_t *devId)
 {
     char const *sym = "rtGetDevice";
     using RtGetDevice = decltype(&GetDevice);
-    auto vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtGetDevice>(sym);
+    static RtGetDevice vallina = nullptr;
+    if (vallina == nullptr) {
+        vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtGetDevice>(sym);
+    }
     if (vallina == nullptr) {
         CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
         return RT_ERROR_RESERVED;
@@ -120,10 +124,15 @@ EventReport::EventReport(CommType type)
     return;
 }
 
-bool EventReport::IsNeedSkip()
+bool EventReport::IsNeedSkip(int32_t devid)
 {
+    if (!config_.collectAllNpu) {
+        BitField<decltype(config_.npuSlots)> npuSlots(config_.npuSlots);
+        if (devid != GD_INVALID_NUM && !npuSlots.checkBit(static_cast<size_t>(devid))) {
+            return true;
+        }
+    }
     auto stepList = config_.stepList;
-
     if (stepList.stepCount == 0) {
         return false;
     }
@@ -142,20 +151,19 @@ bool EventReport::IsConnectToServer()
     return isReceiveServerInfo_;
 }
 
-void GetOwner(char *res, uint32_t size)
-{
-    std::string owner = DescribeTrace::GetInstance().GetDescribe();
-    if (strncpy_s(res, size, owner.c_str(), size - 1) != EOK) {
-        CLIENT_ERROR_LOG("strncpy_s FAILED");
-    }
-}
-
 bool EventReport::ReportAddrInfo(RecordBuffer &infoBuffer)
 {
     g_isInReportFunction = true;
     if (!IsConnectToServer()) {
         return true;
     }
+
+    int32_t devId = GD_INVALID_NUM;
+    GetDevice(&devId);
+    if (IsNeedSkip(devId)) {
+        return true;
+    }
+
     AddrInfo* info = infoBuffer.Cast<AddrInfo>();
     info->type = RecordType::ADDR_INFO_RECORD;
     auto sendNums = ReportRecordEvent(infoBuffer);
@@ -175,12 +183,13 @@ bool EventReport::ReportMemPoolRecord(RecordBuffer &memPoolRecordBuffer)
         return true;
     }
 
-    if (IsNeedSkip()) {
+    MemPoolRecord* record = memPoolRecordBuffer.Cast<MemPoolRecord>();
+    int32_t devId = static_cast<int32_t>(record->memoryUsage.deviceIndex);
+    if (IsNeedSkip(devId)) {
         return true;
     }
 
     BitField<decltype(config_.eventType)> eventType(config_.eventType);
-    MemPoolRecord* record = memPoolRecordBuffer.Cast<MemPoolRecord>();
     // 根据命令行参数判断malloc和free是否上报, 0为malloc，剩下的为free
     if (record->memoryUsage.dataType == 0) {
         if (!eventType.checkBit(static_cast<size_t>(EventType::ALLOC_EVENT))) {
@@ -192,7 +201,7 @@ bool EventReport::ReportMemPoolRecord(RecordBuffer &memPoolRecordBuffer)
         }
     }
     record->kernelIndex = kernelLaunchRecordIndex_;
-    record->devId = static_cast<int32_t>(record->memoryUsage.deviceIndex);
+    record->devId = devId;
     record->recordIndex = ++recordIndex_;
     auto sendNums = ReportRecordEvent(memPoolRecordBuffer);
 
@@ -209,7 +218,9 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
         return true;
     }
 
-    if (IsNeedSkip()) {
+    // bit0~9 devId
+    int32_t devId = (flag & 0x3FF);
+    if (IsNeedSkip(devId)) {
         return true;
     }
 
@@ -217,12 +228,9 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
     if (!eventType.checkBit(static_cast<size_t>(EventType::ALLOC_EVENT))) {
         return true;
     }
-
-    // bit0~9 devId
-    int32_t devId = (flag & 0x3FF);
+    
     int32_t moduleId = GetMallocModuleId(flag);
     MemOpSpace space = GetMemOpSpace(flag);
-
     std::string owner = DescribeTrace::GetInstance().GetDescribe();
     TLVBlockType cStack = stack.cStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_C;
     TLVBlockType pyStack = stack.pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
@@ -241,6 +249,11 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
     record->recordIndex = ++recordIndex_;
     record->kernelIndex = kernelLaunchRecordIndex_;
 
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        g_halPtrs.insert(addr);
+    }
+
     auto sendNums = ReportRecordEvent(buffer);
 
     g_isInReportFunction = false;
@@ -255,8 +268,17 @@ bool EventReport::ReportFree(uint64_t addr, CallStackString& stack)
         return true;
     }
 
-    if (IsNeedSkip()) {
+    if (IsNeedSkip(GD_INVALID_NUM)) {
         return true;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = g_halPtrs.find(addr);
+        if (it == g_halPtrs.end()) {
+            return true;
+        }
+        g_halPtrs.erase(it);
     }
 
     BitField<decltype(config_.eventType)> eventType(config_.eventType);
@@ -295,7 +317,7 @@ bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size)
     }
 
     BitField<decltype(config_.eventType)> eventType(config_.eventType);
-    if (!eventType.checkBit(static_cast<size_t>(EventType::ALLOC_EVENT))) {
+    if (!config_.collectCpu || !eventType.checkBit(static_cast<size_t>(EventType::ALLOC_EVENT))) {
         return true;
     }
 
@@ -329,7 +351,7 @@ bool EventReport::ReportHostFree(uint64_t addr)
     }
 
     BitField<decltype(config_.eventType)> eventType(config_.eventType);
-    if (!eventType.checkBit(static_cast<size_t>(EventType::FREE_EVENT))) {
+    if (!config_.collectCpu || !eventType.checkBit(static_cast<size_t>(EventType::FREE_EVENT))) {
         return true;
     }
 
@@ -397,6 +419,10 @@ bool EventReport::ReportMark(RecordBuffer &mstxRecordBuffer)
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
+    if (IsNeedSkip(devId)) {
+        return true;
+    }
+
     MstxRecord* record = mstxRecordBuffer.Cast<MstxRecord>();
     record->type = RecordType::MSTX_MARK_RECORD;
     record->devId = devId;
@@ -418,6 +444,7 @@ bool EventReport::ReportMark(RecordBuffer &mstxRecordBuffer)
             strcmp(markMessage.c_str(), "report host memory info start") == 0) {
             mstxRangeIdTables_[pid][tid] = record->rangeId;
             CLIENT_INFO_LOG("[mark] Start report host memory info...");
+            config_.collectCpu = true;
             g_isReportHostMem = true;
         } else if (record->markType == MarkType::RANGE_END &&
             mstxRangeIdTables_.find(pid) != mstxRangeIdTables_.end() &&
@@ -425,6 +452,7 @@ bool EventReport::ReportMark(RecordBuffer &mstxRecordBuffer)
             mstxRangeIdTables_[pid][tid] == record->rangeId) {
             mstxRangeIdTables_[pid].erase(tid);
             CLIENT_INFO_LOG("[mark] Stop report host memory info.");
+            config_.collectCpu = false;
             g_isReportHostMem = false;
         }
     }
@@ -441,13 +469,13 @@ bool EventReport::ReportAtenLaunch(RecordBuffer &atenOpLaunchRecordBuffer)
         return true;
     }
 
-    if (IsNeedSkip()) {
-        return true;
-    }
-
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+    }
+
+    if (IsNeedSkip(devId)) {
+        return true;
     }
 
     AtenOpLaunchRecord* record = atenOpLaunchRecordBuffer.Cast<AtenOpLaunchRecord>();
@@ -469,13 +497,13 @@ bool EventReport::ReportAtenAccess(RecordBuffer &memAccessRecordBuffer)
         return true;
     }
 
-    if (IsNeedSkip()) {
-        return true;
-    }
-
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+    }
+
+    if (IsNeedSkip(devId)) {
+        return true;
     }
 
     MemAccessRecord* record = memAccessRecordBuffer.Cast<MemAccessRecord>();
@@ -502,7 +530,14 @@ bool EventReport::ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
         return true;
     }
 
-    if (IsNeedSkip()) {
+    int32_t devId = std::get<0>(kernelLaunchInfo.taskKey);
+    if (devId < 0) {
+        if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+            CLIENT_ERROR_LOG("RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+        }
+    }
+
+    if (IsNeedSkip(devId)) {
         return true;
     }
 
@@ -511,13 +546,6 @@ bool EventReport::ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
     if (!eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT)) ||
         !levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_KERNEL))) {
         return true;
-    }
-
-    int32_t devId = std::get<0>(kernelLaunchInfo.taskKey);
-    if (devId < 0) {
-        if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
-            CLIENT_ERROR_LOG("RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
-        }
     }
 
     RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<KernelLaunchRecord>(
@@ -551,7 +579,7 @@ bool EventReport::ReportKernelExcute(const TaskKey &key, std::string &name, uint
         return true;
     }
     
-    if (IsNeedSkip()) {
+    if (IsNeedSkip(std::get<0>(key))) {
         return true;
     }
 
@@ -577,7 +605,7 @@ bool EventReport::ReportAclItf(RecordSubType subtype)
         return true;
     }
     
-    if (IsNeedSkip()) {
+    if (IsNeedSkip(GD_INVALID_NUM)) {
         return true;
     }
 
@@ -608,7 +636,7 @@ bool EventReport::ReportTraceStatus(const EventTraceStatus status)
         return true;
     }
     
-    if (IsNeedSkip()) {
+    if (IsNeedSkip(GD_INVALID_NUM)) {
         return true;
     }
 
@@ -632,13 +660,13 @@ bool EventReport::ReportAtbOpExecute(RecordBuffer& atbOpExecuteRecordBuffer)
         return true;
     }
 
-    if (IsNeedSkip()) {
-        return true;
-    }
-
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+    }
+
+    if (IsNeedSkip(devId)) {
+        return true;
     }
 
     AtbOpExecuteRecord* record = atbOpExecuteRecordBuffer.Cast<AtbOpExecuteRecord>();
@@ -660,13 +688,13 @@ bool EventReport::ReportAtbKernel(RecordBuffer& atbKernelRecordBuffer)
         return true;
     }
 
-    if (IsNeedSkip()) {
-        return true;
-    }
-
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+    }
+
+    if (IsNeedSkip(devId)) {
+        return true;
     }
 
     AtbKernelRecord* record = atbKernelRecordBuffer.Cast<AtbKernelRecord>();
@@ -688,13 +716,13 @@ bool EventReport::ReportAtbAccessMemory(std::vector<RecordBuffer>& memAccessReco
         return true;
     }
 
-    if (IsNeedSkip()) {
-        return true;
-    }
-
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+    }
+
+    if (IsNeedSkip(devId)) {
+        return true;
     }
 
     for (auto& buffer : memAccessRecordBuffers) {
