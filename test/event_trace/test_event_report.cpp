@@ -163,7 +163,7 @@ TEST(EventReportTest, ReportHostMallocWithoutMstxTest) {
     instance.isReceiveServerInfo_ = true;
     instance.config_.collectCpu = true;
     CallStackString callStack;
-    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize));
+    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize, callStack));
 }
  
 TEST(EventReportTest, ReportHostFreeWithoutMstxTest) {
@@ -198,7 +198,8 @@ TEST(EventReportTest, ReportHostMallocTest) {
 
     uint64_t testAddr = 0x12345678;
     uint64_t testSize = 1024;
-    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize));
+    CallStackString callStack;
+    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize, callStack));
 
     auto buffer2 = RecordBuffer::CreateRecordBuffer<MstxRecord>();
     MstxRecord* mstxRecordEnd = buffer2.Cast<MstxRecord>();
@@ -504,7 +505,7 @@ TEST(EventReportTest, ReportTestWithNoReceiveServerInfo) {
     EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, flag, callStack));
     EXPECT_TRUE(instance.ReportFree(testAddr, callStack));
 
-    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize));
+    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize, callStack));
     EXPECT_TRUE(instance.ReportHostFree(testAddr));
 
     int16_t devId = 1;
