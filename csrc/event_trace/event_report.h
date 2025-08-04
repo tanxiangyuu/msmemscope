@@ -47,7 +47,7 @@ public:
     static EventReport& Instance(CommType type);
     bool ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag, CallStackString& stack);
     bool ReportFree(uint64_t addr, CallStackString& stack);
-    bool ReportHostMalloc(uint64_t addr, uint64_t size);
+    bool ReportHostMalloc(uint64_t addr, uint64_t size, CallStackString& stack);
     bool ReportHostFree(uint64_t addr);
     bool ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo);
     bool ReportKernelExcute(const TaskKey &key, std::string &name, uint64_t time, RecordSubType type);
