@@ -58,7 +58,7 @@ bool CsvHandler::Write(std::shared_ptr<DataBase> data)
         return false;
     }
 
-    switch (data->dataType) {
+    switch (data->GetDataType()) {
         case DataType::LEAKS_EVENT: {
             auto event = std::dynamic_pointer_cast<EventBase>(data);
             if (event) {
@@ -74,7 +74,7 @@ bool CsvHandler::Write(std::shared_ptr<DataBase> data)
             break;
         }
         default:
-            LOG_ERROR("Unsupported data type : %d\n", static_cast<int>(data->dataType));
+            LOG_ERROR("Unsupported data type : %d\n", static_cast<int>(data->GetDataType()));
             return false;
     }
     return false;
@@ -203,7 +203,7 @@ bool DbHandler::Write(std::shared_ptr<DataBase> data)
         return false;
     }
 
-    switch (data->dataType) {
+    switch (data->GetDataType()) {
         case DataType::LEAKS_EVENT: {
             auto event = std::dynamic_pointer_cast<EventBase>(data);
             if (event) {
@@ -219,7 +219,7 @@ bool DbHandler::Write(std::shared_ptr<DataBase> data)
             break;
         }
         default:
-            LOG_ERROR("Unsupported data type : %d\n", static_cast<int>(data->dataType));
+            LOG_ERROR("Unsupported data type : %d\n", static_cast<int>(data->GetDataType()));
             return false;
     }
     return false;
@@ -237,6 +237,10 @@ bool DbHandler::WriteDumpRecord(std::shared_ptr<EventBase>& event)
     std::string attrJson = FixJson(event->attr);
     int paramIndex = 1;
     std::lock_guard<std::mutex> lock(dbFileMutex_);
+    if (!insertLeakStmt_) {
+        LOG_ERROR("Sqlite prepare failed.");
+        return false;
+    }
     Sqlite3BindInt64(insertLeakStmt_, paramIndex++, event->id);
     Sqlite3BindText(insertLeakStmt_, paramIndex++, eventType.c_str(), -1, SQLITE_STATIC);
     Sqlite3BindText(insertLeakStmt_, paramIndex++, eventSubType.c_str(), -1, SQLITE_STATIC);
@@ -267,6 +271,10 @@ bool DbHandler::WriteDumpRecord(std::shared_ptr<EventBase>& event)
 bool DbHandler::WriteTraceEvent(std::shared_ptr<TraceEvent>& event, const std::string &tableName)
 {
     std::lock_guard<std::mutex> lock(dbFileMutex_);
+    if (!insertTraceStmt_) {
+        LOG_ERROR("Sqlite prepare failed.");
+        return false;
+    }
     std::string startTime = event->startTs ? std::to_string(event->startTs) : "N/A";
     std::string endTime = event->endTs ? std::to_string(event->endTs) : "N/A";
     int paramIndex = 1;

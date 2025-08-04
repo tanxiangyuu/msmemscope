@@ -15,8 +15,15 @@ enum class DataType : uint8_t {
 class DataBase {
 public:
     virtual ~DataBase() = default;
-    explicit DataBase(DataType type) : dataType(type) {}
-    DataType dataType;
+    explicit DataBase(DataType type) : dataType_(type) {}
+
+    const DataType GetDataType()
+    {
+        return dataType_;
+    }
+
+protected:
+    DataType dataType_;
 };
 
 }
