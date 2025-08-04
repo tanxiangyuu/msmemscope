@@ -106,7 +106,7 @@ const std::unordered_map<EventSubType, std::string> EVENT_SUB_TYPE_MAP = {
     {EventSubType::ATB, "ATB"},
     {EventSubType::MINDSPORE, "MINDSPORE"},
     {EventSubType::HAL, "HAL"},
-    {EventSubType::HOST, "HAL"},
+    {EventSubType::HOST, "HOST"},
     {EventSubType::ATB_READ, "READ"},
     {EventSubType::ATB_WRITE, "WRITE"},
     {EventSubType::ATB_READ_OR_WRITE, "UNKNOWN"},
