@@ -661,8 +661,8 @@ TEST_F(TestProcess, process_host_memory_event)
     process.EventHandler(eventMap["HalHostFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
-"3,MALLOC,HAL,N/A,3,123,1234,host,123456,\"{addr:123456,size:10}\"\n"
-"54,FREE,HAL,N/A,54,123,1234,host,123456,\"{addr:123456,size:10}\"\n"
+"3,MALLOC,HOST,N/A,3,123,1234,host,123456,\"{addr:123456,size:10}\"\n"
+"54,FREE,HOST,N/A,54,123,1234,host,123456,\"{addr:123456,size:10}\"\n"
 "3,MALLOC,HAL,N/A,3,123,1234,host,12345,\"{addr:12345,size:10,MID:100}\"\n"
 "54,FREE,HAL,N/A,54,123,1234,host,12345,\"{addr:12345,size:10,MID:100}\"\n";
     std::string fileContent;
@@ -966,8 +966,8 @@ TEST_F(TestProcess, dump_event_before_malloc)
     CleanUpEventInMemoryStateManager(process);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
-"0,MALLOC,HAL,N/A,0,123,1234,host,123456,\"{addr:123456,size:10}\"\n"
-"3,MALLOC,HAL,N/A,3,123,1234,host,123456,\"{addr:123456,size:10}\"\n";
+"0,MALLOC,HOST,N/A,0,123,1234,host,123456,\"{addr:123456,size:10}\"\n"
+"3,MALLOC,HOST,N/A,3,123,1234,host,123456,\"{addr:123456,size:10}\"\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -994,9 +994,9 @@ TEST_F(TestProcess, dump_two_malloc_event)
     process.EventHandler(eventMap["HostCleanUpEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
-"3,MALLOC,HAL,N/A,3,123,1234,host,123456,\"{addr:123456,size:10}\"\n"
-"54,FREE,HAL,N/A,54,123,1234,host,123456,\"{addr:123456,size:10}\"\n"
-"0,MALLOC,HAL,N/A,0,123,1234,host,123456,\"{addr:123456,size:10}\"\n";
+"3,MALLOC,HOST,N/A,3,123,1234,host,123456,\"{addr:123456,size:10}\"\n"
+"54,FREE,HOST,N/A,54,123,1234,host,123456,\"{addr:123456,size:10}\"\n"
+"0,MALLOC,HOST,N/A,0,123,1234,host,123456,\"{addr:123456,size:10}\"\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
