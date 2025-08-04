@@ -64,3 +64,12 @@ extern "C" void free(void* ptr)
     }
     return;
 }
+
+void InitHostFlag() __attribute__((constructor));
+void InitHostFlag()
+{
+    /* malloc/free基本在所有进程都调用,包括临时子进程，而config要等建联才能拿到，如果每个进程都建联效率太低 */
+    if (std::getenv(ENABLE_CPU_IN_CMD) != nullptr) {
+        g_isReportHostMem = true;
+    }
+}
