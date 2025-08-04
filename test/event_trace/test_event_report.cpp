@@ -1,6 +1,7 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 #include <gtest/gtest.h>
 #define private public
+#include "event_trace/trace_manager/event_trace_manager.h"
 #include "event_trace/event_report.h"
 #undef private
 #include "event_trace/vallina_symbol.h"
@@ -46,6 +47,7 @@ TEST(EventReportTest, ReportMallocTestDEVICE) {
     unsigned long long testFlag = 2377900603261207558;
     MemOpSpace space = MemOpSpace::DEVICE;
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     CallStackString callStack;
     EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
 }
@@ -69,6 +71,7 @@ TEST(EventReportTest, ReportTorchNpuMallocTest) {
     memoryusage1.totalAllocated = 512;
     npuRecordMalloc->memoryUsage = memoryusage1;
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     EXPECT_TRUE(instance.ReportMemPoolRecord(buffer));
 }
 
@@ -85,7 +88,30 @@ TEST(EventReportTest, ReportTorchNpuFreeTest) {
     memoryusage1.totalAllocated = 512;
     npuRecordFree->memoryUsage = memoryusage1;
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     EXPECT_TRUE(instance.ReportMemPoolRecord(buffer));
+}
+
+TEST(EventReportTest, ReportTorchNpuConditionTest) {
+    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
+    MemPoolRecord* npuRecordFree = buffer.Cast<MemPoolRecord>();
+    npuRecordFree->recordIndex = 3;
+    auto memoryusage1 = MemoryUsage {};
+    memoryusage1.deviceIndex = 3;
+    memoryusage1.dataType = 1;
+    memoryusage1.ptr = 12345;
+    memoryusage1.allocSize = 512;
+    memoryusage1.totalAllocated = 512;
+    npuRecordFree->memoryUsage = memoryusage1;
+    instance.isReceiveServerInfo_ = true;
+
+    EventTraceManager::Instance().SetTraceStatus(EventTraceStatus::NOT_IN_TRACING);
+    EXPECT_TRUE(instance.ReportMemPoolRecord(buffer));
+    EventTraceManager::Instance().SetTraceStatus(EventTraceStatus::IN_TRACING);
+    instance.config_.collectAllNpu = false;
+    EXPECT_TRUE(instance.ReportMemPoolRecord(buffer));
+    instance.config_.collectAllNpu = true;
 }
 
 TEST(EventReportTest, ReportMallocTestHost) {
@@ -102,6 +128,7 @@ TEST(EventReportTest, ReportMallocTestHost) {
     unsigned long long testFlag = 504403158274934784;
     MemOpSpace space = MemOpSpace::HOST;
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     CallStackString callStack;
     EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
 }
@@ -117,6 +144,7 @@ TEST(EventReportTest, ReportFreeTest) {
     instance.config_.enablePyStack = true;
     uint64_t testAddr = 0x12345678;
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     CallStackString callStack;
     EXPECT_TRUE(instance.ReportFree(testAddr, callStack));
 }
@@ -133,6 +161,7 @@ TEST(EventReportTest, ReportHostMallocWithoutMstxTest) {
     uint64_t testAddr = 0x12345678;
     uint64_t testSize = 1024;
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectCpu = true;
     CallStackString callStack;
     EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize));
 }
@@ -146,6 +175,7 @@ TEST(EventReportTest, ReportHostFreeWithoutMstxTest) {
     instance.config_.eventType = eventBit.getValue();
     uint64_t testAddr = 0x12345678;
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     CallStackString callStack;
     EXPECT_TRUE(instance.ReportHostFree(testAddr));
 }
@@ -158,6 +188,7 @@ TEST(EventReportTest, ReportHostMallocTest) {
     eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
     instance.config_.eventType = eventBit.getValue();
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectCpu = true;
     auto buffer1 = RecordBuffer::CreateRecordBuffer<MstxRecord>(
         TLVBlockType::MARK_MESSAGE, "report host memory info start");
     MstxRecord* mstxRecordStart = buffer1.Cast<MstxRecord>();
@@ -185,6 +216,7 @@ TEST(EventReportTest, ReportHostFreeTest) {
     instance.config_.eventType = eventBit.getValue();
     CallStackString callStack;
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     auto buffer1 = RecordBuffer::CreateRecordBuffer<MstxRecord>(
         TLVBlockType::MARK_MESSAGE, "report host memory info start");
     MstxRecord* mstxRecordStart = buffer1.Cast<MstxRecord>();
@@ -204,6 +236,7 @@ TEST(EventReportTest, ReportHostFreeTest) {
 TEST(EventReportTest, ReportMarkTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     auto buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>();
     MstxRecord* record = buffer.Cast<MstxRecord>();
     record->rangeId = 123;
@@ -221,6 +254,7 @@ TEST(EventReportTest, ReportKernelLaunchTest) {
     instance.config_.eventType = eventBit.getValue();
     instance.config_.levelType = levelBit.getValue();
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     int16_t devId = 1;
     int16_t streamId = 1;
     int16_t taskId = 1;
@@ -235,12 +269,14 @@ TEST(EventReportTest, ReportKernelLaunchTest) {
 TEST(EventReportTest, ReportAclItfTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     EXPECT_TRUE(instance.ReportAclItf(RecordSubType::INIT));
 }
 
 TEST(EventReportTest, ReportAtbOpExecuteTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     RecordBuffer atbOpExecuteRecord = RecordBuffer::CreateRecordBuffer<AtbOpExecuteRecord>();
     EXPECT_TRUE(instance.ReportAtbOpExecute(atbOpExecuteRecord));
 }
@@ -248,6 +284,7 @@ TEST(EventReportTest, ReportAtbOpExecuteTest) {
 TEST(EventReportTest, ReportAtbKernelTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     RecordBuffer atbKernelRecord = RecordBuffer::CreateRecordBuffer<AtbKernelRecord>();
     EXPECT_TRUE(instance.ReportAtbKernel(atbKernelRecord));
 }
@@ -255,6 +292,7 @@ TEST(EventReportTest, ReportAtbKernelTest) {
 TEST(EventReportTest, ReportAtbMemAccessTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     RecordBuffer memAccessRecord = RecordBuffer::CreateRecordBuffer<MemAccessRecord>();
     std::vector<RecordBuffer> records;
     records.push_back(memAccessRecord);
@@ -265,6 +303,7 @@ TEST(EventReportTest, ReportAtenLaunchTestExpectSuccess)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     auto atenOpLaunchRecord = RecordBuffer::CreateRecordBuffer<AtenOpLaunchRecord>();
     EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord));
 }
@@ -273,6 +312,7 @@ TEST(EventReportTest, ReportAtenAccessTestExpectSuccess)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     auto memAccessRecord = RecordBuffer::CreateRecordBuffer<MemAccessRecord>();
     EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord));
 }
@@ -281,6 +321,7 @@ TEST(EventReportTest, ReportAtenLaunchTestExpextSuccess)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     auto atenOpLaunchRecord = RecordBuffer::CreateRecordBuffer<AtenOpLaunchRecord>();
     EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord));
 }
@@ -289,6 +330,7 @@ TEST(EventReportTest, ReportAtenAccessTestExpextSuccess)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     auto memAccessRecord = RecordBuffer::CreateRecordBuffer<MemAccessRecord>();
     EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord));
 }
@@ -297,6 +339,7 @@ TEST(EventReportTest, ReportKernelExcuteTestExpextSuccess)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     MemAccessRecord  memAccessRecord  {};
     CallStackString stack;
     std::string name = "test";
@@ -334,6 +377,7 @@ TEST(EventReportTest, TestReportSkipStepsNormal)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     auto buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>(TLVBlockType::MARK_MESSAGE, "step start");
     MstxRecord* mstxRecord = buffer.Cast<MstxRecord>();
     mstxRecord->markType = MarkType::RANGE_START_A;
@@ -343,29 +387,30 @@ TEST(EventReportTest, TestReportSkipStepsNormal)
     instance.config_.stepList.stepIdList[0] = 1;
     instance.config_.stepList.stepIdList[1] = 2;
     instance.config_.stepList.stepIdList[2] = 6;
-    EXPECT_EQ(instance.IsNeedSkip(), false);
+    instance.config_.collectAllNpu = true;
+    EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), false);
 
     mstxRecord->markType = MarkType::RANGE_END;
     instance.SetStepInfo(*mstxRecord);
-    EXPECT_EQ(instance.IsNeedSkip(), true);
+    EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), true);
 
     mstxRecord->markType = MarkType::RANGE_START_A;
     mstxRecord->rangeId = 9;
     instance.SetStepInfo(*mstxRecord);
-    EXPECT_EQ(instance.IsNeedSkip(), false);
+    EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), false);
 
     mstxRecord->markType = MarkType::RANGE_END;
     instance.SetStepInfo(*mstxRecord);
-    EXPECT_EQ(instance.IsNeedSkip(), true);
+    EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), true);
 
     mstxRecord->markType = MarkType::RANGE_START_A;
     mstxRecord->rangeId = 10;
     instance.SetStepInfo(*mstxRecord);
-    EXPECT_EQ(instance.IsNeedSkip(), true);
+    EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), true);
 
     mstxRecord->markType = MarkType::RANGE_END;
     instance.SetStepInfo(*mstxRecord);
-    EXPECT_EQ(instance.IsNeedSkip(), true);
+    EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), true);
 
     ResetEventReportStepInfo();
 }
@@ -374,11 +419,12 @@ TEST(EventReportTest, TestReportSkipStepsWithNoMstx)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     instance.config_.stepList.stepCount = 3;
     instance.config_.stepList.stepIdList[0] = 1;
     instance.config_.stepList.stepIdList[1] = 2;
     instance.config_.stepList.stepIdList[2] = 6;
-    EXPECT_EQ(instance.IsNeedSkip(), true);
+    EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), true);
 
     ResetEventReportStepInfo();
 }
@@ -387,6 +433,7 @@ TEST(EventReportTest, TestReportSkipStepsWithOtherMessageMstx)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     auto buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>(
         TLVBlockType::MARK_MESSAGE, "report host memory info start");
     MstxRecord* mstxRecord = buffer.Cast<MstxRecord>();
@@ -397,7 +444,7 @@ TEST(EventReportTest, TestReportSkipStepsWithOtherMessageMstx)
     instance.config_.stepList.stepIdList[0] = 1;
     instance.config_.stepList.stepIdList[1] = 2;
     instance.config_.stepList.stepIdList[2] = 6;
-    EXPECT_EQ(instance.IsNeedSkip(), true);
+    EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), true);
 
     ResetEventReportStepInfo();
 }
@@ -406,6 +453,7 @@ TEST(EventReportTest, TestReportSkipStepsWithMstxEndMismatch)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
 
     auto buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>(TLVBlockType::MARK_MESSAGE, "step start");
     MstxRecord* mstxRecord = buffer.Cast<MstxRecord>();
@@ -416,12 +464,12 @@ TEST(EventReportTest, TestReportSkipStepsWithMstxEndMismatch)
     instance.config_.stepList.stepIdList[0] = 1;
     instance.config_.stepList.stepIdList[1] = 2;
     instance.config_.stepList.stepIdList[2] = 6;
-    EXPECT_EQ(instance.IsNeedSkip(), false);
+    EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), false);
 
     mstxRecord->markType = MarkType::RANGE_END;
     mstxRecord->rangeId = 9;
     instance.SetStepInfo(*mstxRecord);
-    EXPECT_EQ(instance.IsNeedSkip(), false);
+    EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), false);
 
     ResetEventReportStepInfo();
 }
@@ -430,6 +478,7 @@ TEST(EventReportTest, TestReportSkipStepsWithOnlyMstxEnd)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
+    instance.config_.collectAllNpu = true;
     
     instance.config_.stepList.stepCount = 3;
     instance.config_.stepList.stepIdList[0] = 1;
@@ -440,7 +489,7 @@ TEST(EventReportTest, TestReportSkipStepsWithOnlyMstxEnd)
     mstxRecord.markType = MarkType::RANGE_END;
     mstxRecord.rangeId = 9;
     instance.SetStepInfo(mstxRecord);
-    EXPECT_EQ(instance.IsNeedSkip(), true);
+    EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), true);
 
     ResetEventReportStepInfo();
 }
@@ -451,6 +500,7 @@ TEST(EventReportTest, ReportTestWithNoReceiveServerInfo) {
     uint64_t testSize = 1024;
     unsigned long long flag = 0x1234;
     CallStackString callStack;
+    instance.config_.collectCpu = true;
     EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, flag, callStack));
     EXPECT_TRUE(instance.ReportFree(testAddr, callStack));
 

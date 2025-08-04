@@ -9,6 +9,7 @@
 #include <mutex>
 #include <thread>
 #include <atomic>
+#include <unordered_set>
 #include "client_process.h"
 #include "kernel_hooks/runtime_hooks.h"
 #include "record_info.h"
@@ -18,7 +19,7 @@
 #include "trace_manager/event_trace_manager.h"
 
 namespace Leaks {
-extern thread_local bool g_isReportHostMem;
+extern bool g_isReportHostMem;
 extern thread_local bool g_isInReportFunction;
 
 constexpr mode_t REGULAR_MODE_MASK = 0177;
@@ -67,7 +68,7 @@ private:
     explicit EventReport(CommType type);
     ~EventReport() = default;
 
-    bool IsNeedSkip(); // 支持采集指定step
+    bool IsNeedSkip(int32_t devid);
     void SetStepInfo(const MstxRecord &mstxRecord);
 
     // socket通信在某些场景下，client调用connect返回true并不一定代表真实连接成功
@@ -80,7 +81,6 @@ private:
 
     MstxStepInfo stepInfo_;
     std::mutex mutex_;
-    std::mutex threadMutex_;
     std::mutex rangeIdTableMutex_;
 
     Config config_;

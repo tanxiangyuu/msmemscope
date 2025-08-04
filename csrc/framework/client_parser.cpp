@@ -34,6 +34,7 @@ enum class OptVal : int32_t {
     EVENT_TRACE_TYPE,
     DATA_FORMAT,
     ANALYSIS,
+    DEVICE,
 };
 constexpr uint16_t INPUT_STR_MAX_LEN = 4096;
 
@@ -88,6 +89,9 @@ void ShowHelpInfo()
         << "    --output=path                            The path to store the generated files." << std::endl
         << "    --log-level                              Set log level to <level> [warn]." << std::endl
         << "    --data-format=<db|csv>                   Set data format to <format> (default:csv)." << std::endl
+        << "    --device=<cpu|npu|npu:x>,...             Set device(s) to collect, 'cpu' for cpu, 'npu' for all npu,"
+        << std::endl
+        << "                                             and 'npu:x' for npu in slot x (default:npu)." << std::endl
         << "    --collect-mode=<full|custom>             Set data collect mode. Default: full." << std::endl;
 }
 
@@ -216,6 +220,7 @@ std::vector<option> GetLongOptArray()
         {"log-level", required_argument, nullptr, static_cast<int32_t>(OptVal::LOG_LEVEL)},
         {"collect-mode", required_argument, nullptr, static_cast<int32_t>(OptVal::COLLECT_MODE)},
         {"data-format", required_argument, nullptr, static_cast<int32_t>(OptVal::DATA_FORMAT)},
+        {"device", required_argument, nullptr, static_cast<int32_t>(OptVal::DEVICE)},
         {nullptr, 0, nullptr, 0},
     };
     return longOpts;
@@ -414,16 +419,16 @@ static void ParseDataLevel(const std::string param, UserCommand &userCommand)
     std::regex dividePattern(R"([，,])");
     std::sregex_token_iterator it(param.begin(), param.end(), dividePattern, -1);
     std::sregex_token_iterator end;
-
+ 
     std::regex pattern(R"(^(0|1|op|launch)$)");
-
+ 
     auto parseFailed = [&userCommand](void) {
         std::cout << "[msleaks] ERROR: invalid data trace level input." << std::endl;
         userCommand.printHelpInfo = true;
     };
-
+ 
     BitField<decltype(userCommand.config.levelType)> levelBit;
-
+ 
     while (it != end) {
         std::string level = it->str();
         if (!level.empty()) {
@@ -438,7 +443,7 @@ static void ParseDataLevel(const std::string param, UserCommand &userCommand)
         }
         it++;
     }
-
+ 
     userCommand.config.levelType = levelBit.getValue();
     return;
 }
@@ -623,6 +628,45 @@ static void ParseDataFormat(const std::string &param, UserCommand &userCommand)
     return;
 }
 
+static void ParseDevice(const std::string &param, UserCommand &userCommand)
+{
+    std::regex dividePattern(R"([，,])");
+    std::sregex_token_iterator  it(param.begin(), param.end(), dividePattern, -1);
+    std::sregex_token_iterator  end;
+
+    auto parseFailed = [&userCommand](void) {
+        std::cout << "[msleaks] ERROR: invalid device." << std::endl;
+        userCommand.printHelpInfo = true;
+    };
+
+    BitField<decltype(userCommand.config.npuSlots)> slotsBit;
+    userCommand.config.collectAllNpu = false;
+
+    while (it != end) {
+        std::string device = it->str();
+        if (device == "npu") {
+            userCommand.config.collectAllNpu = true;
+        } else if (device == "cpu") {
+            userCommand.config.collectCpu = true;
+            setenv(ENABLE_CPU_IN_CMD, "", 0);
+        } else if (device.substr(0, 4) == "npu:") {
+            std::string slot = device.substr(4);
+            uint32_t slotNum = 0;
+            if (!Utility::StrToUint32(slotNum, slot) ||
+                slotNum >= std::numeric_limits<decltype(userCommand.config.npuSlots)>::digits) {
+                return parseFailed();
+            }
+            slotsBit.setBit(slotNum);
+        } else {
+            return parseFailed();
+        }
+        it++;
+    }
+
+    userCommand.config.npuSlots = slotsBit.getValue();
+    return;
+}
+
 static void ParseCollectMode(const std::string &param, UserCommand &userCommand)
 {
     if (param == "full") {
@@ -684,6 +728,9 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
         case static_cast<int32_t>(OptVal::DATA_FORMAT):
             ParseDataFormat(param, userCommand);
             break;
+        case static_cast<int32_t>(OptVal::DEVICE):
+            ParseDevice(param, userCommand);
+            break;
         case static_cast<int32_t>(OptVal::COLLECT_MODE):
             ParseCollectMode(param, userCommand);
             break;
@@ -705,6 +752,7 @@ void ClientParser::InitialUserCommand(UserCommand &userCommand)
     userCommand.config.levelType = 1;
     userCommand.config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
     userCommand.config.logLevel = static_cast<uint8_t>(LogLv::WARN);
+    userCommand.config.collectAllNpu = true;
     userCommand.config.collectMode = static_cast<uint8_t>(CollectMode::FULL);
 
     BitField<decltype(userCommand.config.eventType)> eventBit;
@@ -722,6 +770,8 @@ void ClientParser::InitialUserCommand(UserCommand &userCommand)
     (void)memset_s(userCommand.config.watchConfig.end, WATCH_OP_DIR_MAX_LENGTH, 0, WATCH_OP_DIR_MAX_LENGTH);
     userCommand.config.watchConfig.outputId = UINT32_MAX;
     userCommand.config.watchConfig.fullContent = false;
+
+    unsetenv(ENABLE_CPU_IN_CMD);
 }
 
 UserCommand ClientParser::Parse(int32_t argc, char **argv)
