@@ -11,6 +11,7 @@ namespace Leaks {
 
 const std::string DecomposeAnalyzer::cannStr = "CANN";
 const std::string DecomposeAnalyzer::ptaStr = "PTA";
+const std::string DecomposeAnalyzer::ptaWorkspaceStr = "PTA_WORKSPACE";
 const std::string DecomposeAnalyzer::atbStr = "ATB";
 const std::string DecomposeAnalyzer::mindsporeStr = "MINDSPORE";
 const size_t DecomposeAnalyzer::ptaStrLen = DecomposeAnalyzer::ptaStr.length();
@@ -67,8 +68,13 @@ void DecomposeAnalyzer::InitOwner(std::shared_ptr<MemoryEvent>& event, MemorySta
             state->userDefinedOwner = event->describeOwner;
             break;
         }
-        case EventSubType::PTA: {
+        case EventSubType::PTA_CACHING: {
             state->leaksDefinedOwner = ptaStr;
+            state->userDefinedOwner = event->describeOwner;
+            break;
+        }
+        case EventSubType::PTA_WORKSPACE: {
+            state->leaksDefinedOwner = ptaWorkspaceStr;
             state->userDefinedOwner = event->describeOwner;
             break;
         }

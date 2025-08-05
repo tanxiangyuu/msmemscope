@@ -30,7 +30,7 @@ TEST(DataHandler, CsvHandler_Write_LeakRecord)
     std::shared_ptr<EventBase> data1 = std::make_shared<EventBase>();
     data1->id = 1;
     data1->eventType = EventBaseType::MALLOC;
-    data1->eventSubType = EventSubType::PTA;
+    data1->eventSubType = EventSubType::PTA_CACHING;
     data1->name = "obj1";
     data1->timestamp = 123456789;
     data1->pid = 1234;
@@ -84,7 +84,7 @@ TEST(DataHandler, DbHandler_Write_LeakRecord)
     std::shared_ptr<EventBase> data1 = std::make_shared<EventBase>();
     data1->id = 1;
     data1->eventType = EventBaseType::MALLOC;
-    data1->eventSubType = EventSubType::PTA;
+    data1->eventSubType = EventSubType::PTA_CACHING;
     data1->name = "obj1";
     data1->timestamp = 123456789;
     data1->pid = 1234;

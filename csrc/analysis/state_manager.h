@@ -13,7 +13,8 @@ namespace Leaks {
 enum class PoolType : uint8_t {
     HOST = 0,
     HAL,
-    PTA,
+    PTA_CACHING,
+    PTA_WORKSPACE,
     MINDSPORE,
     ATB,
     INVALID,

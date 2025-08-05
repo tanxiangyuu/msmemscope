@@ -26,6 +26,7 @@ private:
 
     static const std::string cannStr;
     static const std::string ptaStr;
+    static const std::string ptaWorkspaceStr;
     static const std::string atbStr;
     static const std::string mindsporeStr;
     static const size_t ptaStrLen;

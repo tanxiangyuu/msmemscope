@@ -1,7 +1,7 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 
-#ifndef PTA_MEMORY_POOL_TRACE_H
-#define PTA_MEMORY_POOL_TRACE_H
+#ifndef PTA_WORKSPACE_POOL_TRACE_H
+#define PTA_WORKSPACE_POOL_TRACE_H
 
 #include <mutex>
 #include <unordered_map>
@@ -10,14 +10,14 @@
 
 namespace Leaks {
 
-class PTAMemoryPoolTrace : public MemoryPoolTraceBase {
+class PTAWorkspacePoolTrace : public MemoryPoolTraceBase {
 public:
-    PTAMemoryPoolTrace(const PTAMemoryPoolTrace&) = delete;
-    PTAMemoryPoolTrace& operator=(const PTAMemoryPoolTrace&) = delete;
+    PTAWorkspacePoolTrace(const PTAWorkspacePoolTrace&) = delete;
+    PTAWorkspacePoolTrace& operator=(const PTAWorkspacePoolTrace&) = delete;
 
-    static PTAMemoryPoolTrace& GetInstance()
+    static PTAWorkspacePoolTrace& GetInstance()
     {
-        static PTAMemoryPoolTrace instance;
+        static PTAWorkspacePoolTrace instance;
         return instance;
     }
 
@@ -32,10 +32,10 @@ public:
     mstxDomainHandle_t CreateDomain(const std::string &domainName) override;
 
 private:
-    PTAMemoryPoolTrace();
-    ~PTAMemoryPoolTrace() override;
+    PTAWorkspacePoolTrace();
+    ~PTAWorkspacePoolTrace() override;
 
-    mstxDomainHandle_t ptaDomain_ { nullptr };
+    mstxDomainHandle_t ptaWorkspaceDomain_ { nullptr };
     std::unordered_map<uint32_t, MemoryUsage> memUsageMp_; // 单进程可能涉及多张卡
     std::unordered_map<const void*, mstxMemVirtualRangeDesc_t> regionHandleMp_;
     std::unordered_map<const void*, mstxMemVirtualRangeDesc_t> heapHandleMp_;

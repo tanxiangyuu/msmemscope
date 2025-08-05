@@ -38,7 +38,7 @@ TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_sucess) {
     ClientId clientId = 0;
 
     MemPoolRecord record1;
-    record1.type = RecordType::TORCH_NPU_RECORD;
+    record1.type = RecordType::PTA_CACHING_POOL_RECORD;
     record1.recordIndex = 1;
     auto memoryusage1 = MemoryUsage {};
     memoryusage1.deviceIndex = 0;
@@ -49,7 +49,7 @@ TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_sucess) {
     record1.memoryUsage = memoryusage1;
 
     MemPoolRecord record2;
-    record2.type = RecordType::TORCH_NPU_RECORD;
+    record2.type = RecordType::PTA_CACHING_POOL_RECORD;
     record2.recordIndex = 2;
     auto memoryusage2 = MemoryUsage {};
     memoryusage2.deviceIndex = 0;
@@ -91,7 +91,7 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks_warning)
     // 经过两个step的内存
     auto buffer1 = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* record1 = buffer1.Cast<MemPoolRecord>();
-    record1->type = RecordType::TORCH_NPU_RECORD;
+    record1->type = RecordType::PTA_CACHING_POOL_RECORD;
     record1->recordIndex = 1;
     auto memoryusage1 = MemoryUsage {};
     memoryusage1.deviceIndex = 0;
@@ -130,7 +130,7 @@ TEST(StepInnerAnalyzerTest, do_npu_malloc_record_expect_sucess) {
 
     auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
-    record->type = RecordType::TORCH_NPU_RECORD;
+    record->type = RecordType::PTA_CACHING_POOL_RECORD;
     record->recordIndex = 1;
     auto memoryusage = MemoryUsage {};
     memoryusage.deviceType = 20;
@@ -162,7 +162,7 @@ TEST(StepInnerAnalyzerTest, do_npu_malloc_record_expect_double_malloc) {
 
     auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
-    record->type = RecordType::TORCH_NPU_RECORD;
+    record->type = RecordType::PTA_CACHING_POOL_RECORD;
     record->recordIndex = 1;
     auto memoryusage = MemoryUsage {};
     memoryusage.deviceIndex = 0;
@@ -174,7 +174,7 @@ TEST(StepInnerAnalyzerTest, do_npu_malloc_record_expect_double_malloc) {
     // 地址重复的申请
     auto double_record_buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* double_record = double_record_buffer.Cast<MemPoolRecord>();
-    double_record->type = RecordType::TORCH_NPU_RECORD;
+    double_record->type = RecordType::PTA_CACHING_POOL_RECORD;
     double_record->recordIndex = 2;
     auto double_memoryusage = MemoryUsage {};
     double_memoryusage.deviceIndex = 0;
@@ -202,7 +202,7 @@ TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_free_error) {
 
     auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
-    record->type = RecordType::TORCH_NPU_RECORD;
+    record->type = RecordType::PTA_CACHING_POOL_RECORD;
     record->recordIndex = 2;
     auto memoryusage = MemoryUsage {};
     memoryusage.deviceType = 20;
@@ -252,9 +252,9 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_torch_leaks) {
     // step前后allocated内存不一致
     auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
-    record->type = RecordType::TORCH_NPU_RECORD;
+    record->type = RecordType::PTA_CACHING_POOL_RECORD;
     record->recordIndex = 1;
-    record->type = RecordType::TORCH_NPU_RECORD;
+    record->type = RecordType::PTA_CACHING_POOL_RECORD;
     auto memoryusage = MemoryUsage {};
     memoryusage.deviceIndex = 0;
     memoryusage.dataType = 0;
@@ -530,12 +530,12 @@ TEST(StepInnerAnalyzerTest, do_updateallocated_step_0_update_0)
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
     npumemusage.mstxStep = 0;
-    npumemusage.poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMaxAllocated = 0;
-    npumemusage.poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMinAllocated = 0;
+    npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMaxAllocated = 0;
+    npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMinAllocated = 0;
     stepInner.npuMemUsages_.insert({0, npumemusage});
-    stepInner.UpdateAllocated(0, RecordType::TORCH_NPU_RECORD, 100);
-    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMaxAllocated, 0);
-    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMinAllocated, 0);
+    stepInner.UpdateAllocated(0, RecordType::PTA_CACHING_POOL_RECORD, 100);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMaxAllocated, 0);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMinAllocated, 0);
 }
 
 TEST(StepInnerAnalyzerTest, do_updateallocated_step_2_update_allocated)
@@ -550,12 +550,12 @@ TEST(StepInnerAnalyzerTest, do_updateallocated_step_2_update_allocated)
     NpuMemUsage npumemusage;
     npumemusage.mstxStep = 2;
 
-    npumemusage.poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMaxAllocated = 20;
-    npumemusage.poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMinAllocated = 20;
+    npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMaxAllocated = 20;
+    npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMinAllocated = 20;
     stepInner.npuMemUsages_.insert({0, npumemusage});
-    stepInner.UpdateAllocated(0, RecordType::TORCH_NPU_RECORD, 100);
-    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMaxAllocated, 20);
-    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMinAllocated, 20);
+    stepInner.UpdateAllocated(0, RecordType::PTA_CACHING_POOL_RECORD, 100);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMaxAllocated, 20);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMinAllocated, 20);
 }
 
 TEST(StepInnerAnalyzerTest, do_checkgap_minmaxallocratio_equal_0_expect_reset_allocated)
@@ -569,12 +569,12 @@ TEST(StepInnerAnalyzerTest, do_checkgap_minmaxallocratio_equal_0_expect_reset_al
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
     npumemusage.mstxStep = 2;
-    npumemusage.poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMaxAllocated = 100;
-    npumemusage.poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMinAllocated = 20;
+    npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMaxAllocated = 100;
+    npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMinAllocated = 20;
     stepInner.npuMemUsages_.insert({0, npumemusage});
     stepInner.CheckGap(0);
-    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMaxAllocated, 0);
-    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMinAllocated, 0);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMaxAllocated, 0);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMinAllocated, 0);
 }
 
 TEST(StepInnerAnalyzerTest, do_checkgap_minmaxallocratio_expect_true_allocated)
@@ -590,13 +590,13 @@ TEST(StepInnerAnalyzerTest, do_checkgap_minmaxallocratio_expect_true_allocated)
     GapInfo gapinfo;
     gapinfo.minMaxAllocRatio = 0.1;
     npumemusage.mstxStep = 2;
-    npumemusage.poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMaxAllocated = 100;
-    npumemusage.poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMinAllocated = 20;
-    npumemusage.poolStatusTable[RecordType::TORCH_NPU_RECORD].maxGapInfo = gapinfo;
+    npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMaxAllocated = 100;
+    npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMinAllocated = 20;
+    npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].maxGapInfo = gapinfo;
     stepInner.npuMemUsages_.insert({0, npumemusage});
     stepInner.CheckGap(0);
-    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMaxAllocated, 0);
-    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMinAllocated, 0);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMaxAllocated, 0);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMinAllocated, 0);
 }
 
 TEST(StepInnerAnalyzerRecordFuncTest, Recordtest)
@@ -629,7 +629,7 @@ TEST(StepInnerAnalyzerRecordFuncTest, recordMallocSuccess) {
     ClientId clientId = 1;
 
     MemPoolRecord record1;
-    record1.type = RecordType::TORCH_NPU_RECORD;
+    record1.type = RecordType::PTA_CACHING_POOL_RECORD;
     record1.recordIndex = 1;
     auto memoryusage1 = MemoryUsage {};
     memoryusage1.deviceIndex = 0;
@@ -657,7 +657,7 @@ TEST(StepInnerAnalyzerRecordFuncTest, recordFreeSuccess) {
 
     auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* record1 = buffer.Cast<MemPoolRecord>();
-    record1->type = RecordType::TORCH_NPU_RECORD;
+    record1->type = RecordType::PTA_CACHING_POOL_RECORD;
     record1->recordIndex = 1;
     auto memoryusage1 = MemoryUsage {};
     memoryusage1.deviceIndex = 0;
@@ -731,12 +731,12 @@ TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedUpdateMaxTest)
     NpuMemUsage npumemusage;
     npumemusage.mstxStep = 2;
 
-    npumemusage.poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMaxAllocated = 20;
-    npumemusage.poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMinAllocated = 20;
+    npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMaxAllocated = 20;
+    npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMinAllocated = 20;
     stepInner.npuMemUsages_.insert({0, npumemusage});
-    stepInner.UpdateAllocated(0, RecordType::TORCH_NPU_RECORD, 100);
-    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMaxAllocated, 100);
-    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMinAllocated, 20);
+    stepInner.UpdateAllocated(0, RecordType::PTA_CACHING_POOL_RECORD, 100);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMaxAllocated, 100);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMinAllocated, 20);
 }
 
 TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedInitTest)
@@ -754,13 +754,13 @@ TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedInitTest)
     NpuMemUsage npumemusage;
     npumemusage.mstxStep = 2;
 
-    npumemusage.poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMaxAllocated = 0;
-    npumemusage.poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMinAllocated = 0;
+    npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMaxAllocated = 0;
+    npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMinAllocated = 0;
     stepInner.npuMemUsages_.insert({0, npumemusage});
-    stepInner.UpdateAllocated(0, RecordType::TORCH_NPU_RECORD, 100);
-    stepInner.UpdateAllocated(0, RecordType::TORCH_NPU_RECORD, 200);
-    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMaxAllocated, 200);
-    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::TORCH_NPU_RECORD].stepMinAllocated, 100);
+    stepInner.UpdateAllocated(0, RecordType::PTA_CACHING_POOL_RECORD, 100);
+    stepInner.UpdateAllocated(0, RecordType::PTA_CACHING_POOL_RECORD, 200);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMaxAllocated, 200);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMinAllocated, 100);
 }
 
 TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedreturnTest)
@@ -798,10 +798,10 @@ TEST(StepInnerAnalyzerAddDurationTest, AddDurationTest)
 
     Leaks::NpuMemInfo memInfo;
     memInfo.duration = 1;
-    npumemusage.poolOpTable.insert({Leaks::NpuMemKey(0, RecordType::TORCH_NPU_RECORD), memInfo});
+    npumemusage.poolOpTable.insert({Leaks::NpuMemKey(0, RecordType::PTA_CACHING_POOL_RECORD), memInfo});
     stepInner.npuMemUsages_.insert({0, npumemusage});
     stepInner.AddDuration(0);
-    ASSERT_EQ(stepInner.npuMemUsages_[0].poolOpTable[Leaks::NpuMemKey(0, RecordType::TORCH_NPU_RECORD)].duration, 2);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].poolOpTable[Leaks::NpuMemKey(0, RecordType::PTA_CACHING_POOL_RECORD)].duration, 2);
 }
 
 TEST(StepInnerAnalyzerAddDurationTest, AddDurationReturnTest)
@@ -818,10 +818,10 @@ TEST(StepInnerAnalyzerAddDurationTest, AddDurationReturnTest)
 
     Leaks::NpuMemInfo memInfo;
     memInfo.duration = 1;
-    npumemusage.poolOpTable.insert({Leaks::NpuMemKey(0, RecordType::TORCH_NPU_RECORD), memInfo});
+    npumemusage.poolOpTable.insert({Leaks::NpuMemKey(0, RecordType::PTA_CACHING_POOL_RECORD), memInfo});
     stepInner.npuMemUsages_.insert({1, npumemusage});
     stepInner.AddDuration(0); // 不存在的deviceID，提前返回
-    ASSERT_EQ(stepInner.npuMemUsages_[1].poolOpTable[Leaks::NpuMemKey(0, RecordType::TORCH_NPU_RECORD)].duration, 1);
+    ASSERT_EQ(stepInner.npuMemUsages_[1].poolOpTable[Leaks::NpuMemKey(0, RecordType::PTA_CACHING_POOL_RECORD)].duration, 1);
 }
 
 TEST(StepInnerAnalyzerSetStepIdFuncTest, SetStepIdTest)

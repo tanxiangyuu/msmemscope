@@ -143,13 +143,13 @@ TEST(TestRecordToEvent, transfer_host_malloc_free)
     EXPECT_EQ(event2->device, "host");
 }
  
-TEST(TestRecordToEvent, transfer_pta_malloc_free)
+TEST(TestRecordToEvent, transfer_pta_caching_malloc_free)
 {
     Config config;
     Process process(config);
  
     auto record1 = MemPoolRecord{};
-    record1.type = RecordType::TORCH_NPU_RECORD;
+    record1.type = RecordType::PTA_CACHING_POOL_RECORD;
     record1.recordIndex = 1;
     record1.timestamp = 12;
     record1.pid = 123;
@@ -163,13 +163,13 @@ TEST(TestRecordToEvent, transfer_pta_malloc_free)
  
     auto event1 = std::dynamic_pointer_cast<MemoryEvent>(
         process.RecordToEvent(static_cast<RecordBase*>(&record1)));
-    EXPECT_EQ(event1->poolType, PoolType::PTA);
+    EXPECT_EQ(event1->poolType, PoolType::PTA_CACHING);
     EXPECT_EQ(event1->device, "1");
     EXPECT_EQ(event1->eventType, EventBaseType::MALLOC);
     EXPECT_EQ(event1->describeOwner, "");
  
     auto record2 = MemPoolRecord{};
-    record2.type = RecordType::TORCH_NPU_RECORD;
+    record2.type = RecordType::PTA_CACHING_POOL_RECORD;
     record2.recordIndex = 1;
     record2.timestamp = 12;
     record2.pid = 123;
@@ -182,11 +182,55 @@ TEST(TestRecordToEvent, transfer_pta_malloc_free)
     record2.memoryUsage.totalAllocated = 0;
  
     auto event2 = process.RecordToEvent(static_cast<RecordBase*>(&record2));
-    EXPECT_EQ(event2->poolType, PoolType::PTA);
+    EXPECT_EQ(event2->poolType, PoolType::PTA_CACHING);
     EXPECT_EQ(event2->device, "1");
     EXPECT_EQ(event2->eventType, EventBaseType::FREE);
 }
+
+TEST(TestRecordToEvent, transfer_pta_workspace_malloc_free)
+{
+    Config config;
+    Process process(config);
  
+    auto record1 = MemPoolRecord{};
+    record1.type = RecordType::PTA_WORKSPACE_POOL_RECORD;
+    record1.recordIndex = 1;
+    record1.timestamp = 12;
+    record1.pid = 123;
+    record1.tid = 1234;
+    record1.memoryUsage.dataType = 0;
+    record1.memoryUsage.ptr = 0x1234;
+    record1.memoryUsage.deviceIndex = 1;
+    record1.memoryUsage.allocSize = 10;
+    record1.memoryUsage.totalReserved = 10;
+    record1.memoryUsage.totalAllocated = 10;
+ 
+    auto event1 = std::dynamic_pointer_cast<MemoryEvent>(
+        process.RecordToEvent(static_cast<RecordBase*>(&record1)));
+    EXPECT_EQ(event1->poolType, PoolType::PTA_WORKSPACE);
+    EXPECT_EQ(event1->device, "1");
+    EXPECT_EQ(event1->eventType, EventBaseType::MALLOC);
+    EXPECT_EQ(event1->describeOwner, "");
+ 
+    auto record2 = MemPoolRecord{};
+    record2.type = RecordType::PTA_WORKSPACE_POOL_RECORD;
+    record2.recordIndex = 1;
+    record2.timestamp = 12;
+    record2.pid = 123;
+    record2.tid = 1234;
+    record2.memoryUsage.dataType = 1;
+    record2.memoryUsage.ptr = 0x1234;
+    record2.memoryUsage.deviceIndex = 1;
+    record2.memoryUsage.allocSize = 10;
+    record2.memoryUsage.totalReserved = 0;
+    record2.memoryUsage.totalAllocated = 0;
+ 
+    auto event2 = process.RecordToEvent(static_cast<RecordBase*>(&record2));
+    EXPECT_EQ(event2->poolType, PoolType::PTA_WORKSPACE);
+    EXPECT_EQ(event2->device, "1");
+    EXPECT_EQ(event2->eventType, EventBaseType::FREE);
+}
+
 TEST(TestRecordToEvent, transfer_atb_malloc_free)
 {
     Config config;

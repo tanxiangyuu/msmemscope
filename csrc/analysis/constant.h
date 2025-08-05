@@ -102,7 +102,8 @@ const std::unordered_map<EventBaseType, std::string> EVENT_BASE_TYPE_MAP = {
 };
 
 const std::unordered_map<EventSubType, std::string> EVENT_SUB_TYPE_MAP = {
-    {EventSubType::PTA, "PTA"},
+    {EventSubType::PTA_CACHING, "PTA"},  // 兼容性考虑，对外展示保持不变
+    {EventSubType::PTA_WORKSPACE, "PTA_WORKSPACE"},
     {EventSubType::ATB, "ATB"},
     {EventSubType::MINDSPORE, "MINDSPORE"},
     {EventSubType::HAL, "HAL"},
