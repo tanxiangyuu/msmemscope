@@ -161,11 +161,11 @@ namespace atb {
         return true;
     }
 
-    static bool LeaksReportAtbKernel(std::string &name, const std::string &dirPath)
+    static void LeaksParseKernelPath(bool& isBeforeLaunch, std::string& name, const std::string& dirPath)
     {
         auto beforePos = dirPath.find("/before");
         auto afterPos = dirPath.find("/after");
-        bool isBeforeLaunch = true;
+        isBeforeLaunch = true;
         std::string path;
         if (beforePos != std::string::npos) {
             path = dirPath.substr(0, beforePos);
@@ -173,8 +173,9 @@ namespace atb {
             isBeforeLaunch = false;
             path = dirPath.substr(0, afterPos);
         } else {
+            name = "INVALID";
             CLIENT_ERROR_LOG("Cannot get kernel path.\n");
-            return false;
+            return;
         }
 
         name = path;
@@ -182,6 +183,14 @@ namespace atb {
         if (lastSlashPos != std::string::npos) {
             name = name.substr(lastSlashPos + 1);
         }
+    }
+
+    static bool LeaksReportAtbKernel(const std::string& name, const std::string& dirPath, const bool& isBeforeLaunch)
+    {
+        if (name == "INVALID") {
+            return false;
+        }
+
         std::ostringstream oss;
         oss << "path:" << dirPath;
         std::string params = oss.str();
@@ -301,10 +310,13 @@ extern "C" void _ZN3atb9StoreUtil15SaveLaunchParamEPvRKN3Mki11LaunchParamERKNSt7
         KernelExcute(stream, cDirPath, getOutTensors(const_cast<Mki::LaunchParam*>(&launchParam)), AccessMemType::ATB);
     }
     std::string name;
+    bool isBeforeLaunch;
+    atb::LeaksParseKernelPath(isBeforeLaunch, name, dirPath);
+
     static BitField<decltype(config.eventType)> eventType(config.eventType);
     static bool isReportLaunch = eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
     if (isReportLaunch) {
-        if (!atb::LeaksReportAtbKernel(name, dirPath)) {
+        if (!atb::LeaksReportAtbKernel(name, dirPath, isBeforeLaunch)) {
             return;
         }
     }
