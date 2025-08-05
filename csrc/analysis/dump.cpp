@@ -4,6 +4,7 @@
 
 #include "event_dispatcher.h"
 #include "memory_state_manager.h"
+#include "constant.h"
 
 namespace Leaks {
 
@@ -115,6 +116,7 @@ void Dump::DumpMemoryEvent(std::shared_ptr<MemoryEvent>& event, MemoryState* sta
 {
     // 组装attr
     std::string attr;
+    attr += "allocation_id:" + std::to_string(state->allocationId) + ",";
     attr += "addr:" + std::to_string(event->addr) + ",";
     attr += "size:" + std::to_string(event->size) + ",";
     if (event->eventType != EventBaseType::ACCESS
@@ -123,10 +125,10 @@ void Dump::DumpMemoryEvent(std::shared_ptr<MemoryEvent>& event, MemoryState* sta
         attr += "total:" + std::to_string(event->total) + ",";
         attr += "used:" + std::to_string(event->used) + ",";
     }
-    if (event->eventSubType == EventSubType::HAL) {
-        attr += "MID:" + std::to_string(event->moduleId) + ",";
-    }
     if (event->eventType == EventBaseType::ACCESS) {
+        if (PoolTypeMap.find(event->poolType) != PoolTypeMap.end()) {
+            attr += "type:" + PoolTypeMap.at(event->poolType) + ",";
+        }
         attr += event->attr + ",";
     }
     if (event->eventType == EventBaseType::MALLOC
@@ -134,7 +136,7 @@ void Dump::DumpMemoryEvent(std::shared_ptr<MemoryEvent>& event, MemoryState* sta
         attr += "owner:" + state->leaksDefinedOwner + state->userDefinedOwner + ",";
     }
     if (event->eventType == EventBaseType::MALLOC && !state->inefficientType.empty()) {
-        attr += "inefficient type:" + state->inefficientType + ",";
+        attr += "inefficient_type:" + state->inefficientType + ",";
     }
     if (!attr.empty() && attr.back() == ',') {
         attr.pop_back();
