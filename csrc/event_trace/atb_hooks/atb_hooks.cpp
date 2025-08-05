@@ -22,11 +22,11 @@ namespace atb {
         std::ostringstream oss;
         oss << "dtype:" << LeaksEnumToString(tensor.desc.dtype)
             << ",format:" << LeaksEnumToString(tensor.desc.format)
-            << ",shape:";
+            << ",shape:[";
         for (size_t i = 0; i < tensor.desc.shape.dimNum; i++) {
-            oss << tensor.desc.shape.dims[i] << " ";
+            oss << tensor.desc.shape.dims[i] << ",";
         }
-        oss << ",type:atb tensor";
+        oss << "]";
         return oss.str();
     }
 
@@ -35,19 +35,19 @@ namespace atb {
         std::ostringstream oss;
         oss << "dtype:" << LeaksEnumToString(tensor.desc.dtype)
             << ",format:" << LeaksEnumToString(tensor.desc.format)
-            << ",shape:";
+            << ",shape:[";
         for (auto& dim : tensor.desc.dims) {
-            oss << dim << " ";
+            oss << dim << ",";
         }
-        oss << ",type:kernel tensor";
+        oss << "]";
         return oss.str();
     }
 
     static std::string LeaksGetOpParams(const atb::RunnerVariantPack& runnerVariantPack, const std::string& path)
     {
         std::ostringstream oss;
-        oss << "path:" << path << ",workspace ptr:"
-            << static_cast<void*>(runnerVariantPack.workspaceBuffer) << ",workspace size:"
+        oss << "path:" << path << ",workspace_ptr:"
+            << static_cast<void*>(runnerVariantPack.workspaceBuffer) << ",workspace_size:"
             << Utility::GetAddResult(runnerVariantPack.workspaceBufferSize, runnerVariantPack.intermediateBufferSize);
         return oss.str();
     }
