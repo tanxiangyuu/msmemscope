@@ -437,7 +437,7 @@ TEST(TraceRecord, process_torch_memory_record)
     TraceRecord::GetInstance().SetDirPath();
     auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
-    record->type = RecordType::TORCH_NPU_RECORD;
+    record->type = RecordType::PTA_CACHING_POOL_RECORD;
     record->tid = 6;
     record->pid = 8;
     record->kernelIndex = 123;

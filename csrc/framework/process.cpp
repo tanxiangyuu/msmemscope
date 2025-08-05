@@ -81,7 +81,9 @@ std::shared_ptr<EventBase> Process::RecordToEvent(RecordBase* record)
     static const std::unordered_map<RecordType, EventFactory> kRecordToEventMap = {
         {RecordType::MEMORY_RECORD, [](RecordBase* r) {
             return std::make_shared<MemoryEvent>(*(static_cast<MemOpRecord*>(r))); }},
-        {RecordType::TORCH_NPU_RECORD, [](RecordBase* r) {
+        {RecordType::PTA_CACHING_POOL_RECORD, [](RecordBase* r) {
+            return std::make_shared<MemoryEvent>(*(static_cast<MemPoolRecord*>(r))); }},
+        {RecordType::PTA_WORKSPACE_POOL_RECORD, [](RecordBase* r) {
             return std::make_shared<MemoryEvent>(*(static_cast<MemPoolRecord*>(r))); }},
         {RecordType::ATB_MEMORY_POOL_RECORD, [](RecordBase* r) {
             return std::make_shared<MemoryEvent>(*(static_cast<MemPoolRecord*>(r))); }},
@@ -134,7 +136,7 @@ void Process::RecordHandler(const ClientId &clientId, const RecordBuffer& buffer
         case RecordType::MSTX_MARK_RECORD:
             MstxAnalyzer::Instance().RecordMstx(clientId, static_cast<const MstxRecord&>(*record));
             break;
-        case RecordType::TORCH_NPU_RECORD:
+        case RecordType::PTA_CACHING_POOL_RECORD:
         case RecordType::ATB_MEMORY_POOL_RECORD:
         case RecordType::MINDSPORE_NPU_RECORD:
             StepInnerAnalyzer::GetInstance(config_).Record(clientId, *record);

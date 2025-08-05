@@ -31,7 +31,8 @@ enum class EventBaseType : uint8_t {
 };
  
 enum class EventSubType : uint8_t {
-    PTA = 0,
+    PTA_CACHING = 0,
+    PTA_WORKSPACE,
     ATB,
     MINDSPORE,
     HAL,
@@ -148,9 +149,12 @@ public:
         cCallStack = cStackBlock == nullptr ? "" : std::string(cStackBlock->data);
         pyCallStack = pyStackBlock == nullptr ? "" : std::string(pyStackBlock->data);
  
-        if (record.type == RecordType::TORCH_NPU_RECORD) {
-            poolType = PoolType::PTA;
-            eventSubType = EventSubType::PTA;
+        if (record.type == RecordType::PTA_CACHING_POOL_RECORD) {
+            poolType = PoolType::PTA_CACHING;
+            eventSubType = EventSubType::PTA_CACHING;
+        } else if (record.type == RecordType::PTA_WORKSPACE_POOL_RECORD) {
+            poolType = PoolType::PTA_WORKSPACE;
+            eventSubType = EventSubType::PTA_WORKSPACE;
         } else if (record.type == RecordType::ATB_MEMORY_POOL_RECORD) {
             poolType = PoolType::ATB;
             eventSubType = EventSubType::ATB;
@@ -179,7 +183,7 @@ public:
         const TLVBlock* pyStackBlock = GetTlvBlock(record, TLVBlockType::CALL_STACK_PYTHON);
         cCallStack = cStackBlock == nullptr ? "N/A" : std::string(cStackBlock->data);
         pyCallStack = pyStackBlock == nullptr ? "N/A" : std::string(pyStackBlock->data);
-        poolType = record.memType == AccessMemType::ATEN ? PoolType::PTA : PoolType::ATB;
+        poolType = record.memType == AccessMemType::ATEN ? PoolType::PTA_CACHING : PoolType::ATB;
         if (record.memType == AccessMemType::ATEN) {
             eventSubType = record.eventType == AccessType::READ ? EventSubType::ATEN_READ
                 : record.eventType == AccessType::WRITE ? EventSubType::ATEN_WRITE
@@ -212,7 +216,7 @@ public:
         timestamp = record.timestamp;
         pid = record.pid;
         tid = record.tid;
-        poolType = PoolType::PTA;
+        poolType = PoolType::PTA_CACHING; // 目前只考虑pta caching？
         eventSubType = record.subtype == RecordSubType::USER_DEFINED
             ? EventSubType::DESCRIBE_OWNER : EventSubType::TORCH_OPTIMIZER_STEP_OWNER;
         eventType = EventBaseType::MEMORY_OWNER;

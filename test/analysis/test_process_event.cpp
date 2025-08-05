@@ -51,7 +51,8 @@ protected:
  
         AddAccessEvent();
  
-        AddPtaMemoryEvent();
+        AddPtaCachingMemoryEvent();
+        AddPtaWorkspaceMemoryEvent();
         AddAtbMemoryEvent();
         AddMindsporeMemoryEvent();
  
@@ -187,7 +188,7 @@ private:
     void AddAccessEvent()
     {
         auto event1 = std::make_shared<MemoryEvent>();
-        event1->poolType = PoolType::PTA;
+        event1->poolType = PoolType::PTA_CACHING;
         event1->id = 13;
         event1->timestamp = 13;
         event1->pid = 123;
@@ -217,10 +218,10 @@ private:
         eventMap["AtbAccessEvent"] = event2;
     }
  
-    void AddPtaMemoryEvent()
+    void AddPtaCachingMemoryEvent()
     {
         auto event1 = std::make_shared<MemoryEvent>();
-        event1->poolType = PoolType::PTA;
+        event1->poolType = PoolType::PTA_CACHING;
         event1->id = 3;
         event1->timestamp = 3;
         event1->pid = 123;
@@ -229,16 +230,16 @@ private:
         event1->device = "0";
         event1->name = "N/A";
         event1->eventType = EventBaseType::MALLOC;
-        event1->eventSubType = EventSubType::PTA;
+        event1->eventSubType = EventSubType::PTA_CACHING;
         event1->size = 10;
         event1->total = 10;
         event1->used = 10;
         event1->cCallStack = "func1\nfunc2";
         event1->pyCallStack = "func3\nfunc4";
-        eventMap["PtaMallocEvent"] = event1;
+        eventMap["PtaCachingMallocEvent"] = event1;
  
         auto event2 = std::make_shared<MemoryEvent>();
-        event2->poolType = PoolType::PTA;
+        event2->poolType = PoolType::PTA_CACHING;
         event2->id = 54;
         event2->timestamp = 54;
         event2->pid = 123;
@@ -247,11 +248,48 @@ private:
         event2->device = "0";
         event2->name = "N/A";
         event2->eventType = EventBaseType::FREE;
-        event2->eventSubType = EventSubType::PTA;
+        event2->eventSubType = EventSubType::PTA_CACHING;
         event2->size = 10;
         event2->total = 0;
         event2->used = 0;
-        eventMap["PtaFreeEvent"] = event2;
+        eventMap["PtaCachingFreeEvent"] = event2;
+    }
+
+        void AddPtaWorkspaceMemoryEvent()
+    {
+        auto event1 = std::make_shared<MemoryEvent>();
+        event1->poolType = PoolType::PTA_WORKSPACE;
+        event1->id = 3;
+        event1->timestamp = 3;
+        event1->pid = 123;
+        event1->tid = 1234;
+        event1->addr = 12345;
+        event1->device = "0";
+        event1->name = "N/A";
+        event1->eventType = EventBaseType::MALLOC;
+        event1->eventSubType = EventSubType::PTA_WORKSPACE;
+        event1->size = 10;
+        event1->total = 10;
+        event1->used = 10;
+        event1->cCallStack = "func1\nfunc2";
+        event1->pyCallStack = "func3\nfunc4";
+        eventMap["PtaWorkspaceMallocEvent"] = event1;
+ 
+        auto event2 = std::make_shared<MemoryEvent>();
+        event2->poolType = PoolType::PTA_WORKSPACE;
+        event2->id = 54;
+        event2->timestamp = 54;
+        event2->pid = 123;
+        event2->tid = 1234;
+        event2->addr = 12345;
+        event2->device = "0";
+        event2->name = "N/A";
+        event2->eventType = EventBaseType::FREE;
+        event2->eventSubType = EventSubType::PTA_WORKSPACE;
+        event2->size = 10;
+        event2->total = 0;
+        event2->used = 0;
+        eventMap["PtaWorkspaceFreeEvent"] = event2;
     }
  
     void AddAtbMemoryEvent()
@@ -331,7 +369,7 @@ private:
     void AddPtaMemoryOwnerEvent()
     {
         auto event1 = std::make_shared<MemoryOwnerEvent>();
-        event1->poolType = PoolType::PTA;
+        event1->poolType = PoolType::PTA_CACHING;
         event1->id = 23;
         event1->timestamp = 23;
         event1->pid = 123;
@@ -345,7 +383,7 @@ private:
         eventMap["DescribeOwnerEvent"] = event1;
  
         auto event2 = std::make_shared<MemoryOwnerEvent>();
-        event2->poolType = PoolType::PTA;
+        event2->poolType = PoolType::PTA_CACHING;
         event2->id = 24;
         event2->timestamp = 24;
         event2->pid = 123;
@@ -547,7 +585,7 @@ private:
         eventMap["HostCleanUpEvent"] = event1;
         auto event2 = std::make_shared<CleanUpEvent>(PoolType::HAL, 123, 12345);
         eventMap["HalCleanUpEvent"] = event2;
-        auto event3 = std::make_shared<CleanUpEvent>(PoolType::PTA, 123, 12345);
+        auto event3 = std::make_shared<CleanUpEvent>(PoolType::PTA_CACHING, 123, 12345);
         eventMap["PtaCleanUpEvent"] = event3;
     }
 };
@@ -699,7 +737,7 @@ TEST_F(TestProcess, process_hal_device_memory_event)
     EXPECT_TRUE(hasReadFile && hasRemoveDir);
 }
  
-TEST_F(TestProcess, process_pta_memory_event)
+TEST_F(TestProcess, process_pta_caching_memory_event)
 {
     Config config;
     config.enableCStack = false;
@@ -711,16 +749,42 @@ TEST_F(TestProcess, process_pta_memory_event)
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
-    process.EventHandler(eventMap["PtaMallocEvent"]);
+    process.EventHandler(eventMap["PtaCachingMallocEvent"]);
     process.EventHandler(eventMap["PtaAccessEvent"]);
     process.EventHandler(eventMap["DescribeOwnerEvent"]);
     process.EventHandler(eventMap["TorchStepOwnerEvent"]);
-    process.EventHandler(eventMap["PtaFreeEvent"]);
+    process.EventHandler(eventMap["PtaCachingFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
 "3,MALLOC,PTA,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10}\"\n"
 "13,ACCESS,UNKNOWN,aten.add,13,123,1234,0,12345,\"{addr:12345,size:10,dtype:torch.float16,shape:torch.Size([1,5])}\"\n"
 "54,FREE,PTA,N/A,54,123,1234,0,12345,\"{addr:12345,size:10,total:0,used:0}\"\n";
+    std::string fileContent;
+    Dump::GetInstance(config).handler_.reset();
+    bool hasReadFile = ReadFile(path, fileContent);
+    bool hasRemoveDir = RemoveDir(path);
+    EXPECT_EQ(result, fileContent);
+    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+}
+
+TEST_F(TestProcess, process_pta_workspace_memory_event)
+{
+    Config config;
+    config.enableCStack = false;
+    config.enablePyStack = false;
+    config.dataFormat = 0;
+    std::string path = "test_process";
+    strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
+    Dump::GetInstance(config).handler_->Init();
+    Process process(config);
+ 
+    process.EventHandler(eventMap["PtaWorkspaceMallocEvent"]);
+    process.EventHandler(eventMap["PtaWorkspaceFreeEvent"]);
+ 
+    std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
+"3,MALLOC,PTA_WORKSPACE,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10}\"\n"
+"54,FREE,PTA_WORKSPACE,N/A,54,123,1234,0,12345,\"{addr:12345,size:10,total:0,used:0}\"\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -934,7 +998,7 @@ TEST_F(TestProcess, process_clean_up_event)
     Dump::GetInstance(config).handler_->Init();
     Process process(config);
  
-    process.EventHandler(eventMap["PtaMallocEvent"]);
+    process.EventHandler(eventMap["PtaCachingMallocEvent"]);
     process.EventHandler(eventMap["PtaAccessEvent"]);
     process.EventHandler(eventMap["PtaCleanUpEvent"]);
  
@@ -1046,11 +1110,11 @@ TEST_F(TestProcess, process_memory_owner_event)
     EventDispatcher::GetInstance().Subscribe(
         SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func);
  
-    process.EventHandler(eventMap["PtaMallocEvent"]);
+    process.EventHandler(eventMap["PtaCachingMallocEvent"]);
     process.EventHandler(eventMap["PtaAccessEvent"]);
     process.EventHandler(eventMap["DescribeOwnerEvent"]);
     process.EventHandler(eventMap["TorchStepOwnerEvent"]);
-    process.EventHandler(eventMap["PtaFreeEvent"]);
+    process.EventHandler(eventMap["PtaCachingFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
 "3,MALLOC,PTA,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10,owner:PTA@model@gradient@leaks}\"\n"
@@ -1082,9 +1146,9 @@ TEST_F(TestProcess, process_memory_owner_event_in_torch_step)
     EventDispatcher::GetInstance().Subscribe(
         SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func);
  
-    process.EventHandler(eventMap["PtaMallocEvent"]);
+    process.EventHandler(eventMap["PtaCachingMallocEvent"]);
     process.EventHandler(eventMap["TorchStepOwnerEvent"]);
-    process.EventHandler(eventMap["PtaFreeEvent"]);
+    process.EventHandler(eventMap["PtaCachingFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
 "3,MALLOC,PTA,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10,owner:PTA@model@gradient}\"\n"
@@ -1118,7 +1182,7 @@ TEST_F(TestProcess, process_memory_owner_event_without_malloc)
     process.EventHandler(eventMap["PtaAccessEvent"]);
     process.EventHandler(eventMap["DescribeOwnerEvent"]);
     process.EventHandler(eventMap["TorchStepOwnerEvent"]);
-    process.EventHandler(eventMap["PtaFreeEvent"]);
+    process.EventHandler(eventMap["PtaCachingFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
 "13,ACCESS,UNKNOWN,aten.add,13,123,1234,0,12345,\"{addr:12345,size:10,dtype:torch.float16,shape:torch.Size([1,5])}\"\n"
@@ -1149,8 +1213,10 @@ TEST_F(TestProcess, init_memory_owner)
     EventDispatcher::GetInstance().Subscribe(
         SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func);
  
-    process.EventHandler(eventMap["PtaMallocEvent"]);
-    process.EventHandler(eventMap["PtaFreeEvent"]);
+    process.EventHandler(eventMap["PtaCachingMallocEvent"]);
+    process.EventHandler(eventMap["PtaCachingFreeEvent"]);
+    process.EventHandler(eventMap["PtaWorkspaceMallocEvent"]);
+    process.EventHandler(eventMap["PtaWorkspaceFreeEvent"]);
     process.EventHandler(eventMap["AtbMallocEvent"]);
     process.EventHandler(eventMap["AtbFreeEvent"]);
     process.EventHandler(eventMap["MindsporeMallocEvent"]);
@@ -1163,6 +1229,8 @@ TEST_F(TestProcess, init_memory_owner)
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
 "3,MALLOC,PTA,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10,owner:PTA}\"\n"
 "54,FREE,PTA,N/A,54,123,1234,0,12345,\"{addr:12345,size:10,total:0,used:0}\"\n"
+"3,MALLOC,PTA_WORKSPACE,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10,owner:PTA_WORKSPACE}\"\n"
+"54,FREE,PTA_WORKSPACE,N/A,54,123,1234,0,12345,\"{addr:12345,size:10,total:0,used:0}\"\n"
 "3,MALLOC,ATB,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10,owner:ATB}\"\n"
 "54,FREE,ATB,N/A,54,123,1234,0,12345,\"{addr:12345,size:10,total:0,used:0}\"\n"
 "3,MALLOC,MINDSPORE,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10,owner:MINDSPORE}\"\n"
@@ -1197,9 +1265,9 @@ TEST_F(TestProcess, updata_owner_by_access_event)
     EventDispatcher::GetInstance().Subscribe(
         SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func);
  
-    process.EventHandler(eventMap["PtaMallocEvent"]);
+    process.EventHandler(eventMap["PtaCachingMallocEvent"]);
     process.EventHandler(eventMap["PtaAccessEvent"]);
-    process.EventHandler(eventMap["PtaFreeEvent"]);
+    process.EventHandler(eventMap["PtaCachingFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
 "3,MALLOC,PTA,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10,owner:PTA@ops@aten}\"\n"

@@ -3,24 +3,24 @@
 #include "utils.h"
 #include "event_report.h"
 #include "call_stack.h"
-#include "pta_memory_pool_trace.h"
+#include "pta_workspace_pool_trace.h"
 #include "describe_trace.h"
 
 namespace Leaks {
-PTAMemoryPoolTrace::PTAMemoryPoolTrace()
+PTAWorkspacePoolTrace::PTAWorkspacePoolTrace()
 {
-    ptaDomain_ = new mstxDomainRegistration_st { };
+    ptaWorkspaceDomain_ = new mstxDomainRegistration_st { };
 }
 
-PTAMemoryPoolTrace::~PTAMemoryPoolTrace()
+PTAWorkspacePoolTrace::~PTAWorkspacePoolTrace()
 {
-    delete ptaDomain_;
-    ptaDomain_ = nullptr;
+    delete ptaWorkspaceDomain_;
+    ptaWorkspaceDomain_ = nullptr;
 }
 
-mstxMemHeapHandle_t PTAMemoryPoolTrace::Allocate(mstxDomainHandle_t domain, mstxMemHeapDesc_t const *desc)
+mstxMemHeapHandle_t PTAWorkspacePoolTrace::Allocate(mstxDomainHandle_t domain, mstxMemHeapDesc_t const *desc)
 {
-    if (domain == nullptr || desc == nullptr || domain != ptaDomain_) {
+    if (domain == nullptr || desc == nullptr || domain != ptaWorkspaceDomain_) {
         return nullptr;
     }
     std::lock_guard<std::mutex> guard(mutex_);
@@ -35,9 +35,9 @@ mstxMemHeapHandle_t PTAMemoryPoolTrace::Allocate(mstxDomainHandle_t domain, mstx
     return nullptr;
 }
 
-void PTAMemoryPoolTrace::Deallocate(mstxDomainHandle_t domain, mstxMemHeapHandle_t heap)
+void PTAWorkspacePoolTrace::Deallocate(mstxDomainHandle_t domain, mstxMemHeapHandle_t heap)
 {
-    if (domain == nullptr || heap == nullptr || domain != ptaDomain_) {
+    if (domain == nullptr || heap == nullptr || domain != ptaWorkspaceDomain_) {
         return;
     }
     std::lock_guard<std::mutex> guard(mutex_);
@@ -49,9 +49,9 @@ void PTAMemoryPoolTrace::Deallocate(mstxDomainHandle_t domain, mstxMemHeapHandle
     }
 }
 
-void PTAMemoryPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegionsRegisterBatch_t const *desc)
+void PTAWorkspacePoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegionsRegisterBatch_t const *desc)
 {
-    if (domain == nullptr || desc == nullptr || domain != ptaDomain_) {
+    if (domain == nullptr || desc == nullptr || domain != ptaWorkspaceDomain_) {
         return;
     }
     std::lock_guard<std::mutex> guard(mutex_);
@@ -75,8 +75,7 @@ void PTAMemoryPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegionsReg
         memUsageMp_[devId].deviceIndex = devId;
         memUsageMp_[devId].ptr = reinterpret_cast<int64_t>(rangeDescArray[i].ptr);
         memUsageMp_[devId].allocSize = rangeDescArray[i].size;
-        memUsageMp_[devId].totalAllocated =
-            Utility::GetAddResult(memUsageMp_[devId].totalAllocated, memUsageMp_[devId].allocSize);
+        memUsageMp_[devId].totalAllocated = memUsageMp_[devId].allocSize;
         regionHandleMp_[rangeDescArray[i].ptr] = rangeDescArray[i];
 
         std::string owner = DescribeTrace::GetInstance().GetDescribe();
@@ -85,17 +84,17 @@ void PTAMemoryPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegionsReg
         RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>(
             TLVBlockType::ADDR_OWNER, owner, cStackType, stack.cStack, pyStackType, stack.pyStack);
         MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
-        record->type = RecordType::TORCH_NPU_RECORD;
+        record->type = RecordType::PTA_WORKSPACE_POOL_RECORD;
         record->memoryUsage = memUsageMp_[devId];
         if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(buffer)) {
-            CLIENT_ERROR_LOG("Report PTA Data Failed");
+            CLIENT_ERROR_LOG("Report PTA Workspace Data Failed");
         }
     }
 }
 
-void PTAMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregisterBatch_t const *desc)
+void PTAWorkspacePoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregisterBatch_t const *desc)
 {
-    if (domain == nullptr || desc == nullptr || domain != ptaDomain_) {
+    if (domain == nullptr || desc == nullptr || domain != ptaWorkspaceDomain_) {
         return;
     }
     std::lock_guard<std::mutex> guard(mutex_);
@@ -110,6 +109,7 @@ void PTAMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregi
         Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
     }
     CallStackString stack{cStack, pyStack};
+
     for (size_t i = 0; i < desc->refCount; i++) {
         if (!regionHandleMp_.count(desc->refArray[i].pointer)) {
             continue;
@@ -127,18 +127,18 @@ void PTAMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregi
         RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>(
             TLVBlockType::ADDR_OWNER, owner, cStackType, stack.cStack, pyStackType, stack.pyStack);
         MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
-        record->type = RecordType::TORCH_NPU_RECORD;
+        record->type = RecordType::PTA_WORKSPACE_POOL_RECORD;
         record->memoryUsage = memUsageMp_[rangeDesc.deviceId];
         if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(buffer)) {
-            CLIENT_ERROR_LOG("Report PTA Data Failed");
+            CLIENT_ERROR_LOG("Report PTA Workspace Data Failed");
         }
     }
 }
 
-mstxDomainHandle_t PTAMemoryPoolTrace::CreateDomain(const std::string &domainName)
+mstxDomainHandle_t PTAWorkspacePoolTrace::CreateDomain(const std::string &domainName)
 {
-    if (domainName == "msleaks") {
-        return ptaDomain_;
+    if (domainName == "ptaWorkspace") {
+        return ptaWorkspaceDomain_;
     }
     return nullptr;
 }

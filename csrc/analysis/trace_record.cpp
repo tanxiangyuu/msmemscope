@@ -206,7 +206,7 @@ void TraceRecord::ProcessRecord(const RecordBase *record)
             AclItfRecordToString(aclItfRecord, str);
             break;
         }
-        case RecordType::TORCH_NPU_RECORD: {
+        case RecordType::PTA_CACHING_POOL_RECORD: {
             auto memPoolRecord = static_cast<const MemPoolRecord*>(record);
             TorchRecordToString(memPoolRecord, str);
             break;
