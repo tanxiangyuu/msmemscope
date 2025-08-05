@@ -214,7 +214,7 @@ private:
         event2->eventType = EventBaseType::ACCESS;
         event2->eventSubType = EventSubType::ATB_READ_OR_WRITE;
         event2->size = 10;
-        event2->attr = "dtype:FLOAT,format:NZD,shape:1 5 ,type:atb tensor";
+        event2->attr = "dtype:FLOAT,format:NZD,shape:[1,5,]";
         eventMap["AtbAccessEvent"] = event2;
     }
  
@@ -433,7 +433,7 @@ private:
         event1->name = "operation";
         event1->eventType = EventBaseType::OP_LAUNCH;
         event1->eventSubType = EventSubType::ATB_START;
-        event1->attr = "path:0/0_123/operation,workspace ptr:0x12313,workspace size:12";
+        event1->attr = "path:0/0_123/operation,workspace_ptr:0x12313,workspace_size:12";
         eventMap["AtbOpStartEvent"] = event1;
  
         auto event2 = std::make_shared<OpLaunchEvent>();
@@ -445,7 +445,7 @@ private:
         event2->name = "operation";
         event2->eventType = EventBaseType::OP_LAUNCH;
         event2->eventSubType = EventSubType::ATB_END;
-        event2->attr = "path:0/0_123/operation,workspace ptr:0x12313,workspace size:12";
+        event2->attr = "path:0/0_123/operation,workspace_ptr:0x12313,workspace_size:12";
         eventMap["AtbOpEndEvent"] = event2;
     }
  
@@ -691,6 +691,7 @@ TEST_F(TestProcess, process_host_memory_event)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     process.EventHandler(eventMap["HostMallocEvent"]);
@@ -699,10 +700,10 @@ TEST_F(TestProcess, process_host_memory_event)
     process.EventHandler(eventMap["HalHostFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
-"3,MALLOC,HOST,N/A,3,123,1234,host,123456,\"{addr:123456,size:10}\"\n"
-"54,FREE,HOST,N/A,54,123,1234,host,123456,\"{addr:123456,size:10}\"\n"
-"3,MALLOC,HAL,N/A,3,123,1234,host,12345,\"{addr:12345,size:10,MID:100}\"\n"
-"54,FREE,HAL,N/A,54,123,1234,host,12345,\"{addr:12345,size:10,MID:100}\"\n";
+"3,MALLOC,HOST,N/A,3,123,1234,host,123456,\"{allocation_id:1,addr:123456,size:10}\"\n"
+"54,FREE,HOST,N/A,54,123,1234,host,123456,\"{allocation_id:1,addr:123456,size:10}\"\n"
+"3,MALLOC,HAL,N/A,3,123,1234,host,12345,\"{allocation_id:2,addr:12345,size:10}\"\n"
+"54,FREE,HAL,N/A,54,123,1234,host,12345,\"{allocation_id:2,addr:12345,size:10}\"\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -721,14 +722,15 @@ TEST_F(TestProcess, process_hal_device_memory_event)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     process.EventHandler(eventMap["HalDeviceMallocEvent"]);
     process.EventHandler(eventMap["HalDeviceFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
-"3,MALLOC,HAL,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,MID:1}\"\n"
-"54,FREE,HAL,N/A,54,123,1234,0,12345,\"{addr:12345,size:10,MID:1}\"\n";
+"3,MALLOC,HAL,N/A,3,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10}\"\n"
+"54,FREE,HAL,N/A,54,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10}\"\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -747,6 +749,7 @@ TEST_F(TestProcess, process_pta_caching_memory_event)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     process.EventHandler(eventMap["PtaCachingMallocEvent"]);
@@ -756,9 +759,10 @@ TEST_F(TestProcess, process_pta_caching_memory_event)
     process.EventHandler(eventMap["PtaCachingFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
-"3,MALLOC,PTA,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10}\"\n"
-"13,ACCESS,UNKNOWN,aten.add,13,123,1234,0,12345,\"{addr:12345,size:10,dtype:torch.float16,shape:torch.Size([1,5])}\"\n"
-"54,FREE,PTA,N/A,54,123,1234,0,12345,\"{addr:12345,size:10,total:0,used:0}\"\n";
+"3,MALLOC,PTA,N/A,3,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:10,used:10}\"\n"
+"13,ACCESS,UNKNOWN,aten.add,13,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,type:PTA,"
+"dtype:torch.float16,shape:torch.Size([1,5])}\"\n"
+"54,FREE,PTA,N/A,54,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:0,used:0}\"\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -777,14 +781,15 @@ TEST_F(TestProcess, process_pta_workspace_memory_event)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     process.EventHandler(eventMap["PtaWorkspaceMallocEvent"]);
     process.EventHandler(eventMap["PtaWorkspaceFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
-"3,MALLOC,PTA_WORKSPACE,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10}\"\n"
-"54,FREE,PTA_WORKSPACE,N/A,54,123,1234,0,12345,\"{addr:12345,size:10,total:0,used:0}\"\n";
+"3,MALLOC,PTA_WORKSPACE,N/A,3,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:10,used:10}\"\n"
+"54,FREE,PTA_WORKSPACE,N/A,54,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:0,used:0}\"\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -803,6 +808,7 @@ TEST_F(TestProcess, process_atb_memory_event)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     process.EventHandler(eventMap["AtbMallocEvent"]);
@@ -810,9 +816,10 @@ TEST_F(TestProcess, process_atb_memory_event)
     process.EventHandler(eventMap["AtbFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
-"3,MALLOC,ATB,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10}\"\n"
-"14,ACCESS,UNKNOWN,addOperation,14,123,1234,0,12345,\"{addr:12345,size:10,dtype:FLOAT,format:NZD,shape:1 5 ,type:atb tensor}\"\n"
-"54,FREE,ATB,N/A,54,123,1234,0,12345,\"{addr:12345,size:10,total:0,used:0}\"\n";
+"3,MALLOC,ATB,N/A,3,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:10,used:10}\"\n"
+"14,ACCESS,UNKNOWN,addOperation,14,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,type:ATB,"
+"dtype:FLOAT,format:NZD,shape:[1,5,]}\"\n"
+"54,FREE,ATB,N/A,54,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:0,used:0}\"\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -831,14 +838,15 @@ TEST_F(TestProcess, process_mindspore_memory_event)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     process.EventHandler(eventMap["MindsporeMallocEvent"]);
     process.EventHandler(eventMap["MindsporeFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
-"3,MALLOC,MINDSPORE,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10}\"\n"
-"54,FREE,MINDSPORE,N/A,54,123,1234,0,12345,\"{addr:12345,size:10,total:0,used:0}\"\n";
+"3,MALLOC,MINDSPORE,N/A,3,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:10,used:10}\"\n"
+"54,FREE,MINDSPORE,N/A,54,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:0,used:0}\"\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -857,6 +865,7 @@ TEST_F(TestProcess, process_aten_op_event)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     process.EventHandler(eventMap["AtenOpStartEvent"]);
@@ -883,14 +892,15 @@ TEST_F(TestProcess, process_atb_op_event)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     process.EventHandler(eventMap["AtbOpStartEvent"]);
     process.EventHandler(eventMap["AtbOpEndEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
-"1,OP_LAUNCH,ATB_START,operation,12,123,1234,0,N/A,\"{path:0/0_123/operation,workspace ptr:0x12313,workspace size:12}\"\n"
-"2,OP_LAUNCH,ATB_END,operation,13,123,1234,0,N/A,\"{path:0/0_123/operation,workspace ptr:0x12313,workspace size:12}\"\n";
+"1,OP_LAUNCH,ATB_START,operation,12,123,1234,0,N/A,\"{path:0/0_123/operation,workspace_ptr:0x12313,workspace_size:12}\"\n"
+"2,OP_LAUNCH,ATB_END,operation,13,123,1234,0,N/A,\"{path:0/0_123/operation,workspace_ptr:0x12313,workspace_size:12}\"\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -909,6 +919,7 @@ TEST_F(TestProcess, process_kernel_event)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     process.EventHandler(eventMap["KernelLaunchEvent"]);
@@ -942,6 +953,7 @@ TEST_F(TestProcess, process_mstx_event)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     process.EventHandler(eventMap["MstxMarkEvent"]);
@@ -970,6 +982,7 @@ TEST_F(TestProcess, process_system_event)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     process.EventHandler(eventMap["AclInitEvent"]);
@@ -996,6 +1009,7 @@ TEST_F(TestProcess, process_clean_up_event)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     process.EventHandler(eventMap["PtaCachingMallocEvent"]);
@@ -1003,8 +1017,9 @@ TEST_F(TestProcess, process_clean_up_event)
     process.EventHandler(eventMap["PtaCleanUpEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
-"3,MALLOC,PTA,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10}\"\n"
-"13,ACCESS,UNKNOWN,aten.add,13,123,1234,0,12345,\"{addr:12345,size:10,dtype:torch.float16,shape:torch.Size([1,5])}\"\n";
+"3,MALLOC,PTA,N/A,3,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:10,used:10}\"\n"
+"13,ACCESS,UNKNOWN,aten.add,13,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,type:PTA,"
+"dtype:torch.float16,shape:torch.Size([1,5])}\"\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -1023,6 +1038,7 @@ TEST_F(TestProcess, dump_event_before_malloc)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     process.EventHandler(eventMap["HostUnknownMallocEvent"]);
@@ -1030,8 +1046,8 @@ TEST_F(TestProcess, dump_event_before_malloc)
     CleanUpEventInMemoryStateManager(process);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
-"0,MALLOC,HOST,N/A,0,123,1234,host,123456,\"{addr:123456,size:10}\"\n"
-"3,MALLOC,HOST,N/A,3,123,1234,host,123456,\"{addr:123456,size:10}\"\n";
+"0,MALLOC,HOST,N/A,0,123,1234,host,123456,\"{allocation_id:2,addr:123456,size:10}\"\n"
+"3,MALLOC,HOST,N/A,3,123,1234,host,123456,\"{allocation_id:2,addr:123456,size:10}\"\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -1050,6 +1066,7 @@ TEST_F(TestProcess, dump_two_malloc_event)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     process.EventHandler(eventMap["HostMallocEvent"]);
@@ -1058,9 +1075,9 @@ TEST_F(TestProcess, dump_two_malloc_event)
     process.EventHandler(eventMap["HostCleanUpEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
-"3,MALLOC,HOST,N/A,3,123,1234,host,123456,\"{addr:123456,size:10}\"\n"
-"54,FREE,HOST,N/A,54,123,1234,host,123456,\"{addr:123456,size:10}\"\n"
-"0,MALLOC,HOST,N/A,0,123,1234,host,123456,\"{addr:123456,size:10}\"\n";
+"3,MALLOC,HOST,N/A,3,123,1234,host,123456,\"{allocation_id:1,addr:123456,size:10}\"\n"
+"54,FREE,HOST,N/A,54,123,1234,host,123456,\"{allocation_id:1,addr:123456,size:10}\"\n"
+"0,MALLOC,HOST,N/A,0,123,1234,host,123456,\"{allocation_id:2,addr:123456,size:10}\"\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -1079,6 +1096,7 @@ TEST_F(TestProcess, clean_up_event_failed)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     process.EventHandler(eventMap["HostCleanUpEvent"]);
@@ -1102,6 +1120,7 @@ TEST_F(TestProcess, process_memory_owner_event)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     auto func = std::bind(&DecomposeAnalyzer::EventHandle, &DecomposeAnalyzer::GetInstance(),
@@ -1117,9 +1136,11 @@ TEST_F(TestProcess, process_memory_owner_event)
     process.EventHandler(eventMap["PtaCachingFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
-"3,MALLOC,PTA,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10,owner:PTA@model@gradient@leaks}\"\n"
-"13,ACCESS,UNKNOWN,aten.add,13,123,1234,0,12345,\"{addr:12345,size:10,dtype:torch.float16,shape:torch.Size([1,5])}\"\n"
-"54,FREE,PTA,N/A,54,123,1234,0,12345,\"{addr:12345,size:10,total:0,used:0}\"\n";
+"3,MALLOC,PTA,N/A,3,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:10,used:10,"
+"owner:PTA@model@gradient@leaks}\"\n"
+"13,ACCESS,UNKNOWN,aten.add,13,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,type:PTA,"
+"dtype:torch.float16,shape:torch.Size([1,5])}\"\n"
+"54,FREE,PTA,N/A,54,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:0,used:0}\"\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -1138,6 +1159,7 @@ TEST_F(TestProcess, process_memory_owner_event_in_torch_step)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     auto func = std::bind(&DecomposeAnalyzer::EventHandle, &DecomposeAnalyzer::GetInstance(),
@@ -1151,8 +1173,9 @@ TEST_F(TestProcess, process_memory_owner_event_in_torch_step)
     process.EventHandler(eventMap["PtaCachingFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
-"3,MALLOC,PTA,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10,owner:PTA@model@gradient}\"\n"
-"54,FREE,PTA,N/A,54,123,1234,0,12345,\"{addr:12345,size:10,total:0,used:0}\"\n";
+"3,MALLOC,PTA,N/A,3,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:10,used:10,"
+"owner:PTA@model@gradient}\"\n"
+"54,FREE,PTA,N/A,54,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:0,used:0}\"\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -1171,6 +1194,7 @@ TEST_F(TestProcess, process_memory_owner_event_without_malloc)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     auto func = std::bind(&DecomposeAnalyzer::EventHandle, &DecomposeAnalyzer::GetInstance(),
@@ -1185,8 +1209,9 @@ TEST_F(TestProcess, process_memory_owner_event_without_malloc)
     process.EventHandler(eventMap["PtaCachingFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
-"13,ACCESS,UNKNOWN,aten.add,13,123,1234,0,12345,\"{addr:12345,size:10,dtype:torch.float16,shape:torch.Size([1,5])}\"\n"
-"54,FREE,PTA,N/A,54,123,1234,0,12345,\"{addr:12345,size:10,total:0,used:0}\"\n";
+"13,ACCESS,UNKNOWN,aten.add,13,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,type:PTA,"
+"dtype:torch.float16,shape:torch.Size([1,5])}\"\n"
+"54,FREE,PTA,N/A,54,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:0,used:0}\"\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -1205,6 +1230,7 @@ TEST_F(TestProcess, init_memory_owner)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     auto func = std::bind(&DecomposeAnalyzer::EventHandle, &DecomposeAnalyzer::GetInstance(),
@@ -1227,18 +1253,19 @@ TEST_F(TestProcess, init_memory_owner)
     process.EventHandler(eventMap["HalHostFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
-"3,MALLOC,PTA,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10,owner:PTA}\"\n"
-"54,FREE,PTA,N/A,54,123,1234,0,12345,\"{addr:12345,size:10,total:0,used:0}\"\n"
-"3,MALLOC,PTA_WORKSPACE,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10,owner:PTA_WORKSPACE}\"\n"
-"54,FREE,PTA_WORKSPACE,N/A,54,123,1234,0,12345,\"{addr:12345,size:10,total:0,used:0}\"\n"
-"3,MALLOC,ATB,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10,owner:ATB}\"\n"
-"54,FREE,ATB,N/A,54,123,1234,0,12345,\"{addr:12345,size:10,total:0,used:0}\"\n"
-"3,MALLOC,MINDSPORE,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10,owner:MINDSPORE}\"\n"
-"54,FREE,MINDSPORE,N/A,54,123,1234,0,12345,\"{addr:12345,size:10,total:0,used:0}\"\n"
-"3,MALLOC,HAL,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,MID:1,owner:CANN@IDEDD}\"\n"
-"54,FREE,HAL,N/A,54,123,1234,0,12345,\"{addr:12345,size:10,MID:1}\"\n"
-"3,MALLOC,HAL,N/A,3,123,1234,host,12345,\"{addr:12345,size:10,MID:100,owner:CANN@UNKNOWN}\"\n"
-"54,FREE,HAL,N/A,54,123,1234,host,12345,\"{addr:12345,size:10,MID:100}\"\n";
+"3,MALLOC,PTA,N/A,3,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:10,used:10,owner:PTA}\"\n"
+"54,FREE,PTA,N/A,54,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:0,used:0}\"\n"
+"3,MALLOC,PTA_WORKSPACE,N/A,3,123,1234,0,12345,\"{allocation_id:2,addr:12345,size:10,total:10,used:10,"
+"owner:PTA_WORKSPACE}\"\n"
+"54,FREE,PTA_WORKSPACE,N/A,54,123,1234,0,12345,\"{allocation_id:2,addr:12345,size:10,total:0,used:0}\"\n"
+"3,MALLOC,ATB,N/A,3,123,1234,0,12345,\"{allocation_id:3,addr:12345,size:10,total:10,used:10,owner:ATB}\"\n"
+"54,FREE,ATB,N/A,54,123,1234,0,12345,\"{allocation_id:3,addr:12345,size:10,total:0,used:0}\"\n"
+"3,MALLOC,MINDSPORE,N/A,3,123,1234,0,12345,\"{allocation_id:4,addr:12345,size:10,total:10,used:10,owner:MINDSPORE}\"\n"
+"54,FREE,MINDSPORE,N/A,54,123,1234,0,12345,\"{allocation_id:4,addr:12345,size:10,total:0,used:0}\"\n"
+"3,MALLOC,HAL,N/A,3,123,1234,0,12345,\"{allocation_id:5,addr:12345,size:10,owner:CANN@IDEDD}\"\n"
+"54,FREE,HAL,N/A,54,123,1234,0,12345,\"{allocation_id:5,addr:12345,size:10}\"\n"
+"3,MALLOC,HAL,N/A,3,123,1234,host,12345,\"{allocation_id:6,addr:12345,size:10,owner:CANN@UNKNOWN}\"\n"
+"54,FREE,HAL,N/A,54,123,1234,host,12345,\"{allocation_id:6,addr:12345,size:10}\"\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -1257,6 +1284,7 @@ TEST_F(TestProcess, updata_owner_by_access_event)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     auto func = std::bind(&DecomposeAnalyzer::EventHandle, &DecomposeAnalyzer::GetInstance(),
@@ -1270,9 +1298,10 @@ TEST_F(TestProcess, updata_owner_by_access_event)
     process.EventHandler(eventMap["PtaCachingFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
-"3,MALLOC,PTA,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10,owner:PTA@ops@aten}\"\n"
-"13,ACCESS,UNKNOWN,aten.add,13,123,1234,0,12345,\"{addr:12345,size:10,dtype:torch.float16,shape:torch.Size([1,5])}\"\n"
-"54,FREE,PTA,N/A,54,123,1234,0,12345,\"{addr:12345,size:10,total:0,used:0}\"\n";
+"3,MALLOC,PTA,N/A,3,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:10,used:10,owner:PTA@ops@aten}\"\n"
+"13,ACCESS,UNKNOWN,aten.add,13,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,type:PTA,dtype:torch.float16,"
+"shape:torch.Size([1,5])}\"\n"
+"54,FREE,PTA,N/A,54,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:0,used:0}\"\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -1291,6 +1320,7 @@ TEST_F(TestProcess, updata_owner_failed_by_atb_access_event)
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
     Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
     Process process(config);
  
     auto func = std::bind(&DecomposeAnalyzer::EventHandle, &DecomposeAnalyzer::GetInstance(),
@@ -1304,9 +1334,10 @@ TEST_F(TestProcess, updata_owner_failed_by_atb_access_event)
     process.EventHandler(eventMap["AtbFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
-"3,MALLOC,ATB,N/A,3,123,1234,0,12345,\"{addr:12345,size:10,total:10,used:10,owner:ATB}\"\n"
-"14,ACCESS,UNKNOWN,addOperation,14,123,1234,0,12345,\"{addr:12345,size:10,dtype:FLOAT,format:NZD,shape:1 5 ,type:atb tensor}\"\n"
-"54,FREE,ATB,N/A,54,123,1234,0,12345,\"{addr:12345,size:10,total:0,used:0}\"\n";
+"3,MALLOC,ATB,N/A,3,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:10,used:10,owner:ATB}\"\n"
+"14,ACCESS,UNKNOWN,addOperation,14,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,type:ATB,"
+"dtype:FLOAT,format:NZD,shape:[1,5,]}\"\n"
+"54,FREE,ATB,N/A,54,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:0,used:0}\"\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
