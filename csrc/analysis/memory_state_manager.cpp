@@ -7,6 +7,9 @@
 
 namespace Leaks {
 
+uint64_t MemoryState::count = 0;
+std::mutex MemoryState::mtx;
+
 MemoryStateManager& MemoryStateManager::GetInstance()
 {
     static MemoryStateManager manager{};
@@ -51,6 +54,7 @@ bool MemoryStateManager::AddEvent(std::shared_ptr<MemoryEvent>& event)
             statesMap[key].leaksDefinedOwner = "";
             statesMap[key].userDefinedOwner = event->describeOwner;
             statesMap[key].inefficientType = "";
+            statesMap[key].allocationId = MemoryState::IncrementCount();
             statesMap[key].events.push_back(event);
         }
     } else {

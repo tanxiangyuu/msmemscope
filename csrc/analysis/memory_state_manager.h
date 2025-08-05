@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <string>
 #include <vector>
+#include <mutex>
 
 #include "state_manager.h"
 #include "event.h"
@@ -39,6 +40,7 @@ class MemoryState : public StateBase {
 public:
     std::vector<std::shared_ptr<MemoryEvent>> events;
     uint64_t size = 0;
+    uint64_t allocationId = 0;
     std::string leaksDefinedOwner;
     std::string userDefinedOwner;
     std::string inefficientType;
@@ -52,7 +54,25 @@ public:
         leaksDefinedOwner = "";
         userDefinedOwner = event->describeOwner;
         inefficientType = "";
+        std::lock_guard<std::mutex> lock(mtx);
+        allocationId = ++count;
     }
+
+    static uint64_t IncrementCount()
+    {
+        std::lock_guard<std::mutex> lock(mtx);
+        ++count;
+        return count;
+    }
+
+    static void ResetCount()
+    {
+        std::lock_guard<std::mutex> lock(mtx);
+        count = 0;
+    }
+private:
+    static std::mutex mtx;      // 修改count需要加锁
+    static uint64_t count;      // static变量，用于分配唯一id
 };
 
 class Pool {
