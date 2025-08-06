@@ -22,10 +22,10 @@ bool MemoryStateManager::AddEvent(std::shared_ptr<MemoryEvent>& event)
         // LOG_DEBUG
         return false;
     }
+    std::lock_guard<std::mutex> lock(mtx_);
     if (poolsMap_.find(event->poolType) == poolsMap_.end()) {
         poolsMap_[event->poolType] = Pool{};
     }
-
     MemoryStateKey key = MemoryStateKey{event->pid, event->addr};
     auto& statesPool = poolsMap_[event->poolType];
     auto& statesMap = statesPool.statesMap;
@@ -71,6 +71,7 @@ bool MemoryStateManager::AddEvent(std::shared_ptr<MemoryEvent>& event)
 
 bool MemoryStateManager::DeteleState(const PoolType& poolType, const MemoryStateKey& key)
 {
+    std::lock_guard<std::mutex> lock(mtx_);
     if (poolsMap_.find(poolType) == poolsMap_.end()) {
         // LOG_DEBUG
         return false;
