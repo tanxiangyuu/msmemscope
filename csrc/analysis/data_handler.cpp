@@ -365,37 +365,44 @@ std::unique_ptr<DataHandler> MakeDataHandler(Config config, DataType data)
 // 将"\"{addr:20616937226752,size:28160,...}\"" 转成标准JSON字符串{"addr":"20616937226752","size":"28160",...}
 std::string FixJson(const std::string& input)
 {
-    std::string json = input;
-    uint32_t subPlace = 2;
-    if (json.size() >= subPlace && json.front() == '"' && json.back() == '"') {
-        json = json.substr(1, json.length() - subPlace);
+    std::string str = input;
+    uint32_t minSize = 4;
+    if (str.size() >= minSize) {
+        str = str.substr(2, str.length() - minSize);
     }
     size_t pos = 0;
-    while ((pos = json.find("\\\"", pos)) != std::string::npos) {
-        json.replace(pos, subPlace, "\"");
-    }
-    if (json.size() >= subPlace && json.front() == '{' && json.back() == '}') {
-        json = json.substr(1, json.length() - subPlace);
-    }
-    std::istringstream iss(json);
-    std::string token;
     std::vector<std::string> parts;
 
-    while (std::getline(iss, token, ',')) {
-        parts.push_back(token);
+    while (pos < str.length()) {
+        size_t colonPos = str.find(':', pos);
+        if (colonPos == std::string::npos) {
+            parts.push_back(str.substr(pos, str.length() - pos));
+            break;
+        }
+        size_t lastCommaPos = str.rfind(',', colonPos);
+        if (lastCommaPos == std::string::npos || lastCommaPos < pos) {
+            // 没有找到逗号或者逗号在pos之前
+            parts.push_back(str.substr(pos, colonPos - pos));
+        } else {
+            parts.push_back(str.substr(pos, lastCommaPos - pos));
+            parts.push_back(str.substr(lastCommaPos + 1, colonPos - lastCommaPos - 1));
+        }
+        pos = colonPos + 1;
     }
-    std::ostringstream oss;
-    oss << "{";
-    for (size_t i = 0; i < parts.size(); ++i) {
-        std::istringstream partStream(parts[i]);
-        std::string key;
-        std::string value;
 
-        if (std::getline(partStream, key, ':') && std::getline(partStream, value)) {
-            oss << "\"" << key << "\":\"" << value << "\"";
-            if (i != parts.size() - 1) {
-                oss << ",";
-            }
+    std::ostringstream oss;
+    auto partsNum = parts.size();
+    oss << "{";
+    for (size_t i = 0; i < partsNum; i++) {
+        oss << "\"" << parts[i] << "\":";
+        i++;
+        if (i >= partsNum) {
+            oss << "\"\"";
+            break;
+        }
+        oss << "\"" << parts[i] << "\"";
+        if (i != partsNum - 1) {
+            oss << ",";
         }
     }
     oss << "}";
