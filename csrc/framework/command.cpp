@@ -10,6 +10,7 @@
 #include "analysis/memory_compare.h"
 #include "analysis/dump.h"
 #include "analysis/decompose_analyzer.h"
+#include "analysis/inefficient_analyzer.h"
 
 namespace Leaks {
 
@@ -26,6 +27,9 @@ void Command::Exec() const
     BitField<decltype(config.analysisType)> analysisType(config.analysisType);
     if (analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
         DecomposeAnalyzer::GetInstance();
+    }
+    if (analysisType.checkBit(static_cast<size_t>(AnalysisType::INEFFICIENCY_ANALYSIS))) {
+        InefficientAnalyzer::GetInstance();
     }
     Dump::GetInstance(userCommand_.config);
 
