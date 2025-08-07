@@ -1046,7 +1046,7 @@ TEST_F(TestProcess, dump_event_before_malloc)
     CleanUpEventInMemoryStateManager(process);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
-"0,MALLOC,HOST,N/A,0,123,1234,host,123456,\"{allocation_id:2,addr:123456,size:10}\"\n"
+"0,MALLOC,HOST,N/A,0,123,1234,host,123456,\"{allocation_id:1,addr:123456,size:10}\"\n"
 "3,MALLOC,HOST,N/A,3,123,1234,host,123456,\"{allocation_id:2,addr:123456,size:10}\"\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
