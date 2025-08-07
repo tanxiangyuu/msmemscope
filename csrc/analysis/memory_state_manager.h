@@ -95,6 +95,7 @@ public:
     std::vector<std::pair<PoolType, MemoryStateKey>> GetAllStateKeys();
 private:
     std::unordered_map<PoolType, Pool> poolsMap_;
+    std::mutex mtx_;
 };
 
 }
