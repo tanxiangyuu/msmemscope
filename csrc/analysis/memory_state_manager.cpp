@@ -48,14 +48,8 @@ bool MemoryStateManager::AddEvent(std::shared_ptr<MemoryEvent>& event)
         if (statesMap.find(key) == statesMap.end()) {
             statesMap[key] = MemoryState{event};
         } else {
-            // 重置相关属性
-            // LOG_DEBUG
-            statesMap[key].size = event->size;
-            statesMap[key].leaksDefinedOwner = "";
-            statesMap[key].userDefinedOwner = event->describeOwner;
-            statesMap[key].inefficientType = "";
-            statesMap[key].allocationId = MemoryState::IncrementCount();
-            statesMap[key].events.push_back(event);
+            // 有一种情况会添加失败，malloc时仍有数据未释放
+            return false;
         }
     } else {
         auto state = FindStateInPool(event->poolType, key, event->size);
@@ -85,17 +79,9 @@ bool MemoryStateManager::DeteleState(const PoolType& poolType, const MemoryState
     return true;
 }
 
-Pool* MemoryStateManager::GetStatePool(const PoolType& poolType)
-{
-    if (poolsMap_.find(poolType) == poolsMap_.end()) {
-        // LOG_DEBUG
-        return nullptr;
-    }
-    return &(poolsMap_[poolType]);
-}
-
 MemoryState* MemoryStateManager::GetState(const PoolType& poolType, const MemoryStateKey& key)
 {
+    std::lock_guard<std::mutex> lock(mtx_);
     if (poolsMap_.find(poolType) == poolsMap_.end()) {
         // LOG_DEBUG
         return nullptr;
@@ -109,15 +95,19 @@ MemoryState* MemoryStateManager::GetState(const PoolType& poolType, const Memory
 
 MemoryState* MemoryStateManager::FindStateInPool(const PoolType& poolType, const MemoryStateKey& key, uint64_t size)
 {
-    auto statePool = GetStatePool(poolType);
-    if ((*statePool).statesMap.find(key) != (*statePool).statesMap.end()) {
+    if (poolsMap_.find(poolType) == poolsMap_.end()) {
+        return nullptr;
+    }
+    auto& statesPool = poolsMap_[poolType];
+    auto& statesMap = statesPool.statesMap;
+    if (statesMap.find(key) != statesMap.end()) {
         // 直接匹配到相同起始地址
-        return &((*statePool).statesMap[key]);
+        return &(statesMap[key]);
     }
 
     // 使用的地址空间位于某块已分配的内存内
     uint64_t addr = key.addr;
-    for (auto& pair : (*statePool).statesMap) {
+    for (auto& pair : statesMap) {
         uint64_t startingAddr = pair.first.addr;
         if (addr >= startingAddr
             && Utility::GetAddResult(addr, size) <= Utility::GetAddResult(startingAddr, pair.second.size)) {
@@ -130,6 +120,7 @@ MemoryState* MemoryStateManager::FindStateInPool(const PoolType& poolType, const
 
 std::vector<std::pair<PoolType, MemoryStateKey>> MemoryStateManager::GetAllStateKeys()
 {
+    std::lock_guard<std::mutex> lock(mtx_);
     std::vector<std::pair<PoolType, MemoryStateKey>> result;
     for (auto& poolPair : poolsMap_) {
         for (auto& statePair : poolPair.second.statesMap) {
@@ -138,4 +129,5 @@ std::vector<std::pair<PoolType, MemoryStateKey>> MemoryStateManager::GetAllState
     }
     return result;
 }
+
 }
