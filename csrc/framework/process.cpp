@@ -153,25 +153,27 @@ void Process::EventHandler(std::shared_ptr<EventBase> event)
     }
 
     MemoryState* state = nullptr;
-    if (event->eventType == EventBaseType::MALLOC
-        || event->eventType == EventBaseType::FREE
-        || event->eventType == EventBaseType::ACCESS
-    ) {
+    if (event->eventType == EventBaseType::MALLOC || event->eventType == EventBaseType::FREE
+        || event->eventType == EventBaseType::ACCESS) {
         auto memEvent = std::dynamic_pointer_cast<MemoryEvent>(event);
-        if (memEvent) {
-            MemoryStateManager::GetInstance().AddEvent(memEvent);
-            state = MemoryStateManager::GetInstance().GetState(
-                memEvent->poolType, MemoryStateKey{memEvent->pid, memEvent->addr});
+        if (memEvent && !MemoryStateManager::GetInstance().AddEvent(memEvent)) {
+            // 添加事件失败时，表明对应位置已存在事件，需先清空事件列表
+            std::shared_ptr<EventBase> cleanUpEvent = std::make_shared<CleanUpEvent>(
+                memEvent->poolType, memEvent->pid, memEvent->addr);
+            EventHandler(cleanUpEvent);                                 // 最大递归深度为2，因为这里传入事件的类型为CLEAN_UP
+            MemoryStateManager::GetInstance().AddEvent(memEvent);       // 再次尝试添加
         }
-    } else if (event->eventType == EventBaseType::MEMORY_OWNER) {
-        auto memOwnerEvent = std::dynamic_pointer_cast<MemoryOwnerEvent>(event);
-        if (memOwnerEvent) {
-            state = MemoryStateManager::GetInstance().GetState(
-                memOwnerEvent->poolType, MemoryStateKey{memOwnerEvent->pid, memOwnerEvent->addr});
-        }
+        state = MemoryStateManager::GetInstance().GetState(event->poolType, MemoryStateKey{event->pid, event->addr});
+    } else if (event->eventType == EventBaseType::MEMORY_OWNER || event->eventType == EventBaseType::CLEAN_UP) {
+        state = MemoryStateManager::GetInstance().GetState(event->poolType, MemoryStateKey{event->pid, event->addr});
     }
 
     EventDispatcher::GetInstance().DispatchEvent(event, state);
+
+    // 内存块生命周期结束，删除相关缓存数据
+    if (event->eventType == EventBaseType::FREE || event->eventType == EventBaseType::CLEAN_UP) {
+        MemoryStateManager::GetInstance().DeteleState(event->poolType, MemoryStateKey{event->pid, event->addr});
+    }
 }
 
 void Process::MsgHandle(size_t &clientId, std::string &msg)
