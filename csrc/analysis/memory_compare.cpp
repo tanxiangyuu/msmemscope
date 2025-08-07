@@ -378,7 +378,7 @@ void MemoryCompare::MyersDiff(const DEVICEID deviceId, const NAME_WITH_INDEX &ba
 {
     LOG_DEBUG("Start to compare with Myers algorithm.");
     if (baseLists.empty() && compareLists.empty()) {
-        LOG_WARN("Empty kernelLaunch/op data!");
+        LOG_WARN("Device %s has empty kernelLaunch/op data!", std::to_string(deviceId).c_str());
         return ;
     } else {
         auto pathNode = BuildPath(baseLists, compareLists);
@@ -403,7 +403,13 @@ void MemoryCompare::RunComparison(const std::vector<std::string> &paths)
     }
 
     for (const auto& pair : baseFileOriginData_) {
-        uint64_t deviceId = pair.first;
+        deviceIdSet_.insert(pair.first);
+    }
+    for (const auto& pair : compareFileOriginData_) {
+        deviceIdSet_.insert(pair.first);
+    }
+
+    for (const auto& deviceId : deviceIdSet_) {
         NAME_WITH_INDEX baseLists {};
         NAME_WITH_INDEX compareLists {};
         ReadNameIndexData(baseFileOriginData_[deviceId], baseLists);

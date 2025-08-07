@@ -101,6 +101,7 @@ private:
     std::unordered_map<DEVICEID, ORIGINAL_FILE_DATA> baseFileOriginData_;
     std::unordered_map<DEVICEID, ORIGINAL_FILE_DATA> compareFileOriginData_;
     std::unordered_map<DEVICEID, std::vector<std::string>> result_;
+    std::unordered_set<DEVICEID> deviceIdSet_;
     std::string fileNamePrefix_ = "memory_compare_";
     std::string dirPath_;
     std::string csvHeader_;
