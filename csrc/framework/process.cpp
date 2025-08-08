@@ -166,6 +166,15 @@ void Process::EventHandler(std::shared_ptr<EventBase> event)
         state = MemoryStateManager::GetInstance().GetState(event->poolType, MemoryStateKey{event->pid, event->addr});
     } else if (event->eventType == EventBaseType::MEMORY_OWNER || event->eventType == EventBaseType::CLEAN_UP) {
         state = MemoryStateManager::GetInstance().GetState(event->poolType, MemoryStateKey{event->pid, event->addr});
+    } else if (event->eventSubType == EventSubType::TRACE_START || event->eventSubType == EventSubType::TRACE_STOP) {
+        for (auto& state : MemoryStateManager::GetInstance().GetAllStateKeys()) {
+            // 清空对应pid的所有事件
+            if (event->pid == state.second.pid) {
+                std::shared_ptr<EventBase> cleanUpEvent = std::make_shared<CleanUpEvent>(
+                    state.first, state.second.pid, state.second.addr);
+                EventHandler(cleanUpEvent);
+            }
+        }
     }
 
     EventDispatcher::GetInstance().DispatchEvent(event, state);
