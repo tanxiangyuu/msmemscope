@@ -577,6 +577,28 @@ private:
         event2->eventType = EventBaseType::SYSTEM;
         event2->eventSubType = EventSubType::ACL_FINI;
         eventMap["AclFinalEvent"] = event2;
+
+        auto event3 = std::make_shared<SystemEvent>();
+        event3->id = 1;
+        event3->timestamp = 12;
+        event3->pid = 123;
+        event3->tid = 1234;
+        event3->device = "N/A";
+        event3->name = "N/A";
+        event3->eventType = EventBaseType::SYSTEM;
+        event3->eventSubType = EventSubType::TRACE_START;
+        eventMap["TraceStartEvent"] = event3;
+ 
+        auto event4 = std::make_shared<SystemEvent>();
+        event4->id = 2;
+        event4->timestamp = 13;
+        event4->pid = 123;
+        event4->tid = 1234;
+        event4->device = "N/A";
+        event4->name = "N/A";
+        event4->eventType = EventBaseType::SYSTEM;
+        event4->eventSubType = EventSubType::TRACE_STOP;
+        eventMap["TraceStopEvent"] = event4;
     }
  
     void AddCleanUpEvent()
@@ -1338,6 +1360,74 @@ TEST_F(TestProcess, updata_owner_failed_by_atb_access_event)
 "14,ACCESS,UNKNOWN,addOperation,14,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,type:ATB,"
 "dtype:FLOAT,format:NZD,shape:[1,5,]}\"\n"
 "54,FREE,ATB,N/A,54,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:0,used:0}\"\n";
+    std::string fileContent;
+    Dump::GetInstance(config).handler_.reset();
+    bool hasReadFile = ReadFile(path, fileContent);
+    bool hasRemoveDir = RemoveDir(path);
+    EXPECT_EQ(result, fileContent);
+    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+}
+
+TEST_F(TestProcess, get_different_allocation_id_with_trace_start_and_stop_event)
+{
+    Config config;
+    config.enableCStack = false;
+    config.enablePyStack = false;
+    config.dataFormat = 0;
+    std::string path = "test_process";
+    strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
+    Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
+    Process process(config);
+ 
+    process.EventHandler(eventMap["PtaCachingMallocEvent"]);
+    process.EventHandler(eventMap["TraceStartEvent"]);
+    process.EventHandler(eventMap["PtaAccessEvent"]);
+    process.EventHandler(eventMap["TraceStopEvent"]);
+    process.EventHandler(eventMap["PtaCachingFreeEvent"]);
+ 
+    std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
+"3,MALLOC,PTA,N/A,3,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:10,used:10}\"\n"
+"1,SYSTEM,START_TRACE,N/A,12,123,1234,N/A,N/A,\n"
+"13,ACCESS,UNKNOWN,aten.add,13,123,1234,0,12345,\"{allocation_id:2,addr:12345,size:10,type:PTA,"
+"dtype:torch.float16,shape:torch.Size([1,5])}\"\n"
+"2,SYSTEM,STOP_TRACE,N/A,13,123,1234,N/A,N/A,\n"
+"54,FREE,PTA,N/A,54,123,1234,0,12345,\"{allocation_id:3,addr:12345,size:10,total:0,used:0}\"\n";
+    std::string fileContent;
+    Dump::GetInstance(config).handler_.reset();
+    bool hasReadFile = ReadFile(path, fileContent);
+    bool hasRemoveDir = RemoveDir(path);
+    EXPECT_EQ(result, fileContent);
+    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+}
+
+TEST_F(TestProcess, get_the_same_allocation_id_with_trace_start_and_stop_event)
+{
+    Config config;
+    config.enableCStack = false;
+    config.enablePyStack = false;
+    config.dataFormat = 0;
+    std::string path = "test_process";
+    strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
+    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
+    Dump::GetInstance(config).handler_->Init();
+    MemoryState::ResetCount();
+    Process process(config);
+ 
+    process.EventHandler(eventMap["TraceStartEvent"]);
+    process.EventHandler(eventMap["PtaCachingMallocEvent"]);
+    process.EventHandler(eventMap["PtaAccessEvent"]);
+    process.EventHandler(eventMap["PtaCachingFreeEvent"]);
+    process.EventHandler(eventMap["TraceStopEvent"]);
+ 
+    std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr\n"
+"1,SYSTEM,START_TRACE,N/A,12,123,1234,N/A,N/A,\n"
+"3,MALLOC,PTA,N/A,3,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:10,used:10}\"\n"
+"13,ACCESS,UNKNOWN,aten.add,13,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,type:PTA,"
+"dtype:torch.float16,shape:torch.Size([1,5])}\"\n"
+"54,FREE,PTA,N/A,54,123,1234,0,12345,\"{allocation_id:1,addr:12345,size:10,total:0,used:0}\"\n"
+"2,SYSTEM,STOP_TRACE,N/A,13,123,1234,N/A,N/A,\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
