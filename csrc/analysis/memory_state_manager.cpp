@@ -108,6 +108,9 @@ MemoryState* MemoryStateManager::FindStateInPool(const PoolType& poolType, const
     // 使用的地址空间位于某块已分配的内存内
     uint64_t addr = key.addr;
     for (auto& pair : statesMap) {
+        if (key.pid != pair.first.pid) {
+            continue;
+        }
         uint64_t startingAddr = pair.first.addr;
         if (addr >= startingAddr
             && Utility::GetAddResult(addr, size) <= Utility::GetAddResult(startingAddr, pair.second.size)) {
