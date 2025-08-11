@@ -93,7 +93,8 @@ void ShowHelpInfo()
         << "    --data-format=<db|csv>                   Set data format to <format> (default:csv)." << std::endl
         << "    --device=<cpu|npu|npu:x>,...             Set device(s) to collect, 'cpu' for cpu, 'npu' for all npu,"
         << std::endl
-        << "                                             and 'npu:x' for npu in slot x (default:npu)." << std::endl
+        << "                                             and 'npu:x' for npu in slot x (default:npu). " << std::endl
+        << "                                             Fields separated by,or，." << std::endl
         << "    --collect-mode=<full|custom>             Set data collect mode. Default: full." << std::endl;
 }
 
