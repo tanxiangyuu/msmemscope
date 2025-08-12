@@ -426,10 +426,6 @@ bool EventReport::ReportMark(RecordBuffer &mstxRecordBuffer)
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
-    if (IsNeedSkip(devId)) {
-        return true;
-    }
-
     MstxRecord* record = mstxRecordBuffer.Cast<MstxRecord>();
     record->type = RecordType::MSTX_MARK_RECORD;
     record->devId = devId;
@@ -438,6 +434,11 @@ bool EventReport::ReportMark(RecordBuffer &mstxRecordBuffer)
 
     SetStepInfo(*record);
     record->stepId = stepInfo_.currentStepId;
+
+    if (IsNeedSkip(devId)) {
+        return true;
+    }
+
     auto sendNums = ReportRecordEvent(mstxRecordBuffer);
 
     // 通过有无固化语句判断是否要采集host侧内存数据
