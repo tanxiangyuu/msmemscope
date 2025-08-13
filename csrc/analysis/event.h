@@ -216,7 +216,7 @@ public:
         timestamp = record.timestamp;
         pid = record.pid;
         tid = record.tid;
-        poolType = PoolType::PTA_CACHING; // 目前只考虑pta caching？
+        poolType = PoolType::PTA_CACHING;
         eventSubType = record.subtype == RecordSubType::USER_DEFINED
             ? EventSubType::DESCRIBE_OWNER : EventSubType::TORCH_OPTIMIZER_STEP_OWNER;
         eventType = EventBaseType::MEMORY_OWNER;
