@@ -16,7 +16,17 @@
 #include "memory_state_manager.h"
  
 using namespace Leaks;
- 
+
+TEST(TestRecordToEvent, check_device_str_is_valid)
+{
+    std::string device1 = "N/A";
+    EXPECT_TRUE(IsInvalidDevice(device1));
+    std::string device2 = "";
+    EXPECT_TRUE(IsInvalidDevice(device2));
+    std::string device3 = "host";
+    EXPECT_FALSE(IsInvalidDevice(device3));
+}
+
 TEST(TestRecordToEvent, transfer_hal_host_malloc_free)
 {
     Config config;
@@ -39,8 +49,12 @@ TEST(TestRecordToEvent, transfer_hal_host_malloc_free)
     auto event1 = process.RecordToEvent(static_cast<RecordBase*>(&record1));
     EXPECT_EQ(event1->poolType, PoolType::HAL);
     EXPECT_EQ(event1->device, "host");
- 
-    auto record2 = MemOpRecord{};
+
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemOpRecord>(
+        TLVBlockType::MEM_OWNER, "leaks_mem",
+        TLVBlockType::CALL_STACK_C, "c_file: c_func()",
+        TLVBlockType::CALL_STACK_PYTHON, "py_file: py_func1()\npy_file: py_func2()");
+    auto& record2 = *(buffer.Cast<MemOpRecord>());
     record2.type = RecordType::MEMORY_RECORD;
     record2.subtype = RecordSubType::FREE;
     record2.space = MemOpSpace::HOST;
@@ -167,8 +181,12 @@ TEST(TestRecordToEvent, transfer_pta_caching_malloc_free)
     EXPECT_EQ(event1->device, "1");
     EXPECT_EQ(event1->eventType, EventBaseType::MALLOC);
     EXPECT_EQ(event1->describeOwner, "");
- 
-    auto record2 = MemPoolRecord{};
+
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>(
+        TLVBlockType::ADDR_OWNER, "leaks_mem",
+        TLVBlockType::CALL_STACK_C, "c_file: c_func()",
+        TLVBlockType::CALL_STACK_PYTHON, "py_file: py_func1()\npy_file: py_func2()");
+    auto& record2 = *(buffer.Cast<MemPoolRecord>());
     record2.type = RecordType::PTA_CACHING_POOL_RECORD;
     record2.recordIndex = 1;
     record2.timestamp = 12;
@@ -353,7 +371,12 @@ TEST(TestRecordToEvent, transfer_aten_access)
     auto event2 = process.RecordToEvent(static_cast<RecordBase*>(&record2));
     EXPECT_EQ(event2->eventSubType, EventSubType::ATEN_WRITE);
  
-    auto record3 = MemAccessRecord{};
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemAccessRecord>(
+        TLVBlockType::OP_NAME, "aten.add",
+        TLVBlockType::MEM_ATTR, "dtype:torch.float16,shape:([1,2])",
+        TLVBlockType::CALL_STACK_C, "c_file: c_func()",
+        TLVBlockType::CALL_STACK_PYTHON, "py_file: py_func1()\npy_file: py_func2()");
+    auto& record3 = *(buffer.Cast<MemAccessRecord>());
     record3.type = RecordType::MEM_ACCESS_RECORD;
     record3.recordIndex = 1;
     record3.timestamp = 12;
@@ -435,7 +458,9 @@ TEST(TestRecordToEvent, transfer_owner_event)
     EXPECT_EQ(event1->eventSubType, EventSubType::DESCRIBE_OWNER);
     EXPECT_EQ(event1->owner, "");
  
-    auto record2 = AddrInfo{};
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<AddrInfo>(
+        TLVBlockType::ADDR_OWNER, "model@gradient");
+    auto& record2 = *(buffer.Cast<AddrInfo>());
     record2.type = RecordType::ADDR_INFO_RECORD;
     record2.subtype = RecordSubType::PTA_OPTIMIZER_STEP;
     record2.recordIndex = 1;
@@ -466,7 +491,10 @@ TEST(TestRecordToEvent, transfer_atb_op_launch)
     EXPECT_EQ(event1->eventSubType, EventSubType::ATB_START);
     EXPECT_EQ(event1->device, "1");
  
-    auto record2 = AtbOpExecuteRecord{};
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<AtbOpExecuteRecord>(
+        TLVBlockType::ATB_NAME, "operation",
+        TLVBlockType::ATB_PARAMS, "dtype:A,format:B,shape:[1,2,]");
+    auto& record2 = *(buffer.Cast<AtbOpExecuteRecord>());
     record2.type = RecordType::ATB_OP_EXECUTE_RECORD;
     record2.recordIndex = 1;
     record2.timestamp = 12;
@@ -498,7 +526,11 @@ TEST(TestRecordToEvent, transfer_aten_op_launch)
     EXPECT_EQ(event1->eventSubType, EventSubType::ATEN_START);
     EXPECT_EQ(event1->device, "1");
  
-    auto record2 = AtenOpLaunchRecord{};
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<AtenOpLaunchRecord>(
+        TLVBlockType::ATEN_NAME, "aten.add",
+        TLVBlockType::CALL_STACK_C, "c_file: c_func()",
+        TLVBlockType::CALL_STACK_PYTHON, "py_file: py_func1()\npy_file: py_func2()");
+    auto& record2 = *(buffer.Cast<AtenOpLaunchRecord>());
     record2.type = RecordType::ATEN_OP_LAUNCH_RECORD;
     record2.recordIndex = 1;
     record2.timestamp = 12;
@@ -533,8 +565,9 @@ TEST(TestRecordToEvent, transfer_kernel_launch)
     EXPECT_EQ(event1->streamId, "1");
     EXPECT_EQ(event1->taskId, "2");
  
- 
-    auto record2 = KernelLaunchRecord{};
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<KernelLaunchRecord>(
+        TLVBlockType::KERNEL_NAME, "kernel");
+    auto& record2 = *(buffer.Cast<KernelLaunchRecord>());
     record2.type = RecordType::KERNEL_LAUNCH_RECORD;
     record2.recordIndex = 1;
     record2.timestamp = 12;
@@ -567,7 +600,9 @@ TEST(TestRecordToEvent, transfer_kernel_execute)
     auto event1 = process.RecordToEvent(static_cast<RecordBase*>(&record1));
     EXPECT_EQ(event1->device, "1");
  
-    auto record2 = KernelExcuteRecord{};
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<KernelExcuteRecord>(
+        TLVBlockType::KERNEL_NAME, "kernel");
+    auto& record2 = *(buffer.Cast<KernelExcuteRecord>());
     record2.type = RecordType::KERNEL_EXCUTE_RECORD;
     record2.recordIndex = 1;
     record2.timestamp = 12;
@@ -599,7 +634,10 @@ TEST(TestRecordToEvent, transfer_atb_kernel_execute)
     auto event1 = process.RecordToEvent(static_cast<RecordBase*>(&record1));
     EXPECT_EQ(event1->device, "1");
  
-    auto record2 = AtbKernelRecord{};
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<AtbKernelRecord>(
+        TLVBlockType::ATB_NAME, "operation",
+        TLVBlockType::ATB_PARAMS, "path:0_111/0/operation");
+    auto& record2 = *(buffer.Cast<AtbKernelRecord>());
     record2.type = RecordType::ATB_KERNEL_RECORD;
     record2.recordIndex = 1;
     record2.timestamp = 12;
@@ -629,7 +667,11 @@ TEST(TestRecordToEvent, transfer_mstx_event)
     EXPECT_EQ(event1->eventSubType, EventSubType::MSTX_MARK);
     EXPECT_EQ(event1->device, "1");
  
-    auto record2 = MstxRecord{};
+    RecordBuffer buffer1 = RecordBuffer::CreateRecordBuffer<MstxRecord>(
+        TLVBlockType::MARK_MESSAGE, "operation=",
+        TLVBlockType::CALL_STACK_C, "c_file: c_func()",
+        TLVBlockType::CALL_STACK_PYTHON, "py_file: py_func1()\npy_file: py_func2()");
+    auto record2 = *(buffer1.Cast<MstxRecord>());
     record2.type = RecordType::MSTX_MARK_RECORD;
     record2.recordIndex = 1;
     record2.timestamp = 12;
@@ -641,7 +683,11 @@ TEST(TestRecordToEvent, transfer_mstx_event)
     EXPECT_EQ(event2->eventSubType, EventSubType::MSTX_RANGE_START);
     EXPECT_EQ(event2->device, "N/A");
  
-    auto record3 = MstxRecord{};
+    RecordBuffer buffer2 = RecordBuffer::CreateRecordBuffer<MstxRecord>(
+        TLVBlockType::MARK_MESSAGE, "operation",
+        TLVBlockType::CALL_STACK_C, "c_file: c_func()",
+        TLVBlockType::CALL_STACK_PYTHON, "py_file: py_func1()\npy_file: py_func2()");
+    auto& record3 = *(buffer2.Cast<MstxRecord>());
     record3.type = RecordType::MSTX_MARK_RECORD;
     record3.recordIndex = 1;
     record3.timestamp = 12;
@@ -680,4 +726,31 @@ TEST(TestRecordToEvent, transfer_system_event)
     record2.subtype = RecordSubType::FINALIZE;
     auto event2 = process.RecordToEvent(static_cast<RecordBase*>(&record2));
     EXPECT_EQ(event2->eventSubType, EventSubType::ACL_FINI);
+}
+
+TEST(TestRecordToEvent, transfer_trace_event)
+{
+    Config config;
+    Process process(config);
+ 
+    auto record1 = TraceStatusRecord{};
+    record1.type = RecordType::TRACE_STATUS_RECORD;
+    record1.recordIndex = 1;
+    record1.timestamp = 12;
+    record1.pid = 123;
+    record1.tid = 1234;
+    record1.status = static_cast<uint8_t>(EventTraceStatus::IN_TRACING);
+ 
+    auto event1 = process.RecordToEvent(static_cast<RecordBase*>(&record1));
+    EXPECT_EQ(event1->eventSubType, EventSubType::TRACE_START);
+ 
+    auto record2 = TraceStatusRecord{};
+    record2.type = RecordType::TRACE_STATUS_RECORD;
+    record2.recordIndex = 1;
+    record2.timestamp = 12;
+    record2.pid = 123;
+    record2.tid = 1234;
+    record2.status = static_cast<uint8_t>(EventTraceStatus::NOT_IN_TRACING);
+    auto event2 = process.RecordToEvent(static_cast<RecordBase*>(&record2));
+    EXPECT_EQ(event2->eventSubType, EventSubType::TRACE_STOP);
 }
