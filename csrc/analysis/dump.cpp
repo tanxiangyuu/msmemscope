@@ -20,7 +20,6 @@ Dump::Dump(Config config)
     handler_ = MakeDataHandler(config_, DataType::LEAKS_EVENT);
     auto func = std::bind(&Dump::EventHandle, this, std::placeholders::_1, std::placeholders::_2);
     std::vector<EventBaseType> eventList{
-        EventBaseType::MALLOC,
         EventBaseType::FREE,
         EventBaseType::MSTX,
         EventBaseType::OP_LAUNCH,
@@ -34,14 +33,9 @@ Dump::Dump(Config config)
 void Dump::EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state)
 {
     switch (event->eventType) {
-        case EventBaseType::MALLOC:
-            if (state) {
-                DumpMemEventBeforeMalloc(state);
-            }
-            break;
         case EventBaseType::FREE:
             if (state) {
-                DumpMemEventAfterFree(state);
+                DumpMemoryState(state);
             }
             break;
         case EventBaseType::MSTX:
@@ -65,50 +59,19 @@ void Dump::EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state)
             }
             break;
         case EventBaseType::CLEAN_UP:
-            if (auto cleanUpEvent = std::dynamic_pointer_cast<CleanUpEvent>(event)) {
-                DumpMemEventBeforeCleanUp(cleanUpEvent);
+            if (state) {
+                DumpMemoryState(state);
             }
             break;
         default:
             break;
     }
-
-    // 暂时把删除逻辑放到这里
-    if (event->eventType == EventBaseType::FREE || event->eventType == EventBaseType::CLEAN_UP) {
-        MemoryStateManager::GetInstance().DeteleState(event->poolType, MemoryStateKey{event->pid, event->addr});
-    }
 }
 
-void Dump::DumpMemEventBeforeMalloc(MemoryState* state)
+void Dump::DumpMemoryState(MemoryState* state)
 {
-    if (state->events.size() > 1) {
-        // dump Malloc事件前的所有事件，并删除已dump的数据
-        for (auto it = state->events.begin(); it != state->events.end() - 1;) {
-            DumpMemoryEvent(*it, state);
-            it = state->events.erase(it); // erase返回下一个有效迭代器
-        }
-    }
-}
-
-void Dump::DumpMemEventAfterFree(MemoryState* state)
-{
-    for (auto it = state->events.begin(); it != state->events.end();) {
+    for (auto it = state->events.begin(); it != state->events.end(); it++) {
         DumpMemoryEvent(*it, state);
-        it = state->events.erase(it); // erase返回下一个有效迭代器
-    }
-}
-
-void Dump::DumpMemEventBeforeCleanUp(std::shared_ptr<CleanUpEvent>& event)
-{
-    auto state = MemoryStateManager::GetInstance().GetState(
-        event->poolType, MemoryStateKey{event->pid, event->addr});
-    if (state == nullptr) {
-        return;
-    }
-
-    for (auto it = state->events.begin(); it != state->events.end();) {
-        DumpMemoryEvent(*it, state);
-        it = state->events.erase(it); // erase返回下一个有效迭代器
     }
 }
 

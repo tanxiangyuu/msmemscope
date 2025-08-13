@@ -89,12 +89,13 @@ public:
 
     bool AddEvent(std::shared_ptr<MemoryEvent>& event);
     bool DeteleState(const PoolType& poolType, const MemoryStateKey& key);
-    Pool* GetStatePool(const PoolType& poolType);
     MemoryState* GetState(const PoolType& poolType, const MemoryStateKey& key);
-    MemoryState* FindStateInPool(const PoolType& poolType, const MemoryStateKey& key, uint64_t size);
     std::vector<std::pair<PoolType, MemoryStateKey>> GetAllStateKeys();
 private:
+    MemoryState* FindStateInPool(const PoolType& poolType, const MemoryStateKey& key, uint64_t size);
+
     std::unordered_map<PoolType, Pool> poolsMap_;
+    std::mutex mtx_;
 };
 
 }
