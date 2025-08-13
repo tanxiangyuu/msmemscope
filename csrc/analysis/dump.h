@@ -24,9 +24,7 @@ private:
     Dump(Dump&& other) = delete;
     Dump& operator=(Dump&& other) = delete;
 
-    void DumpMemEventBeforeMalloc(MemoryState* state);
-    void DumpMemEventAfterFree(MemoryState* state);
-    void DumpMemEventBeforeCleanUp(std::shared_ptr<CleanUpEvent>& event);
+    void DumpMemoryState(MemoryState* state);
     void DumpMemoryEvent(std::shared_ptr<MemoryEvent>& event, MemoryState* state);
 
     void DumpMstxEvent(std::shared_ptr<MstxEvent>& event);

@@ -228,9 +228,12 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
     if (!eventType.checkBit(static_cast<size_t>(EventType::ALLOC_EVENT))) {
         return true;
     }
-    
-    int32_t moduleId = GetMallocModuleId(flag);
+
     MemOpSpace space = GetMemOpSpace(flag);
+    if (space == MemOpSpace::HOST && !config_.collectCpu) {
+        return true;
+    }
+    int32_t moduleId = GetMallocModuleId(flag);
     std::string owner = DescribeTrace::GetInstance().GetDescribe();
     TLVBlockType cStack = stack.cStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_C;
     TLVBlockType pyStack = stack.pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
@@ -423,10 +426,6 @@ bool EventReport::ReportMark(RecordBuffer &mstxRecordBuffer)
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
-    if (IsNeedSkip(devId)) {
-        return true;
-    }
-
     MstxRecord* record = mstxRecordBuffer.Cast<MstxRecord>();
     record->type = RecordType::MSTX_MARK_RECORD;
     record->devId = devId;
@@ -435,6 +434,11 @@ bool EventReport::ReportMark(RecordBuffer &mstxRecordBuffer)
 
     SetStepInfo(*record);
     record->stepId = stepInfo_.currentStepId;
+
+    if (IsNeedSkip(devId)) {
+        return true;
+    }
+
     auto sendNums = ReportRecordEvent(mstxRecordBuffer);
 
     // 通过有无固化语句判断是否要采集host侧内存数据
