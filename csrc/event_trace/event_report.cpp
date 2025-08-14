@@ -92,7 +92,7 @@ int EventReport::ReportRecordEvent(const RecordBuffer& record)
     return sendNums;
 }
 
-EventReport& EventReport::Instance(CommType type)
+EventReport& EventReport::Instance(LeaksCommType type)
 {
     static EventReport instance(type);
     return instance;
@@ -111,7 +111,7 @@ Config EventReport::GetInitConfig()
     return initConfig_;
 }
 
-EventReport::EventReport(CommType type)
+EventReport::EventReport(LeaksCommType type)
 {
     Init();
 

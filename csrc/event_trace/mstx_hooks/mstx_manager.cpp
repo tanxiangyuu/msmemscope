@@ -36,7 +36,7 @@ void MstxManager::ReportMarkA(const char* msg, int32_t streamId)
     record->rangeId = onlyMarkId_;
     record->streamId = streamId;
 
-    if (!EventReport::Instance(CommType::SOCKET).ReportMark(buffer)) {
+    if (!EventReport::Instance(LeaksCommType::DOMAIN_SOCKET).ReportMark(buffer)) {
         CLIENT_ERROR_LOG("Report Mark FAILED");
     }
 }
@@ -52,7 +52,7 @@ uint64_t MstxManager::ReportRangeStart(const char* msg, int32_t streamId)
     record->rangeId = GetRangeId();
     const TLVBlock* msgTlv = GetTlvBlock(*record, TLVBlockType::MARK_MESSAGE);
     std::string mstxMsgString = msgTlv == nullptr ? "N/A" : msgTlv->data;
-    if (!EventReport::Instance(CommType::SOCKET).ReportMark(buffer)) {
+    if (!EventReport::Instance(LeaksCommType::DOMAIN_SOCKET).ReportMark(buffer)) {
         CLIENT_ERROR_LOG("Report Mark FAILED");
     }
     return record->rangeId;
@@ -68,7 +68,7 @@ void MstxManager::ReportRangeEnd(uint64_t id)
     record->streamId = -1;
     record->rangeId = id;
 
-    if (!EventReport::Instance(CommType::SOCKET).ReportMark(buffer)) {
+    if (!EventReport::Instance(LeaksCommType::DOMAIN_SOCKET).ReportMark(buffer)) {
         CLIENT_ERROR_LOG("Report Mark FAILED");
     }
 }
