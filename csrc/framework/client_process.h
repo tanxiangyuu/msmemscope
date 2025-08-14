@@ -5,7 +5,7 @@
 
 #include <string>
 #include <csignal>
-#include "host_injection/core/Communication.h"
+#include "communication_proxy_client.h"
 #include "log.h"
 #include "config_info.h"
 
@@ -13,8 +13,8 @@ namespace Leaks {
 
 class ClientProcess {
 public:
-    explicit ClientProcess(CommType type);
-    static ClientProcess &GetInstance(CommType type = CommType::SOCKET);
+    explicit ClientProcess(LeaksCommType type);
+    static ClientProcess &GetInstance(LeaksCommType type = LeaksCommType::DOMAIN_SOCKET);
     ~ClientProcess();
     void Log(LogLv level, std::string msg, const std::string fileName, const uint32_t line);
     void SetLogLevel(LogLv level);
@@ -24,6 +24,7 @@ public:
     std::mutex notifyMutex_;
 private:
     LogLv logLevel_;
+    CommunicationProxyClient* client_;
 };
 
 #define CLIENT_DEBUG_LOG(format)                                                                                      \

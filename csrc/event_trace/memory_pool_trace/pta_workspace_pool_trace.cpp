@@ -58,9 +58,22 @@ void PTAWorkspacePoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegions
 
     const mstxMemVirtualRangeDesc_t *rangeDescArray =
         reinterpret_cast<const mstxMemVirtualRangeDesc_t *>(desc->regionDescArray);
+<<<<<<< HEAD
 
     CallStackString stack;
     Utility::GetCallstack(stack);
+=======
+    auto config = EventReport::Instance(LeaksCommType::DOMAIN_SOCKET).GetConfig();
+    std::string cStack;
+    std::string pyStack;
+    if (config.enableCStack) {
+        Utility::GetCCallstack(config.cStackDepth, cStack, SKIP_DEPTH);
+    }
+    if (config.enablePyStack) {
+        Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
+    }
+    CallStackString stack{cStack, pyStack};
+>>>>>>> adc933e (domain socket refactoring)
 
     for (size_t i = 0; i < desc->regionCount; i++) {
         uint32_t devId = rangeDescArray[i].deviceId;
@@ -79,7 +92,7 @@ void PTAWorkspacePoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegions
         MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
         record->type = RecordType::PTA_WORKSPACE_POOL_RECORD;
         record->memoryUsage = memUsageMp_[devId];
-        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(buffer)) {
+        if (!EventReport::Instance(LeaksCommType::DOMAIN_SOCKET).ReportMemPoolRecord(buffer)) {
             CLIENT_ERROR_LOG("Report PTA Workspace Data Failed");
         }
     }
@@ -114,7 +127,7 @@ void PTAWorkspacePoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnr
         MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
         record->type = RecordType::PTA_WORKSPACE_POOL_RECORD;
         record->memoryUsage = memUsageMp_[rangeDesc.deviceId];
-        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(buffer)) {
+        if (!EventReport::Instance(LeaksCommType::DOMAIN_SOCKET).ReportMemPoolRecord(buffer)) {
             CLIENT_ERROR_LOG("Report PTA Workspace Data Failed");
         }
     }
