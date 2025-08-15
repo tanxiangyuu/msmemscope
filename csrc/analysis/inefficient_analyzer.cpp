@@ -29,50 +29,30 @@ InefficientAnalyzer::InefficientAnalyzer() : onlyCheckATB{false}
 void InefficientAnalyzer::EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state)
 {
     Init(event->pid);
-    auto& pidState = pidStatesMap[event->pid];
     const bool isOnlyCheckATB = onlyCheckATB.load(std::memory_order_relaxed);
     const auto eventType = event->eventType;
     const auto eventSubType = event->eventSubType;
+    // 处理OP_LAUNCH类型事件
+    if (eventType == EventBaseType::OP_LAUNCH) {
+        HandleOpLaunchEvent(event);
+        return;
+    }
     // 检查ATB时，过滤非ATB的MALLOC/FREE事件
     if (isOnlyCheckATB &&
         (eventType == EventBaseType::MALLOC || eventType == EventBaseType::FREE) &&
         eventSubType != EventSubType::ATB) {
         return;
     }
-    // 处理OP_LAUNCH类型事件
-    if (eventType == EventBaseType::OP_LAUNCH) {
-        // 遇到start，api id 加1
-        if (eventSubType == EventSubType::ATB_START || eventSubType == EventSubType::ATEN_START) {
-            pidState.isOpStart = true;
-            UpdateApiId(event->pid);
-            return;
-        }
-        // 遇到end，判断tmp api属于什么类型
-        if (eventSubType == EventSubType::ATB_END || eventSubType == EventSubType::ATEN_END) {
-            pidState.isOpStart = false;
-            ClassifyEventsTmp(event->pid);
-            return;
-        }
-    }
     // 处理MALLOC FREE ACCESS事件
     if (eventType == EventBaseType::MALLOC || eventType == EventBaseType::FREE || eventType == EventBaseType::ACCESS) {
         if (!isOnlyCheckATB && event->eventSubType == EventSubType::ATB) {
             onlyCheckATB.store(true, std::memory_order_relaxed);
         }
-        auto memEvent = std::dynamic_pointer_cast<MemoryEvent>(event);
-        if (memEvent != nullptr && state != nullptr) {
-            // 当前面没有START事件时，即表明当前事件为独立事件，M/A/F均API ID加1，并判断此时事件属于malloc还是free api
-            if (!pidState.isOpStart) {
-                UpdateApiId(event->pid);
-                AddEventToTmps(memEvent);
-                AddApiIdToState(memEvent, state);
-                ClassifyEventsTmp(event->pid);
-            } else {
-                AddEventToTmps(memEvent);
-                AddApiIdToState(memEvent, state);
-            }
-            InefficientAnalysis(memEvent, state);
+        if ((eventType == EventBaseType::MALLOC || eventType == EventBaseType::FREE) &&
+            (eventSubType != EventSubType::PTA_CACHING && eventSubType != EventSubType::ATB)) {
+                return;
         }
+        HandleMemoryEvent(event, state);
     }
 }
 
@@ -84,6 +64,48 @@ void InefficientAnalyzer::Init(const uint64_t pid)
         pidStatesMap[pid].freeApiTmpId = MAX_UNIT64;
         pidStatesMap[pid].isOpStart = false;
     }
+}
+
+void InefficientAnalyzer::HandleOpLaunchEvent(std::shared_ptr<EventBase>& event)
+{
+    const auto eventSubType = event->eventSubType;
+    const uint64_t pid = event->pid;
+    auto& pidState = pidStatesMap[pid];
+
+    // 遇到start，api id 加1
+    if (eventSubType == EventSubType::ATB_START || eventSubType == EventSubType::ATEN_START) {
+        pidState.isOpStart = true;
+        UpdateApiId(pid);
+        return;
+    }
+    // 遇到end，判断tmp api属于什么类型
+    if (eventSubType == EventSubType::ATB_END || eventSubType == EventSubType::ATEN_END) {
+        pidState.isOpStart = false;
+        ClassifyEventsTmp(pid);
+        return;
+    }
+}
+
+void InefficientAnalyzer::HandleMemoryEvent(std::shared_ptr<EventBase>& event, MemoryState* state)
+{
+    const uint64_t pid = event->pid;
+    auto& pidState = pidStatesMap[pid];
+    auto memEvent = std::dynamic_pointer_cast<MemoryEvent>(event);
+    if (!memEvent || !state) {
+        return;
+    }
+    // 当前面没有START事件时，即表明当前事件为独立事件，M/A/F均API ID加1，并判断此时事件属于malloc还是free api
+    if (!pidState.isOpStart) {
+        UpdateApiId(pid);
+        AddEventToTmps(memEvent);
+        AddApiIdToState(memEvent, state);
+        ClassifyEventsTmp(pid);
+    } else {
+        AddEventToTmps(memEvent);
+        AddApiIdToState(memEvent, state);
+    }
+
+    InefficientAnalysis(memEvent, state);
 }
 
 void InefficientAnalyzer::ClassifyEventsTmp(const uint64_t pid)

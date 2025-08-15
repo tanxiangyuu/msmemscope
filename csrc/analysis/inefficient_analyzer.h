@@ -33,6 +33,8 @@ private:
     InefficientAnalyzer& operator=(InefficientAnalyzer&& other) = delete;
 
     void InefficientAnalysis(std::shared_ptr<MemoryEvent>& event, MemoryState* state);
+    void HandleOpLaunchEvent(std::shared_ptr<EventBase>& event);
+    void HandleMemoryEvent(std::shared_ptr<EventBase>& event, MemoryState* state);
     void EarlyAllocation(std::shared_ptr<MemoryEvent>& event, MemoryState* state);
     void LateDeallocation(std::shared_ptr<MemoryEvent>& event, MemoryState* state);
     void TemporaryIdleness(std::shared_ptr<MemoryEvent>& event, MemoryState* state);
