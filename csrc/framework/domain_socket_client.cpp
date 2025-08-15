@@ -34,6 +34,7 @@ bool DomainSocketClient::init() {
 
 //todo:添加注释，添加可能出现的异常情况
 bool DomainSocketClient::sent(const std::string& msg, size_t& size) {
+    std::lock_guard<std::mutex> lock(sentMutex_);
     int32_t sentBytes = 0;
     /* 循环外部先发送一次，减少重复构造字符串 */
     size = client_->Write(msg);

@@ -21,7 +21,6 @@ public:
     int Notify(std::string const &msg);
     int Wait(std::string& msg, uint32_t timeOut = 10);
     int TerminateWithSignal(int signal = SIGINT);
-    std::mutex notifyMutex_;
 private:
     LogLv logLevel_;
     CommunicationProxyClient* client_;
