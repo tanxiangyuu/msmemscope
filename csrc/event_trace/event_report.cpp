@@ -101,9 +101,9 @@ void EventReport::Init()
     isReceiveServerInfo_.store(false);
 }
 
-Config EventReport::GetConfig()
+Config EventReport::GetInitConfig()
 {
-    return config_;
+    return initConfig_;
 }
 
 EventReport::EventReport(CommType type)
@@ -114,25 +114,24 @@ EventReport::EventReport(CommType type)
     std::string msg;
     uint32_t reTryTimes = 5; // 当前系统设置（setsockopt）的read超时时长是1s，默认至多尝试5次
     isReceiveServerInfo_ = (ClientProcess::GetInstance(type).Wait(msg, reTryTimes) > 0) ? true : false;
-    Deserialize(msg, config_);
-    ClientProcess::GetInstance(type).SetLogLevel(static_cast<LogLv>(config_.logLevel));
+    Deserialize(msg, initConfig_);
 
-    BitField<decltype(config_.levelType)> levelType(config_.levelType);
-    if (levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_KERNEL))) {
-        RegisterRtProfileCallback();
-    }
+    ClientProcess::GetInstance(type).SetLogLevel(static_cast<LogLv>(initConfig_.logLevel));
+
+    RegisterRtProfileCallback();
+
     return;
 }
 
 bool EventReport::IsNeedSkip(int32_t devid)
 {
-    if (!config_.collectAllNpu) {
-        BitField<decltype(config_.npuSlots)> npuSlots(config_.npuSlots);
+    if (!GetConfig().collectAllNpu) {
+        BitField<decltype(GetConfig().npuSlots)> npuSlots(GetConfig().npuSlots);
         if (devid != GD_INVALID_NUM && !npuSlots.checkBit(static_cast<size_t>(devid))) {
             return true;
         }
     }
-    auto stepList = config_.stepList;
+    auto stepList = GetConfig().stepList;
     if (stepList.stepCount == 0) {
         return false;
     }
@@ -175,7 +174,7 @@ bool EventReport::ReportMemPoolRecord(RecordBuffer &memPoolRecordBuffer)
 {
     g_isInReportFunction = true;
 
-    if (!EventTraceManager::Instance().IsNeedTrace()) {
+    if (!EventTraceManager::Instance().IsNeedTrace(RecordType::MEMORY_POOL_RECORD)) {
         return true;
     }
     
@@ -189,17 +188,6 @@ bool EventReport::ReportMemPoolRecord(RecordBuffer &memPoolRecordBuffer)
         return true;
     }
 
-    BitField<decltype(config_.eventType)> eventType(config_.eventType);
-    // 根据命令行参数判断malloc和free是否上报, 0为malloc，剩下的为free
-    if (record->memoryUsage.dataType == 0) {
-        if (!eventType.checkBit(static_cast<size_t>(EventType::ALLOC_EVENT))) {
-            return true;
-        }
-    } else {
-        if (!eventType.checkBit(static_cast<size_t>(EventType::FREE_EVENT))) {
-            return true;
-        }
-    }
     record->kernelIndex = kernelLaunchRecordIndex_;
     record->devId = devId;
     record->recordIndex = ++recordIndex_;
@@ -224,13 +212,8 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
         return true;
     }
 
-    BitField<decltype(config_.eventType)> eventType(config_.eventType);
-    if (!eventType.checkBit(static_cast<size_t>(EventType::ALLOC_EVENT))) {
-        return true;
-    }
-
     MemOpSpace space = GetMemOpSpace(flag);
-    if (space == MemOpSpace::HOST && !config_.collectCpu) {
+    if (space == MemOpSpace::HOST && !GetConfig().collectCpu) {
         return true;
     }
     int32_t moduleId = GetMallocModuleId(flag);
@@ -284,11 +267,6 @@ bool EventReport::ReportFree(uint64_t addr, CallStackString& stack)
         g_halPtrs.erase(it);
     }
 
-    BitField<decltype(config_.eventType)> eventType(config_.eventType);
-    if (!eventType.checkBit(static_cast<size_t>(EventType::FREE_EVENT))) {
-        return true;
-    }
-
     TLVBlockType cStack = stack.cStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_C;
     TLVBlockType pyStack = stack.pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
     RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemOpRecord>(cStack, stack.cStack, pyStack, stack.pyStack);
@@ -319,8 +297,7 @@ bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size, CallStackString
         return true;
     }
 
-    BitField<decltype(config_.eventType)> eventType(config_.eventType);
-    if (!config_.collectCpu || !eventType.checkBit(static_cast<size_t>(EventType::ALLOC_EVENT))) {
+    if (!GetConfig().collectCpu) {
         return true;
     }
 
@@ -357,8 +334,7 @@ bool EventReport::ReportHostFree(uint64_t addr)
         return true;
     }
 
-    BitField<decltype(config_.eventType)> eventType(config_.eventType);
-    if (!config_.collectCpu || !eventType.checkBit(static_cast<size_t>(EventType::FREE_EVENT))) {
+    if (!GetConfig().collectCpu) {
         return true;
     }
 
@@ -452,7 +428,9 @@ bool EventReport::ReportMark(RecordBuffer &mstxRecordBuffer)
             strcmp(markMessage.c_str(), "report host memory info start") == 0) {
             mstxRangeIdTables_[pid][tid] = record->rangeId;
             CLIENT_INFO_LOG("[mark] Start report host memory info...");
-            config_.collectCpu = true;
+            Config config = GetConfig();
+            config.collectCpu = true;
+            ConfigManager::Instance().SetConfig(config);
             g_isReportHostMem = true;
         } else if (record->markType == MarkType::RANGE_END &&
             mstxRangeIdTables_.find(pid) != mstxRangeIdTables_.end() &&
@@ -460,7 +438,9 @@ bool EventReport::ReportMark(RecordBuffer &mstxRecordBuffer)
             mstxRangeIdTables_[pid][tid] == record->rangeId) {
             mstxRangeIdTables_[pid].erase(tid);
             CLIENT_INFO_LOG("[mark] Stop report host memory info.");
-            config_.collectCpu = false;
+            Config config = GetConfig();
+            config.collectCpu = false;
+            ConfigManager::Instance().SetConfig(config);
             g_isReportHostMem = false;
         }
     }
@@ -530,7 +510,7 @@ bool EventReport::ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
 {
     g_isInReportFunction = true;
 
-    if (!EventTraceManager::Instance().IsNeedTrace()) {
+    if (!EventTraceManager::Instance().IsNeedTrace(RecordType::KERNEL_LAUNCH_RECORD)) {
         return true;
     }
 
@@ -546,13 +526,6 @@ bool EventReport::ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
     }
 
     if (IsNeedSkip(devId)) {
-        return true;
-    }
-
-    BitField<decltype(config_.eventType)> eventType(config_.eventType);
-    BitField<decltype(config_.levelType)> levelType(config_.levelType);
-    if (!eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT)) ||
-        !levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_KERNEL))) {
         return true;
     }
 
@@ -579,7 +552,7 @@ bool EventReport::ReportKernelExcute(const TaskKey &key, std::string &name, uint
 {
     g_isInReportFunction = true;
 
-    if (!EventTraceManager::Instance().IsNeedTrace()) {
+    if (!EventTraceManager::Instance().IsNeedTrace(RecordType::KERNEL_EXCUTE_RECORD)) {
         return true;
     }
 

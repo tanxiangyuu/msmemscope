@@ -25,10 +25,9 @@ void CleanFileName(std::string& fileName)
 
 TensorDumper::TensorDumper()
 {
-    Config config = EventReport::Instance(CommType::SOCKET).GetConfig();
-    fullContent_ = config.watchConfig.fullContent;
+    fullContent_ = GetConfig().watchConfig.fullContent;
 
-    dumpDir_ = std::string(config.outputDir) + "/watch_dump";
+    dumpDir_ = std::string(GetConfig().outputDir) + "/watch_dump";
 }
 
 TensorDumper::~TensorDumper()

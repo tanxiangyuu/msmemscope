@@ -184,10 +184,14 @@ class AtenCollector:
             self.disable()
 
     def enable(self):
+        if self.enabled:
+            return
         self.dispatch.__enter__()
         self.enabled = True
 
     def disable(self):
+        if not self.enabled:
+            return
         self.dispatch.__exit__(None, None, None)
         self.enabled = False
 

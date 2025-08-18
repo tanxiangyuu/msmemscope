@@ -37,8 +37,7 @@ private:
     bool IsIgnore(std::string funcName);
     PythonTrace()
     {
-        config_ = EventReport::Instance(CommType::SOCKET).GetConfig();
-        handler_ = MakeDataHandler(config_, DataType::PYTHON_TRACE_EVENT);
+        handler_ = MakeDataHandler(GetConfig(), DataType::PYTHON_TRACE_EVENT);
     }
     ~PythonTrace() = default;
     std::unordered_map<uint64_t, std::stack<std::shared_ptr<TraceEvent>>> frameStack_;
@@ -48,7 +47,6 @@ private:
     std::string dirPath_;
     std::vector<std::string> ignorePyFunc_ = {"__torch_dispatch__"};
     std::unique_ptr<DataHandler> handler_;
-    Config config_;
 };
 void callback(const std::string& hash, const std::string& info, PyTraceType what, uint64_t timestamp);
 }

@@ -104,7 +104,6 @@ private:
     std::unordered_set<DEVICEID> deviceIdSet_;
     std::string fileNamePrefix_ = "memory_compare_";
     std::string dirPath_;
-    std::string csvHeader_;
     std::string framework_;
     std::mutex fileMutex_;
     Config config_;

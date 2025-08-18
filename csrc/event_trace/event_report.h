@@ -55,7 +55,7 @@ public:
     bool ReportTraceStatus(const EventTraceStatus status);
     bool ReportMark(RecordBuffer &mstxRecordBuffer);
     int ReportRecordEvent(const RecordBuffer& record);
-    Config GetConfig();
+    Config GetInitConfig();
     bool ReportMemPoolRecord(RecordBuffer &memPoolRecordBuffer);
     bool ReportAtbOpExecute(RecordBuffer& atbOpExecuteRecordBuffer);
     bool ReportAtbKernel(RecordBuffer& atbKernelRecordBuffer);
@@ -83,7 +83,7 @@ private:
     std::mutex mutex_;
     std::mutex rangeIdTableMutex_;
 
-    Config config_;
+    Config initConfig_;
     std::unordered_map<uint64_t, std::unordered_map<uint64_t, uint64_t>> mstxRangeIdTables_{};
 
     std::atomic<bool> isReceiveServerInfo_;

@@ -17,18 +17,12 @@ drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long fl
         return ret;
     }
 
-    if (!EventTraceManager::Instance().IsNeedTrace()) {
+    if (!EventTraceManager::Instance().IsNeedTrace(RecordType::MEMORY_RECORD)) {
         return ret;
     }
 
-    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
     CallStackString stack;
-    if (config.enableCStack) {
-        Utility::GetCCallstack(config.cStackDepth, stack.cStack, SKIP_DEPTH);
-    }
-    if (config.enablePyStack) {
-        Utility::GetPythonCallstack(config.pyStackDepth, stack.pyStack);
-    }
+    Utility::GetCallstack(stack);
 
     // report to leaks here
     uintptr_t addr = reinterpret_cast<uintptr_t>(*pp);
@@ -47,21 +41,13 @@ drvError_t halMemFree(void *pp)
         return ret;
     }
 
-    if (!EventTraceManager::Instance().IsNeedTrace()) {
+    if (!EventTraceManager::Instance().IsNeedTrace(RecordType::MEMORY_RECORD)) {
         return ret;
     }
     
-    // report to leaks here
-    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
-    std::string cStack;
-    std::string pyStack;
-    if (config.enableCStack) {
-        Utility::GetCCallstack(config.cStackDepth, cStack, SKIP_DEPTH);
-    }
-    if (config.enablePyStack) {
-        Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
-    }
-    CallStackString stack{cStack, pyStack};
+    CallStackString stack;
+    Utility::GetCallstack(stack);
+    
     uintptr_t addr = reinterpret_cast<uintptr_t>(pp);
     if (!EventReport::Instance(CommType::SOCKET).ReportFree(reinterpret_cast<uint64_t>(addr), stack)) {
         CLIENT_ERROR_LOG("halMemFree report failed");

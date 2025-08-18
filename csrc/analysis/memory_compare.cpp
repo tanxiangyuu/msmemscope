@@ -21,9 +21,6 @@ MemoryCompare& MemoryCompare::GetInstance(Config config)
 MemoryCompare::MemoryCompare(Config config)
 {
     config_ = config;
-    std::string cStack = config.enableCStack ? ",Call Stack(C)" : "";
-    std::string pyStack = config.enablePyStack ? ",Call Stack(Python)" : "";
-    csvHeader_ = LEAKS_HEADERS + pyStack + cStack + "\n";
     SetDirPath();
 }
 
@@ -95,7 +92,7 @@ bool MemoryCompare::CheckCsvHeader(std::string &path, std::ifstream& file, std::
     std::string line;
     getline(file, line);
 
-    if (line + "\n" != std::string(csvHeader_)) {
+    if (line + "\n" != std::string(LEAKS_HEADERS)) {
         return false;
     }
 

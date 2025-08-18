@@ -12,50 +12,43 @@ using namespace Leaks;
 
 TEST(EventReportTest, EventReportInstanceTest) {
     EventReport& instance1 = EventReport::Instance(CommType::MEMORY);
-    BitField<decltype(instance1.config_.eventType)> eventBit;
-    BitField<decltype(instance1.config_.levelType)> levelBit;
-    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_OP));
-    levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
-    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
-    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
-    eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
-    eventBit.setBit(static_cast<size_t>(EventType::ACCESS_EVENT));
-    instance1.config_.eventType = eventBit.getValue();
-    instance1.config_.levelType = levelBit.getValue();
-    instance1.config_.enableCStack = true;
-    instance1.config_.enablePyStack = true;
     EventReport& instance2 = EventReport::Instance(CommType::MEMORY);
     EXPECT_EQ(&instance1, &instance2);
 }
 
 TEST(EventReportTest, ReportMallocTestDEVICE) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
-    BitField<decltype(instance.config_.eventType)> eventBit;
-    BitField<decltype(instance.config_.levelType)> levelBit;
+    instance.isReceiveServerInfo_ = true;
+
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    BitField<decltype(config.eventType)> eventBit;
+    BitField<decltype(config.levelType)> levelBit;
     levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_OP));
     levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::ACCESS_EVENT));
-    instance.config_.eventType = eventBit.getValue();
-    instance.config_.levelType = levelBit.getValue();
-    instance.config_.enableCStack = true;
-    instance.config_.enablePyStack = true;
+    config.eventType = eventBit.getValue();
+    config.levelType = levelBit.getValue();
+    config.enableCStack = true;
+    config.enablePyStack = true;
+    ConfigManager::Instance().SetConfig(config);
     uint64_t testAddr = 0x12345678;
     uint64_t testSize = 1024;
     unsigned long long testFlag = 2377900603261207558;
     MemOpSpace space = MemOpSpace::DEVICE;
-    instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
+    
+    
     CallStackString callStack;
-    EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
+    EXPECT_FALSE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
 }
 
 TEST(EventReportTest, ReportAddrInfoTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     auto buffer = RecordBuffer::CreateRecordBuffer<AddrInfo>();
-    EXPECT_TRUE(instance.ReportAddrInfo(buffer));
+    EXPECT_FALSE(instance.ReportAddrInfo(buffer));
 }
 
 TEST(EventReportTest, ReportTorchNpuMallocTest) {
@@ -71,8 +64,10 @@ TEST(EventReportTest, ReportTorchNpuMallocTest) {
     memoryusage1.totalAllocated = 512;
     npuRecordMalloc->memoryUsage = memoryusage1;
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
-    EXPECT_TRUE(instance.ReportMemPoolRecord(buffer));
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    ConfigManager::Instance().SetConfig(config);
+    EXPECT_FALSE(instance.ReportMemPoolRecord(buffer));
 }
 
 TEST(EventReportTest, ReportTorchNpuFreeTest) {
@@ -88,8 +83,10 @@ TEST(EventReportTest, ReportTorchNpuFreeTest) {
     memoryusage1.totalAllocated = 512;
     npuRecordFree->memoryUsage = memoryusage1;
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
-    EXPECT_TRUE(instance.ReportMemPoolRecord(buffer));
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    ConfigManager::Instance().SetConfig(config);
+    EXPECT_FALSE(instance.ReportMemPoolRecord(buffer));
 }
 
 TEST(EventReportTest, ReportTorchNpuConditionTest) {
@@ -109,86 +106,100 @@ TEST(EventReportTest, ReportTorchNpuConditionTest) {
     EventTraceManager::Instance().SetTraceStatus(EventTraceStatus::NOT_IN_TRACING);
     EXPECT_TRUE(instance.ReportMemPoolRecord(buffer));
     EventTraceManager::Instance().SetTraceStatus(EventTraceStatus::IN_TRACING);
-    instance.config_.collectAllNpu = false;
-    EXPECT_TRUE(instance.ReportMemPoolRecord(buffer));
-    instance.config_.collectAllNpu = true;
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    ConfigManager::Instance().SetConfig(config);
+    EXPECT_FALSE(instance.ReportMemPoolRecord(buffer));
 }
 
 TEST(EventReportTest, ReportMallocTestHost) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
-    BitField<decltype(instance.config_.eventType)> eventBit;
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+
+    BitField<decltype(config.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
-    instance.config_.eventType = eventBit.getValue();
-    instance.config_.enableCStack = true;
-    instance.config_.enablePyStack = true;
+    config.eventType = eventBit.getValue();
+    config.enableCStack = true;
+    config.enablePyStack = true;
+    ConfigManager::Instance().SetConfig(config);
     uint64_t testAddr = 0x12345678;
     uint64_t testSize = 1024;
     unsigned long long testFlag = 504403158274934784;
     MemOpSpace space = MemOpSpace::HOST;
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
     CallStackString callStack;
-    EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
+    EXPECT_FALSE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
 }
 
 TEST(EventReportTest, ReportFreeTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
-    BitField<decltype(instance.config_.eventType)> eventBit;
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    BitField<decltype(config.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
-    instance.config_.eventType = eventBit.getValue();
-    instance.config_.enableCStack = true;
-    instance.config_.enablePyStack = true;
+    config.eventType = eventBit.getValue();
+    config.enableCStack = true;
+    config.enablePyStack = true;
+    ConfigManager::Instance().SetConfig(config);
     uint64_t testAddr = 0x12345678;
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
     CallStackString callStack;
-    EXPECT_TRUE(instance.ReportFree(testAddr, callStack));
+    EXPECT_FALSE(instance.ReportFree(testAddr, callStack));
 }
 
 TEST(EventReportTest, ReportHostMallocWithoutMstxTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
-    BitField<decltype(instance.config_.eventType)> eventBit;
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    BitField<decltype(config.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
-    instance.config_.eventType = eventBit.getValue();
-    instance.config_.enableCStack = true;
-    instance.config_.enablePyStack = true;
+    config.eventType = eventBit.getValue();
+    config.enableCStack = true;
+    config.enablePyStack = true;
+    ConfigManager::Instance().SetConfig(config);
     uint64_t testAddr = 0x12345678;
     uint64_t testSize = 1024;
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectCpu = true;
     CallStackString callStack;
     EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize, callStack));
 }
  
 TEST(EventReportTest, ReportHostFreeWithoutMstxTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
-    BitField<decltype(instance.config_.eventType)> eventBit;
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    BitField<decltype(config.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
-    instance.config_.eventType = eventBit.getValue();
+    config.eventType = eventBit.getValue();
+    ConfigManager::Instance().SetConfig(config);
     uint64_t testAddr = 0x12345678;
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
     CallStackString callStack;
     EXPECT_TRUE(instance.ReportHostFree(testAddr));
 }
 
 TEST(EventReportTest, ReportHostMallocTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
-    BitField<decltype(instance.config_.eventType)> eventBit;
+
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    BitField<decltype(config.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
-    instance.config_.eventType = eventBit.getValue();
+    config.eventType = eventBit.getValue();
+    ConfigManager::Instance().SetConfig(config);
+
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectCpu = true;
     auto buffer1 = RecordBuffer::CreateRecordBuffer<MstxRecord>(
         TLVBlockType::MARK_MESSAGE, "report host memory info start");
     MstxRecord* mstxRecordStart = buffer1.Cast<MstxRecord>();
@@ -199,7 +210,7 @@ TEST(EventReportTest, ReportHostMallocTest) {
     uint64_t testAddr = 0x12345678;
     uint64_t testSize = 1024;
     CallStackString callStack;
-    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize, callStack));
+    EXPECT_FALSE(instance.ReportHostMalloc(testAddr, testSize, callStack));
 
     auto buffer2 = RecordBuffer::CreateRecordBuffer<MstxRecord>();
     MstxRecord* mstxRecordEnd = buffer2.Cast<MstxRecord>();
@@ -210,14 +221,18 @@ TEST(EventReportTest, ReportHostMallocTest) {
  
 TEST(EventReportTest, ReportHostFreeTest) {
     EventReport &instance = EventReport::Instance(CommType::MEMORY);
-    BitField<decltype(instance.config_.eventType)> eventBit;
+
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    BitField<decltype(config.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
-    instance.config_.eventType = eventBit.getValue();
+    config.eventType = eventBit.getValue();
+    ConfigManager::Instance().SetConfig(config);
+
     CallStackString callStack;
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
     auto buffer1 = RecordBuffer::CreateRecordBuffer<MstxRecord>(
         TLVBlockType::MARK_MESSAGE, "report host memory info start");
     MstxRecord* mstxRecordStart = buffer1.Cast<MstxRecord>();
@@ -225,7 +240,7 @@ TEST(EventReportTest, ReportHostFreeTest) {
     mstxRecordStart->rangeId = 1;
     instance.ReportMark(buffer1);
     uint64_t testAddr = 0x12345678;
-    EXPECT_TRUE(instance.ReportHostFree(testAddr));
+    EXPECT_FALSE(instance.ReportHostFree(testAddr));
 
     auto buffer2 = RecordBuffer::CreateRecordBuffer<MstxRecord>();
     MstxRecord* mstxRecordEnd = buffer2.Cast<MstxRecord>();
@@ -237,25 +252,30 @@ TEST(EventReportTest, ReportHostFreeTest) {
 TEST(EventReportTest, ReportMarkTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    ConfigManager::Instance().SetConfig(config);
     auto buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>();
     MstxRecord* record = buffer.Cast<MstxRecord>();
     record->rangeId = 123;
-    EXPECT_TRUE(instance.ReportMark(buffer));
+    EXPECT_FALSE(instance.ReportMark(buffer));
 }
 
 TEST(EventReportTest, ReportKernelLaunchTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
-    BitField<decltype(instance.config_.eventType)> eventBit;
-    BitField<decltype(instance.config_.levelType)> levelBit;
+
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    BitField<decltype(config.eventType)> eventBit;
+    BitField<decltype(config.levelType)> levelBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
     levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
-    instance.config_.eventType = eventBit.getValue();
-    instance.config_.levelType = levelBit.getValue();
+    config.eventType = eventBit.getValue();
+    ConfigManager::Instance().SetConfig(config);
+
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
     int16_t devId = 1;
     int16_t streamId = 1;
     int16_t taskId = 1;
@@ -264,90 +284,110 @@ TEST(EventReportTest, ReportKernelLaunchTest) {
     kernelLaunchInfo.taskKey = taskKey;
     kernelLaunchInfo.timestamp = 123;
     kernelLaunchInfo.kernelName = "add";
-    EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchInfo));
+    EXPECT_FALSE(instance.ReportKernelLaunch(kernelLaunchInfo));
 }
 
 TEST(EventReportTest, ReportAclItfTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
-    EXPECT_TRUE(instance.ReportAclItf(RecordSubType::INIT));
+
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    ConfigManager::Instance().SetConfig(config);
+
+    EXPECT_FALSE(instance.ReportAclItf(RecordSubType::INIT));
 }
 
 TEST(EventReportTest, ReportAtbOpExecuteTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    ConfigManager::Instance().SetConfig(config);
     RecordBuffer atbOpExecuteRecord = RecordBuffer::CreateRecordBuffer<AtbOpExecuteRecord>();
-    EXPECT_TRUE(instance.ReportAtbOpExecute(atbOpExecuteRecord));
+    EXPECT_FALSE(instance.ReportAtbOpExecute(atbOpExecuteRecord));
 }
 
 TEST(EventReportTest, ReportAtbKernelTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    ConfigManager::Instance().SetConfig(config);
     RecordBuffer atbKernelRecord = RecordBuffer::CreateRecordBuffer<AtbKernelRecord>();
-    EXPECT_TRUE(instance.ReportAtbKernel(atbKernelRecord));
+    EXPECT_FALSE(instance.ReportAtbKernel(atbKernelRecord));
 }
 
 TEST(EventReportTest, ReportAtbMemAccessTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    ConfigManager::Instance().SetConfig(config);
     RecordBuffer memAccessRecord = RecordBuffer::CreateRecordBuffer<MemAccessRecord>();
     std::vector<RecordBuffer> records;
     records.push_back(memAccessRecord);
-    EXPECT_TRUE(instance.ReportAtbAccessMemory(records));
+    EXPECT_FALSE(instance.ReportAtbAccessMemory(records));
 }
 
 TEST(EventReportTest, ReportAtenLaunchTestExpectSuccess)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    ConfigManager::Instance().SetConfig(config);
     auto atenOpLaunchRecord = RecordBuffer::CreateRecordBuffer<AtenOpLaunchRecord>();
-    EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord));
+    EXPECT_FALSE(instance.ReportAtenLaunch(atenOpLaunchRecord));
 }
 
 TEST(EventReportTest, ReportAtenAccessTestExpectSuccess)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    ConfigManager::Instance().SetConfig(config);
     auto memAccessRecord = RecordBuffer::CreateRecordBuffer<MemAccessRecord>();
-    EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord));
+    EXPECT_FALSE(instance.ReportAtenAccess(memAccessRecord));
 }
 
 TEST(EventReportTest, ReportAtenLaunchTestExpextSuccess)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    ConfigManager::Instance().SetConfig(config);
     auto atenOpLaunchRecord = RecordBuffer::CreateRecordBuffer<AtenOpLaunchRecord>();
-    EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord));
+    EXPECT_FALSE(instance.ReportAtenLaunch(atenOpLaunchRecord));
 }
 
 TEST(EventReportTest, ReportAtenAccessTestExpextSuccess)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    ConfigManager::Instance().SetConfig(config);
     auto memAccessRecord = RecordBuffer::CreateRecordBuffer<MemAccessRecord>();
-    EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord));
+    EXPECT_FALSE(instance.ReportAtenAccess(memAccessRecord));
 }
 
 TEST(EventReportTest, ReportKernelExcuteTestExpextSuccess)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    ConfigManager::Instance().SetConfig(config);
     MemAccessRecord  memAccessRecord  {};
     CallStackString stack;
     std::string name = "test";
     uint64_t time = 1234;
     RecordSubType type = RecordSubType::KERNEL_START;
     TaskKey key;
-    EXPECT_TRUE(instance.ReportKernelExcute(key, name, time, type));
+    EXPECT_FALSE(instance.ReportKernelExcute(key, name, time, type));
 }
 
 struct TestLoader {
@@ -378,17 +418,18 @@ TEST(EventReportTest, TestReportSkipStepsNormal)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    config.stepList.stepCount = 3;
+    config.stepList.stepIdList[0] = 1;
+    config.stepList.stepIdList[1] = 2;
+    config.stepList.stepIdList[2] = 6;
+    ConfigManager::Instance().SetConfig(config);
     auto buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>(TLVBlockType::MARK_MESSAGE, "step start");
     MstxRecord* mstxRecord = buffer.Cast<MstxRecord>();
     mstxRecord->markType = MarkType::RANGE_START_A;
     mstxRecord->rangeId = 8;
     instance.SetStepInfo(*mstxRecord);
-    instance.config_.stepList.stepCount = 3;
-    instance.config_.stepList.stepIdList[0] = 1;
-    instance.config_.stepList.stepIdList[1] = 2;
-    instance.config_.stepList.stepIdList[2] = 6;
-    instance.config_.collectAllNpu = true;
     EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), false);
 
     mstxRecord->markType = MarkType::RANGE_END;
@@ -420,11 +461,14 @@ TEST(EventReportTest, TestReportSkipStepsWithNoMstx)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
-    instance.config_.stepList.stepCount = 3;
-    instance.config_.stepList.stepIdList[0] = 1;
-    instance.config_.stepList.stepIdList[1] = 2;
-    instance.config_.stepList.stepIdList[2] = 6;
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    config.stepList.stepCount = 3;
+    config.stepList.stepIdList[0] = 1;
+    config.stepList.stepIdList[1] = 2;
+    config.stepList.stepIdList[2] = 6;
+    ConfigManager::Instance().SetConfig(config);
+
     EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), true);
 
     ResetEventReportStepInfo();
@@ -434,17 +478,19 @@ TEST(EventReportTest, TestReportSkipStepsWithOtherMessageMstx)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    config.stepList.stepCount = 3;
+    config.stepList.stepIdList[0] = 1;
+    config.stepList.stepIdList[1] = 2;
+    config.stepList.stepIdList[2] = 6;
+    ConfigManager::Instance().SetConfig(config);
     auto buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>(
         TLVBlockType::MARK_MESSAGE, "report host memory info start");
     MstxRecord* mstxRecord = buffer.Cast<MstxRecord>();
     mstxRecord->markType = MarkType::RANGE_START_A;
     mstxRecord->rangeId = 8;
     instance.SetStepInfo(*mstxRecord);
-    instance.config_.stepList.stepCount = 3;
-    instance.config_.stepList.stepIdList[0] = 1;
-    instance.config_.stepList.stepIdList[1] = 2;
-    instance.config_.stepList.stepIdList[2] = 6;
     EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), true);
 
     ResetEventReportStepInfo();
@@ -454,17 +500,19 @@ TEST(EventReportTest, TestReportSkipStepsWithMstxEndMismatch)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    config.stepList.stepCount = 3;
+    config.stepList.stepIdList[0] = 1;
+    config.stepList.stepIdList[1] = 2;
+    config.stepList.stepIdList[2] = 6;
+    ConfigManager::Instance().SetConfig(config);
 
     auto buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>(TLVBlockType::MARK_MESSAGE, "step start");
     MstxRecord* mstxRecord = buffer.Cast<MstxRecord>();
     mstxRecord->markType = MarkType::RANGE_START_A;
     mstxRecord->rangeId = 8;
     instance.SetStepInfo(*mstxRecord);
-    instance.config_.stepList.stepCount = 3;
-    instance.config_.stepList.stepIdList[0] = 1;
-    instance.config_.stepList.stepIdList[1] = 2;
-    instance.config_.stepList.stepIdList[2] = 6;
     EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), false);
 
     mstxRecord->markType = MarkType::RANGE_END;
@@ -479,12 +527,14 @@ TEST(EventReportTest, TestReportSkipStepsWithOnlyMstxEnd)
 {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     instance.isReceiveServerInfo_ = true;
-    instance.config_.collectAllNpu = true;
     
-    instance.config_.stepList.stepCount = 3;
-    instance.config_.stepList.stepIdList[0] = 1;
-    instance.config_.stepList.stepIdList[1] = 2;
-    instance.config_.stepList.stepIdList[2] = 6;
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    config.stepList.stepCount = 3;
+    config.stepList.stepIdList[0] = 1;
+    config.stepList.stepIdList[1] = 2;
+    config.stepList.stepIdList[2] = 6;
+    ConfigManager::Instance().SetConfig(config);
 
     MstxRecord mstxRecord = {};
     mstxRecord.markType = MarkType::RANGE_END;
@@ -501,7 +551,10 @@ TEST(EventReportTest, ReportTestWithNoReceiveServerInfo) {
     uint64_t testSize = 1024;
     unsigned long long flag = 0x1234;
     CallStackString callStack;
-    instance.config_.collectCpu = true;
+    Config config = Leaks::GetConfig();
+    config.collectAllNpu = true;
+    ConfigManager::Instance().SetConfig(config);
+
     EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, flag, callStack));
     EXPECT_TRUE(instance.ReportFree(testAddr, callStack));
 

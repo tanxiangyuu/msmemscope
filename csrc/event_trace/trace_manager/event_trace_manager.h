@@ -3,8 +3,43 @@
 #define EVENT_TRACE_MANAGER_H
 
 #include <mutex>
+#include <string>
+#include <unordered_map>
+#include <functional>
+#include <atomic>
+#include "config_info.h"
+#include "record_info.h"
 
 namespace Leaks {
+
+class ConfigManager {
+public:
+    ConfigManager(const ConfigManager&) = delete;
+    ConfigManager& operator=(const ConfigManager&) = delete;
+
+    static ConfigManager& Instance()
+    {
+        static ConfigManager instance;
+        return instance;
+    }
+
+    Config GetConfig();
+    bool SetConfig(const std::unordered_map<std::string, std::string> &config);
+    void SetConfig(const Config &config);
+
+private:
+    ConfigManager();
+
+    ~ConfigManager() = default;
+
+    std::mutex mutex_;
+    Config config_;
+};
+
+inline Config GetConfig()
+{
+    return ConfigManager::Instance().GetConfig();
+}
 
 enum class EventTraceStatus : uint8_t {
     IN_TRACING = 0,
@@ -22,20 +57,38 @@ public:
         return instance;
     }
     
-    bool IsNeedTrace();
+    bool IsNeedTrace(const RecordType type = RecordType::INVALID_RECORD);
     void SetTraceStatus(const EventTraceStatus status); // 通过python接口在运行时动态修改
+
+    void SetAclInitStatus(bool isInit);
+    void HandleWithATenCollect();
 private:
     EventTraceManager()
     {
         InitTraceStatus();
+        InitJudgeFuncTable();
     }
     ~EventTraceManager() = default;
 
     void InitTraceStatus(); // 命令行拉起时有一个初始化状态
-    void HandleWithTraceStatusChanged(const EventTraceStatus status);
+    void InitJudgeFuncTable();
+
+    bool IsNeedTraceKernelLaunch();
+    bool IsNeedTraceOpLaunch();
+    bool IsNeedTraceMemory();
+    bool IsNeedTraceOp();
+    bool IsNeedTraceKernel();
+    bool IsNeedTraceAccess();
+    bool IsNeedTraceLaunch();
+    bool IsNeedTraceAlloc();
+    bool IsNeedTraceFree();
 
     std::mutex mutex_;
     EventTraceStatus status_ = EventTraceStatus::IN_TRACING;
+
+    std::unordered_map<RecordType, std::function<bool()>> jdugeFuncTable_;
+
+    std::atomic<bool> aclInit_{ false };
 };
 
 }
