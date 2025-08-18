@@ -43,8 +43,6 @@ private:
     bool IsLastWatchedOp(const char* name);
 private:
     std::vector<MonitoredTensor> outputTensors_ = {};
-    bool isAtenAccessEnable_ = false;
-    bool isAtenLaunchEnable_ = false;
     bool isWatchEnable_ = false;
     bool isfirstWatchOpSet_ = false;
     std::string firstWatchOp_ = {};

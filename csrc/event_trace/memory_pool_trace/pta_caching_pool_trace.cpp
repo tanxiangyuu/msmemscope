@@ -58,16 +58,9 @@ void PTACachingPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegionsRe
 
     const mstxMemVirtualRangeDesc_t *rangeDescArray =
         reinterpret_cast<const mstxMemVirtualRangeDesc_t *>(desc->regionDescArray);
-    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
-    std::string cStack;
-    std::string pyStack;
-    if (config.enableCStack) {
-        Utility::GetCCallstack(config.cStackDepth, cStack, SKIP_DEPTH);
-    }
-    if (config.enablePyStack) {
-        Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
-    }
-    CallStackString stack{cStack, pyStack};
+
+    CallStackString stack;
+    Utility::GetCallstack(stack);
 
     for (size_t i = 0; i < desc->regionCount; i++) {
         uint32_t devId = rangeDescArray[i].deviceId;
@@ -100,16 +93,9 @@ void PTACachingPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnreg
     }
     std::lock_guard<std::mutex> guard(mutex_);
 
-    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
-    std::string cStack;
-    std::string pyStack;
-    if (config.enableCStack) {
-        Utility::GetCCallstack(config.cStackDepth, cStack, SKIP_DEPTH);
-    }
-    if (config.enablePyStack) {
-        Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
-    }
-    CallStackString stack{cStack, pyStack};
+    CallStackString stack;
+    Utility::GetCallstack(stack);
+    
     for (size_t i = 0; i < desc->refCount; i++) {
         if (!regionHandleMp_.count(desc->refArray[i].pointer)) {
             continue;

@@ -2,13 +2,26 @@
 #include "call_stack.h"
 #include "cpython.h"
 #include "utils.h"
+#include "event_report.h"
+#include "config_info.h"
 
 namespace Utility {
+    void GetCallstack(Leaks::CallStackString &stack)
+    {
+        auto config = Leaks::GetConfig();
+        if (config.enableCStack) {
+            Utility::GetCCallstack(config.cStackDepth, stack.cStack, Leaks::SKIP_DEPTH);
+        }
+        if (config.enablePyStack) {
+            Utility::GetPythonCallstack(config.pyStackDepth, stack.pyStack);
+        }
+    }
 
     void GetPythonCallstack(uint32_t pyDepth, std::string& pyStack)
     {
         PythonCallstack(pyDepth, pyStack);
     }
+
     void GetCCallstack(uint32_t cDepth, std::string& cStack, uint32_t skip)
     {
         cDepth = GetAddResult(cDepth, skip);
