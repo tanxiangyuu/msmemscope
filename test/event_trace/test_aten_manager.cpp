@@ -11,19 +11,20 @@
 using namespace Leaks;
 
 TEST(AtenManagerTest, ReportAtenStartLaunchTest) {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
-    BitField<decltype(instance.config_.eventType)> eventBit;
-    BitField<decltype(instance.config_.levelType)> levelBit;
+    Config config = GetConfig();
+    BitField<decltype(config.eventType)> eventBit;
+    BitField<decltype(config.levelType)> levelBit;
     levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_OP));
     levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::ACCESS_EVENT));
-    instance.config_.eventType = eventBit.getValue();
-    instance.config_.levelType = levelBit.getValue();
-    instance.config_.enableCStack = true;
-    instance.config_.enablePyStack = true;
+    config.eventType = eventBit.getValue();
+    config.levelType = levelBit.getValue();
+    config.enableCStack = true;
+    config.enablePyStack = true;
+    ConfigManager::Instance().SetConfig(config);
     const char* msg = "leaks-aten-b: {func.__module__}.{func.__name__}";
     uint32_t streamId = 0;
     MstxManager::GetInstance().ReportMarkA(msg, streamId);

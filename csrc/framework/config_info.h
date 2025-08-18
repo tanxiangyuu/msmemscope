@@ -14,7 +14,7 @@ constexpr uint8_t SELECTED_STEP_MAX_NUM = 5;  // 先设定最多指定5个step�
 constexpr uint8_t DEFAULT_CALL_STACK_DEPTH = 50;
 constexpr uint8_t SKIP_DEPTH = 2;
 constexpr const char *LEAKS_HEADERS = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,"
-        "Ptr,Attr";
+        "Ptr,Attr,Call Stack(Python),Call Stack(C)\n";
 constexpr const char *STEP_INTER_HEADERS = ",,,Base,Compare\nEvent,Name,Device Id,Allocated Memory(byte),"
         "Allocated Memory(byte),Diff Memory(byte)\n";
 constexpr const char *TRACE_HEADERS = "FuncInfo,StartTime(ns),EndTime(ns),Thread Id,Process Id\n";

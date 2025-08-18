@@ -37,10 +37,9 @@ public:
 private:
     OpExcuteWatch()
     {
-        Config config = EventReport::Instance(CommType::SOCKET).GetConfig();
-        fistWatchOp_ = std::string(config.watchConfig.start);
-        lastWatchOp_ = std::string(config.watchConfig.end);
-        outputId_ = config.watchConfig.outputId;
+        fistWatchOp_ = std::string(GetConfig().watchConfig.start);
+        lastWatchOp_ = std::string(GetConfig().watchConfig.end);
+        outputId_ = GetConfig().watchConfig.outputId;
     };
     ~OpExcuteWatch() = default;
 

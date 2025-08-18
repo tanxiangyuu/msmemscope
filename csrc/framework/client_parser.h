@@ -19,6 +19,12 @@ private:
     UserCommand Parse(int32_t argc, char **argv);
     void InitialUserCommand(UserCommand &userCommand);
 };
-}
 
+void ParseCallstack(const std::string &param, Config &config, bool &printHelpInfo);
+void ParseDataLevel(const std::string param, Config &config, bool &printHelpInfo);
+void ParseEventTraceType(const std::string param, Config &config, bool &printHelpInfo);
+void ParseDevice(const std::string &param, Config &config, bool &printHelpInfo);
+void SetEventDefaultConfig(Config &config);
+void SetAnalysisDefaultConfig(Config &config);
+}
 #endif

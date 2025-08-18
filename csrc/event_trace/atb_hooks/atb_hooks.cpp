@@ -217,17 +217,9 @@ extern "C" atb::Status _ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE(atb::Runn
         CLIENT_ERROR_LOG("Cannot find origin function of atb.\n");
         return 0;
     }
-    if (!EventTraceManager::Instance().IsNeedTrace()) {
+    if (!EventTraceManager::Instance().IsNeedTrace(RecordType::ATB_OP_EXECUTE_RECORD)) {
         return funcExecute(thisPtr, runnerVariantPack);
     }
-    static Config config = EventReport::Instance(CommType::SOCKET).GetConfig();
-    static BitField<decltype(config.levelType)> levelType(config.levelType);
-    static bool isReportOp = levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_OP));
-    if (!isReportOp) {
-        return funcExecute(thisPtr, runnerVariantPack);
-    }
-    static BitField<decltype(config.eventType)> eventType(config.eventType);
-    static bool isReportLaunch = eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
     std::string params;
     std::string name;
     std::string dir;
@@ -236,15 +228,15 @@ extern "C" atb::Status _ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE(atb::Runn
         || !atb::LeaksGetAclrtStream(thisPtr, runnerVariantPack, stream)) {
         return 0;
     }
-    if (isReportLaunch) {
+    if (EventTraceManager::Instance().IsNeedTrace(RecordType::OP_LAUNCH_RECORD)) {
         params = atb::LeaksGetOpParams(runnerVariantPack, dir);
         atb::LeaksReportOp(name, params, true);
     }
-    static bool isReportAccess = eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT));
-    if (isReportAccess) {
+    if (EventTraceManager::Instance().IsNeedTrace(RecordType::MEM_ACCESS_RECORD)) {
         atb::LeaksReportTensors(runnerVariantPack, name);
     }
     char cDirPath[WATCH_OP_DIR_MAX_LENGTH];
+    static Config config = GetConfig();
     if (config.watchConfig.isWatched) {
         if (strncpy_s(cDirPath, WATCH_OP_DIR_MAX_LENGTH, dir.c_str(), WATCH_OP_DIR_MAX_LENGTH - 1) != EOK) {
             CLIENT_ERROR_LOG("strncpy_s FAILED");
@@ -265,10 +257,10 @@ extern "C" atb::Status _ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE(atb::Runn
         }
         OpExcuteEnd(stream, cDirPath, tensors, runnerVariantPack.outTensors.size(), AccessMemType::ATB);
     }
-    if (isReportLaunch) {
+    if (EventTraceManager::Instance().IsNeedTrace(RecordType::OP_LAUNCH_RECORD)) {
         atb::LeaksReportOp(name, params, false);
     }
-    if (isReportAccess) {
+    if (EventTraceManager::Instance().IsNeedTrace(RecordType::MEM_ACCESS_RECORD)) {
         atb::LeaksReportTensors(runnerVariantPack, name);
     }
     return st;
@@ -282,13 +274,7 @@ extern "C" void _ZN3atb9StoreUtil15SaveLaunchParamEPvRKN3Mki11LaunchParamERKNSt7
 #endif
 (aclrtStream stream, const Mki::LaunchParam& launchParam, const std::string& dirPath)
 {
-    if (!EventTraceManager::Instance().IsNeedTrace()) {
-        return;
-    }
-    static Config config = EventReport::Instance(CommType::SOCKET).GetConfig();
-    static BitField<decltype(config.levelType)> levelType(config.levelType);
-    static bool isReportKernel = levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
-    if (!isReportKernel) {
+    if (!EventTraceManager::Instance().IsNeedTrace(RecordType::ATB_KERNEL_RECORD)) {
         return;
     }
 
@@ -300,8 +286,8 @@ extern "C" void _ZN3atb9StoreUtil15SaveLaunchParamEPvRKN3Mki11LaunchParamERKNSt7
         CLIENT_ERROR_LOG("Cannot find origin function of atb.\n");
         return;
     }
-
-    if (config.watchConfig.isWatched) {
+    
+    if (GetConfig().watchConfig.isWatched) {
         char cDirPath[WATCH_OP_DIR_MAX_LENGTH];
         if (strncpy_s(cDirPath, WATCH_OP_DIR_MAX_LENGTH, dirPath.c_str(), WATCH_OP_DIR_MAX_LENGTH - 1) != EOK) {
             CLIENT_ERROR_LOG("strncpy_s FAILED");
@@ -313,16 +299,13 @@ extern "C" void _ZN3atb9StoreUtil15SaveLaunchParamEPvRKN3Mki11LaunchParamERKNSt7
     bool isBeforeLaunch;
     atb::LeaksParseKernelPath(isBeforeLaunch, name, dirPath);
 
-    static BitField<decltype(config.eventType)> eventType(config.eventType);
-    static bool isReportLaunch = eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
-    if (isReportLaunch) {
+    if (EventTraceManager::Instance().IsNeedTrace(RecordType::KERNEL_LAUNCH_RECORD)) {
         if (!atb::LeaksReportAtbKernel(name, dirPath, isBeforeLaunch)) {
             return;
         }
     }
 
-    static bool isReportAccess = eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT));
-    if (isReportAccess) {
+    if (EventTraceManager::Instance().IsNeedTrace(RecordType::MEM_ACCESS_RECORD)) {
         atb::LeaksReportTensors(getInTensors, getOutTensors, launchParam, name);
     }
 }
@@ -336,10 +319,7 @@ extern "C" bool _ZN3atb5Probe16IsTensorNeedSaveERKSt6vectorIlSaIlEERKNSt7__cxx11
 (const std::vector<int64_t>& ids, const std::string& opType)
 
 {
-    static Config config = EventReport::Instance(CommType::SOCKET).GetConfig();
-    static BitField<decltype(config.levelType)> levelType(config.levelType);
-    static bool isReportKernel = levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
-    return isReportKernel;
+    return EventTraceManager::Instance().IsNeedTrace(RecordType::ATB_KERNEL_RECORD);
 }
 
 extern "C" bool _ZN3atb5Probe17IsSaveTensorAfterEv()

@@ -59,16 +59,8 @@ void MindsporeMemoryPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegi
         return;
     }
     std::lock_guard<std::mutex> guard(mutex_);
-    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
-    std::string cStack;
-    std::string pyStack;
-    if (config.enableCStack) {
-        Utility::GetCCallstack(config.cStackDepth, cStack, SKIP_DEPTH);
-    }
-    if (config.enablePyStack) {
-        Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
-    }
-    CallStackString stack{pyStack, cStack};
+    CallStackString stack;
+    Utility::GetCallstack(stack);
     const mstxMemVirtualRangeDesc_t *rangeDescArray =
         reinterpret_cast<const mstxMemVirtualRangeDesc_t *>(desc->regionDescArray);
 
@@ -101,16 +93,8 @@ void MindsporeMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegions
         return;
     }
     std::lock_guard<std::mutex> guard(mutex_);
-    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
-    std::string cStack;
-    std::string pyStack;
-    if (config.enableCStack) {
-        Utility::GetCCallstack(config.cStackDepth, cStack, SKIP_DEPTH);
-    }
-    if (config.enablePyStack) {
-        Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
-    }
-    CallStackString stack{pyStack, cStack};
+    CallStackString stack;
+    Utility::GetCallstack(stack);
     for (size_t i = 0; i < desc->refCount; i++) {
         if (!regionHandleMp_.count(desc->refArray[i].pointer)) {
             continue;
