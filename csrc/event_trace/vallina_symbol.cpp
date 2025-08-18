@@ -14,15 +14,17 @@ namespace Leaks {
             std::cout << "Null library name." << std::endl;
             return nullptr;
         }
+        std::string libPath = libName;
         const char *pathEnv = std::getenv("ASCEND_HOME_PATH");
-        if (!pathEnv || std::string(pathEnv).empty()) {
-            std::cout << "[msleaks] Failed to acquire ASCEND_HOME_PATH environment variable while loading "
-                << libName << "."
-                << std::endl;
-            return nullptr;
+        if (pathEnv && !std::string(pathEnv).empty()) {
+            libPath = pathEnv;
+            libPath += "/lib64/" + libName;
+            return dlopen(libPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
         }
-        std::string libPath = pathEnv;
-        libPath += "/lib64/" + libName;
+        // 找不到Ascend Path
+        std::cout << "[msleaks] Failed to acquire ASCEND_HOME_PATH environment variable while loading "
+            << libName << ". Try to load lib directly."
+            << std::endl;
         return dlopen(libPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
     }
     
