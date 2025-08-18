@@ -41,23 +41,23 @@ TEST(MemoryCompareTest, do_read_csv_file_expect_read_correct_data)
 {
     Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
     FILE *fp = fopen("test_leaks.csv", "w");
-    std::string testHeader = std::string(LEAKS_HEADERS) + "\n";
+    std::string testHeader = std::string(LEAKS_HEADERS);
     fprintf(fp, testHeader.c_str());
 
     for (int index = 0; index < 10; ++index) {
-        fprintf(fp, "1,MALLOC,PTA,N/A,%d,123,234,0,0,{size:124}\n", index);
+        fprintf(fp, "1,MALLOC,PTA,N/A,%d,123,234,0,0,{size:124},,\n", index);
     }
 
     for (int index = 0; index < 5; ++index) {
-        fprintf(fp, "2,KERNEL_LAUNCH,KERNEL_LAUNCH,null,%d,123,234,0,0,N/A\n", index+10);
+        fprintf(fp, "2,KERNEL_LAUNCH,KERNEL_LAUNCH,null,%d,123,234,0,0,N/A,,\n", index+10);
     }
 
     for (int index = 0; index < 5; ++index) {
-        fprintf(fp, "3,MALLOC,PTA,N/A,%d,123,234,2,0,N/A\n", index+2);
+        fprintf(fp, "3,MALLOC,PTA,N/A,%d,123,234,2,0,N/A,,\n", index+2);
     }
 
     for (int index = 4; index >= 0; --index) {
-        fprintf(fp, "4,KERNEL_LAUNCH,KERNEL_LAUNCH,null,%d,123,234,2,0,{size:224}\n", index+1);
+        fprintf(fp, "4,KERNEL_LAUNCH,KERNEL_LAUNCH,null,%d,123,234,2,0,{size:224},,\n", index+1);
     }
 
     fclose(fp);
@@ -94,7 +94,7 @@ TEST(MemoryCompareTest, do_read_invalid_csv_file_expect_empty_data)
     ASSERT_EQ(data.size(), 0);
 
     fp = fopen("test_leaks.csv", "w");
-    std::string testHeader = std::string(LEAKS_HEADERS) + "\n";
+    std::string testHeader = std::string(LEAKS_HEADERS);
     fprintf(fp, testHeader.c_str());
     fprintf(fp, "1,0,pytorch,malloc,123,234,0,0,N/A,N/A,0\n");
     fclose(fp);
@@ -333,26 +333,26 @@ TEST(MemoryCompareTest, do_kernel_launch_compare)
     config.enablePyStack = false;
     Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
     FILE *fp = fopen("test_leaks.csv", "w");
-    std::string testHeader = std::string(LEAKS_HEADERS) + "\n";
+    std::string testHeader = std::string(LEAKS_HEADERS);
     fprintf(fp, testHeader.c_str());
 
     for (int index = 0; index < 10; ++index) {
-        fprintf(fp, "1,MALLOC,PTA,N/A,%d,123,234,0,0,{size:1024}\n", index);
+        fprintf(fp, "1,MALLOC,PTA,N/A,%d,123,234,0,0,{size:1024},,\n", index);
     }
 
     for (int index = 0; index < 5; ++index) {
-        fprintf(fp, "2,KERNEL_LAUNCH,KERNEL_LAUNCH,null,%d,123,234,0,0,N/A\n", index+10);
+        fprintf(fp, "2,KERNEL_LAUNCH,KERNEL_LAUNCH,null,%d,123,234,0,0,N/A,,\n", index+10);
     }
 
     for (int index = 0; index < 5; ++index) {
-        fprintf(fp, "3,MALLOC,PTA,N/A,%d,123,234,2,0,{size:1024}\n", index+2);
+        fprintf(fp, "3,MALLOC,PTA,N/A,%d,123,234,2,0,{size:1024},,\n", index+2);
     }
 
     for (int index = 4; index >= 0; --index) {
-        fprintf(fp, "4,KERNEL_LAUNCH,KERNEL_LAUNCH,null,%d,123,234,2,0,N/A\n", index+1);
+        fprintf(fp, "4,KERNEL_LAUNCH,KERNEL_LAUNCH,null,%d,123,234,2,0,N/A,,\n", index+1);
     }
 
-    fprintf(fp, "5,MALLOC,PTA,N/A,5,123,234,2,0,{size:1024}\n");
+    fprintf(fp, "5,MALLOC,PTA,N/A,5,123,234,2,0,{size:1024},,\n");
 
     fclose(fp);
 

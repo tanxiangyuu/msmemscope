@@ -28,17 +28,13 @@ extern "C" void* malloc(size_t size)
 
     if (g_reportInfo) {
         g_reportInfo = false;
-        if (!EventTraceManager::Instance().IsNeedTrace()) {
+        if (!EventTraceManager::Instance().IsNeedTrace(RecordType::MEMORY_RECORD)) {
+            g_reportInfo = true;
             return ptr;
         }
-        auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
+        
         CallStackString stack;
-        if (config.enableCStack) {
-            Utility::GetCCallstack(config.cStackDepth, stack.cStack, SKIP_DEPTH);
-        }
-        if (config.enablePyStack) {
-            Utility::GetPythonCallstack(config.pyStackDepth, stack.pyStack);
-        }
+        Utility::GetCallstack(stack);
  
         if (!EventReport::Instance(CommType::SOCKET).ReportHostMalloc(reinterpret_cast<uint64_t>(ptr),
             static_cast<uint64_t>(size), stack)) {
@@ -63,7 +59,8 @@ extern "C" void free(void* ptr)
 
     if (g_reportInfo) {
         g_reportInfo = false;
-        if (!EventTraceManager::Instance().IsNeedTrace()) {
+        if (!EventTraceManager::Instance().IsNeedTrace(RecordType::MEMORY_RECORD)) {
+            g_reportInfo = true;
             return;
         }
         if (!EventReport::Instance(CommType::SOCKET)

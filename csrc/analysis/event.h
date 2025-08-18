@@ -121,8 +121,8 @@ public:
         tid = record.tid;
         const TLVBlock* cStackBlock = GetTlvBlock(record, TLVBlockType::CALL_STACK_C);
         const TLVBlock* pyStackBlock = GetTlvBlock(record, TLVBlockType::CALL_STACK_PYTHON);
-        cCallStack = cStackBlock == nullptr ? "N/A" : std::string(cStackBlock->data);
-        pyCallStack = pyStackBlock == nullptr ? "N/A" : std::string(pyStackBlock->data);
+        cCallStack = cStackBlock == nullptr ? "" : std::string(cStackBlock->data);
+        pyCallStack = pyStackBlock == nullptr ? "" : std::string(pyStackBlock->data);
  
         poolType = record.devType == DeviceType::CPU ? PoolType::HOST : PoolType::HAL;
         eventType = record.subtype == RecordSubType::MALLOC ? EventBaseType::MALLOC : EventBaseType::FREE;
@@ -181,8 +181,8 @@ public:
         tid = record.tid;
         const TLVBlock* cStackBlock = GetTlvBlock(record, TLVBlockType::CALL_STACK_C);
         const TLVBlock* pyStackBlock = GetTlvBlock(record, TLVBlockType::CALL_STACK_PYTHON);
-        cCallStack = cStackBlock == nullptr ? "N/A" : std::string(cStackBlock->data);
-        pyCallStack = pyStackBlock == nullptr ? "N/A" : std::string(pyStackBlock->data);
+        cCallStack = cStackBlock == nullptr ? "" : std::string(cStackBlock->data);
+        pyCallStack = pyStackBlock == nullptr ? "" : std::string(pyStackBlock->data);
         poolType = record.memType == AccessMemType::ATEN ? PoolType::PTA_CACHING : PoolType::ATB;
         if (record.memType == AccessMemType::ATEN) {
             eventSubType = record.eventType == AccessType::READ ? EventSubType::ATEN_READ
@@ -257,8 +257,8 @@ public:
         tid = record.tid;
         const TLVBlock* cStackBlock = GetTlvBlock(record, TLVBlockType::CALL_STACK_C);
         const TLVBlock* pyStackBlock = GetTlvBlock(record, TLVBlockType::CALL_STACK_PYTHON);
-        cCallStack = cStackBlock == nullptr ? "N/A" : std::string(cStackBlock->data);
-        pyCallStack = pyStackBlock == nullptr ? "N/A" : std::string(pyStackBlock->data);
+        cCallStack = cStackBlock == nullptr ? "" : std::string(cStackBlock->data);
+        pyCallStack = pyStackBlock == nullptr ? "" : std::string(pyStackBlock->data);
         eventSubType = record.subtype == RecordSubType::ATEN_START
             ? EventSubType::ATEN_START : EventSubType::ATEN_END;
         device = (record.devId == GD_INVALID_NUM) ? "N/A" : std::to_string(record.devId);
@@ -343,8 +343,8 @@ public:
         device = (record.devId == GD_INVALID_NUM) ? "N/A" : std::to_string(record.devId);
         const TLVBlock* cStackBlock = GetTlvBlock(record, TLVBlockType::CALL_STACK_C);
         const TLVBlock* pyStackBlock = GetTlvBlock(record, TLVBlockType::CALL_STACK_PYTHON);
-        cCallStack = cStackBlock == nullptr ? "N/A" : std::string(cStackBlock->data);
-        pyCallStack = pyStackBlock == nullptr ? "N/A" : std::string(pyStackBlock->data);
+        cCallStack = cStackBlock == nullptr ? "" : std::string(cStackBlock->data);
+        pyCallStack = pyStackBlock == nullptr ? "" : std::string(pyStackBlock->data);
  
         const TLVBlock* msgBlock = GetTlvBlock(record, TLVBlockType::MARK_MESSAGE);
         std::string mstxMsgString = msgBlock == nullptr ? "N/A" : std::string(msgBlock->data);

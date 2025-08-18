@@ -35,16 +35,9 @@ ACL_FUNC_VISIBILITY aclError aclInit(const char *configPath)
         CLIENT_ERROR_LOG("aclInit report FAILED");
     }
 
-    // 命令行判断是否为OP级别
-    Config userConfig =  EventReport::Instance(CommType::SOCKET).GetConfig();
-    BitField<decltype(userConfig.levelType)> levelType(userConfig.levelType);
-    if (EventTraceManager::Instance().IsNeedTrace() &&
-        levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_OP))) {
-        Utility::LeaksPythonCall("msleaks.aten_collection", "enable_aten_collector");
-    }
-
-    BitField<decltype(userConfig.analysisType)> analysisType(userConfig.analysisType);
-    if (analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
+    EventTraceManager::Instance().SetAclInitStatus(true);
+    
+    if (BitPresent(GetConfig().analysisType, static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
         Utility::LeaksPythonCall("msleaks.optimizer_step_hook", "enable_optimizer_step_hook");
     }
 
@@ -65,9 +58,7 @@ ACL_FUNC_VISIBILITY aclError aclFinalize()
         CLIENT_ERROR_LOG("aclInit report FAILED");
     }
 
-    Config userConfig =  EventReport::Instance(CommType::SOCKET).GetConfig();
-    BitField<decltype(userConfig.analysisType)> analysisType(userConfig.analysisType);
-    if (analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
+    if (BitPresent(GetConfig().analysisType, static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
         Utility::LeaksPythonCall("msleaks.optimizer_step_hook", "disable_optimizer_step_hook");
     }
 

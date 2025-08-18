@@ -34,4 +34,11 @@ public:
 private:
     T value;
 };
+
+template <typename T>
+bool BitPresent(T value, size_t bit)
+{
+    return BitField<T>(value).checkBit(bit);
+}
+
 #endif

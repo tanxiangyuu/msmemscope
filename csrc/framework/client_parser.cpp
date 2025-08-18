@@ -119,7 +119,7 @@ bool UserCommandPrecheck(const UserCommand &userCommand)
     return true;
 }
 
-void SetEventDefaultConfig(UserCommand &userCommand)
+void SetEventDefaultConfig(Config &config)
 {
     std::vector<std::pair<EventType, EventType>> eventsMatchLists = {
         {EventType::ALLOC_EVENT, EventType::FREE_EVENT},
@@ -128,16 +128,16 @@ void SetEventDefaultConfig(UserCommand &userCommand)
         {EventType::ACCESS_EVENT, EventType::FREE_EVENT}
     };
 
-    BitField<decltype(userCommand.config.eventType)> eventTypeBit(userCommand.config.eventType);
+    BitField<decltype(config.eventType)> eventTypeBit(config.eventType);
     for (auto it : eventsMatchLists) {
         if (eventTypeBit.checkBit(static_cast<size_t>(it.first))) {
             eventTypeBit.setBit(static_cast<size_t>(it.second));
         }
     }
-    userCommand.config.eventType = eventTypeBit.getValue();
+    config.eventType = eventTypeBit.getValue();
 }
 
-void SetAnalysisDefaultConfig(UserCommand &userCommand)
+void SetAnalysisDefaultConfig(Config &config)
 {
     std::vector<std::pair<AnalysisType, EventType>> analysisMatchLists = {
         {AnalysisType::LEAKS_ANALYSIS, EventType::ALLOC_EVENT},
@@ -146,14 +146,14 @@ void SetAnalysisDefaultConfig(UserCommand &userCommand)
         {AnalysisType::DECOMPOSE_ANALYSIS, EventType::FREE_EVENT}
     };
     
-    BitField<decltype(userCommand.config.analysisType)> analysisTypeBit(userCommand.config.analysisType);
-    BitField<decltype(userCommand.config.eventType)> eventTypeBit(userCommand.config.eventType);
+    BitField<decltype(config.analysisType)> analysisTypeBit(config.analysisType);
+    BitField<decltype(config.eventType)> eventTypeBit(config.eventType);
     for (auto it : analysisMatchLists) {
         if (analysisTypeBit.checkBit(static_cast<size_t>(it.first))) {
             eventTypeBit.setBit(static_cast<size_t>(it.second));
         }
     }
-    userCommand.config.eventType = eventTypeBit.getValue();
+    config.eventType = eventTypeBit.getValue();
 }
 
 void DoUserCommand(UserCommand userCommand)
@@ -173,8 +173,8 @@ void DoUserCommand(UserCommand userCommand)
         return;
     }
 
-    SetEventDefaultConfig(userCommand);
-    SetAnalysisDefaultConfig(userCommand);
+    SetEventDefaultConfig(userCommand.config);
+    SetAnalysisDefaultConfig(userCommand.config);
 
     Utility::SetDirPath(userCommand.outputPath, std::string(OUTPUT_PATH));
     if (strncpy_s(userCommand.config.outputDir, sizeof(userCommand.config.outputDir), Utility::g_dirPath.c_str(),
@@ -315,7 +315,7 @@ static void ParseAnalysis(const std::string &param, UserCommand &userCommand)
     return;
 }
 
-static bool CheckIsValidDepthInfo(const std::string &param, UserCommand &userCommand)
+static bool CheckIsValidDepthInfo(const std::string &param, Config &config)
 {
     size_t pos = param.find(':');
     std::string callType = param.substr(0, pos);
@@ -328,35 +328,40 @@ static bool CheckIsValidDepthInfo(const std::string &param, UserCommand &userCom
             return false;
         }
     }
-    if (callType == "python" && !userCommand.config.enablePyStack) {
-        userCommand.config.enablePyStack = true;
-        userCommand.config.pyStackDepth = depth;
-    } else if (callType == "c" && !userCommand.config.enableCStack) {
-        userCommand.config.enableCStack = true;
-        userCommand.config.cStackDepth = depth;
+    if (callType == "python" && !config.enablePyStack) {
+        config.enablePyStack = true;
+        config.pyStackDepth = depth;
+    } else if (callType == "c" && !config.enableCStack) {
+        config.enableCStack = true;
+        config.cStackDepth = depth;
     } else {
         return false;
     }
     return true;
 }
 
-static void ParseCallstack(const std::string &param, UserCommand &userCommand)
+void ParseCallstack(const std::string &param, Config &config, bool &printHelpInfo)
 {
     if (param == "") {
+        config.enableCStack = false;
+        config.enablePyStack = false;
+        config.cStackDepth = 0;
+        config.pyStackDepth = 0;
         return;
     }
+    
     std::regex dividePattern(R"([，,])");
     std::sregex_token_iterator  it(param.begin(), param.end(), dividePattern, -1);
     std::sregex_token_iterator  end;
 
-    auto parseFailed = [&userCommand](void) {
+    auto parseFailed = [&printHelpInfo](void) {
         std::cout << "[msleaks] ERROR: invalid call-stack depth input." << std::endl;
-        userCommand.printHelpInfo = true;
+        printHelpInfo = true;
     };
 
     while (it != end) {
         std::string depthStr = it->str();
-        if (!depthStr.empty() && !CheckIsValidDepthInfo(depthStr, userCommand)) {
+        if (!depthStr.empty() && !CheckIsValidDepthInfo(depthStr, config)) {
             return parseFailed();
         }
         it++;
@@ -418,7 +423,7 @@ static void ParseOutputPath(const std::string param, UserCommand &userCommand)
     userCommand.outputPath = pathStr;
 }
 
-static void ParseDataLevel(const std::string param, UserCommand &userCommand)
+void ParseDataLevel(const std::string param, Config &config, bool &printHelpInfo)
 {
     std::regex dividePattern(R"([，,])");
     std::sregex_token_iterator it(param.begin(), param.end(), dividePattern, -1);
@@ -426,12 +431,12 @@ static void ParseDataLevel(const std::string param, UserCommand &userCommand)
  
     std::regex pattern(R"(^(0|1|op|kernel)$)");
  
-    auto parseFailed = [&userCommand](void) {
+    auto parseFailed = [&printHelpInfo](void) {
         std::cout << "[msleaks] ERROR: invalid data trace level input." << std::endl;
-        userCommand.printHelpInfo = true;
+        printHelpInfo = true;
     };
  
-    BitField<decltype(userCommand.config.levelType)> levelBit;
+    BitField<decltype(config.levelType)> levelBit;
  
     while (it != end) {
         std::string level = it->str();
@@ -448,22 +453,22 @@ static void ParseDataLevel(const std::string param, UserCommand &userCommand)
         it++;
     }
  
-    userCommand.config.levelType = levelBit.getValue();
+    config.levelType = levelBit.getValue();
     return;
 }
 
-static void ParseEventTraceType(const std::string param, UserCommand &userCommand)
+void ParseEventTraceType(const std::string param, Config &config, bool &printHelpInfo)
 {
     std::regex dividePattern(R"([，,])");
     std::sregex_token_iterator it(param.begin(), param.end(), dividePattern, -1);
     std::sregex_token_iterator end;
 
-    auto parseFailed = [&userCommand](void) {
+    auto parseFailed = [&printHelpInfo](void) {
         std::cout << "[msleaks] ERROR: invalid event trace type input." << std::endl;
-        userCommand.printHelpInfo = true;
+        printHelpInfo = true;
     };
 
-    BitField<decltype(userCommand.config.eventType)> eventsTypeBit;
+    BitField<decltype(config.eventType)> eventsTypeBit;
 
     std::unordered_map<std::string, EventType> eventsMp = {
         {"alloc", EventType::ALLOC_EVENT},
@@ -483,7 +488,7 @@ static void ParseEventTraceType(const std::string param, UserCommand &userComman
         it++;
     }
 
-    userCommand.config.eventType = eventsTypeBit.getValue();
+    config.eventType = eventsTypeBit.getValue();
     return;
 }
 
@@ -632,32 +637,32 @@ static void ParseDataFormat(const std::string &param, UserCommand &userCommand)
     return;
 }
 
-static void ParseDevice(const std::string &param, UserCommand &userCommand)
+void ParseDevice(const std::string &param, Config &config, bool &printHelpInfo)
 {
     std::regex dividePattern(R"([，,])");
     std::sregex_token_iterator  it(param.begin(), param.end(), dividePattern, -1);
     std::sregex_token_iterator  end;
 
-    auto parseFailed = [&userCommand](void) {
+    auto parseFailed = [&printHelpInfo](void) {
         std::cout << "[msleaks] ERROR: invalid device." << std::endl;
-        userCommand.printHelpInfo = true;
+        printHelpInfo = true;
     };
 
-    BitField<decltype(userCommand.config.npuSlots)> slotsBit;
-    userCommand.config.collectAllNpu = false;
+    BitField<decltype(config.npuSlots)> slotsBit;
+    config.collectAllNpu = false;
 
     while (it != end) {
         std::string device = it->str();
         if (device == "npu") {
-            userCommand.config.collectAllNpu = true;
+            config.collectAllNpu = true;
         } else if (device == "cpu") {
-            userCommand.config.collectCpu = true;
+            config.collectCpu = true;
             setenv(ENABLE_CPU_IN_CMD, "", 0);
         } else if (device.substr(0, 4) == "npu:") {
             std::string slot = device.substr(4);
             uint32_t slotNum = 0;
             if (!Utility::StrToUint32(slotNum, slot) ||
-                slotNum >= std::numeric_limits<decltype(userCommand.config.npuSlots)>::digits) {
+                slotNum >= std::numeric_limits<decltype(config.npuSlots)>::digits) {
                 return parseFailed();
             }
             slotsBit.setBit(slotNum);
@@ -667,7 +672,7 @@ static void ParseDevice(const std::string &param, UserCommand &userCommand)
         it++;
     }
 
-    userCommand.config.npuSlots = slotsBit.getValue();
+    config.npuSlots = slotsBit.getValue();
     return;
 }
 
@@ -706,7 +711,7 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
             ParseAnalysis(param, userCommand);
             break;
         case static_cast<int32_t>(OptVal::CALL_STACK):
-            ParseCallstack(param, userCommand);
+            ParseCallstack(param, userCommand.config, userCommand.printHelpInfo);
             break;
         case static_cast<int32_t>(OptVal::COMPARE):
             userCommand.config.enableCompare = true;
@@ -721,10 +726,10 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
             ParseOutputPath(param, userCommand);
             break;
         case static_cast<int32_t>(OptVal::DATA_TRACE_LEVEL):
-            ParseDataLevel(param, userCommand);
+            ParseDataLevel(param, userCommand.config, userCommand.printHelpInfo);
             break;
         case static_cast<int32_t>(OptVal::EVENT_TRACE_TYPE):
-            ParseEventTraceType(param, userCommand);
+            ParseEventTraceType(param, userCommand.config, userCommand.printHelpInfo);
             break;
         case static_cast<int32_t>(OptVal::LOG_LEVEL):
             ParseLogLv(param, userCommand);
@@ -733,7 +738,7 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
             ParseDataFormat(param, userCommand);
             break;
         case static_cast<int32_t>(OptVal::DEVICE):
-            ParseDevice(param, userCommand);
+            ParseDevice(param, userCommand.config, userCommand.printHelpInfo);
             break;
         case static_cast<int32_t>(OptVal::COLLECT_MODE):
             ParseCollectMode(param, userCommand);

@@ -125,15 +125,6 @@ void KernelEventTrace::CreateReadDataChannel(uint32_t devId)
 
 void KernelEventTrace::StartKernelEventTrace()
 {
-    Config config = EventReport::Instance(CommType::SOCKET).GetConfig();
-    BitField<decltype(config.levelType)> levelType(config.levelType);
-    if (!levelType.checkBit(static_cast<size_t>(LevelType::LEVEL_KERNEL))) {
-        return;
-    }
-    BitField<decltype(config.eventType)> eventType(config.eventType);
-    if (!eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
-        return;
-    }
     int32_t devId = GD_INVALID_NUM;
     if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
         CLIENT_ERROR_LOG("get device id failed");

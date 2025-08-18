@@ -19,19 +19,11 @@ AtenManager& AtenManager::GetInstance()
 
 AtenManager::AtenManager()
 {
-    Config userConfig =  EventReport::Instance(CommType::SOCKET).GetConfig();
-    BitField<decltype(userConfig.eventType)> eventType(userConfig.eventType);
-    if (eventType.checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT))) {
-        isAtenLaunchEnable_ = true;
-    }
-    if (eventType.checkBit(static_cast<size_t>(EventType::ACCESS_EVENT))) {
-        isAtenAccessEnable_ = true;
-    }
-    if (userConfig.watchConfig.isWatched) {
+    if (GetConfig().watchConfig.isWatched) {
         isWatchEnable_ = true;
     }
-    firstWatchOp_ = std::string(userConfig.watchConfig.start);
-    lastWatchOp_ = std::string(userConfig.watchConfig.end);
+    firstWatchOp_ = std::string(GetConfig().watchConfig.start);
+    lastWatchOp_ = std::string(GetConfig().watchConfig.end);
 }
 
 bool AtenManager::ExtractTensorInfo(const char* msg, const std::string &key, std::string &value)
@@ -95,14 +87,13 @@ void AtenManager::ReportAtenLaunch(const char* msg, int32_t streamId, bool isAte
         }
     }
 
-    if (!isAtenLaunchEnable_) {
+    if (!EventTraceManager::Instance().IsNeedTrace(RecordType::ATEN_OP_LAUNCH_RECORD)) {
         return ;
     }
 
-    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
     std::string pyStack;
-    if (config.enablePyStack) {
-        Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
+    if (GetConfig().enablePyStack) {
+        Utility::GetPythonCallstack(GetConfig().pyStackDepth, pyStack);
     }
     TLVBlockType pyStackType = pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
     RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<AtenOpLaunchRecord>(
@@ -148,10 +139,9 @@ void AtenManager::ReportAtenAccess(const char* msg, int32_t streamId)
     std::ostringstream oss;
     oss << "dtype:" << atenInfo.dtype << ",shape:" << atenInfo.shape;
     std::string attr = oss.str();
-    auto config = EventReport::Instance(CommType::SOCKET).GetConfig();
     std::string pyStack;
-    if (config.enablePyStack) {
-        Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
+    if (GetConfig().enablePyStack) {
+        Utility::GetPythonCallstack(GetConfig().pyStackDepth, pyStack);
     }
     TLVBlockType pyStackType = pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
     RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemAccessRecord>(
@@ -182,7 +172,7 @@ void AtenManager::ReportAtenAccess(const char* msg, int32_t streamId)
         outputTensors_.push_back(tensorInfo);
     }
 
-    if (!isAtenAccessEnable_) {
+    if (!EventTraceManager::Instance().IsNeedTrace(RecordType::MEM_ACCESS_RECORD)) {
         return ;
     }
     

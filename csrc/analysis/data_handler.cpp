@@ -24,9 +24,7 @@ void CsvHandler::InitSetParm()
         case DataType::LEAKS_EVENT: {
             prefix_ = "leaks_dump_";
             dirPath_ = std::string(config_.outputDir) + "/" + std::string(DUMP_FILE);
-            std::string cStack = config_.enableCStack ? ",Call Stack(C)" : "";
-            std::string pyStack = config_.enablePyStack ? ",Call Stack(Python)" : "";
-            csvHeader_ = LEAKS_HEADERS + pyStack + cStack + "\n";
+            csvHeader_ = LEAKS_HEADERS;
             break;
         }
         case DataType::PYTHON_TRACE_EVENT:
@@ -92,17 +90,13 @@ bool CsvHandler::WriteDumpRecord(std::shared_ptr<EventBase>& event)
     std::string addr = (event->eventType == EventBaseType::MALLOC
         || event->eventType == EventBaseType::FREE
         || event->eventType == EventBaseType::ACCESS) ? std::to_string(event->addr) : "N/A";
-    if (!Utility::Fprintf(file_, "%lu,%s,%s,%s,%lu,%s,%s,%s,%s,%s",
+    if (!Utility::Fprintf(file_, "%lu,%s,%s,%s,%lu,%s,%s,%s,%s,%s,%s,%s",
         event->id, eventType.c_str(), eventSubType.c_str(), event->name.c_str(), event->timestamp,
-        pid.c_str(), tid.c_str(), event->device.c_str(), addr.c_str(), event->attr.c_str())) {
+        pid.c_str(), tid.c_str(), event->device.c_str(), addr.c_str(), event->attr.c_str(),
+        event->pyCallStack.c_str(), event->cCallStack.c_str())) {
         return false;
     }
-    if (config_.enablePyStack && !Utility::Fprintf(file_, ",%s", event->pyCallStack.c_str())) {
-        return false;
-    }
-    if (config_.enableCStack && !Utility::Fprintf(file_, ",%s", event->cCallStack.c_str())) {
-        return false;
-    }
+
     if (!Utility::Fprintf(file_, "\n")) {
         return false;
     }
@@ -140,14 +134,12 @@ void DbHandler::InitSetParm()
         case DataType::LEAKS_EVENT: {
             std::vector<std::pair<std::string, std::string>> schema = DUMP_RECORD_TABLE_SQL;
             leakColumns_ = ParserHeader(DUMP_RECORD_TABLE_SQL);
-            if (config_.enablePyStack) {
-                schema.emplace_back("Call Stack(Python)", "TEXT");
-                leakColumns_.push_back("Call Stack(Python)");
-            }
-            if (config_.enableCStack) {
-                schema.emplace_back("Call Stack(C)", "TEXT");
-                leakColumns_.push_back("Call Stack(C)");
-            }
+
+            schema.emplace_back("Call Stack(Python)", "TEXT");
+            leakColumns_.push_back("Call Stack(Python)");
+            schema.emplace_back("Call Stack(C)", "TEXT");
+            leakColumns_.push_back("Call Stack(C)");
+
             tableName_ = DUMP_RECORD_TABLE;
             dbHeader_ = BuildCreateStatement(tableName_, schema);
             if (!Init()) {
@@ -251,12 +243,8 @@ bool DbHandler::WriteDumpRecord(std::shared_ptr<EventBase>& event)
     Sqlite3BindText(insertLeakStmt_, paramIndex++, event->device.c_str(), -1, SQLITE_STATIC);
     Sqlite3BindText(insertLeakStmt_, paramIndex++, addr.c_str(), -1, SQLITE_STATIC);
     Sqlite3BindText(insertLeakStmt_, paramIndex++, attrJson.c_str(), -1, SQLITE_STATIC);
-    if (config_.enablePyStack) {
-        Sqlite3BindText(insertLeakStmt_, paramIndex++, event->pyCallStack.c_str(), -1, SQLITE_STATIC);
-    }
-    if (config_.enableCStack) {
-        Sqlite3BindText(insertLeakStmt_, paramIndex++, event->cCallStack.c_str(), -1, SQLITE_STATIC);
-    }
+    Sqlite3BindText(insertLeakStmt_, paramIndex++, event->pyCallStack.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(insertLeakStmt_, paramIndex++, event->cCallStack.c_str(), -1, SQLITE_STATIC);
     Sqlite3BusyTimeout(dataFileDb_, SQLITE_TIME_OUT);
     int rc = Sqlite3Step(insertLeakStmt_);
     if (rc != SQLITE_DONE) {
