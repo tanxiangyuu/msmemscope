@@ -84,6 +84,11 @@ int EventReport::ReportRecordEvent(const RecordBuffer& record)
     std::string head = Serialize<PacketHead>(PacketHead{PacketType::RECORD, record.Size()});
     std::string buffer =  head + record.Get();
     auto sendNums = ClientProcess::GetInstance(CommType::SOCKET).Notify(buffer);
+    if (sendNums < 0) {
+        isReceiveServerInfo_.store(false);
+        std::cerr << "Process[" << Utility::GetPid() << "]: Client connection interrupted." << std::endl;
+    }
+
     return sendNums;
 }
 
