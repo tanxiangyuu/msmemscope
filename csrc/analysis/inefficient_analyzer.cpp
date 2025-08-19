@@ -13,7 +13,7 @@ InefficientAnalyzer& InefficientAnalyzer::GetInstance()
     return analyzer;
 }
  
-InefficientAnalyzer::InefficientAnalyzer() : onlyCheckATB{false}
+InefficientAnalyzer::InefficientAnalyzer()
 {
     auto func = std::bind(&InefficientAnalyzer::EventHandle, this, std::placeholders::_1, std::placeholders::_2);
     std::vector<EventBaseType> eventTypes{
@@ -28,35 +28,31 @@ InefficientAnalyzer::InefficientAnalyzer() : onlyCheckATB{false}
 // op_Launch 开始和结束大概率state都会为空，因为free之后会清掉buffer
 void InefficientAnalyzer::EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state)
 {
-    Init(event->pid);
-    const bool isOnlyCheckATB = onlyCheckATB.load(std::memory_order_relaxed);
     const auto eventType = event->eventType;
     const auto eventSubType = event->eventSubType;
+
     // 处理OP_LAUNCH类型事件
     if (eventType == EventBaseType::OP_LAUNCH) {
-        HandleOpLaunchEvent(event);
+        std::unordered_map<uint64_t, PidState>& pidStatesMap =
+            (eventSubType == EventSubType::ATEN_START || eventSubType == EventSubType::ATEN_END) ? PTAPidStatesMap : ATBPidStatesMap;
+        Init(event->pid, pidStatesMap);
+        HandleOpLaunchEvent(event, pidStatesMap);
         return;
     }
-    // 检查ATB时，过滤非ATB的MALLOC/FREE事件
-    if (isOnlyCheckATB &&
-        (eventType == EventBaseType::MALLOC || eventType == EventBaseType::FREE) &&
-        eventSubType != EventSubType::ATB) {
-        return;
-    }
+
     // 处理MALLOC FREE ACCESS事件
     if (eventType == EventBaseType::MALLOC || eventType == EventBaseType::FREE || eventType == EventBaseType::ACCESS) {
-        if (!isOnlyCheckATB && event->eventSubType == EventSubType::ATB) {
-            onlyCheckATB.store(true, std::memory_order_relaxed);
+        if ((event->poolType != PoolType::PTA_CACHING && event->poolType != PoolType::ATB)) {
+            return;
         }
-        if ((eventType == EventBaseType::MALLOC || eventType == EventBaseType::FREE) &&
-            (eventSubType != EventSubType::PTA_CACHING && eventSubType != EventSubType::ATB)) {
-                return;
-        }
-        HandleMemoryEvent(event, state);
+        std::unordered_map<uint64_t, PidState>& pidStatesMap =
+            (event->poolType == PoolType::PTA_CACHING) ? PTAPidStatesMap : ATBPidStatesMap;
+        Init(event->pid, pidStatesMap);
+        HandleMemoryEvent(event, state, pidStatesMap);
     }
 }
 
-void InefficientAnalyzer::Init(const uint64_t pid)
+void InefficientAnalyzer::Init(const uint64_t pid, std::unordered_map<uint64_t, PidState>& pidStatesMap)
 {
     if (pidStatesMap.find(pid) == pidStatesMap.end()) {
         pidStatesMap[pid].apiId = 0;
@@ -66,7 +62,7 @@ void InefficientAnalyzer::Init(const uint64_t pid)
     }
 }
 
-void InefficientAnalyzer::HandleOpLaunchEvent(std::shared_ptr<EventBase>& event)
+void InefficientAnalyzer::HandleOpLaunchEvent(std::shared_ptr<EventBase>& event, std::unordered_map<uint64_t, PidState>& pidStatesMap)
 {
     const auto eventSubType = event->eventSubType;
     const uint64_t pid = event->pid;
@@ -75,18 +71,20 @@ void InefficientAnalyzer::HandleOpLaunchEvent(std::shared_ptr<EventBase>& event)
     // 遇到start，api id 加1
     if (eventSubType == EventSubType::ATB_START || eventSubType == EventSubType::ATEN_START) {
         pidState.isOpStart = true;
-        UpdateApiId(pid);
+        UpdateApiId(pid, pidStatesMap);
         return;
     }
     // 遇到end，判断tmp api属于什么类型
     if (eventSubType == EventSubType::ATB_END || eventSubType == EventSubType::ATEN_END) {
         pidState.isOpStart = false;
-        ClassifyEventsTmp(pid);
+        ClassifyEventsTmp(pid, pidStatesMap);
         return;
     }
 }
 
-void InefficientAnalyzer::HandleMemoryEvent(std::shared_ptr<EventBase>& event, MemoryState* state)
+void InefficientAnalyzer::HandleMemoryEvent(std::shared_ptr<EventBase>& event,
+    MemoryState* state,
+    std::unordered_map<uint64_t, PidState>& pidStatesMap)
 {
     const uint64_t pid = event->pid;
     auto& pidState = pidStatesMap[pid];
@@ -96,19 +94,19 @@ void InefficientAnalyzer::HandleMemoryEvent(std::shared_ptr<EventBase>& event, M
     }
     // 当前面没有START事件时，即表明当前事件为独立事件，M/A/F均API ID加1，并判断此时事件属于malloc还是free api
     if (!pidState.isOpStart) {
-        UpdateApiId(pid);
-        AddEventToTmps(memEvent);
-        AddApiIdToState(memEvent, state);
-        ClassifyEventsTmp(pid);
+        UpdateApiId(pid, pidStatesMap);
+        AddEventToTmps(memEvent, pidStatesMap);
+        AddApiIdToState(memEvent, state, pidStatesMap);
+        ClassifyEventsTmp(pid, pidStatesMap);
     } else {
-        AddEventToTmps(memEvent);
-        AddApiIdToState(memEvent, state);
+        AddEventToTmps(memEvent, pidStatesMap);
+        AddApiIdToState(memEvent, state, pidStatesMap);
     }
 
-    InefficientAnalysis(memEvent, state);
+    InefficientAnalysis(memEvent, state, pidStatesMap);
 }
 
-void InefficientAnalyzer::ClassifyEventsTmp(const uint64_t pid)
+void InefficientAnalyzer::ClassifyEventsTmp(const uint64_t pid, std::unordered_map<uint64_t, PidState>& pidStatesMap)
 {
     auto& pidState = pidStatesMap[pid];
     if (pidState.apiTmp.empty()) {
@@ -136,22 +134,27 @@ void InefficientAnalyzer::ClassifyEventsTmp(const uint64_t pid)
     }
 }
 
-void InefficientAnalyzer::UpdateApiId(const uint64_t pid)
+void InefficientAnalyzer::UpdateApiId(const uint64_t pid, std::unordered_map<uint64_t, PidState>& pidStatesMap)
 {
     pidStatesMap[pid].apiId.fetch_add(1, std::memory_order_relaxed);
 }
 
-void InefficientAnalyzer::AddEventToTmps(const std::shared_ptr<MemoryEvent>& event)
+void InefficientAnalyzer::AddEventToTmps(const std::shared_ptr<MemoryEvent>& event,
+    std::unordered_map<uint64_t, PidState>& pidStatesMap)
 {
     pidStatesMap[event->pid].apiTmp.push_back(event);
 }
 
-void InefficientAnalyzer::AddApiIdToState(std::shared_ptr<MemoryEvent>& event, MemoryState* state)
+void InefficientAnalyzer::AddApiIdToState(std::shared_ptr<MemoryEvent>& event,
+    MemoryState* state,
+    std::unordered_map<uint64_t, PidState>& pidStatesMap)
 {
     state->apiId.push_back(pidStatesMap[event->pid].apiId);
 }
 
-void InefficientAnalyzer::InefficientAnalysis(std::shared_ptr<MemoryEvent>& event, MemoryState* state)
+void InefficientAnalyzer::InefficientAnalysis(std::shared_ptr<MemoryEvent>& event,
+    MemoryState* state,
+    std::unordered_map<uint64_t, PidState>& pidStatesMap)
 {
     // 存在部分state中的events开头不是MALLOC事件。和部分events的长度与apiId长度不相等的情况
     if (state->events.at(0)->eventType != EventBaseType::MALLOC || state->events.size() != state->apiId.size()) {
@@ -165,14 +168,16 @@ void InefficientAnalyzer::InefficientAnalysis(std::shared_ptr<MemoryEvent>& even
             return;
         }
 
-        EarlyAllocation(event, state);
+        EarlyAllocation(event, state, pidStatesMap);
     }
     if (event->eventType == EventBaseType::FREE && pidStatesMap[event->pid].mallocApiTmpId != MAX_UNIT64) {
-        LateDeallocation(event, state);
+        LateDeallocation(event, state, pidStatesMap);
     }
 }
 
-void InefficientAnalyzer::EarlyAllocation(std::shared_ptr<MemoryEvent>& event, MemoryState* state)
+void InefficientAnalyzer::EarlyAllocation(std::shared_ptr<MemoryEvent>& event,
+    MemoryState* state,
+    std::unordered_map<uint64_t, PidState>& pidStatesMap)
 {
     // 过早申请判断：1.先找到FIRST ACCESS(FA)。2.判断MALLOC和FA之间有无FREE API
     if (state->inefficientType.find("early_allocation") != std::string::npos) {
@@ -210,7 +215,9 @@ void InefficientAnalyzer::EarlyAllocation(std::shared_ptr<MemoryEvent>& event, M
     }
 }
 
-void InefficientAnalyzer::LateDeallocation(std::shared_ptr<MemoryEvent>& event, MemoryState* state)
+void InefficientAnalyzer::LateDeallocation(std::shared_ptr<MemoryEvent>& event,
+    MemoryState* state,
+    std::unordered_map<uint64_t, PidState>& pidStatesMap)
 {
     // 1.找到LAST ACCESS。2.判断FREE API与LA API之间有无MALLOC API
     uint64_t eventsLen = state->events.size();
