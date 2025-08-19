@@ -6,6 +6,7 @@
 #include <thread>
 #include <chrono>
 #include <unistd.h>
+#include <cerrno>
 #include "protocol.h"
 #include "serializer.h"
 #include "host_injection/core/FuncSelector.h"
@@ -88,6 +89,9 @@ int ClientProcess::Notify(const std::string &msg)
         sentBytes = client_->Write(msg.substr(totalSent));
         // partial send return sent bytes
         if (sentBytes <= 0) {
+            if (errno == EPIPE || errno == EBADF || errno == ENOTCONN || errno == ECONNRESET) {
+                return -1;
+            }
             return totalSent;
         }
         totalSent += static_cast<std::size_t>(sentBytes);
