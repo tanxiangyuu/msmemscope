@@ -9,11 +9,10 @@ namespace Leaks {
 
 constexpr uint32_t MAX_TRY_COUNT = 100;
 
-DomainSocketClient::DomainSocketClient():client_(new Client(CommType::SOCKET)) {
-    
-}
+DomainSocketClient::DomainSocketClient():client_(new Client(CommType::SOCKET)) { }
 
-bool DomainSocketClient::init() {
+bool DomainSocketClient::init()
+{
     if (client_ == nullptr) {
         std::cout << "Initial client failed" << std::endl;
         return false;
@@ -32,12 +31,12 @@ bool DomainSocketClient::init() {
     return true;
 }
 
-//todo:添加注释，添加可能出现的异常情况
-bool DomainSocketClient::sent(const std::string& msg, size_t& size) {
+bool DomainSocketClient::sent(const std::string& msg, size_t& size)
+{
     std::lock_guard<std::mutex> lock(sentMutex_);
     int32_t sentBytes = 0;
     /* 循环外部先发送一次，减少重复构造字符串 */
-    size = client_->Write(msg);
+    size = static_cast<size_t>(client_->Write(msg));
     while (size < msg.size()) {
         sentBytes = client_->Write(msg.substr(size));
         // partial send return sent bytes
@@ -49,7 +48,8 @@ bool DomainSocketClient::sent(const std::string& msg, size_t& size) {
     return true;
 }
 
-bool DomainSocketClient::receive(std::string& msg, size_t& size, uint32_t timeOut) {
+bool DomainSocketClient::receive(std::string& msg, size_t& size, uint32_t timeOut)
+{
     std::string recvMsg;
     int len = 0;
     // 当msg.size()大于0时说明开始接收，当len不大于0时说明接收结束
@@ -59,10 +59,10 @@ bool DomainSocketClient::receive(std::string& msg, size_t& size, uint32_t timeOu
         len = client_->Read(recvMsg);
         if (len > 0) {
             msg += recvMsg;
-            size += len;
+            size += static_cast<size_t>(len);
             continue;
         }
-        if(count >= timeOut) {
+        if (count >= timeOut) {
             return false;
         }
     }

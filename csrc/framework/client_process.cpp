@@ -10,17 +10,18 @@
 #include "protocol.h"
 #include "serializer.h"
 #include "domain_socket_client.h"
+#include "shared_memory_client.h"
 #include "host_injection/core/FuncSelector.h"
 #include "host_injection/utils/InjectLogger.h"
 
 namespace Leaks {
 
-ClientProcess::ClientProcess(LeaksCommType type)
+ClientProcess::ClientProcess(LeaksCommType type) : logLevel_(Leaks::LogLv::INFO)
 {
-    if(LeaksCommType::DOMAIN_SOCKET == type) {
+    if (LeaksCommType::SHARED_MEMORY == type) {
         client_ = new DomainSocketClient();
-    } else if(LeaksCommType::SHARED_MEMORY == type) {
-        client_ = nullptr;
+    } else if (LeaksCommType::SHARED_MEMORY == type) {
+        client_ = new SharedMemoryClient();
     } else {
         client_ = nullptr; //  invalid type
     }
@@ -75,7 +76,7 @@ void ClientProcess::SetLogLevel(LogLv level)
 int ClientProcess::Notify(const std::string &msg)
 {
     size_t sentBytes = 0;
-    if(client_->sent(msg, sentBytes) == 0) {
+    if (client_->sent(msg, sentBytes) == 0) {
         std::cout << "client notify failed" << std::endl;
         return 0;
     }
@@ -86,7 +87,7 @@ int ClientProcess::Wait(std::string& msg, uint32_t timeOut)
 {
     size_t len = 0;
     msg.clear();
-    if(!client_->receive(msg, len, timeOut)) {
+    if (!client_->receive(msg, len, timeOut)) {
         std::cout << "client wait failed " << std::endl;
         return 0;
     }

@@ -13,7 +13,7 @@ using ClientId = std::size_t;
 using LeaksClientConnectHook = std::function<void(ClientId)>;
 using LeaksClientMsgHandlerHook = std::function<void(ClientId&, std::string&)>;
 
-enum class LeaksCommType{
+enum class LeaksCommType {
     SHARED_MEMORY,
     DOMAIN_SOCKET
 };

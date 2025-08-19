@@ -8,7 +8,7 @@
 
 namespace Leaks {
 
-enum class LeaksCommType{
+enum class LeaksCommType {
     SHARED_MEMORY,
     DOMAIN_SOCKET
 };

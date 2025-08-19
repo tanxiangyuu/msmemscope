@@ -14,7 +14,7 @@ namespace Leaks {
 class ClientProcess {
 public:
     explicit ClientProcess(LeaksCommType type);
-    static ClientProcess &GetInstance(LeaksCommType type = LeaksCommType::DOMAIN_SOCKET);
+    static ClientProcess &GetInstance(LeaksCommType type = LeaksCommType::SHARED_MEMORY);
     ~ClientProcess();
     void Log(LogLv level, std::string msg, const std::string fileName, const uint32_t line);
     void SetLogLevel(LogLv level);
