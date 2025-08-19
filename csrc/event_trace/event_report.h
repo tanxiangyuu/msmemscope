@@ -15,6 +15,7 @@
 #include "record_info.h"
 #include "config_info.h"
 #include "protocol.h"
+#include "kernel_hooks/acl_hooks.h"
 #include "kernel_hooks/kernel_event_trace.h"
 #include "trace_manager/event_trace_manager.h"
 
@@ -90,7 +91,7 @@ private:
 };
 
 MemOpSpace GetMemOpSpace(unsigned long long flag);
-RTS_API rtError_t GetDevice(int32_t *devId);
+aclError GetDevice(int32_t *devId);
 
 } // namespace Leaks
 #endif

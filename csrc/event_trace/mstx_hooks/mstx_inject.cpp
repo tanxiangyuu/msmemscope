@@ -6,17 +6,34 @@
 #include "event_report.h"
 
 namespace Leaks {
+
+aclError GetStreamID(aclrtStream stream, int32_t *streamId)
+{
+    char const *sym = "aclrtStreamGetIdImpl";
+    using AclrtGetStreamID = decltype(&GetStreamID);
+    static AclrtGetStreamID vallina = nullptr;
+    if (vallina == nullptr) {
+        vallina = VallinaSymbol<ACLImplLibLoader>::Instance().Get<AclrtGetStreamID>(sym);
+    }
+    if (vallina == nullptr) {
+        CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
+        return ACL_ERROR_RT_FAILURE;
+    }
+    aclError ret = vallina(stream, streamId);
+    return ret;
+}
+
 void MstxMarkAFunc(const char* msg, aclrtStream stream)
 {
-    int32_t streamId;
-    rtGetStreamId(stream, &streamId);
+    int32_t streamId = -1;
+    GetStreamID(stream, &streamId);
     MstxManager::GetInstance().ReportMarkA(msg, streamId);
 }
 
 uint64_t MstxRangeStartAFunc(const char* msg, aclrtStream stream)
 {
-    int32_t streamId;
-    rtGetStreamId(stream, &streamId);
+    int32_t streamId = -1;
+    GetStreamID(stream, &streamId);
     return MstxManager::GetInstance().ReportRangeStart(msg, streamId);
 }
 
