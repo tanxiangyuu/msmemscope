@@ -63,19 +63,19 @@ constexpr unsigned long long FLAG_INVALID = UINT64_MAX;
 
 constexpr int32_t INVALID_MODID = -1;
 
-RTS_API rtError_t GetDevice(int32_t *devId)
+aclError GetDevice(int32_t *devId)
 {
-    char const *sym = "rtGetDevice";
-    using RtGetDevice = decltype(&GetDevice);
-    static RtGetDevice vallina = nullptr;
+    char const *sym = "aclrtGetDeviceImpl";
+    using AclrtGetDevice = decltype(&GetDevice);
+    static AclrtGetDevice vallina = nullptr;
     if (vallina == nullptr) {
-        vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtGetDevice>(sym);
+        vallina = VallinaSymbol<ACLImplLibLoader>::Instance().Get<AclrtGetDevice>(sym);
     }
     if (vallina == nullptr) {
         CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
-        return RT_ERROR_RESERVED;
+        return ACL_ERROR_RT_FAILURE;
     }
-    rtError_t ret = vallina(devId);
+    aclError ret = vallina(devId);
     return ret;
 }
 
@@ -403,7 +403,7 @@ bool EventReport::ReportMark(RecordBuffer &mstxRecordBuffer)
     }
 
     int32_t devId = GD_INVALID_NUM;
-    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+    if (GetDevice(&devId) != ACL_SUCCESS || devId == GD_INVALID_NUM) {
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
@@ -463,7 +463,7 @@ bool EventReport::ReportAtenLaunch(RecordBuffer &atenOpLaunchRecordBuffer)
     }
 
     int32_t devId = GD_INVALID_NUM;
-    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+    if (GetDevice(&devId) != ACL_SUCCESS || devId == GD_INVALID_NUM) {
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
@@ -491,7 +491,7 @@ bool EventReport::ReportAtenAccess(RecordBuffer &memAccessRecordBuffer)
     }
 
     int32_t devId = GD_INVALID_NUM;
-    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+    if (GetDevice(&devId) != ACL_SUCCESS || devId == GD_INVALID_NUM) {
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
@@ -525,7 +525,7 @@ bool EventReport::ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
 
     int32_t devId = std::get<0>(kernelLaunchInfo.taskKey);
     if (devId < 0) {
-        if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+        if (GetDevice(&devId) != ACL_SUCCESS || devId == GD_INVALID_NUM) {
             CLIENT_ERROR_LOG("RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
         }
     }
@@ -647,7 +647,7 @@ bool EventReport::ReportAtbOpExecute(RecordBuffer& atbOpExecuteRecordBuffer)
     }
 
     int32_t devId = GD_INVALID_NUM;
-    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+    if (GetDevice(&devId) != ACL_SUCCESS || devId == GD_INVALID_NUM) {
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
@@ -675,7 +675,7 @@ bool EventReport::ReportAtbKernel(RecordBuffer& atbKernelRecordBuffer)
     }
 
     int32_t devId = GD_INVALID_NUM;
-    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+    if (GetDevice(&devId) != ACL_SUCCESS || devId == GD_INVALID_NUM) {
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
@@ -703,7 +703,7 @@ bool EventReport::ReportAtbAccessMemory(std::vector<RecordBuffer>& memAccessReco
     }
 
     int32_t devId = GD_INVALID_NUM;
-    if (GetDevice(&devId) == RT_ERROR_INVALID_VALUE || devId == GD_INVALID_NUM) {
+    if (GetDevice(&devId) != ACL_SUCCESS || devId == GD_INVALID_NUM) {
         CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 

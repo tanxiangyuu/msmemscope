@@ -22,7 +22,14 @@ struct RuntimeLibLoader {
         return LibLoad("libruntime.so");
     }
 };
- 
+
+struct ACLImplLibLoader {
+    static void *Load(void)
+    {
+        return LibLoad("libascendcl_impl.so");
+    }
+};
+
 const void* GetHandleByStubFunc(const void *stubFunc);
 }
 
@@ -33,6 +40,47 @@ extern "C" {
 #ifndef RTS_API
 #define RTS_API
 #endif  // RTS_API
+
+using aclrtBinary = void*;
+using aclrtBinHandle = void*;
+using aclrtFuncHandle = void*;
+using aclrtArgsHandle = void*;
+using aclrtParamHandle = void*;
+
+typedef enum {
+    ACL_RT_ENGINE_TYPE_AIC = 0,
+    ACL_RT_ENGINE_TYPE_AIV,
+} aclrtEngineType;
+
+typedef enum aclrtLaunchKernelAttrId {
+    ACL_RT_LAUNCH_KERNEL_ATTR_SCHEM_MODE = 1,
+    ACL_RT_LAUNCH_KERNEL_ATTR_ENGINE_TYPE = 3,
+    ACL_RT_LAUNCH_KERNEL_ATTR_BLOCKDIM_OFFSET,
+    ACL_RT_LAUNCH_KERNEL_ATTR_BLOCK_TASK_PREFETCH,
+    ACL_RT_LAUNCH_KERNEL_ATTR_DATA_DUMP,
+    ACL_RT_LAUNCH_KERNEL_ATTR_TIMEOUT,
+} aclrtLaunchKernelAttrId;
+
+typedef union aclrtLaunchKernelAttrValue {
+    uint8_t schemMode;
+    uint32_t localMemorySize;
+    aclrtEngineType engineType;
+    uint32_t blockDimOffset;
+    uint8_t isBlockTaskPrefetch;
+    uint8_t isDataDump;
+    uint16_t timeout;
+    uint32_t rsv[4];
+} aclrtLaunchKernelAttrValue;
+
+typedef struct aclrtLaunchKernelAttr {
+    aclrtLaunchKernelAttrId id;
+    aclrtLaunchKernelAttrValue value;
+} aclrtLaunchKernelAttr;
+
+typedef struct aclrtLaunchKernelCfg {
+    aclrtLaunchKernelAttr *attrs;
+    size_t numAttrs;
+} aclrtLaunchKernelCfg;
 
 typedef enum tagRtError {
     RT_ERROR_NONE = 0x0,                      // success
@@ -161,7 +209,6 @@ RTS_API rtError_t rtLaunchKernelByFuncHandle(rtFuncHandle funcHandle, uint32_t b
 RTS_API rtError_t rtLaunchKernelByFuncHandleV2(rtFuncHandle funcHandle, uint32_t blockDim,
     rtLaunchArgsHandle argsHandle, RtStreamT stm, const RtTaskCfgInfoT *cfgInfo);
 
-RTS_API rtError_t rtGetStreamId(rtStream_t stm, int32_t *streamId);
 #ifdef __cplusplus
 }  // extern "C"
 #endif

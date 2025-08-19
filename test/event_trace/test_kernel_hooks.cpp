@@ -157,7 +157,6 @@ std::unordered_map<std::string, void *> g_funcMocks{
     {"rtAicpuKernelLaunchExWithArgs", reinterpret_cast<void *>(&MockRtAicpuKernelLaunchExWithArgs)},
     {"rtLaunchKernelByFuncHandle", reinterpret_cast<void *>(&MockRtLaunchKernelByFuncHandle)},
     {"rtLaunchKernelByFuncHandleV2", reinterpret_cast<void *>(&MockRtLaunchKernelByFuncHandleV2)},
-    {"rtGetStreamId", reinterpret_cast<void *>(&MockRtGetStreamId)},
     {"aclInit", reinterpret_cast<void *>(&MockAclInit)},
     {"aclFinalize", reinterpret_cast<void *>(&MockAclFinalize)},
     {"sqlite3_open", reinterpret_cast<void *>(&MockSqlite3_Open)},
@@ -363,20 +362,4 @@ TEST(RuntimeHooks, do_rtLaunchKernelByFuncHandleV2_expect_error)
     const RtStreamT stm = nullptr;
     RtTaskCfgInfoT *cfgInfo = nullptr;
     EXPECT_EQ(rtLaunchKernelByFuncHandleV2(funcHandle, blockDim, argsHandle, stm, cfgInfo), RT_ERROR_RESERVED);
-}
-
-TEST(RuntimeHooks, do_rtGetStreamId_expect_success)
-{
-    g_isDlsymNullptr = false;
-    rtStream_t stm = nullptr;
-    int32_t *streamId = nullptr;
-    EXPECT_EQ(rtGetStreamId(stm, streamId), RT_ERROR_NONE);
-}
-
-TEST(RuntimeHooks, do_rtGetStreamId_expect_error)
-{
-    g_isDlsymNullptr = true;
-    rtStream_t stm = nullptr;
-    int32_t *streamId = nullptr;
-    EXPECT_EQ(rtGetStreamId(stm, streamId), RT_ERROR_RESERVED);
 }
