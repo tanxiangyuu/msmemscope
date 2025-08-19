@@ -8,11 +8,10 @@
 
 namespace Leaks {
 
-DomainSocketServer::DomainSocketServer():server_(new Server(CommType::SOCKET)) {
-    
-}
+DomainSocketServer::DomainSocketServer():server_(new Server(CommType::SOCKET)) { }
 
-bool DomainSocketServer::init() {
+bool DomainSocketServer::init()
+{
     if (server_ != nullptr) {
         server_->Start();
         return true;
@@ -22,9 +21,10 @@ bool DomainSocketServer::init() {
     }
 }
 
-//todo:添加注释，添加可能出现的异常情况
-bool DomainSocketServer::sent(std::size_t clientId, const std::string& msg, size_t& size) {
-    size = server_->Write(clientId, msg);
+
+bool DomainSocketServer::sent(std::size_t clientId, const std::string& msg, size_t& size)
+{
+    size = static_cast<size_t>(server_->Write(clientId, msg));
     if (size < msg.size()) {
         std::cout << "DomainSocketServer sent msg failed" << std::endl;
         return false;
@@ -32,9 +32,10 @@ bool DomainSocketServer::sent(std::size_t clientId, const std::string& msg, size
     return true;
 }
 
-bool DomainSocketServer::receive(std::size_t clientId, std::string& msg, size_t& size) {
+bool DomainSocketServer::receive(std::size_t clientId, std::string& msg, size_t& size)
+{
     // 如果设置了timeout，那么，等待一段时间后，需要释放
-    size =  server_->Read(clientId, msg);
+    size = static_cast<size_t>(server_->Read(clientId, msg));
     if (size < msg.size()) {
         std::cout << "DomainSocketServer receive msg failed" << std::endl;
         return false;
@@ -42,11 +43,13 @@ bool DomainSocketServer::receive(std::size_t clientId, std::string& msg, size_t&
     return true;
 }
 
-void DomainSocketServer::SetMsgHandlerHook(LeaksClientMsgHandlerHook &&hook) {
+void DomainSocketServer::SetMsgHandlerHook(LeaksClientMsgHandlerHook &&hook)
+{
     server_->SetMsgHandlerHook(std::move(hook));
 }
 
-void DomainSocketServer::SetClientConnectHook(LeaksClientConnectHook &&hook) {
+void DomainSocketServer::SetClientConnectHook(LeaksClientConnectHook &&hook)
+{
     server_->SetClientConnectHook(std::move(hook));
 }
 

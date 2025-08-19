@@ -4,15 +4,16 @@
 #include <thread>
 #include "utility/log.h"
 #include "domain_socket_server.h"
+#include "shared_memory_server.h"
 
 namespace Leaks {
 
 ServerProcess::ServerProcess(LeaksCommType type)
 {
-    if(LeaksCommType::DOMAIN_SOCKET == type) {
+    if (LeaksCommType::SHARED_MEMORY == type) {
         server_ = new DomainSocketServer();
-    } else if(LeaksCommType::SHARED_MEMORY == type) {
-        server_ = nullptr;
+    } else if (LeaksCommType::SHARED_MEMORY == type) {
+        server_ = new SharedMemoryServer();
     } else {
         server_ = nullptr; //  invalid type
     }

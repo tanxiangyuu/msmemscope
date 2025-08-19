@@ -58,22 +58,9 @@ void PTACachingPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegionsRe
 
     const mstxMemVirtualRangeDesc_t *rangeDescArray =
         reinterpret_cast<const mstxMemVirtualRangeDesc_t *>(desc->regionDescArray);
-<<<<<<< HEAD
 
     CallStackString stack;
     Utility::GetCallstack(stack);
-=======
-    auto config = EventReport::Instance(LeaksCommType::DOMAIN_SOCKET).GetConfig();
-    std::string cStack;
-    std::string pyStack;
-    if (config.enableCStack) {
-        Utility::GetCCallstack(config.cStackDepth, cStack, SKIP_DEPTH);
-    }
-    if (config.enablePyStack) {
-        Utility::GetPythonCallstack(config.pyStackDepth, pyStack);
-    }
-    CallStackString stack{cStack, pyStack};
->>>>>>> adc933e (domain socket refactoring)
 
     for (size_t i = 0; i < desc->regionCount; i++) {
         uint32_t devId = rangeDescArray[i].deviceId;
@@ -93,7 +80,7 @@ void PTACachingPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegionsRe
         MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
         record->type = RecordType::PTA_CACHING_POOL_RECORD;
         record->memoryUsage = memUsageMp_[devId];
-        if (!EventReport::Instance(LeaksCommType::DOMAIN_SOCKET).ReportMemPoolRecord(buffer)) {
+        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
             CLIENT_ERROR_LOG("Report PTA Caching Data Failed");
         }
     }
@@ -108,7 +95,7 @@ void PTACachingPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnreg
 
     CallStackString stack;
     Utility::GetCallstack(stack);
-    
+
     for (size_t i = 0; i < desc->refCount; i++) {
         if (!regionHandleMp_.count(desc->refArray[i].pointer)) {
             continue;
@@ -128,7 +115,7 @@ void PTACachingPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnreg
         MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
         record->type = RecordType::PTA_CACHING_POOL_RECORD;
         record->memoryUsage = memUsageMp_[rangeDesc.deviceId];
-        if (!EventReport::Instance(LeaksCommType::DOMAIN_SOCKET).ReportMemPoolRecord(buffer)) {
+        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
             CLIENT_ERROR_LOG("Report PTA Caching Data Failed");
         }
     }

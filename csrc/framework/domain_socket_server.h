@@ -6,9 +6,9 @@
 #include "communication_proxy_server.h"
 #include "host_injection/core/Communication.h"
 
-namespace Leaks{
+namespace Leaks {
 
-class DomainSocketServer : public CommunicationProxyServer{
+class DomainSocketServer : public CommunicationProxyServer {
 public:
     explicit DomainSocketServer();
     ~DomainSocketServer() override;
