@@ -39,16 +39,18 @@ TEST(EventReportTest, ReportMallocTestDEVICE) {
     uint64_t testSize = 1024;
     unsigned long long testFlag = 2377900603261207558;
     MemOpSpace space = MemOpSpace::DEVICE;
-    
-    
+
     CallStackString callStack;
     EXPECT_FALSE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
+    instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportAddrInfoTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
     auto buffer = RecordBuffer::CreateRecordBuffer<AddrInfo>();
+    instance.isReceiveServerInfo_ = true;
     EXPECT_FALSE(instance.ReportAddrInfo(buffer));
+    instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportTorchNpuMallocTest) {
@@ -68,6 +70,7 @@ TEST(EventReportTest, ReportTorchNpuMallocTest) {
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
     EXPECT_FALSE(instance.ReportMemPoolRecord(buffer));
+    instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportTorchNpuFreeTest) {
@@ -87,6 +90,7 @@ TEST(EventReportTest, ReportTorchNpuFreeTest) {
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
     EXPECT_FALSE(instance.ReportMemPoolRecord(buffer));
+    instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportTorchNpuConditionTest) {
@@ -109,7 +113,9 @@ TEST(EventReportTest, ReportTorchNpuConditionTest) {
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
+    instance.isReceiveServerInfo_ = true;
     EXPECT_FALSE(instance.ReportMemPoolRecord(buffer));
+    instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportMallocTestHost) {
@@ -132,6 +138,7 @@ TEST(EventReportTest, ReportMallocTestHost) {
     instance.isReceiveServerInfo_ = true;
     CallStackString callStack;
     EXPECT_FALSE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
+    instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportFreeTest) {
@@ -150,6 +157,7 @@ TEST(EventReportTest, ReportFreeTest) {
     instance.isReceiveServerInfo_ = true;
     CallStackString callStack;
     EXPECT_FALSE(instance.ReportFree(testAddr, callStack));
+    instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportHostMallocWithoutMstxTest) {
@@ -210,7 +218,9 @@ TEST(EventReportTest, ReportHostMallocTest) {
     uint64_t testAddr = 0x12345678;
     uint64_t testSize = 1024;
     CallStackString callStack;
+    instance.isReceiveServerInfo_ = true;
     EXPECT_FALSE(instance.ReportHostMalloc(testAddr, testSize, callStack));
+    instance.isReceiveServerInfo_ = true;
 
     auto buffer2 = RecordBuffer::CreateRecordBuffer<MstxRecord>();
     MstxRecord* mstxRecordEnd = buffer2.Cast<MstxRecord>();
@@ -240,7 +250,9 @@ TEST(EventReportTest, ReportHostFreeTest) {
     mstxRecordStart->rangeId = 1;
     instance.ReportMark(buffer1);
     uint64_t testAddr = 0x12345678;
+    instance.isReceiveServerInfo_ = true;
     EXPECT_FALSE(instance.ReportHostFree(testAddr));
+    instance.isReceiveServerInfo_ = true;
 
     auto buffer2 = RecordBuffer::CreateRecordBuffer<MstxRecord>();
     MstxRecord* mstxRecordEnd = buffer2.Cast<MstxRecord>();
@@ -251,14 +263,15 @@ TEST(EventReportTest, ReportHostFreeTest) {
 
 TEST(EventReportTest, ReportMarkTest) {
     EventReport& instance = EventReport::Instance(CommType::MEMORY);
-    instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
     auto buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>();
     MstxRecord* record = buffer.Cast<MstxRecord>();
     record->rangeId = 123;
+    instance.isReceiveServerInfo_ = true;
     EXPECT_FALSE(instance.ReportMark(buffer));
+    instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportKernelLaunchTest) {
@@ -285,6 +298,7 @@ TEST(EventReportTest, ReportKernelLaunchTest) {
     kernelLaunchInfo.timestamp = 123;
     kernelLaunchInfo.kernelName = "add";
     EXPECT_FALSE(instance.ReportKernelLaunch(kernelLaunchInfo));
+    instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportAclItfTest) {
@@ -296,6 +310,7 @@ TEST(EventReportTest, ReportAclItfTest) {
     ConfigManager::Instance().SetConfig(config);
 
     EXPECT_FALSE(instance.ReportAclItf(RecordSubType::INIT));
+    instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportAtbOpExecuteTest) {
@@ -306,6 +321,7 @@ TEST(EventReportTest, ReportAtbOpExecuteTest) {
     ConfigManager::Instance().SetConfig(config);
     RecordBuffer atbOpExecuteRecord = RecordBuffer::CreateRecordBuffer<AtbOpExecuteRecord>();
     EXPECT_FALSE(instance.ReportAtbOpExecute(atbOpExecuteRecord));
+    instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportAtbKernelTest) {
@@ -316,6 +332,7 @@ TEST(EventReportTest, ReportAtbKernelTest) {
     ConfigManager::Instance().SetConfig(config);
     RecordBuffer atbKernelRecord = RecordBuffer::CreateRecordBuffer<AtbKernelRecord>();
     EXPECT_FALSE(instance.ReportAtbKernel(atbKernelRecord));
+    instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportAtbMemAccessTest) {
@@ -328,6 +345,7 @@ TEST(EventReportTest, ReportAtbMemAccessTest) {
     std::vector<RecordBuffer> records;
     records.push_back(memAccessRecord);
     EXPECT_FALSE(instance.ReportAtbAccessMemory(records));
+    instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportAtenLaunchTestExpectSuccess)
@@ -339,6 +357,7 @@ TEST(EventReportTest, ReportAtenLaunchTestExpectSuccess)
     ConfigManager::Instance().SetConfig(config);
     auto atenOpLaunchRecord = RecordBuffer::CreateRecordBuffer<AtenOpLaunchRecord>();
     EXPECT_FALSE(instance.ReportAtenLaunch(atenOpLaunchRecord));
+    instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportAtenAccessTestExpectSuccess)
@@ -350,6 +369,7 @@ TEST(EventReportTest, ReportAtenAccessTestExpectSuccess)
     ConfigManager::Instance().SetConfig(config);
     auto memAccessRecord = RecordBuffer::CreateRecordBuffer<MemAccessRecord>();
     EXPECT_FALSE(instance.ReportAtenAccess(memAccessRecord));
+    instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportAtenLaunchTestExpextSuccess)
@@ -361,6 +381,7 @@ TEST(EventReportTest, ReportAtenLaunchTestExpextSuccess)
     ConfigManager::Instance().SetConfig(config);
     auto atenOpLaunchRecord = RecordBuffer::CreateRecordBuffer<AtenOpLaunchRecord>();
     EXPECT_FALSE(instance.ReportAtenLaunch(atenOpLaunchRecord));
+    instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportAtenAccessTestExpextSuccess)
@@ -372,6 +393,7 @@ TEST(EventReportTest, ReportAtenAccessTestExpextSuccess)
     ConfigManager::Instance().SetConfig(config);
     auto memAccessRecord = RecordBuffer::CreateRecordBuffer<MemAccessRecord>();
     EXPECT_FALSE(instance.ReportAtenAccess(memAccessRecord));
+    instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportKernelExcuteTestExpextSuccess)
@@ -388,6 +410,7 @@ TEST(EventReportTest, ReportKernelExcuteTestExpextSuccess)
     RecordSubType type = RecordSubType::KERNEL_START;
     TaskKey key;
     EXPECT_FALSE(instance.ReportKernelExcute(key, name, time, type));
+    instance.isReceiveServerInfo_ = true;
 }
 
 struct TestLoader {
