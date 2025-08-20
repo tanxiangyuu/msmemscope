@@ -436,7 +436,6 @@ bool EventReport::ReportMark(RecordBuffer &mstxRecordBuffer)
             Config config = GetConfig();
             config.collectCpu = true;
             ConfigManager::Instance().SetConfig(config);
-            g_isReportHostMem = true;
         } else if (record->markType == MarkType::RANGE_END &&
             mstxRangeIdTables_.find(pid) != mstxRangeIdTables_.end() &&
             mstxRangeIdTables_[pid].find(tid) != mstxRangeIdTables_[pid].end() &&
@@ -446,7 +445,6 @@ bool EventReport::ReportMark(RecordBuffer &mstxRecordBuffer)
             Config config = GetConfig();
             config.collectCpu = false;
             ConfigManager::Instance().SetConfig(config);
-            g_isReportHostMem = false;
         }
     }
 
