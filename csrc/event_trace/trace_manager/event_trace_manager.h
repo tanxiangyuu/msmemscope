@@ -32,6 +32,8 @@ private:
 
     ~ConfigManager() = default;
 
+    void SetConfigImpl(const Config &config);
+
     std::mutex mutex_;
     Config config_;
 };
