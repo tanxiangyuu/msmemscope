@@ -25,12 +25,22 @@ Config ConfigManager::GetConfig()
     return config_;
 }
 
-void ConfigManager::SetConfig(const Config &config)
+void ConfigManager::SetConfigImpl(const Config &config)
 {
+    std::lock_guard<std::mutex> lock(mutex_);
+
     config_ = config;
 
     SetEventDefaultConfig(config_);
     SetAnalysisDefaultConfig(config_);
+
+    g_isReportHostMem = config_.collectCpu;
+    EventTraceManager::Instance().HandleWithATenCollect();
+}
+
+void ConfigManager::SetConfig(const Config &config)
+{
+    SetConfigImpl(config);
 }
 
 bool ConfigManager::SetConfig(const std::unordered_map<std::string, std::string> &pythonConfig)
@@ -48,14 +58,8 @@ bool ConfigManager::SetConfig(const std::unordered_map<std::string, std::string>
         }
     }
 
-    std::lock_guard<std::mutex> lock(mutex_);
+    SetConfigImpl(config);
 
-    config_ = config;
-
-    SetEventDefaultConfig(config_);
-    SetAnalysisDefaultConfig(config_);
-
-    EventTraceManager::Instance().HandleWithATenCollect();
     return true;
 }
 
