@@ -75,7 +75,6 @@ void ClientProcess::SetLogLevel(LogLv level)
 // 此处Notify的消息格式为[MESSAGE] xxx:xxx; 与log格式统一，降低工具侧消息解析复杂度
 int ClientProcess::Notify(const std::string &msg)
 {
-    std::lock_guard<std::mutex> lock(sentMutex_);
     static int count = 0;
     size_t sentBytes = msg.size();
     if (client_->sent(msg, sentBytes) == false) {
