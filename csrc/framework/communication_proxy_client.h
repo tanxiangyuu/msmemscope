@@ -5,13 +5,9 @@
 
 #include <string>
 #include <cstddef>
+#include "comm_def.h"
 
 namespace Leaks {
-
-enum class LeaksCommType {
-    SHARED_MEMORY,
-    DOMAIN_SOCKET
-};
 
 class CommunicationProxyClient {
 public:

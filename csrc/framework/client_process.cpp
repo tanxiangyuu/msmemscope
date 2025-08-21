@@ -18,10 +18,10 @@ namespace Leaks {
 
 ClientProcess::ClientProcess(LeaksCommType type) : logLevel_(Leaks::LogLv::INFO)
 {
-    if (LeaksCommType::SHARED_MEMORY == type) {
+    if (LeaksCommType::DOMAIN_SOCKET == type) {
         client_ = new DomainSocketClient();
     } else if (LeaksCommType::SHARED_MEMORY == type) {
-        client_ = new SharedMemoryClient();
+        client_ = new DomainSocketClient();
     } else {
         client_ = nullptr; //  invalid type
     }
@@ -75,10 +75,16 @@ void ClientProcess::SetLogLevel(LogLv level)
 // 此处Notify的消息格式为[MESSAGE] xxx:xxx; 与log格式统一，降低工具侧消息解析复杂度
 int ClientProcess::Notify(const std::string &msg)
 {
-    size_t sentBytes = 0;
-    if (client_->sent(msg, sentBytes) == 0) {
-        std::cout << "client notify failed" << std::endl;
+    std::lock_guard<std::mutex> lock(sentMutex_);
+    static int count = 0;
+    size_t sentBytes = msg.size();
+    if (client_->sent(msg, sentBytes) == false) {
+        std::cout << "client notify failed!" << std::endl;
         return 0;
+    }
+    ++count;
+    if (count % 1000 == 0) {
+        std::cout << "client notify success,count:" << count <<  std::endl;
     }
     return sentBytes;
 }
