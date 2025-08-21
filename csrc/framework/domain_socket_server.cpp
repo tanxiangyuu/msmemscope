@@ -32,7 +32,7 @@ bool DomainSocketServer::sent(std::size_t clientId, const std::string& msg, size
     return true;
 }
 
-bool DomainSocketServer::receive(std::size_t clientId, std::string& msg, size_t& size)
+bool DomainSocketServer::receive(std::size_t& clientId, std::string& msg, size_t& size)
 {
     // 如果设置了timeout，那么，等待一段时间后，需要释放
     size = static_cast<size_t>(server_->Read(clientId, msg));

@@ -10,10 +10,10 @@ namespace Leaks {
 
 ServerProcess::ServerProcess(LeaksCommType type)
 {
-    if (LeaksCommType::SHARED_MEMORY == type) {
+    if (LeaksCommType::DOMAIN_SOCKET == type) {
         server_ = new DomainSocketServer();
     } else if (LeaksCommType::SHARED_MEMORY == type) {
-        server_ = new SharedMemoryServer();
+        server_ = new DomainSocketServer();
     } else {
         server_ = nullptr; //  invalid type
     }

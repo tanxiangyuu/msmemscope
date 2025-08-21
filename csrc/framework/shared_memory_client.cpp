@@ -5,10 +5,12 @@
 #include <fcntl.h>
 #include <iostream>
 #include <cstring>
+#include "securec.h"
 
 namespace Leaks {
 
-SharedMemoryClient::SharedMemoryClient() : c2sQueue_(nullptr), s2cBuffer_(nullptr), fd_c2s_(-1), name_(nullptr){ }
+SharedMemoryClient::SharedMemoryClient() : c2sQueue_(nullptr), s2cBuffer_(nullptr), fd_c2s_(-1), name_(nullptr),
+    clientId_(0){ }
 
 bool SharedMemoryClient::init()
 {
@@ -22,15 +24,20 @@ bool SharedMemoryClient::init()
         std::cout << "[msleaks] Failed to open shared memory. SharedMemoryClient init Failed.\n";
         return false;
     }
-    s2cBuffer_ = static_cast<uint8_t*>(mmap(nullptr, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd_c2s_, 0));
 
-    c2sQueue_ = new Utility::LockFreeQueue(SHM_SIZE, s2cBuffer_ + SHM_S2C_SIZE);
+    s2cBuffer_ = static_cast<uint8_t*>(mmap(nullptr, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd_c2s_, 0));
+    if (s2cBuffer_ == nullptr) {
+        std::cout << "[msleaks] Failed to map shared memory. SharedMemoryClient init Failed.\n";
+        return false;
+    }
+
+    c2sQueue_ = new Utility::LockFreeQueue(SHM_SIZE - SHM_S2C_SIZE - 1 - 2 * sizeof(size_t), s2cBuffer_ + SHM_S2C_SIZE);
     return true;
 }
 
 bool SharedMemoryClient::sent(const std::string& msg, size_t& size)
 {
-    return c2sQueue_->enqueue((void*) &msg, size);
+    return c2sQueue_->enqueue((const void*) msg.data(), size, clientId_);
 }
 
 bool SharedMemoryClient::receive(std::string& msg, size_t& size, uint32_t timeOut)
@@ -39,10 +46,22 @@ bool SharedMemoryClient::receive(std::string& msg, size_t& size, uint32_t timeOu
         return false;
     }
 
-    std::memcpy_s(&size, s2cBuffer_, sizeof(size_t));
-    char* data{};
-    std::memcpy_s(data, s2cBuffer_ + sizeof(size_t), size);
-    msg = std::string(data);
+    if (memcpy_s(&clientId_, sizeof(size_t), s2cBuffer_, sizeof(size_t))) {
+        return false;
+    }
+
+    std::atomic<ClientId>* atomicPtr = reinterpret_cast<std::atomic<ClientId>*>(s2cBuffer_);
+
+    while (!atomicPtr->compare_exchange_weak(clientId_, clientId_+1)) { }
+
+    if (memcpy_s(&size, sizeof(size_t), s2cBuffer_ + sizeof(size_t), sizeof(size_t))) {
+        return false;
+    }
+    uint8_t* ptr = new uint8_t[size];
+    if (memcpy_s(ptr, size, s2cBuffer_ + sizeof(size_t) + sizeof(size_t), size)) {
+        return false;
+    }
+    msg = std::string(reinterpret_cast<char*>(ptr), size);
     return true;
 }
 

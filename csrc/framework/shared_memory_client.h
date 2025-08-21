@@ -8,9 +8,6 @@
 
 namespace Leaks {
 
-const size_t SHM_SIZE = 20480;
-const size_t SHM_S2C_SIZE = 4096;
-
 class SharedMemoryClient : public CommunicationProxyClient {
 public:
     explicit SharedMemoryClient();
@@ -23,6 +20,7 @@ private:
     uint8_t* s2cBuffer_;
     int fd_c2s_;
     char* name_;
+    ClientId clientId_;
 };
 
 }
