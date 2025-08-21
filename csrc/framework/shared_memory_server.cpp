@@ -3,6 +3,7 @@
 #include "shared_memory_server.h"
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <dlfcn.h>
 #include <iostream>
 #include <unistd.h>
 #include <cstdlib>
@@ -131,15 +132,13 @@ SharedMemoryServer::~SharedMemoryServer()
     void *handle = dlopen("librt.so.1", RTLD_LAZY);
     if (!handle) {
         fprintf(stderr, "dlopen failed: %s\n", dlerror());
-        return 1;
     }
 
     int (*shm_unlink_ptr)(const char *);
-    shm_unlink_ptr = (int (*)(const char *))dlsym(handle, "shm_unlink")
+    shm_unlink_ptr = (int (*)(const char *))dlsym(handle, "shm_unlink");
     if (!shm_unlink_ptr) {
         fprintf(stderr, "dlsym failed: %s\n", dlerror());
         dlclose(handle);
-        return 1;
     }
 
     shm_unlink_ptr(name_);
