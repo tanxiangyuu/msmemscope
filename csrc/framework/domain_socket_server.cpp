@@ -22,11 +22,11 @@ bool DomainSocketServer::init()
 }
 
 
-bool DomainSocketServer::sent(std::size_t clientId, const std::string& msg, size_t& size)
+bool DomainSocketServer::send(std::size_t clientId, const std::string& msg, size_t& size)
 {
     size = static_cast<size_t>(server_->Write(clientId, msg));
     if (size < msg.size()) {
-        std::cout << "DomainSocketServer sent msg failed" << std::endl;
+        std::cout << "DomainSocketServer send msg failed" << std::endl;
         return false;
     }
     return true;

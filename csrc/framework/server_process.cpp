@@ -54,7 +54,7 @@ int ServerProcess::Notify(std::size_t clientId, const std::string& msg)
 {
     size_t size = 0;
     if (server_ != nullptr) {
-        server_->sent(clientId, msg, size);
+        server_->send(clientId, msg, size);
     }
     return size;
 }

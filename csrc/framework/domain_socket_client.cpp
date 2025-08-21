@@ -31,14 +31,14 @@ bool DomainSocketClient::init()
     return true;
 }
 
-bool DomainSocketClient::sent(const std::string& msg, size_t& size)
+bool DomainSocketClient::send(const std::string& msg, size_t& size)
 {
     int32_t sentBytes = 0;
     /* 循环外部先发送一次，减少重复构造字符串 */
     size = static_cast<size_t>(client_->Write(msg));
     while (size < msg.size()) {
         sentBytes = client_->Write(msg.substr(size));
-        // partial send return sent bytes
+        // partial send return send bytes
         if (sentBytes <= 0) {
             return false;
         }

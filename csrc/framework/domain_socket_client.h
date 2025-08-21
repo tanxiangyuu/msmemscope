@@ -14,7 +14,7 @@ public:
     explicit DomainSocketClient(CommType type);
     ~DomainSocketClient() override;
     bool init() override;
-    bool sent(const std::string& msg, size_t& size) override;
+    bool send(const std::string& msg, size_t& size) override;
     bool receive(std::string& msg, size_t& size, uint32_t timeOut) override;
 private:
     Client* client_;
