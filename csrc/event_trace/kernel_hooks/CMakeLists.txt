@@ -13,6 +13,7 @@ target_sources(ascend_kernel_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/describe_trace.cpp
   ${EVENT_TRACE_INC_DIR}/vallina_symbol.cpp
   ${FRAMEWORK_INC_DIR}/client_process.cpp
+  ${FRAMEWORK_INC_DIR}/client_parser.cpp
   ${FUNC_INJECTION_CORE_DIR}/Communication.cpp
   ${FUNC_INJECTION_CORE_DIR}/DomainSocket.cpp
   ${UTILITY_INC_DIR}/cpython.cpp

@@ -319,7 +319,7 @@ extern "C" bool _ZN3atb5Probe16IsTensorNeedSaveERKSt6vectorIlSaIlEERKNSt7__cxx11
 (const std::vector<int64_t>& ids, const std::string& opType)
 
 {
-    return EventTraceManager::Instance().IsNeedTrace(RecordType::ATB_KERNEL_RECORD);
+    return true;
 }
 
 extern "C" bool _ZN3atb5Probe17IsSaveTensorAfterEv()
