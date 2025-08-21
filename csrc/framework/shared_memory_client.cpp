@@ -3,6 +3,7 @@
 #include "shared_memory_client.h"
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <dlfcn.h>
 #include <iostream>
 #include <cstring>
 #include "securec.h"
