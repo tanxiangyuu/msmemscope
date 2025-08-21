@@ -66,27 +66,13 @@ private:
     EventTraceManager()
     {
         InitTraceStatus();
-        InitJudgeFuncTable();
     }
     ~EventTraceManager() = default;
 
     void InitTraceStatus(); // 命令行拉起时有一个初始化状态
-    void InitJudgeFuncTable();
-
-    bool IsNeedTraceKernelLaunch();
-    bool IsNeedTraceOpLaunch();
-    bool IsNeedTraceMemory();
-    bool IsNeedTraceOp();
-    bool IsNeedTraceKernel();
-    bool IsNeedTraceAccess();
-    bool IsNeedTraceLaunch();
-    bool IsNeedTraceAlloc();
-    bool IsNeedTraceFree();
 
     std::mutex mutex_;
     EventTraceStatus status_ = EventTraceStatus::IN_TRACING;
-
-    std::unordered_map<RecordType, std::function<bool()>> jdugeFuncTable_;
 
     std::atomic<bool> aclInit_{ false };
 };
