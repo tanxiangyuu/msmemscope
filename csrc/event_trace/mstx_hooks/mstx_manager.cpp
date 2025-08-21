@@ -17,7 +17,7 @@
 namespace Leaks {
 
 // 组装普通打点信息
-void MstxManager::ReportMarkA(const char* msg, int32_t streamId)
+void MstxManager::ReportMarkA(const char* msg, int32_t streamId, LeaksCommType type)
 {
     // 处理aten算子上报信息
     if (msg && strncmp(msg, ATEN_MSG, strlen(ATEN_MSG)) == 0) {
@@ -36,7 +36,7 @@ void MstxManager::ReportMarkA(const char* msg, int32_t streamId)
     record->rangeId = onlyMarkId_;
     record->streamId = streamId;
 
-    if (!EventReport::Instance(CommType::SOCKET).ReportMark(buffer)) {
+    if (!EventReport::Instance(type).ReportMark(buffer)) {
         CLIENT_ERROR_LOG("Report Mark FAILED");
     }
 }
@@ -52,7 +52,7 @@ uint64_t MstxManager::ReportRangeStart(const char* msg, int32_t streamId)
     record->rangeId = GetRangeId();
     const TLVBlock* msgTlv = GetTlvBlock(*record, TLVBlockType::MARK_MESSAGE);
     std::string mstxMsgString = msgTlv == nullptr ? "N/A" : msgTlv->data;
-    if (!EventReport::Instance(CommType::SOCKET).ReportMark(buffer)) {
+    if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMark(buffer)) {
         CLIENT_ERROR_LOG("Report Mark FAILED");
     }
     return record->rangeId;
@@ -68,7 +68,7 @@ void MstxManager::ReportRangeEnd(uint64_t id)
     record->streamId = -1;
     record->rangeId = id;
 
-    if (!EventReport::Instance(CommType::SOCKET).ReportMark(buffer)) {
+    if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMark(buffer)) {
         CLIENT_ERROR_LOG("Report Mark FAILED");
     }
 }

@@ -60,7 +60,7 @@ char *const *ExecCmd::ExecArgv(void) const
 Process::Process(const Config &config)
 {
     config_ = config;
-    server_ = std::unique_ptr<ServerProcess>(new ServerProcess(CommType::SOCKET));
+    server_ = std::unique_ptr<ServerProcess>(new ServerProcess(LeaksCommType::SHARED_MEMORY));
 
     server_->SetClientConnectHook([this, config](ClientId clientId) {
             this->server_->Notify(clientId, Serialize<Config>(config));

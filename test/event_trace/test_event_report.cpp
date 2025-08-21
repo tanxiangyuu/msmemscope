@@ -11,13 +11,13 @@
 using namespace Leaks;
 
 TEST(EventReportTest, EventReportInstanceTest) {
-    EventReport& instance1 = EventReport::Instance(CommType::MEMORY);
-    EventReport& instance2 = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance1 = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
+    EventReport& instance2 = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     EXPECT_EQ(&instance1, &instance2);
 }
 
 TEST(EventReportTest, ReportMallocTestDEVICE) {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     instance.isReceiveServerInfo_ = true;
 
     Config config = Leaks::GetConfig();
@@ -41,20 +41,20 @@ TEST(EventReportTest, ReportMallocTestDEVICE) {
     MemOpSpace space = MemOpSpace::DEVICE;
 
     CallStackString callStack;
-    EXPECT_FALSE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
+    EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
     instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportAddrInfoTest) {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     auto buffer = RecordBuffer::CreateRecordBuffer<AddrInfo>();
     instance.isReceiveServerInfo_ = true;
-    EXPECT_FALSE(instance.ReportAddrInfo(buffer));
+    EXPECT_TRUE(instance.ReportAddrInfo(buffer));
     instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportTorchNpuMallocTest) {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* npuRecordMalloc = buffer.Cast<MemPoolRecord>();
     npuRecordMalloc->recordIndex = 1;
@@ -69,12 +69,12 @@ TEST(EventReportTest, ReportTorchNpuMallocTest) {
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
-    EXPECT_FALSE(instance.ReportMemPoolRecord(buffer));
+    EXPECT_TRUE(instance.ReportMemPoolRecord(buffer));
     instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportTorchNpuFreeTest) {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* npuRecordFree = buffer.Cast<MemPoolRecord>();
     npuRecordFree->recordIndex = 3;
@@ -89,12 +89,12 @@ TEST(EventReportTest, ReportTorchNpuFreeTest) {
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
-    EXPECT_FALSE(instance.ReportMemPoolRecord(buffer));
+    EXPECT_TRUE(instance.ReportMemPoolRecord(buffer));
     instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportTorchNpuConditionTest) {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* npuRecordFree = buffer.Cast<MemPoolRecord>();
     npuRecordFree->recordIndex = 3;
@@ -114,12 +114,12 @@ TEST(EventReportTest, ReportTorchNpuConditionTest) {
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
     instance.isReceiveServerInfo_ = true;
-    EXPECT_FALSE(instance.ReportMemPoolRecord(buffer));
+    EXPECT_TRUE(instance.ReportMemPoolRecord(buffer));
     instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportMallocTestHost) {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
 
@@ -137,12 +137,12 @@ TEST(EventReportTest, ReportMallocTestHost) {
     MemOpSpace space = MemOpSpace::HOST;
     instance.isReceiveServerInfo_ = true;
     CallStackString callStack;
-    EXPECT_FALSE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
+    EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
     instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportFreeTest) {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     BitField<decltype(config.eventType)> eventBit;
@@ -156,12 +156,12 @@ TEST(EventReportTest, ReportFreeTest) {
     uint64_t testAddr = 0x12345678;
     instance.isReceiveServerInfo_ = true;
     CallStackString callStack;
-    EXPECT_FALSE(instance.ReportFree(testAddr, callStack));
+    EXPECT_TRUE(instance.ReportFree(testAddr, callStack));
     instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportHostMallocWithoutMstxTest) {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     BitField<decltype(config.eventType)> eventBit;
@@ -180,7 +180,7 @@ TEST(EventReportTest, ReportHostMallocWithoutMstxTest) {
 }
  
 TEST(EventReportTest, ReportHostFreeWithoutMstxTest) {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     BitField<decltype(config.eventType)> eventBit;
@@ -196,7 +196,7 @@ TEST(EventReportTest, ReportHostFreeWithoutMstxTest) {
 }
 
 TEST(EventReportTest, ReportHostMallocTest) {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
 
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
@@ -219,7 +219,7 @@ TEST(EventReportTest, ReportHostMallocTest) {
     uint64_t testSize = 1024;
     CallStackString callStack;
     instance.isReceiveServerInfo_ = true;
-    EXPECT_FALSE(instance.ReportHostMalloc(testAddr, testSize, callStack));
+    EXPECT_TRUE(instance.ReportHostMalloc(testAddr, testSize, callStack));
     instance.isReceiveServerInfo_ = true;
 
     auto buffer2 = RecordBuffer::CreateRecordBuffer<MstxRecord>();
@@ -230,7 +230,7 @@ TEST(EventReportTest, ReportHostMallocTest) {
 }
  
 TEST(EventReportTest, ReportHostFreeTest) {
-    EventReport &instance = EventReport::Instance(CommType::MEMORY);
+    EventReport &instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
 
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
@@ -251,7 +251,7 @@ TEST(EventReportTest, ReportHostFreeTest) {
     instance.ReportMark(buffer1);
     uint64_t testAddr = 0x12345678;
     instance.isReceiveServerInfo_ = true;
-    EXPECT_FALSE(instance.ReportHostFree(testAddr));
+    EXPECT_TRUE(instance.ReportHostFree(testAddr));
     instance.isReceiveServerInfo_ = true;
 
     auto buffer2 = RecordBuffer::CreateRecordBuffer<MstxRecord>();
@@ -262,7 +262,7 @@ TEST(EventReportTest, ReportHostFreeTest) {
 }
 
 TEST(EventReportTest, ReportMarkTest) {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
@@ -270,12 +270,12 @@ TEST(EventReportTest, ReportMarkTest) {
     MstxRecord* record = buffer.Cast<MstxRecord>();
     record->rangeId = 123;
     instance.isReceiveServerInfo_ = true;
-    EXPECT_FALSE(instance.ReportMark(buffer));
+    EXPECT_TRUE(instance.ReportMark(buffer));
     instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportKernelLaunchTest) {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
 
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
@@ -297,46 +297,46 @@ TEST(EventReportTest, ReportKernelLaunchTest) {
     kernelLaunchInfo.taskKey = taskKey;
     kernelLaunchInfo.timestamp = 123;
     kernelLaunchInfo.kernelName = "add";
-    EXPECT_FALSE(instance.ReportKernelLaunch(kernelLaunchInfo));
+    EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchInfo));
     instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportAclItfTest) {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     instance.isReceiveServerInfo_ = true;
 
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
 
-    EXPECT_FALSE(instance.ReportAclItf(RecordSubType::INIT));
+    EXPECT_TRUE(instance.ReportAclItf(RecordSubType::INIT));
     instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportAtbOpExecuteTest) {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
     RecordBuffer atbOpExecuteRecord = RecordBuffer::CreateRecordBuffer<AtbOpExecuteRecord>();
-    EXPECT_FALSE(instance.ReportAtbOpExecute(atbOpExecuteRecord));
+    EXPECT_TRUE(instance.ReportAtbOpExecute(atbOpExecuteRecord));
     instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportAtbKernelTest) {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
     RecordBuffer atbKernelRecord = RecordBuffer::CreateRecordBuffer<AtbKernelRecord>();
-    EXPECT_FALSE(instance.ReportAtbKernel(atbKernelRecord));
+    EXPECT_TRUE(instance.ReportAtbKernel(atbKernelRecord));
     instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportAtbMemAccessTest) {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
@@ -344,61 +344,61 @@ TEST(EventReportTest, ReportAtbMemAccessTest) {
     RecordBuffer memAccessRecord = RecordBuffer::CreateRecordBuffer<MemAccessRecord>();
     std::vector<RecordBuffer> records;
     records.push_back(memAccessRecord);
-    EXPECT_FALSE(instance.ReportAtbAccessMemory(records));
+    EXPECT_TRUE(instance.ReportAtbAccessMemory(records));
     instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportAtenLaunchTestExpectSuccess)
 {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
     auto atenOpLaunchRecord = RecordBuffer::CreateRecordBuffer<AtenOpLaunchRecord>();
-    EXPECT_FALSE(instance.ReportAtenLaunch(atenOpLaunchRecord));
+    EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord));
     instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportAtenAccessTestExpectSuccess)
 {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
     auto memAccessRecord = RecordBuffer::CreateRecordBuffer<MemAccessRecord>();
-    EXPECT_FALSE(instance.ReportAtenAccess(memAccessRecord));
+    EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord));
     instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportAtenLaunchTestExpextSuccess)
 {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
     auto atenOpLaunchRecord = RecordBuffer::CreateRecordBuffer<AtenOpLaunchRecord>();
-    EXPECT_FALSE(instance.ReportAtenLaunch(atenOpLaunchRecord));
+    EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord));
     instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportAtenAccessTestExpextSuccess)
 {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
     auto memAccessRecord = RecordBuffer::CreateRecordBuffer<MemAccessRecord>();
-    EXPECT_FALSE(instance.ReportAtenAccess(memAccessRecord));
+    EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord));
     instance.isReceiveServerInfo_ = true;
 }
 
 TEST(EventReportTest, ReportKernelExcuteTestExpextSuccess)
 {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
@@ -409,7 +409,7 @@ TEST(EventReportTest, ReportKernelExcuteTestExpextSuccess)
     uint64_t time = 1234;
     RecordSubType type = RecordSubType::KERNEL_START;
     TaskKey key;
-    EXPECT_FALSE(instance.ReportKernelExcute(key, name, time, type));
+    EXPECT_TRUE(instance.ReportKernelExcute(key, name, time, type));
     instance.isReceiveServerInfo_ = true;
 }
 
@@ -430,7 +430,7 @@ TEST(EventReportTest, VallinaSymbolTest) {
 
 void ResetEventReportStepInfo()
 {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     instance.stepInfo_.currentStepId = 0;
     instance.stepInfo_.inStepRange = false;
     instance.stepInfo_.stepMarkRangeIdList.clear();
@@ -439,7 +439,7 @@ void ResetEventReportStepInfo()
 
 TEST(EventReportTest, TestReportSkipStepsNormal)
 {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
@@ -482,7 +482,7 @@ TEST(EventReportTest, TestReportSkipStepsNormal)
 
 TEST(EventReportTest, TestReportSkipStepsWithNoMstx)
 {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
@@ -499,7 +499,7 @@ TEST(EventReportTest, TestReportSkipStepsWithNoMstx)
 
 TEST(EventReportTest, TestReportSkipStepsWithOtherMessageMstx)
 {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
@@ -521,7 +521,7 @@ TEST(EventReportTest, TestReportSkipStepsWithOtherMessageMstx)
 
 TEST(EventReportTest, TestReportSkipStepsWithMstxEndMismatch)
 {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
@@ -548,7 +548,7 @@ TEST(EventReportTest, TestReportSkipStepsWithMstxEndMismatch)
 
 TEST(EventReportTest, TestReportSkipStepsWithOnlyMstxEnd)
 {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     instance.isReceiveServerInfo_ = true;
     
     Config config = Leaks::GetConfig();
@@ -569,7 +569,7 @@ TEST(EventReportTest, TestReportSkipStepsWithOnlyMstxEnd)
 }
 
 TEST(EventReportTest, ReportTestWithNoReceiveServerInfo) {
-    EventReport& instance = EventReport::Instance(CommType::MEMORY);
+    EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     uint64_t testAddr = 0x12345678;
     uint64_t testSize = 1024;
     unsigned long long flag = 0x1234;

@@ -79,7 +79,7 @@ void PTAWorkspacePoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegions
         MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
         record->type = RecordType::PTA_WORKSPACE_POOL_RECORD;
         record->memoryUsage = memUsageMp_[devId];
-        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(buffer)) {
+        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
             CLIENT_ERROR_LOG("Report PTA Workspace Data Failed");
         }
     }
@@ -114,7 +114,7 @@ void PTAWorkspacePoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnr
         MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
         record->type = RecordType::PTA_WORKSPACE_POOL_RECORD;
         record->memoryUsage = memUsageMp_[rangeDesc.deviceId];
-        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(buffer)) {
+        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
             CLIENT_ERROR_LOG("Report PTA Workspace Data Failed");
         }
     }

@@ -4,14 +4,14 @@
 #define __CORE_REMOTE_PROCESS_H__
 
 #include <string>
-#include "host_injection/core/Communication.h"
+#include "communication_proxy_server.h"
 
 namespace Leaks {
 // ServerProcess类是远端进程的抽象，主要是工具所在的进程
 // 该类主要提供与LocalProcess协同的能力
 class ServerProcess {
 public:
-    explicit ServerProcess(CommType type);
+    explicit ServerProcess(LeaksCommType type);
     ~ServerProcess();
 
     /** 启动服务端
@@ -42,15 +42,15 @@ public:
     /** 设置消息接收通知的回调函数
      * @param func 通知回调函数
      */
-    void SetMsgHandlerHook(ClientMsgHandlerHook &&hook);
+    void SetMsgHandlerHook(LeaksClientMsgHandlerHook &&hook);
 
     /** 设置客户端连接后处理的回调函数
      * @param func 客户端连接回调函数
      */
-    void SetClientConnectHook(ClientConnectHook &&hook);
+    void SetClientConnectHook(LeaksClientConnectHook &&hook);
 
 private:
-    Server* server_ = nullptr;
+    CommunicationProxyServer* server_ = nullptr;
 };
 
 }

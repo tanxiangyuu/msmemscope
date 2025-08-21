@@ -272,13 +272,13 @@ TEST(Process, do_msg_handler_record_packet_type_except_success)
 TEST(Process, server_process_notify_test)
 {
     std::string msg;
-    ServerProcess server(CommType::SOCKET);
+    ServerProcess server(LeaksCommType::SHARED_MEMORY);
     server.Notify(0, msg);
 }
 
 TEST(Process, server_process_wait_test)
 {
     std::string msg;
-    ServerProcess server(CommType::SOCKET);
+    ServerProcess server(LeaksCommType::SHARED_MEMORY);
     server.Wait(0, msg);
 }

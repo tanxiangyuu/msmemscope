@@ -76,7 +76,7 @@ namespace atb {
             buffers.push_back(buffer);
         }
 
-        if (!EventReport::Instance(CommType::SOCKET).ReportAtbAccessMemory(buffers)) {
+        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbAccessMemory(buffers)) {
             CLIENT_ERROR_LOG("Report atb op end event failed.\n");
         }
         return;
@@ -108,7 +108,7 @@ namespace atb {
             buffers.push_back(buffer);
         }
 
-        if (!EventReport::Instance(CommType::SOCKET).ReportAtbAccessMemory(buffers)) {
+        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbAccessMemory(buffers)) {
             CLIENT_ERROR_LOG("Report atb op end event failed.\n");
         }
         return;
@@ -121,7 +121,7 @@ namespace atb {
         AtbOpExecuteRecord* record = buffer.Cast<AtbOpExecuteRecord>();
         record->subtype = isStart ? RecordSubType::ATB_START : RecordSubType::ATB_END;
 
-        if (!EventReport::Instance(CommType::SOCKET).ReportAtbOpExecute(buffer)) {
+        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbOpExecute(buffer)) {
             CLIENT_ERROR_LOG("Report atb op start event failed.\n");
         }
     }
@@ -201,7 +201,7 @@ namespace atb {
         AtbKernelRecord* record = buffer.Cast<AtbKernelRecord>();
         record->subtype = isBeforeLaunch ? RecordSubType::KERNEL_START : RecordSubType::KERNEL_END;
 
-        if (!EventReport::Instance(CommType::SOCKET).ReportAtbKernel(buffer)) {
+        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbKernel(buffer)) {
             CLIENT_ERROR_LOG("Report atb run kernel event failed.\n");
         }
         return true;

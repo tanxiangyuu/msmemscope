@@ -102,7 +102,7 @@ void AtenManager::ReportAtenLaunch(const char* msg, int32_t streamId, bool isAte
     AtenOpLaunchRecord* record = buffer.Cast<AtenOpLaunchRecord>();
     record->subtype = isAtenBegin ? RecordSubType::ATEN_START : RecordSubType::ATEN_END;
 
-    if (!EventReport::Instance(CommType::SOCKET).ReportAtenLaunch(buffer)) {
+    if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtenLaunch(buffer)) {
         CLIENT_ERROR_LOG("Report Aten Launch FAILED");
     }
     return;
@@ -176,7 +176,7 @@ void AtenManager::ReportAtenAccess(const char* msg, int32_t streamId)
         return ;
     }
     
-    if (!EventReport::Instance(CommType::SOCKET).ReportAtenAccess(buffer)) {
+    if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtenAccess(buffer)) {
         CLIENT_ERROR_LOG("Report Aten Access FAILED");
     }
     return;

@@ -36,7 +36,7 @@ extern "C" void* malloc(size_t size)
         CallStackString stack;
         Utility::GetCallstack(stack);
  
-        if (!EventReport::Instance(CommType::SOCKET).ReportHostMalloc(reinterpret_cast<uint64_t>(ptr),
+        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportHostMalloc(reinterpret_cast<uint64_t>(ptr),
             static_cast<uint64_t>(size), stack)) {
             printf("Report host malloc event failed.\n");
         }
@@ -63,7 +63,7 @@ extern "C" void free(void* ptr)
             g_reportInfo = true;
             return;
         }
-        if (!EventReport::Instance(CommType::SOCKET)
+        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY)
                  .ReportHostFree(reinterpret_cast<uint64_t>(ptr))) {
             printf("Report host free event failed.\n");
         }

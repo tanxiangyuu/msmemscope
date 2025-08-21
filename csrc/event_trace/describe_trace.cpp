@@ -40,7 +40,7 @@ void DescribeTrace::DescribeAddr(uint64_t addr, std::string owner)
     AddrInfo* info = buffer.Cast<AddrInfo>();
     info->subtype = RecordSubType::USER_DEFINED;
     info->addr = addr;
-    EventReport::Instance(CommType::SOCKET).ReportAddrInfo(buffer);
+    EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAddrInfo(buffer);
     return;
 }
 

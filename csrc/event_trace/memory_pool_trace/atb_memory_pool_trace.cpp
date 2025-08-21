@@ -95,7 +95,7 @@ void ATBMemoryPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegionsReg
         MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
         record->type = RecordType::ATB_MEMORY_POOL_RECORD;
         record->memoryUsage = memUsageMp_[devId];
-        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(buffer)) {
+        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
             CLIENT_ERROR_LOG("Report ATB Data Failed");
         }
     }
@@ -133,7 +133,7 @@ void ATBMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregi
         regionHandleMp_.erase(handle);
         delete handle;
         handle = nullptr;
-        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(buffer)) {
+        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
             CLIENT_ERROR_LOG("Report ATB Data Failed");
         }
     }
