@@ -3,6 +3,7 @@ add_library(leaks_ascend_hal_hook SHARED hal_hooks.cpp)
 target_sources(leaks_ascend_hal_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/event_report.cpp
   ${FRAMEWORK_INC_DIR}/client_process.cpp
+  ${FRAMEWORK_INC_DIR}/client_parser.cpp
   ${FUNC_INJECTION_CORE_DIR}/Communication.cpp
   ${FUNC_INJECTION_CORE_DIR}/DomainSocket.cpp
   ${UTILITY_INC_DIR}/log.cpp

@@ -2,6 +2,7 @@ add_library(host_memory_hook SHARED host_memory_hooks.cpp)
  
 target_sources(host_memory_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/event_report.cpp
+  ${FRAMEWORK_INC_DIR}/client_parser.cpp
   ${FUNC_INJECTION_CORE_DIR}/LocalProcess.cpp
   ${FUNC_INJECTION_CORE_DIR}/Communication.cpp
   ${FUNC_INJECTION_CORE_DIR}/DomainSocket.cpp
