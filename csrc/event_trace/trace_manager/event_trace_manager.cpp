@@ -63,65 +63,62 @@ bool ConfigManager::SetConfig(const std::unordered_map<std::string, std::string>
     return true;
 }
 
-bool EventTraceManager::IsNeedTraceOp()
+bool IsNeedTraceOp()
 {
     return BitPresent(GetConfig().levelType, static_cast<size_t>(LevelType::LEVEL_OP));
 }
 
-bool EventTraceManager::IsNeedTraceKernel()
+bool IsNeedTraceKernel()
 {
     return BitPresent(GetConfig().levelType, static_cast<size_t>(LevelType::LEVEL_KERNEL));
 }
 
-bool EventTraceManager::IsNeedTraceAccess()
+bool IsNeedTraceAccess()
 {
     return BitPresent(GetConfig().eventType, static_cast<size_t>(EventType::ACCESS_EVENT));
 }
 
-bool EventTraceManager::IsNeedTraceLaunch()
+bool IsNeedTraceLaunch()
 {
     return BitPresent(GetConfig().eventType, static_cast<size_t>(EventType::LAUNCH_EVENT));
 }
 
-bool EventTraceManager::IsNeedTraceAlloc()
+bool IsNeedTraceAlloc()
 {
     return BitPresent(GetConfig().eventType, static_cast<size_t>(EventType::ALLOC_EVENT));
 }
 
-bool EventTraceManager::IsNeedTraceFree()
+bool IsNeedTraceFree()
 {
     return BitPresent(GetConfig().eventType, static_cast<size_t>(EventType::FREE_EVENT));
 }
 
-bool EventTraceManager::IsNeedTraceKernelLaunch()
+bool IsNeedTraceKernelLaunch()
 {
     return IsNeedTraceKernel() && IsNeedTraceLaunch();
 }
 
-bool EventTraceManager::IsNeedTraceOpLaunch()
+bool IsNeedTraceOpLaunch()
 {
     return IsNeedTraceOp() && IsNeedTraceLaunch();
 }
 
-bool EventTraceManager::IsNeedTraceMemory()
+bool IsNeedTraceMemory()
 {
     return IsNeedTraceAlloc() && IsNeedTraceFree();
 }
 
-void EventTraceManager::InitJudgeFuncTable()
-{
-    jdugeFuncTable_ = {
-        {RecordType::KERNEL_LAUNCH_RECORD, [this]() { return IsNeedTraceKernelLaunch(); }},
-        {RecordType::KERNEL_EXCUTE_RECORD, [this]() { return IsNeedTraceKernelLaunch(); }},
-        {RecordType::MEMORY_POOL_RECORD, [this]() { return IsNeedTraceMemory(); }},
-        {RecordType::MEMORY_RECORD, [this]() { return IsNeedTraceMemory(); }},
-        {RecordType::ATB_OP_EXECUTE_RECORD, [this]() { return IsNeedTraceOp(); }},
-        {RecordType::ATEN_OP_LAUNCH_RECORD, [this]() { return IsNeedTraceOpLaunch(); }},
-        {RecordType::ATB_KERNEL_RECORD, [this]() { return IsNeedTraceKernel(); }},
-        {RecordType::MEM_ACCESS_RECORD, [this]() { return IsNeedTraceAccess(); }},
-        {RecordType::OP_LAUNCH_RECORD, [this]() { return IsNeedTraceOpLaunch(); }},
-    };
-}
+static std::unordered_map<RecordType, std::function<bool()>> g_JdugeFuncTable = {
+    {RecordType::KERNEL_LAUNCH_RECORD, []() { return IsNeedTraceKernelLaunch(); }},
+    {RecordType::KERNEL_EXCUTE_RECORD, []() { return IsNeedTraceKernelLaunch(); }},
+    {RecordType::MEMORY_POOL_RECORD, []() { return IsNeedTraceMemory(); }},
+    {RecordType::MEMORY_RECORD, []() { return IsNeedTraceMemory(); }},
+    {RecordType::ATB_OP_EXECUTE_RECORD, []() { return IsNeedTraceOp(); }},
+    {RecordType::ATEN_OP_LAUNCH_RECORD, []() { return IsNeedTraceOpLaunch(); }},
+    {RecordType::ATB_KERNEL_RECORD, []() { return IsNeedTraceKernel(); }},
+    {RecordType::MEM_ACCESS_RECORD, []() { return IsNeedTraceAccess(); }},
+    {RecordType::OP_LAUNCH_RECORD, []() { return IsNeedTraceOpLaunch(); }},
+};
 
 // 1、判断是否处在采集范围
 // 2、判断当前的采集项是否需要采集
@@ -131,8 +128,8 @@ bool EventTraceManager::IsNeedTrace(const RecordType type)
         return false;
     }
 
-    auto itr = jdugeFuncTable_.find(type);
-    if (itr == jdugeFuncTable_.end()) {
+    auto itr = g_JdugeFuncTable.find(type);
+    if (itr == g_JdugeFuncTable.end()) {
         return true;
     }
 
