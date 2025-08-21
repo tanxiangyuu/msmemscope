@@ -13,7 +13,6 @@ target_sources(ascend_kernel_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/describe_trace.cpp
   ${EVENT_TRACE_INC_DIR}/vallina_symbol.cpp
   ${FRAMEWORK_INC_DIR}/client_process.cpp
-  ${FRAMEWORK_INC_DIR}/client_parser.cpp
   ${FUNC_INJECTION_CORE_DIR}/Communication.cpp
   ${FUNC_INJECTION_CORE_DIR}/DomainSocket.cpp
   ${UTILITY_INC_DIR}/cpython.cpp
@@ -40,7 +39,7 @@ target_include_directories(ascend_kernel_hook PUBLIC
   ${SECUREC_INC_DIR}
 )
 target_link_options(ascend_kernel_hook PRIVATE "-Wl,--disable-new-dtags")
-target_link_libraries(ascend_kernel_hook ascend_hal dl pthread stdc++fs c_sec)
+target_link_libraries(ascend_kernel_hook ascend_hal ascend_leaks dl pthread stdc++fs c_sec)
 
 target_sources(ascend_leaks PRIVATE
   driver_prof_api.cpp
