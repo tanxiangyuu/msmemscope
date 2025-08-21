@@ -19,7 +19,23 @@ bool SharedMemoryClient::init()
         std::cout << "[msleaks] Failed to acquire SHM_NAME environment variable while SharedMemoryClient init Failed" << std::endl;
         return false;
     }
-    fd_c2s_ = shm_open(name_, O_RDWR, 0666);
+
+    // 1. 动态加载 librt.so.1
+    void *handle = dlopen("librt.so.1", RTLD_LAZY);
+    if (!handle) {
+        fprintf(stderr, "dlopen failed: %s\n", dlerror());
+        return 1;
+    }
+
+    // 2. 获取 shm_open 函数指针
+    int (*shm_open_ptr)(const char *, int, mode_t);
+    shm_open_ptr = (int (*)(const char *, int, mode_t))dlsym(handle, "shm_open");
+    if (!shm_open_ptr) {
+        fprintf(stderr, "dlsym failed: %s\n", dlerror());
+        dlclose(handle);
+        return 1;
+    }
+    fd_c2s_ = shm_open_ptr(name_, O_RDWR, 0666);
     if (fd_c2s_ == -1) {
         std::cout << "[msleaks] Failed to open shared memory. SharedMemoryClient init Failed.\n";
         return false;
