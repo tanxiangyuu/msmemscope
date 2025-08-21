@@ -9,10 +9,11 @@ namespace Leaks {
 
 constexpr uint32_t MAX_TRY_COUNT = 100;
 
-DomainSocketClient::DomainSocketClient():client_(new Client(CommType::SOCKET)) { }
+DomainSocketClient::DomainSocketClient(CommType type):client_(new Client(type)), type_(type) { }
 
 bool DomainSocketClient::init()
 {
+
     if (client_ == nullptr) {
         std::cout << "Initial client failed" << std::endl;
         return false;
@@ -49,6 +50,9 @@ bool DomainSocketClient::sent(const std::string& msg, size_t& size)
 
 bool DomainSocketClient::receive(std::string& msg, size_t& size, uint32_t timeOut)
 {
+    if (type_ == CommType::MEMORY) {
+        return true;
+    }
     std::string recvMsg;
     int len = 0;
     // 当msg.size()大于0时说明开始接收，当len不大于0时说明接收结束

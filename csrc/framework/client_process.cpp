@@ -18,10 +18,17 @@ namespace Leaks {
 
 ClientProcess::ClientProcess(LeaksCommType type) : logLevel_(Leaks::LogLv::INFO)
 {
+    char* test = std::getenv("LEAKS_TEST");
+    if (test) {
+        type = LeaksCommType::MEMORY_DEBUG;
+    }
     if (LeaksCommType::DOMAIN_SOCKET == type) {
-        client_ = new DomainSocketClient();
+        client_ = new DomainSocketClient(CommType::SOCKET);
     } else if (LeaksCommType::SHARED_MEMORY == type) {
-        client_ = new DomainSocketClient();
+        client_ = new DomainSocketClient(CommType::SOCKET);
+    } else if (LeaksCommType::MEMORY_DEBUG == type) {
+        std::cout << "LEAKS_TEST" << std::endl;
+        client_ = new DomainSocketClient(CommType::MEMORY);
     } else {
         client_ = nullptr; //  invalid type
     }
@@ -75,15 +82,10 @@ void ClientProcess::SetLogLevel(LogLv level)
 // 此处Notify的消息格式为[MESSAGE] xxx:xxx; 与log格式统一，降低工具侧消息解析复杂度
 int ClientProcess::Notify(const std::string &msg)
 {
-    static int count = 0;
     size_t sentBytes = msg.size();
     if (client_->sent(msg, sentBytes) == false) {
         std::cout << "client notify failed!" << std::endl;
         return 0;
-    }
-    ++count;
-    if (count % 1000 == 0) {
-        std::cout << "client notify success,count:" << count <<  std::endl;
     }
     return sentBytes;
 }

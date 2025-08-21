@@ -9,7 +9,8 @@ using ClientId = std::size_t;
 
 enum class LeaksCommType {
     SHARED_MEMORY,
-    DOMAIN_SOCKET
+    DOMAIN_SOCKET,
+    MEMORY_DEBUG
 };
 
 constexpr size_t SHM_SIZE = 200 * 1024 * 1024;

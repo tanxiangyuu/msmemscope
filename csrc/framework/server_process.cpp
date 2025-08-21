@@ -11,9 +11,11 @@ namespace Leaks {
 ServerProcess::ServerProcess(LeaksCommType type)
 {
     if (LeaksCommType::DOMAIN_SOCKET == type) {
-        server_ = new DomainSocketServer();
+        server_ = new DomainSocketServer(CommType::SOCKET);
     } else if (LeaksCommType::SHARED_MEMORY == type) {
-        server_ = new DomainSocketServer();
+        server_ = new DomainSocketServer(CommType::SOCKET);
+    } else if (LeaksCommType::MEMORY_DEBUG == type) {
+        server_ = new DomainSocketServer(CommType::MEMORY);
     } else {
         server_ = nullptr; //  invalid type
     }

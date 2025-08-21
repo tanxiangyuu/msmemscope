@@ -10,7 +10,7 @@ namespace Leaks {
 
 class DomainSocketServer : public CommunicationProxyServer {
 public:
-    explicit DomainSocketServer();
+    explicit DomainSocketServer(CommType type);
     ~DomainSocketServer() override;
     bool init() override;
     bool sent(std::size_t clientId, const std::string& msg, size_t& size) override;

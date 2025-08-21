@@ -17,7 +17,7 @@
 namespace Leaks {
 
 // 组装普通打点信息
-void MstxManager::ReportMarkA(const char* msg, int32_t streamId)
+void MstxManager::ReportMarkA(const char* msg, int32_t streamId, LeaksCommType type)
 {
     // 处理aten算子上报信息
     if (msg && strncmp(msg, ATEN_MSG, strlen(ATEN_MSG)) == 0) {
@@ -36,7 +36,7 @@ void MstxManager::ReportMarkA(const char* msg, int32_t streamId)
     record->rangeId = onlyMarkId_;
     record->streamId = streamId;
 
-    if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMark(buffer)) {
+    if (!EventReport::Instance(type).ReportMark(buffer)) {
         CLIENT_ERROR_LOG("Report Mark FAILED");
     }
 }
