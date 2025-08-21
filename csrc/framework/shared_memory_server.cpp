@@ -23,7 +23,23 @@ bool SharedMemoryServer::init()
     name_ = new char[name.size() + 1];
     strcpy_s(name_, name.size() + 1, name.c_str());
 
-    fd_c2s_ = shm_open(name_, O_CREAT | O_RDWR, 0666);
+    // 1. 动态加载 librt.so.1
+    void *handle = dlopen("librt.so.1", RTLD_LAZY);
+    if (!handle) {
+        fprintf(stderr, "dlopen failed: %s\n", dlerror());
+        return 1;
+    }
+
+    // 2. 获取 shm_open 函数指针
+    int (*shm_open_ptr)(const char *, int, mode_t);
+    shm_open_ptr = (int (*)(const char *, int, mode_t))dlsym(handle, "shm_open");
+    if (!shm_open_ptr) {
+        fprintf(stderr, "dlsym failed: %s\n", dlerror());
+        dlclose(handle);
+        return 1;
+    }
+
+    fd_c2s_ = shm_open_ptr(name_, O_CREAT | O_RDWR, 0666);
     if (ftruncate(fd_c2s_, SHM_SIZE) == -1) {
         return false;
     }
@@ -111,7 +127,22 @@ SharedMemoryServer::~SharedMemoryServer()
     }
     munmap(s2cBuffer_, SHM_SIZE);
     close(fd_c2s_);
-    shm_unlink(name_);
+    
+    void *handle = dlopen("librt.so.1", RTLD_LAZY);
+    if (!handle) {
+        fprintf(stderr, "dlopen failed: %s\n", dlerror());
+        return 1;
+    }
+
+    int (*shm_unlink_ptr)(const char *);
+    shm_unlink_ptr = (int (*)(const char *))dlsym(handle, "shm_unlink")
+    if (!shm_unlink_ptr) {
+        fprintf(stderr, "dlsym failed: %s\n", dlerror());
+        dlclose(handle);
+        return 1;
+    }
+
+    shm_unlink_ptr(name_);
 }
 
 }
