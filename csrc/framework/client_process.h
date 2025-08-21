@@ -23,7 +23,6 @@ public:
     int Wait(std::string& msg, uint32_t timeOut = 10);
     int TerminateWithSignal(int signal = SIGINT);
 private:
-    std::mutex sentMutex_;
     LogLv logLevel_;
     CommunicationProxyClient* client_;
 };
