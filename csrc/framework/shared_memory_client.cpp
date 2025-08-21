@@ -52,7 +52,7 @@ bool SharedMemoryClient::init()
     return true;
 }
 
-bool SharedMemoryClient::sent(const std::string& msg, size_t& size)
+bool SharedMemoryClient::send(const std::string& msg, size_t& size)
 {
     return c2sQueue_->enqueue((const void*) msg.data(), size, clientId_);
 }

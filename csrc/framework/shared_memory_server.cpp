@@ -83,7 +83,7 @@ bool SharedMemoryServer::init()
     return true;
 }
 
-bool SharedMemoryServer::sent(std::size_t clientId, const std::string& msg, size_t& size)
+bool SharedMemoryServer::send(std::size_t clientId, const std::string& msg, size_t& size)
 {
     if (s2cBuffer_ == nullptr || size > SHM_S2C_SIZE) {
         return false;

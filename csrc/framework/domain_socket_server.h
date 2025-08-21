@@ -13,7 +13,7 @@ public:
     explicit DomainSocketServer(CommType type);
     ~DomainSocketServer() override;
     bool init() override;
-    bool sent(std::size_t clientId, const std::string& msg, size_t& size) override;
+    bool send(std::size_t clientId, const std::string& msg, size_t& size) override;
     bool receive(std::size_t& clientId, std::string& msg, size_t& size) override;
     void SetMsgHandlerHook(LeaksClientMsgHandlerHook &&hook) override;
     void SetClientConnectHook(LeaksClientConnectHook &&hook) override;
