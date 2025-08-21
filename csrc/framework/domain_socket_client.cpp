@@ -13,7 +13,6 @@ DomainSocketClient::DomainSocketClient(CommType type):client_(new Client(type)),
 
 bool DomainSocketClient::init()
 {
-
     if (client_ == nullptr) {
         std::cout << "Initial client failed" << std::endl;
         return false;
