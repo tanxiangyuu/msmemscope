@@ -9,6 +9,7 @@
 #include <iostream>
 #include "record_info.h"
 #include "mstx_info.h"
+#include "comm_def.h"
 
 namespace Leaks {
 /*
@@ -24,7 +25,7 @@ public:
     MstxManager(const MstxManager&) = delete;
     MstxManager& operator=(const MstxManager&) = delete;
 
-    void ReportMarkA(const char* msg, int32_t streamId);
+    void ReportMarkA(const char* msg, int32_t streamId, LeaksCommType type = LeaksCommType::SHARED_MEMORY);
     uint64_t ReportRangeStart(const char* msg, int32_t streamId);
     void ReportRangeEnd(uint64_t id);
     mstxDomainHandle_t ReportDomainCreateA(char const *domainName);

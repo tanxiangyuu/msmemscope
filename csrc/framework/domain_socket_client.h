@@ -11,7 +11,7 @@ namespace Leaks {
 
 class DomainSocketClient : public CommunicationProxyClient {
 public:
-    explicit DomainSocketClient();
+    explicit DomainSocketClient(CommType type);
     ~DomainSocketClient() override;
     bool init() override;
     bool sent(const std::string& msg, size_t& size) override;
@@ -19,6 +19,7 @@ public:
 private:
     Client* client_;
     std::mutex sentMutex_;
+    CommType type_;
 };
 
 }

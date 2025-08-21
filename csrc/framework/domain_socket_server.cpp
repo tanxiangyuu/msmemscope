@@ -8,7 +8,7 @@
 
 namespace Leaks {
 
-DomainSocketServer::DomainSocketServer():server_(new Server(CommType::SOCKET)) { }
+DomainSocketServer::DomainSocketServer(CommType type):server_(new Server(type)) { }
 
 bool DomainSocketServer::init()
 {
