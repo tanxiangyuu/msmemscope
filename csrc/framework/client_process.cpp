@@ -9,35 +9,37 @@
 #include <cerrno>
 #include "protocol.h"
 #include "serializer.h"
+#include "domain_socket_client.h"
+#include "shared_memory_client.h"
 #include "host_injection/core/FuncSelector.h"
 #include "host_injection/utils/InjectLogger.h"
 
 namespace Leaks {
 
-constexpr uint32_t MAX_TRY_COUNT = 100;
-
-static Client* client_ = nullptr;
-ClientProcess::ClientProcess(CommType type)
+ClientProcess::ClientProcess(LeaksCommType type) : logLevel_(Leaks::LogLv::INFO)
 {
-    client_ = new Client(type);
-
+    char* test = std::getenv("LEAKS_TEST");
+    if (test) {
+        type = LeaksCommType::MEMORY_DEBUG;
+    }
+    if (LeaksCommType::DOMAIN_SOCKET == type) {
+        client_ = new DomainSocketClient(CommType::SOCKET);
+    } else if (LeaksCommType::SHARED_MEMORY == type) {
+        client_ = new DomainSocketClient(CommType::SOCKET);
+    } else if (LeaksCommType::MEMORY_DEBUG == type) {
+        std::cout << "LEAKS_TEST" << std::endl;
+        client_ = new DomainSocketClient(CommType::MEMORY);
+    } else {
+        client_ = nullptr; //  invalid type
+    }
     if (client_ == nullptr) {
         std::cout << "Initial client failed" << std::endl;
         return;
     }
-    uint32_t count = 0;
-    while (!client_->Connect() && count < MAX_TRY_COUNT) {
-        // server 启动前 client 会连接失败，等待 100ms 后重试
-        constexpr uint64_t connectRetryDuration = 100;
-        count++;
-        std::this_thread::sleep_for(std::chrono::milliseconds(connectRetryDuration));
-    }
-    if (count == MAX_TRY_COUNT) {
-        std::cout << "connect to server fail" << std::endl;
-    }
+    client_->init();
 }
 
-ClientProcess &ClientProcess::GetInstance(CommType type)
+ClientProcess &ClientProcess::GetInstance(LeaksCommType type)
 {
     static ClientProcess instance(type);
     return instance;
@@ -80,50 +82,23 @@ void ClientProcess::SetLogLevel(LogLv level)
 // 此处Notify的消息格式为[MESSAGE] xxx:xxx; 与log格式统一，降低工具侧消息解析复杂度
 int ClientProcess::Notify(const std::string &msg)
 {
-    std::lock_guard<std::mutex> lock(notifyMutex_);
-    int32_t sentBytes = 0;
-    std::size_t totalSent = 0;
-    /* 循环外部先发送一次，减少重复构造字符串 */
-    totalSent = client_->Write(msg);
-    while (totalSent < msg.size()) {
-        sentBytes = client_->Write(msg.substr(totalSent));
-        // partial send return sent bytes
-        if (sentBytes <= 0) {
-            if (errno == EPIPE || errno == EBADF || errno == ENOTCONN || errno == ECONNRESET) {
-                return -1;
-            }
-            return totalSent;
-        }
-        totalSent += static_cast<std::size_t>(sentBytes);
+    size_t sentBytes = msg.size();
+    if (client_->send(msg, sentBytes) == false) {
+        std::cout << "client notify failed!" << std::endl;
+        return 0;
     }
-    return totalSent;
+    return sentBytes;
 }
 
 int ClientProcess::Wait(std::string& msg, uint32_t timeOut)
 {
-    if (client_ == nullptr) {
-        std::cout << "Client doesn't exist! ClientProcess wait failed!" << std::endl;
-        return static_cast<int>(msg.size());
-    }
-    std::string recvMsg;
+    size_t len = 0;
     msg.clear();
-    int len = 0;
-    // 当msg.size()大于0时说明开始接收，当len不大于0时说明接收结束
-    for (uint32_t count = 0; msg.size() == 0 || len > 0;) {
-        // 底层为 SOCKET 实现时，socket read 本身存在超时时间为 1s，因此
-        // 此接口中的 timeOut 也就是重试 read 的次数
-        len = client_->Read(recvMsg);
-        if (len > 0) {
-            msg += recvMsg;
-            continue;
-        }
-        // 读取成功不占用超时时间，读取失败则增加超时计数
-        if (count >= timeOut) {
-            return static_cast<int>(msg.size());
-        }
-        count++;
+    if (!client_->receive(msg, len, timeOut)) {
+        std::cout << "client wait failed " << std::endl;
+        return 0;
     }
-    return static_cast<int>(msg.size());
+    return len;
 }
 
 int ClientProcess::TerminateWithSignal(int signal)

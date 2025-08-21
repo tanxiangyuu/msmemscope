@@ -28,7 +28,7 @@ target_include_directories(
 
 #避免依赖python版本
 target_link_options(ascend_leaks PRIVATE "-Wl,--copy-dt-needed-entries")
-target_link_libraries(ascend_leaks pthread stdc++fs dl c_sec)
+target_link_libraries(ascend_leaks pthread stdc++fs dl c_sec rt)
 
 add_subdirectory(framework)
 add_subdirectory(utility)

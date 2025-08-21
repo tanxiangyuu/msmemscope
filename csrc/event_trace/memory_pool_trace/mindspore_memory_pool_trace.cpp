@@ -59,8 +59,10 @@ void MindsporeMemoryPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegi
         return;
     }
     std::lock_guard<std::mutex> guard(mutex_);
+
     CallStackString stack;
     Utility::GetCallstack(stack);
+
     const mstxMemVirtualRangeDesc_t *rangeDescArray =
         reinterpret_cast<const mstxMemVirtualRangeDesc_t *>(desc->regionDescArray);
 
@@ -81,7 +83,7 @@ void MindsporeMemoryPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegi
         MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
         record->type = RecordType::MINDSPORE_NPU_RECORD;
         record->memoryUsage = memUsageMp_[devId];
-        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(buffer)) {
+        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
             CLIENT_ERROR_LOG("Report Mindspore Data Failed");
         }
     }
@@ -93,8 +95,10 @@ void MindsporeMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegions
         return;
     }
     std::lock_guard<std::mutex> guard(mutex_);
+
     CallStackString stack;
     Utility::GetCallstack(stack);
+
     for (size_t i = 0; i < desc->refCount; i++) {
         if (!regionHandleMp_.count(desc->refArray[i].pointer)) {
             continue;
@@ -114,7 +118,7 @@ void MindsporeMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegions
         MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
         record->type = RecordType::MINDSPORE_NPU_RECORD;
         record->memoryUsage = memUsageMp_[rangeDesc.deviceId];
-        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(buffer)) {
+        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
             CLIENT_ERROR_LOG("Report Mindspore Data Failed");
         }
     }

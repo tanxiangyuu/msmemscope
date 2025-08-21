@@ -80,7 +80,7 @@ void PTACachingPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegionsRe
         MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
         record->type = RecordType::PTA_CACHING_POOL_RECORD;
         record->memoryUsage = memUsageMp_[devId];
-        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(buffer)) {
+        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
             CLIENT_ERROR_LOG("Report PTA Caching Data Failed");
         }
     }
@@ -95,7 +95,7 @@ void PTACachingPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnreg
 
     CallStackString stack;
     Utility::GetCallstack(stack);
-    
+
     for (size_t i = 0; i < desc->refCount; i++) {
         if (!regionHandleMp_.count(desc->refArray[i].pointer)) {
             continue;
@@ -115,7 +115,7 @@ void PTACachingPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnreg
         MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
         record->type = RecordType::PTA_CACHING_POOL_RECORD;
         record->memoryUsage = memUsageMp_[rangeDesc.deviceId];
-        if (!EventReport::Instance(CommType::SOCKET).ReportMemPoolRecord(buffer)) {
+        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
             CLIENT_ERROR_LOG("Report PTA Caching Data Failed");
         }
     }

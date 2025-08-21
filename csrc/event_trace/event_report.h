@@ -45,7 +45,7 @@ struct MstxStepInfo {
 */
 class EventReport {
 public:
-    static EventReport& Instance(CommType type);
+    static EventReport& Instance(LeaksCommType type);
     bool ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag, CallStackString& stack);
     bool ReportFree(uint64_t addr, CallStackString& stack);
     bool ReportHostMalloc(uint64_t addr, uint64_t size, CallStackString& stack);
@@ -66,7 +66,7 @@ public:
     bool ReportAddrInfo(RecordBuffer &infoBuffer);
 private:
     void Init();
-    explicit EventReport(CommType type);
+    explicit EventReport(LeaksCommType type);
     ~EventReport() = default;
 
     bool IsNeedSkip(int32_t devid);

@@ -17,7 +17,7 @@ const std::unordered_map<std::string, std::function<void(const std::string&, Con
 
 ConfigManager::ConfigManager()
 {
-    config_ = EventReport::Instance(CommType::SOCKET).GetInitConfig();
+    config_ = EventReport::Instance(LeaksCommType::SHARED_MEMORY).GetInitConfig();
 }
 
 Config ConfigManager::GetConfig()
@@ -151,7 +151,7 @@ void EventTraceManager::SetTraceStatus(const EventTraceStatus status)
 {
     CLIENT_INFO_LOG("Set trace status to " + std::to_string(static_cast<uint8_t>(status)) + " .");
 
-    if (!EventReport::Instance(CommType::SOCKET).ReportTraceStatus(status)) {
+    if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportTraceStatus(status)) {
         CLIENT_ERROR_LOG("Report trace status failed.\n");
     }
 
