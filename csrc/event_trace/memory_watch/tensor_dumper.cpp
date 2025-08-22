@@ -9,7 +9,7 @@
 #include "event_report.h"
 #include "calculate_data_check_sum.h"
 #include "tensor_monitor.h"
-#include "op_excute_watch.h"
+#include "memory_watch.h"
 #include "client_process.h"
 
 namespace Leaks {
@@ -112,35 +112,12 @@ bool TensorDumper::DumpOneTensor(const MonitoredTensor& tensor, std::string& fil
     return DumpTensorHashValue(hostData, fileName);
 }
 
-uint64_t TensorDumper::CountOpName(const std::string& name)
-{
-    std::lock_guard<std::mutex> guard(opNameMutex_);
-    if (opNameCnt_.find(name) == opNameCnt_.end()) {
-        opNameCnt_[name] = 1;
-    } else {
-        opNameCnt_[name] += 1;
-    }
-    return opNameCnt_[name];
-}
-
-std::string TensorDumper::GetFileName(const std::string &op, RecordSubType eventType,
-    std::string wathcedOpName, uint64_t index, bool isFirstOp)
+std::string TensorDumper::GetFileName(const std::string &op, std::string watchedOpName,
+    uint64_t index, bool isWatchStart)
 {
     std::string type;
-    std::string opName = op;
-    if (eventType == RecordSubType::ATB_START || eventType == RecordSubType::ATEN_START) {
-        opName += "_" + std::to_string(CountOpName(op));
-        type = "before";
-    }
-    if (eventType == RecordSubType::ATB_END || eventType == RecordSubType::ATEN_END) {
-        if (isFirstOp) {
-            opName += "_" + std::to_string(CountOpName(op));
-        } else {
-            opName += "_" + std::to_string(opNameCnt_[op]);
-        }
-        type = "after";
-    }
-    std::string name = opName + "-" + wathcedOpName + "_" + std::to_string(index) + "_" + type + ".bin";
+    type = isWatchStart ? "before" : "after";
+    std::string name = op + "-" + watchedOpName + "_" + std::to_string(index) + "_" + type + ".bin";
     return name;
 }
 
@@ -161,15 +138,15 @@ void TensorDumper::SynchronizeStream(aclrtStream stream)
     return;
 }
 
-void TensorDumper::Dump(aclrtStream stream, const std::string &op, RecordSubType eventType, bool isFirstOp)
+void TensorDumper::Dump(aclrtStream stream, const std::string &op, bool isWatchStart)
 {
     SynchronizeStream(stream);
     std::unordered_map<uint64_t, MonitoredTensor> tensorsMap = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     uint64_t index = 0;
     for (const auto& tensorPair : tensorsMap) {
-        std::string watchedOpName = OpExcuteWatch::GetInstance().GetWatchedOpName();
+        std::string watchedOpName = MemoryWatch::GetInstance().GetWatchedTargetName();
         auto outputId = TensorMonitor::GetInstance().GetCmdWatchedOutputId();
-        auto fileName = GetFileName(op, eventType, watchedOpName, outputId > 0 ? outputId : index, isFirstOp);
+        auto fileName = GetFileName(op, watchedOpName, outputId > 0 ? outputId : index, isWatchStart);
         auto result = DumpOneTensor(tensorPair.second, fileName);
         if (!result) {
             CLIENT_ERROR_LOG("Dump tensor failed, current op: " + op + ", watched op: " + watchedOpName);
@@ -181,7 +158,7 @@ void TensorDumper::Dump(aclrtStream stream, const std::string &op, RecordSubType
     for (const auto& tensorPair : tensors) {
         uint64_t ptr = static_cast<uint64_t>((std::uintptr_t)(tensorPair.second.data));
         std::string watchedOpName = GetDumpName(ptr);
-        auto fileName = GetFileName(op, eventType, watchedOpName, index, isFirstOp);
+        auto fileName = GetFileName(op, watchedOpName, index, isWatchStart);
         auto dumpNums = GetDumpNums(ptr);
         if (dumpNums == 0) {
             break;

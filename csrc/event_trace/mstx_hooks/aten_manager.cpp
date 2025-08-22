@@ -74,10 +74,10 @@ void AtenManager::ReportAtenLaunch(const char* msg, int32_t streamId, bool isAte
 
     std::string opName = std::to_string(devId) + "_" + std::to_string(tid) + "/" + name;
     if (isWatchEnable_ && isAtenBegin) {
-        OpExcuteWatch::GetInstance().OpExcuteBegin(nullptr, opName, AccessMemType ::ATEN);
+        MemoryWatch::GetInstance().OpExcuteBegin(nullptr, opName);
     }
     if (isWatchEnable_ && !isAtenBegin) {
-        OpExcuteWatch::GetInstance().OpExcuteEnd(nullptr, opName, outputTensors_, AccessMemType ::ATEN);
+        MemoryWatch::GetInstance().OpExcuteEnd(nullptr, opName, outputTensors_);
         if (IsFirstWatchedOp(name.c_str()) && !isfirstWatchOpSet_) {
             isfirstWatchOpSet_ = true;
         }
