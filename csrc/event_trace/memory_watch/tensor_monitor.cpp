@@ -67,4 +67,13 @@ void TensorMonitor::ClearCmdWatchTensor()
     cmdWatchedTensorsMap_.clear();
 }
 
+bool TensorMonitor::IsInMonitoring()
+{
+    if (cmdWatchedTensorsMap_.empty() && pythonWatchedTensorsMap_.empty()) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
 }

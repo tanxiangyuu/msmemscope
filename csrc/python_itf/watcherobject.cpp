@@ -1,8 +1,8 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 
 #include "watcherobject.h"
-#include "event_trace/op_watch/tensor_monitor.h"
-#include "event_trace/op_watch/tensor_dumper.h"
+#include "event_trace/memory_watch/tensor_monitor.h"
+#include "event_trace/memory_watch/tensor_dumper.h"
 
 namespace Leaks {
 
