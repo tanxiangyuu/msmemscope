@@ -1,7 +1,21 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2024-2025. All rights reserved.
 
-import functools
+import importlib
 import logging
+
+check_packages = [
+    "numpy",
+    "torch",
+    "packaging",
+]
+
+for package in check_packages:
+    try:
+        importlib.import_module(package)
+    except ImportError:
+        logging.warning(f"[msleaks]: Import {package} failed when enable aten collection! Please check it.")
+
+import functools
 import re
 import sys
 import logging
