@@ -651,7 +651,7 @@ void ParseDevice(const std::string &param, Config &config, bool &printHelpInfo)
     BitField<decltype(config.npuSlots)> slotsBit;
     config.collectAllNpu = false;
 
-    while (it != end) {
+    for (; it != end; it++) {
         std::string device = it->str();
         if (device == "npu") {
             config.collectAllNpu = true;
@@ -666,13 +666,18 @@ void ParseDevice(const std::string &param, Config &config, bool &printHelpInfo)
                 return parseFailed();
             }
             slotsBit.setBit(slotNum);
+        } else if (device.empty()) {
+            continue;
         } else {
             return parseFailed();
         }
-        it++;
     }
 
     config.npuSlots = slotsBit.getValue();
+    if (!config.collectAllNpu && !config.collectCpu && config.npuSlots == 0) {
+        return parseFailed();
+    }
+
     return;
 }
 
