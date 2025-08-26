@@ -41,49 +41,53 @@ static PyObject* MsleaksStop()
 }
 
 PyDoc_STRVAR(ConfigDoc,
-"config(...)\n--\n\n"
+"config(**kwargs)\n--\n\n"
 "Configure msleaks module parameters.\n\n"
 "Args:\n"
-"    <key>=<value> : Configuration parameters\n\n"
-"    msleaks.config('--call-stack=c:10,python:5', '--level=0,1')");
-static PyObject* MsleaksConfig(PyObject* self, PyObject* args)
+"    **kwargs: Configuration parameters as keyword arguments\n\n"
+"Examples:\n"
+"    msleaks.config(call_stack=\"c:10,python:5\", level='0,1')");
+static PyObject* MsleaksConfig(PyObject* self, PyObject* args, PyObject* kwargs)
 {
-    if (PyTuple_Size(args) == 0) {
-        PyErr_SetString(PyExc_ValueError, "At least one argument is required");
+    if (PyTuple_Size(args) > 0) {
+        PyErr_SetString(PyExc_TypeError, "config() takes no positional arguments");
+        return nullptr;
+    }
+    
+    if (!kwargs || PyDict_Size(kwargs) == 0) {
+        PyErr_SetString(PyExc_ValueError, "At least one keyword argument is required");
         return nullptr;
     }
     
     std::unordered_map<std::string, std::string> cpp_config;
-    // 处理每个输入参数（如 "--call-stack=c:10,python:5"）
-    Py_ssize_t nargs = PyTuple_Size(args);
-    for (Py_ssize_t i = 0; i < nargs; ++i) {
-        PyObject* arg_obj = PyTuple_GetItem(args, i);
-        if (!PyUnicode_Check(arg_obj)) {
-            PyErr_SetString(PyExc_TypeError, "Arguments must be strings");
+
+    PyObject *key;
+    PyObject *value;
+    Py_ssize_t pos = 0;
+
+    while (PyDict_Next(kwargs, &pos, &key, &value)) {
+        if (!PyUnicode_Check(key)) {
+            PyErr_SetString(PyExc_TypeError, "Keyword argument names must be strings");
             return nullptr;
         }
 
-        const char* arg = PyUnicode_AsUTF8(arg_obj);
-        if (!arg) {
-            return nullptr;  // Python异常已设置
-        }
-
-        // 验证参数格式 (必须 --key=value)
-        if (strncmp(arg, "--", 2) != 0) {
-            PyErr_Format(PyExc_ValueError, "Argument must start with '--': %s", arg);
+        const char* key_str = PyUnicode_AsUTF8(key);
+        if (!key_str) {
             return nullptr;
         }
 
-        // 直接按等号分割键值
-        const char* eq_pos = strchr(arg, '=');
-        if (eq_pos) {
-            std::string key(arg, eq_pos - arg);
-            std::string value(eq_pos + 1);
-            cpp_config.emplace(std::move(key), std::move(value));
-        } else {
-            // 无等号的flag参数
-            cpp_config.emplace(arg, "true");
+        // 检查值是否为字符串类型（必须加引号）
+        if (!PyUnicode_Check(value)) {
+            PyErr_Format(PyExc_TypeError, "Value for argument '%s' must be a string (use quotes)", key_str);
+            return nullptr;
         }
+
+        const char* value_str = PyUnicode_AsUTF8(value);
+        if (!value_str) {
+            return nullptr;
+        }
+
+        cpp_config.emplace(key_str, value_str);
     }
 
     bool ret = ConfigManager::Instance().SetConfig(cpp_config);
@@ -98,7 +102,7 @@ static PyMethodDef g_MsleaksMethods[] = {
     {"step", reinterpret_cast<PyCFunction>(MsleaksStep), METH_NOARGS, StepDoc},
     {"start", reinterpret_cast<PyCFunction>(MsleaksStart), METH_NOARGS, StartDoc},
     {"stop", reinterpret_cast<PyCFunction>(MsleaksStop), METH_NOARGS, StopDoc},
-    {"config", reinterpret_cast<PyCFunction>(MsleaksConfig), METH_VARARGS, ConfigDoc},
+    {"config", reinterpret_cast<PyCFunction>(MsleaksConfig), METH_VARARGS | METH_KEYWORDS, ConfigDoc},
     {nullptr, nullptr, 0, nullptr}
 };
 
