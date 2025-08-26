@@ -9,10 +9,10 @@
 namespace Leaks {
 
 const std::unordered_map<std::string, std::function<void(const std::string&, Config&, bool&)>> parserConfigTable = {
-    {"--call-stack", ParseCallstack},
-    {"--level", ParseDataLevel},
-    {"--events", ParseEventTraceType},
-    {"--device", ParseDevice},
+    {"call_stack", ParseCallstack},
+    {"level", ParseDataLevel},
+    {"events", ParseEventTraceType},
+    {"device", ParseDevice},
 };
 
 ConfigManager::ConfigManager()
@@ -138,8 +138,8 @@ bool EventTraceManager::IsNeedTrace(const RecordType type)
 
 void EventTraceManager::InitTraceStatus()
 {
-    auto status = (GetConfig().collectMode == static_cast<uint8_t>(CollectMode::FULL)) ? EventTraceStatus::IN_TRACING :
-        EventTraceStatus::NOT_IN_TRACING;
+    auto status = (GetConfig().collectMode == static_cast<uint8_t>(CollectMode::IMMEDIATE)) ?
+        EventTraceStatus::IN_TRACING : EventTraceStatus::NOT_IN_TRACING;
     SetTraceStatus(status);
     return;
 }

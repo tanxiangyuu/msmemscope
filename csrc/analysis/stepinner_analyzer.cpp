@@ -82,8 +82,8 @@ bool StepInnerAnalyzer::IsStepInnerAnalysisEnable()
     if (config_.stepList.stepCount!=0) {
         return false;
     }
-    // 当开启自定义采集时，关闭分析功能
-    if (config_.collectMode == static_cast<uint8_t>(CollectMode::CUSTOM)) {
+    // 非默认采集模式，关闭分析功能
+    if (config_.collectMode == static_cast<uint8_t>(CollectMode::DEFERRED)) {
         return false;
     }
 
