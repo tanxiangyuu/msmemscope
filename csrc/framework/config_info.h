@@ -63,8 +63,8 @@ enum class LogLv : uint8_t {
 };
 
 enum class CollectMode : uint8_t {
-    FULL = 0,
-    CUSTOM,
+    IMMEDIATE = 0,
+    DEFERRED,
 };
 
 struct SelectedStepList {
