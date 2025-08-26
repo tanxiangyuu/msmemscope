@@ -94,8 +94,8 @@ void ShowHelpInfo()
         << "    --device=<cpu|npu|npu:x>,...             Set device(s) to collect, 'cpu' for cpu, 'npu' for all npu,"
         << std::endl
         << "                                             and 'npu:x' for npu in slot x (default:npu). " << std::endl
-        << "                                             Fields separated by , or ，." << std::endl
-        << "    --collect-mode=<full|custom>             Set data collect mode. Default: full." << std::endl;
+        << "                                             Fields separated by,or，." << std::endl
+        << "    --collect-mode=<immediate|deferred>      Set data collect mode. Default: immediate." << std::endl;
 }
 
 void ShowVersion()
@@ -683,13 +683,13 @@ void ParseDevice(const std::string &param, Config &config, bool &printHelpInfo)
 
 static void ParseCollectMode(const std::string &param, UserCommand &userCommand)
 {
-    if (param == "full") {
-        userCommand.config.collectMode = static_cast<uint8_t>(CollectMode::FULL);
-    } else if (param == "custom") {
-        userCommand.config.collectMode = static_cast<uint8_t>(CollectMode::CUSTOM);
+    if (param == "immediate") {
+        userCommand.config.collectMode = static_cast<uint8_t>(CollectMode::IMMEDIATE);
+    } else if (param == "deferred") {
+        userCommand.config.collectMode = static_cast<uint8_t>(CollectMode::DEFERRED);
     } else {
         std::cout << "[msleaks] ERROR: --collect-mode param is invalid. "
-                  << "Collect mode can only be set to full,custom." << std::endl;
+                  << "Collect mode can only be set to immediate,deferred." << std::endl;
         userCommand.printHelpInfo = true;
     }
 
@@ -767,7 +767,7 @@ void ClientParser::InitialUserCommand(UserCommand &userCommand)
     userCommand.config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
     userCommand.config.logLevel = static_cast<uint8_t>(LogLv::WARN);
     userCommand.config.collectAllNpu = true;
-    userCommand.config.collectMode = static_cast<uint8_t>(CollectMode::FULL);
+    userCommand.config.collectMode = static_cast<uint8_t>(CollectMode::IMMEDIATE);
 
     BitField<decltype(userCommand.config.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
