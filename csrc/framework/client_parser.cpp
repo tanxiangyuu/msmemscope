@@ -6,7 +6,7 @@
 #include <iostream>
 #include <sys/stat.h>
 #include <getopt.h>
-#include <regex>
+#include <map>
 #include <algorithm>
 #include <unordered_map>
 #include "command.h"
@@ -18,6 +18,7 @@
 #include "securec.h"
 #include "vallina_symbol.h"
 #include "sqlite_loader.h"
+#include "string_validator.h"
 
 namespace Leaks {
 
@@ -245,12 +246,14 @@ std::string GetShortOptString(const std::vector<option> &longOptArray)
 
 static void ParseSelectSteps(const std::string &param, UserCommand &userCommand)
 {
-    std::regex dividePattern(R"([，,])");
-    std::sregex_token_iterator  it(param.begin(), param.end(), dividePattern, -1);
-    std::sregex_token_iterator  end;
+    std::string dividePattern = "，,";
+    std::vector<std::string> tokens = Utility::SplitString(param, dividePattern);
+    auto it = tokens.begin();
+    auto end = tokens.end();
 
     userCommand.config.stepList.stepCount = 0;
-    std::regex numberPattern(R"(^[1-9]\d*$)");
+    Utility::IntValidateRule verRule;
+    verRule.minValue = 1;
 
     auto parseFailed = [&userCommand](void) {
         std::cout << "[msleaks] ERROR: invalid steps input." << std::endl;
@@ -263,12 +266,12 @@ static void ParseSelectSteps(const std::string &param, UserCommand &userCommand)
         if (stepListInfo.stepCount >= SELECTED_STEP_MAX_NUM) {
             return parseFailed();
         }
-        std::string step = it->str();
+        std::string step = *it;
         if (!step.empty()) {
-            if (!std::regex_match(step, numberPattern)) {
+            if (!Utility::IsValidInteger(step, verRule)) {
                 return parseFailed();
             }
-            if (!Utility::StrToUint32(stepListInfo.stepIdList[stepListInfo.stepCount], it->str())) {
+            if (!Utility::StrToUint32(stepListInfo.stepIdList[stepListInfo.stepCount], step)) {
                 return parseFailed();
             }
             stepListInfo.stepCount++;
@@ -282,9 +285,10 @@ static void ParseSelectSteps(const std::string &param, UserCommand &userCommand)
 
 static void ParseAnalysis(const std::string &param, UserCommand &userCommand)
 {
-    std::regex dividePattern(R"([，,])");
-    std::sregex_token_iterator it(param.begin(), param.end(), dividePattern, -1);
-    std::sregex_token_iterator end;
+    std::string dividePattern = "，,";
+    std::vector<std::string> tokens = Utility::SplitString(param, dividePattern);
+    auto it = tokens.begin();
+    auto end = tokens.end();
 
     auto parseFailed = [&userCommand](void) {
         std::cout << "[msleaks] ERROR: invalid analysis type input." << std::endl;
@@ -299,7 +303,7 @@ static void ParseAnalysis(const std::string &param, UserCommand &userCommand)
         {"inefficient", AnalysisType::INEFFICIENCY_ANALYSIS},
     };
     while (it != end) {
-        std::string analysisMethod = it->str();
+        std::string analysisMethod = *it;
         if (!analysisMethod.empty()) {
             if (analysisMp.count(analysisMethod)) {
                 analysisTypeBit.setBit(static_cast<size_t>(analysisMp[analysisMethod]));
@@ -318,15 +322,17 @@ static bool CheckIsValidDepthInfo(const std::string &param, Config &config)
 {
     size_t pos = param.find(':');
     std::string callType = param.substr(0, pos);
-    std::regex numberPattern(R"(^(0|1000|[1-9]\d{0,2})$)");
     uint32_t depth = DEFAULT_CALL_STACK_DEPTH;
 
     if (pos != std::string::npos) {
         std::string depthStr = param.substr(pos + 1);
-        if (depthStr.empty() || !std::regex_match(depthStr, numberPattern) || !Utility::StrToUint32(depth, depthStr)) {
+        Utility::IntValidateRule verRule;
+        verRule.maxValue = 1000;
+        if (depthStr.empty() || !Utility::IsValidInteger(depthStr, verRule) || !Utility::StrToUint32(depth, depthStr)) {
             return false;
         }
     }
+
     if (callType == "python" && !config.enablePyStack) {
         config.enablePyStack = true;
         config.pyStackDepth = depth;
@@ -336,6 +342,7 @@ static bool CheckIsValidDepthInfo(const std::string &param, Config &config)
     } else {
         return false;
     }
+
     return true;
 }
 
@@ -349,9 +356,10 @@ void ParseCallstack(const std::string &param, Config &config, bool &printHelpInf
         return;
     }
     
-    std::regex dividePattern(R"([，,])");
-    std::sregex_token_iterator  it(param.begin(), param.end(), dividePattern, -1);
-    std::sregex_token_iterator  end;
+    std::string dividePattern = "，,";
+    std::vector<std::string> tokens = Utility::SplitString(param, dividePattern);
+    auto it = tokens.begin();
+    auto end = tokens.end();
 
     auto parseFailed = [&printHelpInfo](void) {
         std::cout << "[msleaks] ERROR: invalid call-stack depth input." << std::endl;
@@ -359,7 +367,7 @@ void ParseCallstack(const std::string &param, Config &config, bool &printHelpInf
     };
 
     while (it != end) {
-        std::string depthStr = it->str();
+        std::string depthStr = *it;
         if (!depthStr.empty() && !CheckIsValidDepthInfo(depthStr, config)) {
             return parseFailed();
         }
@@ -375,12 +383,14 @@ static void ParseInputPaths(const std::string param, UserCommand &userCommand)
                   << INPUT_STR_MAX_LEN << "." << std::endl;
         return;
     }
-    std::regex pattern(R"([，,])");
-    std::sregex_token_iterator  it(param.begin(), param.end(), pattern, -1);
-    std::sregex_token_iterator  end;
+
+    std::string pattern = "，,";
+    std::vector<std::string> tokens = Utility::SplitString(param, pattern);
+    auto it = tokens.begin();
+    auto end = tokens.end();
 
     while (it != end) {
-        std::string path = it->str();
+        std::string path = *it;
         if (!path.empty() && Utility::CheckIsValidInputPath(path) && Utility::IsFileSizeSafe(path)) {
             userCommand.inputPaths.emplace_back(path);
         }
@@ -412,8 +422,8 @@ static void ParseOutputPath(const std::string param, UserCommand &userCommand)
     Utility::Path realPath = path.Resolved();
     std::string pathStr = realPath.ToString();
 
-    std::regex pattern("(\\.|/|_|-|\\s|[~0-9a-zA-Z]|[\u4e00-\u9fa5])+");
-    if (!Utility::CheckIsValidOutputPath(pathStr) || !std::regex_match(pathStr, pattern)) {
+    std::string pattern = "(\\.|/|_|-|\\s|[~0-9a-zA-Z]|[\u4e00-\u9fa5])+";
+    if (!Utility::CheckIsValidOutputPath(pathStr) || !Utility::IsValidOutputPath(pathStr)) {
         userCommand.config.outputCorrectPaths = false;
         std::cout << "[msleaks] WARN: invalid output path." << std::endl;
         return;
@@ -424,23 +434,24 @@ static void ParseOutputPath(const std::string param, UserCommand &userCommand)
 
 void ParseDataLevel(const std::string param, Config &config, bool &printHelpInfo)
 {
-    std::regex dividePattern(R"([，,])");
-    std::sregex_token_iterator it(param.begin(), param.end(), dividePattern, -1);
-    std::sregex_token_iterator end;
- 
-    std::regex pattern(R"(^(0|1|op|kernel)$)");
- 
+    std::string dividePattern = "，,";
+    std::vector<std::string> tokens = Utility::SplitString(param, dividePattern);
+    auto it = tokens.begin();
+    auto end = tokens.end();
+
+    std::string pattern = "^(0|1|op|kernel)$";
+
     auto parseFailed = [&printHelpInfo](void) {
         std::cout << "[msleaks] ERROR: invalid data trace level input." << std::endl;
         printHelpInfo = true;
     };
- 
+
     BitField<decltype(config.levelType)> levelBit;
- 
+
     while (it != end) {
-        std::string level = it->str();
+        std::string level = *it;
         if (!level.empty()) {
-            if (!std::regex_match(level, pattern)) {
+            if (!Utility::IsValidDataLevel(level)) {
                 return parseFailed();
             }
             if (level == "0" || level == "op") {
@@ -451,16 +462,17 @@ void ParseDataLevel(const std::string param, Config &config, bool &printHelpInfo
         }
         it++;
     }
- 
+
     config.levelType = levelBit.getValue();
     return;
 }
 
 void ParseEventTraceType(const std::string param, Config &config, bool &printHelpInfo)
 {
-    std::regex dividePattern(R"([，,])");
-    std::sregex_token_iterator it(param.begin(), param.end(), dividePattern, -1);
-    std::sregex_token_iterator end;
+    std::string dividePattern = "，,";
+    std::vector<std::string> tokens = Utility::SplitString(param, dividePattern);
+    auto it = tokens.begin();
+    auto end = tokens.end();
 
     auto parseFailed = [&printHelpInfo](void) {
         std::cout << "[msleaks] ERROR: invalid event trace type input." << std::endl;
@@ -476,7 +488,7 @@ void ParseEventTraceType(const std::string param, Config &config, bool &printHel
         {"access", EventType::ACCESS_EVENT}
     };
     while (it != end) {
-        std::string event = it->str();
+        std::string event = *it;
         if (!event.empty()) {
             if (eventsMp.count(event)) {
                 eventsTypeBit.setBit(static_cast<size_t>(eventsMp[event]));
@@ -638,9 +650,10 @@ static void ParseDataFormat(const std::string &param, UserCommand &userCommand)
 
 void ParseDevice(const std::string &param, Config &config, bool &printHelpInfo)
 {
-    std::regex dividePattern(R"([，,])");
-    std::sregex_token_iterator  it(param.begin(), param.end(), dividePattern, -1);
-    std::sregex_token_iterator  end;
+    std::string dividePattern = "，,";
+    std::vector<std::string> tokens = Utility::SplitString(param, dividePattern);
+    auto it = tokens.begin();
+    auto end = tokens.end();
 
     auto parseFailed = [&printHelpInfo](void) {
         std::cout << "[msleaks] ERROR: invalid device." << std::endl;
@@ -651,7 +664,7 @@ void ParseDevice(const std::string &param, Config &config, bool &printHelpInfo)
     config.collectAllNpu = false;
 
     for (; it != end; it++) {
-        std::string device = it->str();
+        std::string device = *it;
         if (device == "npu") {
             config.collectAllNpu = true;
         } else if (device.substr(0, 4) == "npu:") {
@@ -821,5 +834,4 @@ UserCommand ClientParser::Parse(int32_t argc, char **argv)
 
     return userCommand;
 }
-
 }
