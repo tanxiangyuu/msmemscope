@@ -7,8 +7,9 @@
 #include <set>
 #include <vector>
 #include <algorithm>
-#include <regex>
+#include <cstring>
 #include "utils.h"
+#include "string_validator.h"
 
 namespace Utility {
 
@@ -106,12 +107,12 @@ public:
     // ver的版本号以'.'分隔，形式为x.y.z....
     explicit Version(const std::string &ver)
     {
-        std::regex numberPattern(R"(^(0|[1-9]\d*)$)");
+        IntValidateRule verRule;
         std::vector<std::string> version;
         Split(ver, std::back_inserter(version), ".");
         for (auto s : version) {
             uint32_t versionNum;
-            if (s != "" && std::regex_match(s, numberPattern) && StrToUint32(versionNum, s)) {
+            if (s != "" && IsValidInteger(s, verRule) && StrToUint32(versionNum, s)) {
                 version_.push_back(versionNum);
             }
         }

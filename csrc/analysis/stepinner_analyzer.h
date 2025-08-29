@@ -5,6 +5,7 @@
 
 #include "trace_record.h"
 #include "config_info.h"
+#include "comm_def.h"
 
 namespace Leaks {
 /*

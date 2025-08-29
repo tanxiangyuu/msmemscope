@@ -1,6 +1,4 @@
 set(CMAKE_INSTALL_PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/../output)
-set(FUNC_INJECTION_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../platform/func_injection/)
-set(FUNC_HOSTINJECTION_DIR ${FUNC_INJECTION_DIR}/host_injection/)
 find_package(Python3 REQUIRED COMPONENTS Development)
 
 if (NOT Python3_FOUND)
@@ -18,9 +16,7 @@ add_library(ascend_leaks SHARED dummy.cpp)
 
 target_include_directories(
     ascend_leaks PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
-                        ${FUNC_INJECTION_DIR}
                         ${FRAMEWORK_INC_DIR}
-                        ${FUNC_HOSTINJECTION_DIR}
                         ${SECUREC_INC_DIR}
                         ${Python3_INCLUDE_DIRS}
                         ${EVENT_TRACE_INC_DIR}

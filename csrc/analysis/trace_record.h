@@ -16,7 +16,6 @@
 #include <mutex>
 #include "framework/record_info.h"
 #include "framework/config_info.h"
-#include "host_injection/core/Communication.h"
 
 namespace Leaks {
 

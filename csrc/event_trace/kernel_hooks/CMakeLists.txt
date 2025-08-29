@@ -13,8 +13,6 @@ target_sources(ascend_kernel_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/describe_trace.cpp
   ${EVENT_TRACE_INC_DIR}/vallina_symbol.cpp
   ${FRAMEWORK_INC_DIR}/client_process.cpp
-  ${FUNC_INJECTION_CORE_DIR}/Communication.cpp
-  ${FUNC_INJECTION_CORE_DIR}/DomainSocket.cpp
   ${UTILITY_INC_DIR}/cpython.cpp
   ${UTILITY_INC_DIR}/log.cpp
   ${UTILITY_INC_DIR}/file.cpp
@@ -24,8 +22,6 @@ target_sources(ascend_kernel_hook PRIVATE
   ${UTILITY_INC_DIR}/cpython.cpp
   ${UTILITY_INC_DIR}/path.cpp
   ${UTILITY_INC_DIR}/ustring.cpp
-  ${FUNC_HOSTINJECTION_DIR}/utils/FileSystem.cpp
-  ${FUNC_HOSTINJECTION_DIR}/utils/Ustring.cpp
   ${EVENT_TRACE_INC_DIR}/trace_manager/event_trace_manager.cpp
 )
 
@@ -33,8 +29,6 @@ target_include_directories(ascend_kernel_hook PUBLIC
   ${Python3_INCLUDE_DIRS}
   ${FRAMEWORK_INC_DIR}
   ${EVENT_TRACE_INC_DIR}
-  ${FUNC_INJECTION_DIR}
-  ${FUNC_HOSTINJECTION_DIR}
   ${UTILITY_INC_DIR}
   ${SECUREC_INC_DIR}
 )

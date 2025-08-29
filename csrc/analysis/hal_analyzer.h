@@ -7,7 +7,7 @@
 #include "constant.h"
 #include "record_info.h"
 #include "config_info.h"
-#include "host_injection/core/Communication.h"
+#include "comm_def.h"
 
 namespace Leaks {
 /*
