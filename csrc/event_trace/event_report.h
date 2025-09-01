@@ -91,7 +91,7 @@ private:
 };
 
 MemOpSpace GetMemOpSpace(unsigned long long flag);
-aclError GetDevice(int32_t *devId);
+bool GetDevice(int32_t *devId);
 
 } // namespace Leaks
 #endif
