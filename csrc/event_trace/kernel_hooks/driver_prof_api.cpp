@@ -143,7 +143,7 @@ void StartDriverKernelInfoTrace(int32_t devId)
 void EndDriverKernelInfoTrace()
 {
     int32_t devId = Leaks::GD_INVALID_NUM;
-    if (GetDevice(&devId) != ACL_SUCCESS || devId == Leaks::GD_INVALID_NUM) {
+    if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
         CLIENT_ERROR_LOG("get device id failed");
     }
     using DriverProfEndFunc = int(*)(unsigned int, unsigned int);

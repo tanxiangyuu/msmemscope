@@ -67,8 +67,8 @@ void AtenManager::ReportAtenLaunch(const char* msg, int32_t streamId, bool isAte
     std::string name;
     ExtractTensorInfo(msg, "name=", name);
     int32_t devId = GD_INVALID_NUM;
-    if (GetDevice(&devId) != ACL_SUCCESS || devId == GD_INVALID_NUM) {
-        CLIENT_ERROR_LOG("Get device id failed.");
+    if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
+        CLIENT_ERROR_LOG("get device id failed.");
     }
     uint64_t tid = Utility::GetTid();
 
