@@ -25,7 +25,7 @@ ClientProcess::ClientProcess(LeaksCommType type) : logLevel_(Leaks::LogLv::INFO)
     if (LeaksCommType::DOMAIN_SOCKET == type) {
         client_ = new DomainSocketClient(CommType::SOCKET);
     } else if (LeaksCommType::SHARED_MEMORY == type) {
-        client_ = new DomainSocketClient(CommType::SOCKET);
+        client_ = new SharedMemoryClient();
     } else if (LeaksCommType::MEMORY_DEBUG == type) {
         std::cout << "LEAKS_TEST" << std::endl;
         client_ = new DomainSocketClient(CommType::MEMORY);
@@ -36,7 +36,7 @@ ClientProcess::ClientProcess(LeaksCommType type) : logLevel_(Leaks::LogLv::INFO)
         std::cout << "Initial client failed" << std::endl;
         return;
     }
-    client_->init();
+    client_->Init();
 }
 
 ClientProcess &ClientProcess::GetInstance(LeaksCommType type)
@@ -83,7 +83,7 @@ void ClientProcess::SetLogLevel(LogLv level)
 int ClientProcess::Notify(const std::string &msg)
 {
     size_t sentBytes = msg.size();
-    if (client_->send(msg, sentBytes) == false) {
+    if (client_->Send(msg, sentBytes) == false) {
         std::cout << "client notify failed!" << std::endl;
         return 0;
     }
@@ -94,7 +94,7 @@ int ClientProcess::Wait(std::string& msg, uint32_t timeOut)
 {
     size_t len = 0;
     msg.clear();
-    if (!client_->receive(msg, len, timeOut)) {
+    if (!client_->Receive(msg, len, timeOut)) {
         std::cout << "client wait failed " << std::endl;
         return 0;
     }

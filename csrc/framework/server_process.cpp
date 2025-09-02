@@ -13,7 +13,7 @@ ServerProcess::ServerProcess(LeaksCommType type)
     if (LeaksCommType::DOMAIN_SOCKET == type) {
         server_ = new DomainSocketServer(CommType::SOCKET);
     } else if (LeaksCommType::SHARED_MEMORY == type) {
-        server_ = new DomainSocketServer(CommType::SOCKET);
+        server_ = new SharedMemoryServer();
     } else if (LeaksCommType::MEMORY_DEBUG == type) {
         server_ = new DomainSocketServer(CommType::MEMORY);
     } else {
@@ -28,7 +28,7 @@ ServerProcess::ServerProcess(LeaksCommType type)
 void ServerProcess::Start()
 {
     if (server_ != nullptr) {
-        server_->init();
+        server_->Init();
     }
 }
 
@@ -45,7 +45,7 @@ int ServerProcess::Wait(std::size_t clientId, std::string& msg)
     // 如果设置了timeout，那么，等待一段时间后，需要释放
     size_t size = 0;
     if (server_ != nullptr) {
-        server_->receive(clientId, msg, size);
+        server_->Receive(clientId, msg, size);
     }
     return size;
 }
@@ -54,7 +54,7 @@ int ServerProcess::Notify(std::size_t clientId, const std::string& msg)
 {
     size_t size = 0;
     if (server_ != nullptr) {
-        server_->send(clientId, msg, size);
+        server_->Send(clientId, msg, size);
     }
     return size;
 }
