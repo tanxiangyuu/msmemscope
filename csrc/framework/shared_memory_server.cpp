@@ -2,9 +2,11 @@
 
 #include "shared_memory_server.h"
 #include <sys/mman.h>
+#include <sys/statvfs.h>
 #include <fcntl.h>
 #include <dlfcn.h>
 #include <iostream>
+#include <fstream>
 #include <unistd.h>
 #include <cstdlib>
 #include <cstring>
@@ -14,49 +16,52 @@
 
 namespace Leaks {
 
-SharedMemoryServer::SharedMemoryServer(): c2sQueue_(nullptr), s2cBuffer_(nullptr), fd_c2s_(-1), name_(nullptr),
-    clientConnectHook_(nullptr), clientMsgHandlerHook_(nullptr), isRunning_(true) { }
+SharedMemoryServer::SharedMemoryServer(): shmSize_(SHM_SIZE), c2sQueue_(nullptr), s2cBuffer_(nullptr), fdc2s_(-1),
+    name_(nullptr), clientConnectHook_(nullptr), clientMsgHandlerHook_(nullptr), isRunning_(true) { }
 
-bool SharedMemoryServer::init()
+uint64_t SharedMemoryServer::GetShmAvailable()
+{
+    struct statvfs buf;
+    if (statvfs("/dev/shm", &buf) != 0) {
+        std::cout << "statvfs /dev/shm failed" << std::endl;
+        return 0;
+    }
+    return buf.f_bsize * buf.f_bavail;
+}
+
+bool SharedMemoryServer::Init()
 {
     std::string name = "c2s_";
     name += Utility::GetDateStr();
     name_ = new char[name.size() + 1];
     strcpy_s(name_, name.size() + 1, name.c_str());
 
-    // 1. 动态加载 librt.so.1
-    void *handle = dlopen("librt.so.1", RTLD_LAZY);
-    if (!handle) {
-        fprintf(stderr, "dlopen failed: %s\n", dlerror());
-        return 1;
-    }
-
-    // 2. 获取 shm_open 函数指针
-    int (*shm_open_ptr)(const char *, int, mode_t);
-    shm_open_ptr = (int (*)(const char *, int, mode_t))dlsym(handle, "shm_open");
-    if (!shm_open_ptr) {
-        fprintf(stderr, "dlsym failed: %s\n", dlerror());
-        dlclose(handle);
-        return 1;
-    }
-
-    fd_c2s_ = shm_open_ptr(name_, O_CREAT | O_RDWR, 0666);
-    if (ftruncate(fd_c2s_, SHM_SIZE) == -1) {
+    fdc2s_ = shm_open(name_, O_CREAT | O_RDWR, 0600);
+    shmSize_ = GetShmAvailable();
+    if (fdc2s_ == -1 || shmSize_ == 0) {
         return false;
     }
 
-    void* ptr = mmap(nullptr, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd_c2s_, 0);
-    if (ptr == MAP_FAILED) {
-        std::cout << "server init failed" << std::endl;
+    if (shmSize_ >= SHM_SIZE) {
+        shmSize_ = SHM_SIZE;
+    } else {
+        return false;
     }
 
-    if (memset_s(ptr, SHM_SIZE, 0, SHM_SIZE) != EOK) {
+    if (ftruncate(fdc2s_, shmSize_) == -1) {
+        return false;
+    }
+
+    void* ptr = mmap(nullptr, shmSize_, PROT_READ | PROT_WRITE, MAP_SHARED, fdc2s_, 0);
+    if (ptr == MAP_FAILED) {
+        std::cout << "server init failed" << std::endl;
         return false;
     }
 
     s2cBuffer_ = static_cast<uint8_t*>(ptr);
 
-    c2sQueue_ = new Utility::LockFreeQueue(SHM_SIZE - SHM_S2C_SIZE - 1 - 2 * sizeof(size_t), s2cBuffer_ + SHM_S2C_SIZE);
+    c2sQueue_ = reinterpret_cast<Utility::LockFreeQueue*>(s2cBuffer_ + SHM_S2C_SIZE);
+    c2sQueue_->ServerInit(shmSize_ - SHM_S2C_SIZE);
 
     if (clientConnectHook_) {
         clientConnectHook_(0);
@@ -65,9 +70,9 @@ bool SharedMemoryServer::init()
     receiveWorker_ = std::thread([this]() {
         while (isRunning_) {
             ClientId clientId = 0;
-            size_t size;
-            std::string msg;
-            bool flag = receive(clientId, msg, size);
+            size_t size = 0;
+            std::string msg = "";
+            bool flag = Receive(clientId, msg, size);
             if (!flag) {
                 continue;
             }
@@ -80,33 +85,37 @@ bool SharedMemoryServer::init()
     if (setenv("SHM_NAME", name_, 1) == -1) {
         return false;
     }
+    if (setenv("SHM_SIZE", std::to_string(shmSize_).c_str(), 1) == -1) {
+        return false;
+    }
     return true;
 }
 
-bool SharedMemoryServer::send(std::size_t clientId, const std::string& msg, size_t& size)
+bool SharedMemoryServer::Send(std::size_t clientId, const std::string& msg, size_t& size)
 {
     if (s2cBuffer_ == nullptr || size > SHM_S2C_SIZE) {
         return false;
     }
     size = msg.size();
-    if (memcpy_s(s2cBuffer_ + sizeof(size_t), SHM_SIZE - sizeof(size_t), &size, sizeof(size_t))) {
+    if (memcpy_s(s2cBuffer_ + sizeof(size_t), shmSize_ - sizeof(size_t), &size, sizeof(size_t))) {
         return false;
     }
-    if (memcpy_s(s2cBuffer_ + sizeof(size_t) + sizeof(size_t), SHM_SIZE - sizeof(size_t) - sizeof(size_t), msg.data(), size)) {
+    if (memcpy_s(s2cBuffer_ + sizeof(size_t) + sizeof(size_t), shmSize_ - sizeof(size_t) - sizeof(size_t), msg.data(), size)) {
         return false;
     }
     return true;
 }
 
-bool SharedMemoryServer::receive(std::size_t& clientId, std::string& msg, size_t& size)
+bool SharedMemoryServer::Receive(std::size_t& clientId, std::string& msg, size_t& size)
 {
-    std::lock_guard<std::mutex> lock(sentMutex_);
-    char* data{};
-    if (!c2sQueue_->dequeue((void**)&data, size, clientId)) {
+    if (c2sQueue_ == nullptr) {
         return false;
     }
-    std::cout << "server receive success" << std::endl;
-    msg = std::string(data, size);
+    if (!c2sQueue_->DeQueue(msg, clientId)) {
+        size = 0;
+        return false;
+    }
+    size = msg.size();
     return true;
 }
 
@@ -122,26 +131,22 @@ void SharedMemoryServer::SetClientConnectHook(LeaksClientConnectHook &&hook)
 
 SharedMemoryServer::~SharedMemoryServer()
 {
+    if (c2sQueue_ != nullptr) {
+        while (!c2sQueue_->IsEmpty()) {}
+    }
     isRunning_ = false;
     if (receiveWorker_.joinable()) {
         receiveWorker_.join();
     }
-    munmap(s2cBuffer_, SHM_SIZE);
-    close(fd_c2s_);
-    
-    void *handle = dlopen("librt.so.1", RTLD_LAZY);
-    if (!handle) {
-        fprintf(stderr, "dlopen failed: %s\n", dlerror());
+    if (s2cBuffer_ != nullptr) {
+        munmap(s2cBuffer_, shmSize_);
     }
-
-    int (*shm_unlink_ptr)(const char *);
-    shm_unlink_ptr = (int (*)(const char *))dlsym(handle, "shm_unlink");
-    if (!shm_unlink_ptr) {
-        fprintf(stderr, "dlsym failed: %s\n", dlerror());
-        dlclose(handle);
+    if (fdc2s_ != -1) {
+        close(fdc2s_);
     }
-
-    shm_unlink_ptr(name_);
+    if (name_ != nullptr) {
+        shm_unlink(name_);
+    }
 }
 
 }

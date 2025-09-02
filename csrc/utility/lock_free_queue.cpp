@@ -4,217 +4,193 @@
 #include <cstring>
 #include <iostream>
 #include <cstddef>
+#include <unistd.h>
 #include "securec.h"
-
 
 namespace Utility {
 
+#define LEAKS_MAGIC_PREFIX 0xABCD1234
+#define LEAKS_MSG_SEND_TIMEOUT_MS 3000
+#define LEAKS_MSG_RECV_TIMEOUT_MS 50
 
-void print_hex(const uint8_t *ptr, size_t n)
+struct DataHeader {
+    /* 此处complate_flag需要放在最开头 */
+    std::atomic<uint8_t> complateFlag{0};
+    uint8_t pad_[3];
+    uint32_t magicPrefix;
+    size_t dataSize;
+    size_t clientId;
+};
+
+bool LockFreeQueue::ServerInit(uint64_t size)
 {
-    for (size_t i = 0; i < n; i++) {
-        printf("%02x ", ptr[i]);  // %02x 表示 2 位十六进制，不足补零
-    }
-    printf("\n");
-}
-
-LockFreeQueue::LockFreeQueue(size_t total_memory_size, uint8_t* buffer):total_memory_size_(total_memory_size),
-    buffer_(buffer), head_(0), tail_(0), free_space_(0), flag_(nullptr), dataHeader_(new DataHeader(0, 0)),
-    outputBuf_(new uint8_t[OUTPUT_BUF_SIZE]) { }
-
-bool LockFreeQueue::enqueue(const void* data, size_t data_size, size_t id)
-{
-    flag_ = reinterpret_cast<std::atomic<uint8_t>*>(buffer_);
-    uint8_t old = 0;
-    while (!flag_->compare_exchange_weak(old, 1)) {
-        old = 0;
-    }
-    if (memcpy_s(&head_, sizeof(size_t), buffer_ + 1, sizeof(size_t))) {
+    if (size <= sizeof(*this)) {
+        std::cout << "[ERROR] Space for lock-free queue is too small." << std::endl;
         return false;
     }
-    if (memcpy_s(&tail_, sizeof(size_t), buffer_ + 1 + sizeof(size_t), sizeof(size_t))) {
+    magic_ = LEAKS_MAGIC_PREFIX;
+    size_ = size - sizeof(*this);
+    new (&head_) std::atomic<uint64_t>(sizeof(*this));
+    new (&tail_) std::atomic<uint64_t>(sizeof(*this));
+
+    size_t msgBufLen = size - sizeof(*this);
+    uint8_t *dataBuf = static_cast<uint8_t*>(static_cast<void*>(this)) + sizeof(*this);
+    if (memset_s(dataBuf, msgBufLen, 0, msgBufLen)) {
+        std::cout << "[ERROR] Failed to init lock-free queue buffer." << std::endl;
         return false;
-    }
-    
-    free_space_ = tail_ >= head_ ? total_memory_size_ - (tail_ - head_) : head_ - tail_;
-
-    size_t required_size = data_size + sizeof(DataHeader);
-    
-    if (free_space_ < required_size) {
-        old = 1;
-        while (!flag_->compare_exchange_weak(old, 0)) {
-            old = 1;
-        }
-        return false;
-    }
-
-    bool needs_truncation = tail_ + required_size > total_memory_size_;
-
-    size_t old_tail = tail_;
-
-    tail_ = needs_truncation ? required_size - (total_memory_size_ - tail_) : tail_ + required_size;
-    if (memcpy_s(buffer_ + 1 + sizeof(size_t), total_memory_size_ + sizeof(size_t), &tail_, sizeof(size_t))) {
-        return false;
-    }
-    old = 1;
-    while (!flag_->compare_exchange_weak(old, 0)) {
-        old = 1;
-    }
-
-    DataHeader dataHeader(data_size, id);
-
-    if (needs_truncation) {
-        size_t tail_size = total_memory_size_ - old_tail;
-        if (tail_size < sizeof(DataHeader)) {
-            if (memcpy_s(buffer_ + 1 + 2 * sizeof(size_t) + (sizeof(DataHeader) - tail_size), total_memory_size_ - (sizeof(DataHeader) - tail_size), data, data_size)) {
-                return false;
-            }
-            if (memcpy_s(buffer_ + 1 + 2 * sizeof(size_t) + old_tail, total_memory_size_ - old_tail, reinterpret_cast<uint8_t*>(&dataHeader), tail_size)) {
-                return false;
-            }
-            if (memcpy_s(buffer_ + 1 + 2 * sizeof(size_t), total_memory_size_, (reinterpret_cast<uint8_t*>(&dataHeader)) + tail_size, sizeof(DataHeader) - tail_size)) {
-                return false;
-            }
-        } else {
-            if (memcpy_s(buffer_ + 1 + 2 * sizeof(size_t) + old_tail + sizeof(DataHeader), total_memory_size_ - old_tail - sizeof(DataHeader), data, tail_size - sizeof(DataHeader))) {
-                return false;
-            }
-            if (memcpy_s(buffer_ + 1 + 2 * sizeof(size_t), total_memory_size_, reinterpret_cast<const uint8_t*>(data) + (tail_size - sizeof(DataHeader)), data_size - (tail_size - sizeof(DataHeader)))) {
-                return false;
-            }
-            if (memcpy_s(buffer_ + 1 + 2 * sizeof(size_t) + old_tail, total_memory_size_ - old_tail, &dataHeader, sizeof(DataHeader))) {
-                return false;
-            }
-        }
-    } else {
-        if (memcpy_s(buffer_ + 1 + 2 * sizeof(size_t) + old_tail + sizeof(DataHeader), total_memory_size_ - old_tail - sizeof(DataHeader), data, data_size)) {
-            return false;
-        }
-        if (memcpy_s(buffer_ + 1 + 2 * sizeof(size_t) + old_tail, total_memory_size_ - old_tail, &dataHeader, sizeof(DataHeader))) {
-            return false;
-        }
     }
 
     return true;
 }
 
-bool LockFreeQueue::dequeue(void** output, size_t& out_size, size_t& id)
+bool LockFreeQueue::ClientInit()
 {
-    if (memcpy_s(&head_, sizeof(size_t), buffer_ + 1, sizeof(size_t))) {
-        return false;
-    }
-    if (memcpy_s(&tail_, sizeof(size_t), buffer_ + 1 + sizeof(size_t), sizeof(size_t))) {
-        return false;
-    }
-    if (head_ == tail_ && *(buffer_ + 1 + 2 * sizeof(size_t) + head_) == 0) {
+    if (magic_ != LEAKS_MAGIC_PREFIX) {
+        std::cout << "[ERROR] Failed to check self-ptr of lock-free queue." << std::endl;
         return false;
     }
 
-    size_t cur = getNextData();
-    if (cur == SIZE_MAX) {
+    if (size_ <= sizeof(DataHeader) || head_.load(std::memory_order_relaxed) < sizeof(*this) ||
+        tail_.load(std::memory_order_relaxed) < sizeof(*this)) {
+        std::cout << "[ERROR] Bad lock-free queue head data." << std::endl;
         return false;
-    }
-
-    out_size = dataHeader_->data_size;
-    id = dataHeader_->clientId;
-    if (tail_ > head_) {
-        if (memcpy_s(outputBuf_, OUTPUT_BUF_SIZE, buffer_ + 1 + 2 * sizeof(size_t) + cur + sizeof(DataHeader), out_size)) {
-            return false;
-        }
-        if (memset_s(buffer_ + 1 + 2 * sizeof(size_t) + cur, total_memory_size_, 0, out_size + sizeof(DataHeader))) {
-            return false;
-        }
-    } else {
-        if (total_memory_size_ - cur > sizeof(DataHeader)) {
-            if (total_memory_size_ - cur - sizeof(DataHeader) > out_size) {
-                if (memcpy_s(outputBuf_, OUTPUT_BUF_SIZE, buffer_ + 1 + 2 * sizeof(size_t) + cur + sizeof(DataHeader), out_size)) {
-                    return false;
-                }
-                if (memset_s(buffer_ + 1 + 2 * sizeof(size_t) + cur, total_memory_size_ - cur, 0, out_size + sizeof(DataHeader))) {
-                    return false;
-                }
-            } else {
-                size_t first_part = total_memory_size_ - cur - sizeof(DataHeader);
-                size_t second_part = out_size - first_part;
-                if (memcpy_s(outputBuf_, OUTPUT_BUF_SIZE, buffer_ + 1 + 2 * sizeof(size_t) + cur + sizeof(DataHeader), first_part)) {
-                    return false;
-                }
-                if (memset_s(buffer_ + 1 + 2 * sizeof(size_t) + cur + sizeof(DataHeader), total_memory_size_ - cur - sizeof(DataHeader), 0, first_part)) {
-                    return false;
-                }
-                if (memcpy_s(outputBuf_ + first_part, OUTPUT_BUF_SIZE, buffer_ + 1 + 2 * sizeof(size_t), second_part)) {
-                    return false;
-                }
-                if (memset_s(buffer_ + 1 + 2 * sizeof(size_t), total_memory_size_, 0, second_part)) {
-                    return false;
-                }
-            }
-        } else {
-            size_t first_part = total_memory_size_ - cur;
-            size_t second_part = sizeof(DataHeader) - first_part;
-            if (memcpy_s(outputBuf_, OUTPUT_BUF_SIZE, buffer_ + 1 + 2 * sizeof(size_t) + second_part, out_size)) {
-                return false;
-            }
-            if (memset_s(buffer_ + 1 + 2 * sizeof(size_t) + second_part, total_memory_size_ - second_part, 0, out_size)) {
-                return false;
-            }
-        }
-    }
-
-    *output = outputBuf_;
-
-    cur = (cur + out_size + sizeof(DataHeader)) % (total_memory_size_);
-    flag_ = reinterpret_cast<std::atomic<uint8_t>*>(buffer_);
-    uint8_t old = 0;
-    while (!flag_->compare_exchange_weak(old, 1)) {
-        old = 0;
-    }
-    if (memcpy_s(buffer_ + 1, total_memory_size_ + 2 * sizeof(size_t), &cur, sizeof(size_t))) {
-        return false;
-    }
-
-    old = 1;
-    while (!flag_->compare_exchange_weak(old, 0)) {
-        old = 1;
     }
 
     return true;
 }
 
-size_t LockFreeQueue::getNextData()
+inline bool RingBufferMemcpyIn(void* buffer, size_t bufLen, uint64_t offset, const void* src, size_t length)
 {
-    size_t cur = head_;
-    uint8_t* ptr = buffer_ + 1 + 2 * sizeof(size_t) + cur;
-    size_t remain_space = total_memory_size_ - cur;
-    if (remain_space < sizeof(DataHeader)) {
-        size_t first_part = remain_space;
-        size_t second_part = sizeof(DataHeader) - first_part;
-
-        if (second_part > (tail_ < head_ ? tail_ : 0)) {
-            return SIZE_MAX;
-        }
-
-        if (memcpy_s(dataHeader_, sizeof(DataHeader), ptr, first_part)) {
-            return SIZE_MAX;
-        }
-        if (memcpy_s(reinterpret_cast<uint8_t*>(dataHeader_) + first_part, second_part, buffer_ + 9, second_part)) {
-            return SIZE_MAX;
-        }
-    } else {
-        if (memcpy_s(dataHeader_, sizeof(DataHeader), ptr, sizeof(DataHeader))) {
-            return SIZE_MAX;
-        }
+    if (length > bufLen) {
+        return false;
     }
-    if (dataHeader_->magic_prefix == 0xABCD1234) {
-        size_t next = (cur + sizeof(DataHeader) + dataHeader_->data_size) % total_memory_size_;
-        if (next == tail_ || (tail_ > head_ && next < tail_) || (tail_ < head_ && (next > head_ || next < tail_))) {
-            return cur;
+    uint64_t realOffset = offset % bufLen;
+    if (realOffset + length <= bufLen) {
+        return memcpy_s(static_cast<uint8_t*>(buffer) + realOffset, bufLen - realOffset, src, length) == 0;
+    }
+    size_t seg1 = bufLen - realOffset;
+    if (memcpy_s(static_cast<uint8_t*>(buffer) + realOffset, seg1, src, seg1) != 0) {
+        return false;
+    }
+    if (memcpy_s(buffer, realOffset, static_cast<const uint8_t*>(src) + seg1, length - seg1) != 0) {
+        return false;
+    }
+    return true;
+}
+
+inline bool RingBufferMemcpyOut(void* dst, size_t length, const void* buffer, size_t bufLen, uint64_t offset)
+{
+    if (length > bufLen) {
+        return false;
+    }
+    uint64_t realOffset = offset % bufLen;
+    if (realOffset + length <= bufLen) {
+        return memcpy_s(dst, length, static_cast<const uint8_t*>(buffer) + realOffset, length) == 0;
+    }
+    size_t seg1 = bufLen - realOffset;
+    if (memcpy_s(dst, length, static_cast<const uint8_t*>(buffer) + realOffset, seg1) != 0) {
+        return false;
+    }
+    if (memcpy_s(static_cast<uint8_t*>(dst) + seg1, length - seg1, buffer, length - seg1) != 0) {
+        return false;
+    }
+    return true;
+}
+
+inline void RingBufferMemClear(void* buffer, size_t bufLen, uint64_t offset, size_t length)
+{
+    uint64_t realOffset = offset % bufLen;
+    if (realOffset + length <= bufLen) {
+        if (memset_s(static_cast<uint8_t*>(buffer) + realOffset, bufLen - realOffset, 0, length)) {
+            std::cout << "[ERROR] failed to clear buffer offset:" << realOffset << std::endl;
         }
-    } else {
-        std::cout << "head data is broken\n";
+        return;
+    }
+    size_t seg1 = bufLen - realOffset;
+    if (memset_s(static_cast<uint8_t*>(buffer) + realOffset, seg1, 0, seg1)) {
+        std::cout << "[ERROR] failed to clear buffer offset:" << realOffset << std::endl;
+    }
+    if (memset_s(buffer, realOffset, 0, length - seg1)) {
+        std::cout << "[ERROR] failed to clear buffer offset:0" << std::endl;
+    }
+    return;
+}
+
+
+bool LockFreeQueue::EnQueue(const void* data, size_t dataSize, size_t id)
+{
+    size_t totalSize = dataSize + sizeof(DataHeader);
+    if (totalSize > size_) {
+        return false;
+    }
+    uint64_t oriTail = tail_.fetch_add(totalSize, std::memory_order_relaxed);
+    uint32_t cnt = LEAKS_MSG_SEND_TIMEOUT_MS * 1000;  // ms-->us
+    while (oriTail + totalSize - head_.load(std::memory_order_relaxed) > size_) {
+        if (--cnt == 0) {
+            return false;
+        }
+        struct timespec ts;
+        ts.tv_sec = 0;
+        ts.tv_nsec = 1000;  // 1us
+        nanosleep(&ts, nullptr);
     }
 
-    return SIZE_MAX;
+    uint8_t *dataBuf = static_cast<uint8_t*>(static_cast<void*>(this)) + sizeof(*this);
+    if (!RingBufferMemcpyIn(dataBuf, size_, oriTail + sizeof(DataHeader), data, dataSize)) {
+        return false;
+    }
+
+    DataHeader head;
+    head.magicPrefix = LEAKS_MAGIC_PREFIX;
+    head.dataSize = dataSize;
+    head.clientId = id;
+    if (!RingBufferMemcpyIn(dataBuf, size_, oriTail, &head, sizeof(DataHeader))) {
+        return false;
+    }
+
+    /* 所有数据拷贝好后最后置falg */
+    static_cast<DataHeader*>(static_cast<void*>(dataBuf + oriTail % size_))->complateFlag.store(1, std::memory_order_release);
+    return true;
+}
+
+bool LockFreeQueue::DeQueue(std::string& msg, size_t& id)
+{
+    if (IsEmpty()) {
+        return false;
+    }
+
+    uint64_t offset = head_.load(std::memory_order_relaxed);
+    uint8_t *dataBuf = static_cast<uint8_t*>(static_cast<void*>(this)) + sizeof(*this);
+    DataHeader* dataHead = static_cast<DataHeader*>(static_cast<void*>(dataBuf + offset % size_));
+    uint32_t cnt = LEAKS_MSG_RECV_TIMEOUT_MS * 1000;  // ms-->us
+    while (dataHead->complateFlag.load(std::memory_order_acquire) != 1) {
+        if (--cnt == 0) {
+            return false;
+        }
+        struct timespec ts;
+        ts.tv_sec = 0;
+        ts.tv_nsec = 1000;  // 1us
+        nanosleep(&ts, nullptr);
+    }
+
+    DataHeader head;
+    if (!RingBufferMemcpyOut(&head, sizeof(head), dataBuf, size_, offset)) {
+        return false;
+    }
+    if (head.magicPrefix != LEAKS_MAGIC_PREFIX) {
+        return false;
+    }
+    msg.resize(head.dataSize);
+    uint8_t *output = static_cast<uint8_t*>(static_cast<void*>((const_cast<char*>(msg.c_str()))));
+    output[head.dataSize] = 0;
+    if (!RingBufferMemcpyOut(output, head.dataSize, dataBuf, size_, offset + sizeof(head))) {
+        return false;
+    }
+    RingBufferMemClear(dataBuf, size_, offset, sizeof(head) + head.dataSize);
+    id = head.clientId;
+    head_.fetch_add(sizeof(head) + head.dataSize, std::memory_order_relaxed);
+
+    return true;
 }
 
 }
