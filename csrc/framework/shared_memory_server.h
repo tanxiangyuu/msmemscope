@@ -13,16 +13,17 @@ class SharedMemoryServer : public CommunicationProxyServer {
 public:
     explicit SharedMemoryServer();
     ~SharedMemoryServer() override;
-    bool init() override;
-    bool send(std::size_t clientId, const std::string& msg, size_t& size) override;
-    bool receive(std::size_t& clientId, std::string& msg, size_t& size) override;
+    bool Init() override;
+    bool Send(std::size_t clientId, const std::string& msg, size_t& size) override;
+    bool Receive(std::size_t& clientId, std::string& msg, size_t& size) override;
     void SetMsgHandlerHook(LeaksClientMsgHandlerHook &&hook) override;
     void SetClientConnectHook(LeaksClientConnectHook &&hook) override;
 private:
-    std::mutex sentMutex_;
+    uint64_t GetShmAvailable();
+    uint64_t shmSize_;
     Utility::LockFreeQueue* c2sQueue_;
     uint8_t* s2cBuffer_;
-    int fd_c2s_;
+    int fdc2s_;
     char* name_;
     LeaksClientConnectHook clientConnectHook_;
     LeaksClientMsgHandlerHook clientMsgHandlerHook_;

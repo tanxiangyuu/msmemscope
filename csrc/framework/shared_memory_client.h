@@ -12,14 +12,15 @@ class SharedMemoryClient : public CommunicationProxyClient {
 public:
     explicit SharedMemoryClient();
     ~SharedMemoryClient() override;
-    bool init() override;
-    bool send(const std::string& msg, size_t& size) override;
-    bool receive(std::string& msg, size_t& size, uint32_t timeOut) override;
+    bool Init() override;
+    bool Send(const std::string& msg, size_t& size) override;
+    bool Receive(std::string& msg, size_t& size, uint32_t timeOut) override;
 private:
+    uint64_t shmSize_;
     Utility::LockFreeQueue* c2sQueue_;
     uint8_t* s2cBuffer_;
-    int fd_c2s_;
-    char* name_;
+    int fdc2s_;
+    std::string name_;
     ClientId clientId_;
 };
 

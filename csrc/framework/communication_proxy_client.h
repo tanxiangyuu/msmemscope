@@ -12,9 +12,9 @@ namespace Leaks {
 class CommunicationProxyClient {
 public:
     CommunicationProxyClient() {}
-    virtual bool init() = 0;
-    virtual bool send(const std::string& msg, size_t& size) = 0;
-    virtual bool receive(std::string& msg, size_t& size, uint32_t timeOut) = 0;
+    virtual bool Init() = 0;
+    virtual bool Send(const std::string& msg, size_t& size) = 0;
+    virtual bool Receive(std::string& msg, size_t& size, uint32_t timeOut) = 0;
     virtual ~CommunicationProxyClient() = default;
 };
 
