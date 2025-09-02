@@ -11,7 +11,7 @@ constexpr uint32_t MAX_TRY_COUNT = 100;
 
 DomainSocketClient::DomainSocketClient(CommType type):client_(new Client(type)), type_(type) { }
 
-bool DomainSocketClient::init()
+bool DomainSocketClient::Init()
 {
     if (client_ == nullptr) {
         std::cout << "Initial client failed" << std::endl;
@@ -31,7 +31,7 @@ bool DomainSocketClient::init()
     return true;
 }
 
-bool DomainSocketClient::send(const std::string& msg, size_t& size)
+bool DomainSocketClient::Send(const std::string& msg, size_t& size)
 {
     int32_t sentBytes = 0;
     /* 循环外部先发送一次，减少重复构造字符串 */
@@ -47,7 +47,7 @@ bool DomainSocketClient::send(const std::string& msg, size_t& size)
     return true;
 }
 
-bool DomainSocketClient::receive(std::string& msg, size_t& size, uint32_t timeOut)
+bool DomainSocketClient::Receive(std::string& msg, size_t& size, uint32_t timeOut)
 {
     if (type_ == CommType::MEMORY) {
         return true;

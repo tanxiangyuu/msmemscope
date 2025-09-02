@@ -47,6 +47,6 @@ target_sources(leaks_test PRIVATE ${TEST_ORIGINAL_SOURCE})
 
 include_directories(leaks_test ${leaks_header} ${gtest_header} ${Python3_INCLUDE_DIRS})
 
-target_link_libraries(leaks_test gtest_main dl pthread stdc++fs ${Python3_LIBRARIES})
+target_link_libraries(leaks_test gtest_main dl pthread stdc++fs ${Python3_LIBRARIES} rt)
  
 add_test(NAME leaks_test COMMAND leaks_test)
