@@ -99,7 +99,6 @@ struct Config {
     char outputDir[PATH_MAX];
     uint8_t dataFormat;
     char dbFileName[PATH_MAX];
-    bool collectCpu;
     bool collectAllNpu;
     /* 当前单机最多16卡，用32bits表示足够了，后续有需要再扩充 */
     uint32_t npuSlots;
