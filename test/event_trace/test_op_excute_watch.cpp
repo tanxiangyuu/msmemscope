@@ -2,10 +2,10 @@
 
 #include <gtest/gtest.h>
 #define private public
-#include "event_trace/op_watch/op_excute_watch.h"
+#include "event_trace/memory_watch/memory_watch.h"
 #undef private
-#include "event_trace/op_watch/tensor_dumper.h"
-#include "event_trace/op_watch/tensor_monitor.h"
+#include "event_trace/memory_watch/tensor_dumper.h"
+#include "event_trace/memory_watch/tensor_monitor.h"
 #include "securec.h"
 
 using namespace Leaks;
@@ -26,23 +26,23 @@ aclrtStream stream = nullptr;
 
 void OpExcuteWatchNormalCheckOpA()
 {
-    auto &instance = OpExcuteWatch::GetInstance();
+    auto &instance = MemoryWatch::GetInstance();
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 
-    instance.OpExcuteBegin(stream, "A", AccessMemType::ATB);
-
-    EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
-
-    instance.OpExcuteBegin(stream, "A", AccessMemType::ATEN);
+    instance.OpExcuteBegin(stream, "A");
 
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
+
+    instance.OpExcuteBegin(stream, "A");
+
+    EXPECT_EQ(watchedTensors.size(), 0);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 
     MonitoredTensor tesor1 = {};
     tesor1.data = reinterpret_cast<void *>(DATA_VALUE_1);
@@ -56,32 +56,32 @@ void OpExcuteWatchNormalCheckOpA()
     tensors.push_back(tesor1);
     tensors.push_back(tesor2);
 
-    instance.OpExcuteEnd(stream, "A", tensors, AccessMemType::ATB);
+    instance.OpExcuteEnd(stream, "A", tensors);
 
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 
-    instance.OpExcuteEnd(stream, "A", tensors, AccessMemType::ATEN);
+    instance.OpExcuteEnd(stream, "A", tensors);
 
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 }
 
 void OpExcuteWatchNormalCheckOpB()
 {
-    auto &instance = OpExcuteWatch::GetInstance();
+    auto &instance = MemoryWatch::GetInstance();
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 
-    instance.OpExcuteBegin(stream, "first", AccessMemType::ATB);
+    instance.OpExcuteBegin(stream, "first");
 
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 
     MonitoredTensor tesor1 = {};
     tesor1.data = reinterpret_cast<void *>(DATA_VALUE_1);
@@ -95,37 +95,37 @@ void OpExcuteWatchNormalCheckOpB()
     tensors.push_back(tesor1);
     tensors.push_back(tesor2);
 
-    instance.OpExcuteEnd(stream, "first", tensors, AccessMemType::ATB);
+    instance.OpExcuteEnd(stream, "first", tensors);
 
-    EXPECT_EQ(instance.GetWatchedOpName(), "first");
+    EXPECT_EQ(instance.GetWatchedTargetName(), "first");
     watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
-    EXPECT_EQ(instance.IsInMonitoring(), true);
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), true);
 }
 
 void OpExcuteWatchNormalCheckOpC()
 {
-    auto &instance = OpExcuteWatch::GetInstance();
+    auto &instance = MemoryWatch::GetInstance();
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
-    EXPECT_EQ(instance.GetWatchedOpName(), "first");
-    EXPECT_EQ(instance.IsInMonitoring(), true);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "first");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), true);
 
-    instance.OpExcuteBegin(stream, "C", AccessMemType::ATB);
+    instance.OpExcuteBegin(stream, "C");
 
-    EXPECT_EQ(instance.GetWatchedOpName(), "first");
+    EXPECT_EQ(instance.GetWatchedTargetName(), "first");
     watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
-    EXPECT_EQ(instance.IsInMonitoring(), true);
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), true);
 
     MonitoredTensor tesor1 = {};
     tesor1.data = reinterpret_cast<void *>(DATA_VALUE_1);
@@ -139,37 +139,37 @@ void OpExcuteWatchNormalCheckOpC()
     tensors.push_back(tesor1);
     tensors.push_back(tesor2);
 
-    instance.OpExcuteEnd(stream, "C", tensors, AccessMemType::ATB);
+    instance.OpExcuteEnd(stream, "C", tensors);
 
-    EXPECT_EQ(instance.GetWatchedOpName(), "first");
+    EXPECT_EQ(instance.GetWatchedTargetName(), "first");
     watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
-    EXPECT_EQ(instance.IsInMonitoring(), true);
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), true);
 }
 
 void OpExcuteWatchNormalCheckOpD()
 {
-    auto &instance = OpExcuteWatch::GetInstance();
-    EXPECT_EQ(instance.GetWatchedOpName(), "first");
+    auto &instance = MemoryWatch::GetInstance();
+    EXPECT_EQ(instance.GetWatchedTargetName(), "first");
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
-    EXPECT_EQ(instance.IsInMonitoring(), true);
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), true);
 
-    instance.OpExcuteBegin(stream, "last", AccessMemType::ATB);
+    instance.OpExcuteBegin(stream, "last");
 
-    EXPECT_EQ(instance.GetWatchedOpName(), "first");
+    EXPECT_EQ(instance.GetWatchedTargetName(), "first");
     watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
-    EXPECT_EQ(instance.IsInMonitoring(), true);
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), true);
 
     MonitoredTensor tesor1 = {};
     tesor1.data = reinterpret_cast<void *>(DATA_VALUE_1);
@@ -183,27 +183,27 @@ void OpExcuteWatchNormalCheckOpD()
     tensors.push_back(tesor1);
     tensors.push_back(tesor2);
 
-    instance.OpExcuteEnd(stream, "last", tensors, AccessMemType::ATB);
+    instance.OpExcuteEnd(stream, "last", tensors);
 
     watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 }
 
 void OpExcuteWatchNormalCheckOpE()
 {
-    auto &instance = OpExcuteWatch::GetInstance();
+    auto &instance = MemoryWatch::GetInstance();
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 
-    instance.OpExcuteBegin(stream, "E", AccessMemType::ATB);
+    instance.OpExcuteBegin(stream, "E");
 
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 
     MonitoredTensor tesor1 = {};
     tesor1.data = reinterpret_cast<void *>(DATA_VALUE_1);
@@ -217,19 +217,19 @@ void OpExcuteWatchNormalCheckOpE()
     tensors.push_back(tesor1);
     tensors.push_back(tesor2);
 
-    instance.OpExcuteEnd(stream, "E", tensors, AccessMemType::ATB);
+    instance.OpExcuteEnd(stream, "E", tensors);
 
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 }
 
 // 分别执行ABCDE五个OP，其中B和D为start和end算子，校验整个过程中系统的状态是否符合预期
-TEST(OpExcuteWatch, OpExcuteWatchNormalCase)
+TEST(MemoryWatch, OpExcuteWatchNormalCase)
 {
-    auto &instance = OpExcuteWatch::GetInstance();
-    instance.fistWatchOp_ = "first";
-    instance.lastWatchOp_ = "last";
+    auto &instance = MemoryWatch::GetInstance();
+    instance.firstWatchTarget_ = "first";
+    instance.lastWatchTarget_ = "last";
     instance.outputId_ = UINT32_MAX;
 
     OpExcuteWatchNormalCheckOpA();
@@ -241,11 +241,11 @@ TEST(OpExcuteWatch, OpExcuteWatchNormalCase)
 
 void KernelExcuteWatchNormalCheckOpA()
 {
-    auto &instance = OpExcuteWatch::GetInstance();
+    auto &instance = MemoryWatch::GetInstance();
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 
     std::string name = "/A/before";
     Mki::Tensor tensor1 = {};
@@ -260,27 +260,27 @@ void KernelExcuteWatchNormalCheckOpA()
     tensors.push_back(tensor1);
     tensors.push_back(tensor2);
 
-    instance.KernelExcute(stream, name, tensors, AccessMemType::ATB);
+    instance.ATBKernelExcute(stream, (char *)name.c_str(), tensors);
 
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 
     name = "/A/after";
-    instance.KernelExcute(stream, name, tensors, AccessMemType::ATB);
+    instance.ATBKernelExcute(stream, (char *)name.c_str(), tensors);
 
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 }
 
 void KernelExcuteWatchNormalCheckOpB()
 {
-    auto &instance = OpExcuteWatch::GetInstance();
+    auto &instance = MemoryWatch::GetInstance();
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 
     std::string name = "/first/before";
     Mki::Tensor tensor1 = {};
@@ -295,34 +295,34 @@ void KernelExcuteWatchNormalCheckOpB()
     tensors.push_back(tensor1);
     tensors.push_back(tensor2);
 
-    instance.KernelExcute(stream, name, tensors, AccessMemType::ATB);
+    instance.ATBKernelExcute(stream, (char *)name.c_str(), tensors);
 
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 
     name = "/first/after";
-    instance.KernelExcute(stream, name, tensors, AccessMemType::ATB);
+    instance.ATBKernelExcute(stream, (char *)name.c_str(), tensors);
 
-    EXPECT_EQ(instance.GetWatchedOpName(), "first");
+    EXPECT_EQ(instance.GetWatchedTargetName(), "first");
     watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
-    EXPECT_EQ(instance.IsInMonitoring(), true);
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), true);
 }
 
 void KernelExcuteWatchNormalCheckOpC()
 {
-    auto &instance = OpExcuteWatch::GetInstance();
+    auto &instance = MemoryWatch::GetInstance();
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
-    EXPECT_EQ(instance.GetWatchedOpName(), "first");
-    EXPECT_EQ(instance.IsInMonitoring(), true);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "first");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), true);
 
     std::string name = "/C/before";
     Mki::Tensor tensor1 = {};
@@ -337,38 +337,38 @@ void KernelExcuteWatchNormalCheckOpC()
     tensors.push_back(tensor1);
     tensors.push_back(tensor2);
 
-    instance.KernelExcute(stream, name, tensors, AccessMemType::ATB);
+    instance.ATBKernelExcute(stream, (char *)name.c_str(), tensors);
 
-    EXPECT_EQ(instance.GetWatchedOpName(), "first");
+    EXPECT_EQ(instance.GetWatchedTargetName(), "first");
     watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
-    EXPECT_EQ(instance.IsInMonitoring(), true);
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), true);
 
     name = "/C/after";
-    instance.KernelExcute(stream, name, tensors, AccessMemType::ATB);
+    instance.ATBKernelExcute(stream, (char *)name.c_str(), tensors);
 
-    EXPECT_EQ(instance.GetWatchedOpName(), "first");
+    EXPECT_EQ(instance.GetWatchedTargetName(), "first");
     watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
-    EXPECT_EQ(instance.IsInMonitoring(), true);
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), true);
 }
 
 void KernelExcuteWatchNormalCheckOpD()
 {
-    auto &instance = OpExcuteWatch::GetInstance();
-    EXPECT_EQ(instance.GetWatchedOpName(), "first");
+    auto &instance = MemoryWatch::GetInstance();
+    EXPECT_EQ(instance.GetWatchedTargetName(), "first");
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
-    EXPECT_EQ(instance.IsInMonitoring(), true);
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), true);
 
     std::string name = "/last/before";
     Mki::Tensor tensor1 = {};
@@ -383,32 +383,32 @@ void KernelExcuteWatchNormalCheckOpD()
     tensors.push_back(tensor1);
     tensors.push_back(tensor2);
 
-    instance.KernelExcute(stream, name, tensors, AccessMemType::ATB);
+    instance.ATBKernelExcute(stream, (char *)name.c_str(), tensors);
 
-    EXPECT_EQ(instance.GetWatchedOpName(), "first");
+    EXPECT_EQ(instance.GetWatchedTargetName(), "first");
     watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].dataSize, DATA_SIZE_1);
     EXPECT_EQ(watchedTensors[DATA_VALUE_1].data, reinterpret_cast<void *>(DATA_VALUE_1));
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
-    EXPECT_EQ(instance.IsInMonitoring(), true);
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), true);
 
     name = "/last/after";
-    instance.KernelExcute(stream, name, tensors, AccessMemType::ATB);
+    instance.ATBKernelExcute(stream, (char *)name.c_str(), tensors);
 
     watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 }
 
 void KernelExcuteWatchNormalCheckOpE()
 {
-    auto &instance = OpExcuteWatch::GetInstance();
+    auto &instance = MemoryWatch::GetInstance();
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 
     std::string name = "/E/before";
     Mki::Tensor tensor1 = {};
@@ -423,26 +423,26 @@ void KernelExcuteWatchNormalCheckOpE()
     tensors.push_back(tensor1);
     tensors.push_back(tensor2);
 
-    instance.KernelExcute(stream, name, tensors, AccessMemType::ATB);
+    instance.ATBKernelExcute(stream, (char *)name.c_str(), tensors);
 
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 
     name = "/E/after";
-    instance.KernelExcute(stream, name, tensors, AccessMemType::ATB);
+    instance.ATBKernelExcute(stream, (char *)name.c_str(), tensors);
 
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 }
 
 // 分别执行ABCDE五个kernel，其中B和D为start和end算子，校验整个过程中系统的状态是否符合预期
-TEST(OpExcuteWatch, KernelExcuteWatchNormalCase)
+TEST(MemoryWatch, KernelExcuteWatchNormalCase)
 {
-    auto &instance = OpExcuteWatch::GetInstance();
-    instance.fistWatchOp_ = "first";
-    instance.lastWatchOp_ = "last";
+    auto &instance = MemoryWatch::GetInstance();
+    instance.firstWatchTarget_ = "first";
+    instance.lastWatchTarget_ = "last";
     instance.outputId_ = UINT32_MAX;
 
     KernelExcuteWatchNormalCheckOpA();
@@ -454,11 +454,11 @@ TEST(OpExcuteWatch, KernelExcuteWatchNormalCase)
 
 // 分别执行ABCDE五个算子（OP和kernel混合），其中B和D为start和end算子，且D和E为kernel，其余为OP
 // 校验整个过程中系统的状态是否符合预期
-TEST(OpExcuteWatch, OpKernelMixExcuteWatchNormalCase)
+TEST(MemoryWatch, OpKernelMixExcuteWatchNormalCase)
 {
-    auto &instance = OpExcuteWatch::GetInstance();
-    instance.fistWatchOp_ = "first";
-    instance.lastWatchOp_ = "last";
+    auto &instance = MemoryWatch::GetInstance();
+    instance.firstWatchTarget_ = "first";
+    instance.lastWatchTarget_ = "last";
     instance.outputId_ = UINT32_MAX;
 
     OpExcuteWatchNormalCheckOpA();
@@ -470,17 +470,17 @@ TEST(OpExcuteWatch, OpKernelMixExcuteWatchNormalCase)
 
 void OpExcuteWatchNormalCheckOpBWithOutputId()
 {
-    auto &instance = OpExcuteWatch::GetInstance();
+    auto &instance = MemoryWatch::GetInstance();
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 
-    instance.OpExcuteBegin(stream, "first", AccessMemType::ATB);
+    instance.OpExcuteBegin(stream, "first");
 
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 
     MonitoredTensor tesor1 = {};
     tesor1.data = reinterpret_cast<void *>(DATA_VALUE_1);
@@ -494,34 +494,34 @@ void OpExcuteWatchNormalCheckOpBWithOutputId()
     tensors.push_back(tesor1);
     tensors.push_back(tesor2);
 
-    instance.OpExcuteEnd(stream, "first", tensors, AccessMemType::ATB);
+    instance.OpExcuteEnd(stream, "first", tensors);
 
-    EXPECT_EQ(instance.GetWatchedOpName(), "first");
+    EXPECT_EQ(instance.GetWatchedTargetName(), "first");
     watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 1);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
-    EXPECT_EQ(instance.IsInMonitoring(), true);
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), true);
 }
 
 void OpExcuteWatchNormalCheckOpCWithOutputId()
 {
-    auto &instance = OpExcuteWatch::GetInstance();
+    auto &instance = MemoryWatch::GetInstance();
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 1);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
-    EXPECT_EQ(instance.GetWatchedOpName(), "first");
-    EXPECT_EQ(instance.IsInMonitoring(), true);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "first");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), true);
 
-    instance.OpExcuteBegin(stream, "C", AccessMemType::ATB);
+    instance.OpExcuteBegin(stream, "C");
 
-    EXPECT_EQ(instance.GetWatchedOpName(), "first");
+    EXPECT_EQ(instance.GetWatchedTargetName(), "first");
     watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 1);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
-    EXPECT_EQ(instance.IsInMonitoring(), true);
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), true);
 
     MonitoredTensor tesor1 = {};
     tesor1.data = reinterpret_cast<void *>(DATA_VALUE_3);
@@ -535,34 +535,34 @@ void OpExcuteWatchNormalCheckOpCWithOutputId()
     tensors.push_back(tesor1);
     tensors.push_back(tesor2);
 
-    instance.OpExcuteEnd(stream, "C", tensors, AccessMemType::ATB);
+    instance.OpExcuteEnd(stream, "C", tensors);
 
-    EXPECT_EQ(instance.GetWatchedOpName(), "first");
+    EXPECT_EQ(instance.GetWatchedTargetName(), "first");
     watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 1);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
-    EXPECT_EQ(instance.IsInMonitoring(), true);
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), true);
 }
 
 void OpExcuteWatchNormalCheckOpDWithOutputId()
 {
-    auto &instance = OpExcuteWatch::GetInstance();
-    EXPECT_EQ(instance.GetWatchedOpName(), "first");
+    auto &instance = MemoryWatch::GetInstance();
+    EXPECT_EQ(instance.GetWatchedTargetName(), "first");
     auto watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 1);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
-    EXPECT_EQ(instance.IsInMonitoring(), true);
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), true);
 
-    instance.OpExcuteBegin(stream, "last", AccessMemType::ATB);
+    instance.OpExcuteBegin(stream, "last");
 
-    EXPECT_EQ(instance.GetWatchedOpName(), "first");
+    EXPECT_EQ(instance.GetWatchedTargetName(), "first");
     watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 1);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].dataSize, DATA_SIZE_2);
     EXPECT_EQ(watchedTensors[DATA_VALUE_2].data, reinterpret_cast<void *>(DATA_VALUE_2));
-    EXPECT_EQ(instance.IsInMonitoring(), true);
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), true);
 
     MonitoredTensor tesor1 = {};
     tesor1.data = reinterpret_cast<void *>(DATA_VALUE_5);
@@ -576,20 +576,20 @@ void OpExcuteWatchNormalCheckOpDWithOutputId()
     tensors.push_back(tesor1);
     tensors.push_back(tesor2);
 
-    instance.OpExcuteEnd(stream, "last", tensors, AccessMemType::ATB);
+    instance.OpExcuteEnd(stream, "last", tensors);
 
     watchedTensors = TensorMonitor::GetInstance().GetCmdWatchedTensorsMap();
     EXPECT_EQ(watchedTensors.size(), 0);
-    EXPECT_EQ(instance.GetWatchedOpName(), "");
-    EXPECT_EQ(instance.IsInMonitoring(), false);
+    EXPECT_EQ(instance.GetWatchedTargetName(), "");
+    EXPECT_EQ(TensorMonitor::GetInstance().IsInMonitoring(), false);
 }
 
 // 分别执行ABCDE五个OP，其中B和D为start和end算子，校验整个过程中系统的状态是否符合预期（设置outputId）
-TEST(OpExcuteWatch, OpExcuteWatchSetOutputIdCase)
+TEST(MemoryWatch, OpExcuteWatchSetOutputIdCase)
 {
-    auto &instance = OpExcuteWatch::GetInstance();
-    instance.fistWatchOp_ = "first";
-    instance.lastWatchOp_ = "last";
+    auto &instance = MemoryWatch::GetInstance();
+    instance.firstWatchTarget_ = "first";
+    instance.lastWatchTarget_ = "last";
     instance.outputId_ = 1; // 只取下标为1的tensor
 
     OpExcuteWatchNormalCheckOpA();
@@ -599,11 +599,11 @@ TEST(OpExcuteWatch, OpExcuteWatchSetOutputIdCase)
     OpExcuteWatchNormalCheckOpE();
 }
 
-TEST(OpExcuteWatch, KernelExcuteWatchCheckAtbKernelExcuteFuc)
+TEST(MemoryWatch, KernelExcuteWatchCheckAtbKernelExcuteFuc)
 {
-    auto &instance = OpExcuteWatch::GetInstance();
-    instance.fistWatchOp_ = "first";
-    instance.lastWatchOp_ = "last";
+    auto &instance = MemoryWatch::GetInstance();
+    instance.firstWatchTarget_ = "first";
+    instance.lastWatchTarget_ = "last";
     instance.outputId_ = UINT32_MAX;
 
     std::string name = "/add/after1";
@@ -612,21 +612,21 @@ TEST(OpExcuteWatch, KernelExcuteWatchCheckAtbKernelExcuteFuc)
 
     Mki::SVector<Mki::Tensor> tensors = {};
     tensors.push_back(tensor);
-    instance.KernelExcute(stream, name, tensors, AccessMemType::ATB);
+    instance.ATBKernelExcute(stream, (char *)name.c_str(), tensors);
 
     std::string firstName = "/first/after";
-    instance.KernelExcute(stream, firstName, tensors, AccessMemType::ATB);
+    instance.ATBKernelExcute(stream, (char *)firstName.c_str(), tensors);
 
     tensors.push_back(tensor);
     instance.outputId_ = 0;
-    instance.KernelExcute(stream, firstName, tensors, AccessMemType::ATB);
+    instance.ATBKernelExcute(stream, (char *)firstName.c_str(), tensors);
 }
 
-TEST(OpExcuteWatch, KernelExcuteWatchCheckAtbOpExcuteBeginFuc)
+TEST(MemoryWatch, KernelExcuteWatchCheckAtbOpExcuteBeginFuc)
 {
-    auto &instance = OpExcuteWatch::GetInstance();
-    instance.fistWatchOp_ = "first";
-    instance.lastWatchOp_ = "last";
+    auto &instance = MemoryWatch::GetInstance();
+    instance.firstWatchTarget_ = "first";
+    instance.lastWatchTarget_ = "last";
     instance.outputId_ = 0;
 
     std::string name = "first";
@@ -643,10 +643,10 @@ TEST(OpExcuteWatch, KernelExcuteWatchCheckAtbOpExcuteBeginFuc)
     tensors.push_back(tesor1);
     tensors.push_back(tesor2);
 
-    instance.OpExcuteEnd(stream, name, tensors, AccessMemType::ATB);
+    instance.OpExcuteEnd(stream, name, tensors);
 }
 
-TEST(OpExcuteWatch, WatchCheckCleanFileNameFunc)
+TEST(MemoryWatch, WatchCheckCleanFileNameFunc)
 {
     std::string fileName = "/123/123/";
     CleanFileName(fileName);

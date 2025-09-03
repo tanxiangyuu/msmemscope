@@ -7,8 +7,8 @@
 #include "utils.h"
 #include "event_report.h"
 #include "bit_field.h"
-#include "op_watch/tensor_monitor.h"
-#include "op_watch/op_excute_watch.h"
+#include "memory_watch/tensor_monitor.h"
+#include "memory_watch/memory_watch.h"
 
 namespace Leaks {
 

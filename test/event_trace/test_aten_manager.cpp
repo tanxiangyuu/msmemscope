@@ -6,7 +6,7 @@
 #undef private
 #include "bit_field.h"
 #include "event_trace/mstx_hooks/mstx_manager.h"
-#include "event_trace/op_watch/tensor_monitor.h"
+#include "event_trace/memory_watch/tensor_monitor.h"
 
 using namespace Leaks;
 
