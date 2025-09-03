@@ -31,6 +31,7 @@ public:
     std::unordered_map<uint64_t, MonitoredTensor> GetPythonWatchedTensorsMap();
     void DeleteWatchTensor(MonitoredTensor& tensorInfo);
     void ClearCmdWatchTensor();
+    bool IsInMonitoring();
 private:
     TensorMonitor() = default;
     ~TensorMonitor() = default;

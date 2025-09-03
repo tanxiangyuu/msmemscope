@@ -273,6 +273,7 @@ TEST(Process, server_process_notify_test)
 {
     std::string msg;
     ServerProcess server(LeaksCommType::SHARED_MEMORY);
+    server.Start();
     server.Notify(0, msg);
 }
 
@@ -280,5 +281,6 @@ TEST(Process, server_process_wait_test)
 {
     std::string msg;
     ServerProcess server(LeaksCommType::SHARED_MEMORY);
+    server.Start();
     server.Wait(0, msg);
 }

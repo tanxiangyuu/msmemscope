@@ -4,7 +4,9 @@ from ._msleaks import _tracer
 from ._msleaks import start, stop, config
 
 from .leak_checker import _leakchecker
+from .inefficient import inefficient_inner
 
 tracer = _tracer
 watcher = _watcher
 leakchecker = _leakchecker
+inefficient = inefficient_inner

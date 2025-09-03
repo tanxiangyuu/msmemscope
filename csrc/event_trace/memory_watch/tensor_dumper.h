@@ -24,7 +24,7 @@ public:
     }
 
     bool DumpOneTensor(const MonitoredTensor& tensor, std::string& fileName);
-    void Dump(aclrtStream stream, const std::string &op, RecordSubType eventType, bool isFirstOp = false);
+    void Dump(aclrtStream stream, const std::string &op, bool isWatchStart);
     void SetDumpNums(uint64_t ptr, int32_t dumpNums);
     int32_t GetDumpNums(uint64_t ptr);
     void DeleteDumpNums(uint64_t ptr);
@@ -42,8 +42,7 @@ private:
     bool DumpTensorHashValue(const std::vector<uint8_t> &hostData, std::string& fileName);
     void SynchronizeStream(aclrtStream stream);
     uint64_t CountOpName(const std::string& name);
-    std::string GetFileName(const std::string &op, RecordSubType eventType, std::string wathcedOpName,
-        uint64_t index, bool isFirstOp);
+    std::string GetFileName(const std::string &op, std::string watchedOpName, uint64_t index, bool isFirstOp);
 
 private:
     bool fullContent_;

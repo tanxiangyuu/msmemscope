@@ -8,6 +8,7 @@
 #include "stars_common.h"
 #include "securec.h"
 #include "bit_field.h"
+#include "memory_watch/memory_watch.h"
 
 namespace Leaks {
 
@@ -147,6 +148,12 @@ KernelEventTrace::~KernelEventTrace()
     }
 }
 
+std::string RuntimeKernelLinker::GetLastKernelName(uint64_t tid)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    return currentNameMap_[tid];
+}
+
 void RuntimeKernelLinker::RuntimeTaskInfoLaunch(const TaskKey& key, uint64_t hashId)
 {
     if (hashId == 0) {
@@ -161,6 +168,13 @@ void RuntimeKernelLinker::RuntimeTaskInfoLaunch(const TaskKey& key, uint64_t has
     if (!vec.empty()) {
         vec.back().taskKey = key;
         vec.back().kernelName = GetHashInfo(hashId);
+        std::string name = std::to_string(std::get<0>(key)) + "_" + std::to_string(iter->first) + "/"
+                            + vec.back().kernelName;
+        currentNameMap_[iter->first] = name;
+        bool isKernelLevel = BitPresent(GetConfig().levelType, static_cast<size_t>(LevelType::LEVEL_KERNEL));
+        if (GetConfig().watchConfig.isWatched && isKernelLevel) {
+            MemoryWatch::GetInstance().KernelExcuteBegin(nullptr, name);
+        }
         KernelEventTrace::GetInstance().KernelLaunch(vec.back());
     }
 

@@ -68,7 +68,6 @@ Process::Process(const Config &config)
     auto func = std::bind(&Process::MsgHandle, this, std::placeholders::_1, std::placeholders::_2);
 
     server_->SetMsgHandlerHook(func);
-
     server_->Start();
 }
 
