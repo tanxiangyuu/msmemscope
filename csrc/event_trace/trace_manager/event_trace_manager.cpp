@@ -34,7 +34,6 @@ void ConfigManager::SetConfigImpl(const Config &config)
     SetEventDefaultConfig(config_);
     SetAnalysisDefaultConfig(config_);
 
-    g_isReportHostMem = config_.collectCpu;
     EventTraceManager::Instance().HandleWithATenCollect();
 }
 
