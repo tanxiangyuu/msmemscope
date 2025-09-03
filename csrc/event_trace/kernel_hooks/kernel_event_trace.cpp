@@ -127,7 +127,7 @@ void KernelEventTrace::CreateReadDataChannel(uint32_t devId)
 void KernelEventTrace::StartKernelEventTrace()
 {
     int32_t devId = GD_INVALID_NUM;
-    if (GetDevice(&devId) != ACL_SUCCESS || devId == GD_INVALID_NUM) {
+    if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
         CLIENT_ERROR_LOG("get device id failed");
     }
 

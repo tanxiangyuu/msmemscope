@@ -68,8 +68,8 @@ bool TensorDumper::DumpTensorHashValue(const std::vector<uint8_t> &hostData, std
 {
     if (csvFile_ == nullptr) {
         int32_t devId = GD_INVALID_NUM;
-        if (GetDevice(&devId) != ACL_SUCCESS || devId == GD_INVALID_NUM) {
-            CLIENT_ERROR_LOG("Get device id failed, " + std::to_string(devId));
+        if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
+            CLIENT_ERROR_LOG("get device id failed, " + std::to_string(devId));
         }
         fileName_ = "watch_dump_data_check_sum_" + std::to_string(devId) + "_";
         if (!Utility::CreateCsvFile(&csvFile_, dumpDir_, fileName_, WATCH_HASH_HEADERS)) {
