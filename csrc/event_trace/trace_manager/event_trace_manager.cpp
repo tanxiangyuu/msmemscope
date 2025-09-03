@@ -108,9 +108,9 @@ bool IsNeedTraceMemory()
     return IsNeedTraceAlloc() && IsNeedTraceFree();
 }
 
-const std::unordered_map<RecordType, std::function<bool()>>& GetJudgeFuncTable()
+void EventTraceManager::InitJudgeFuncTable()
 {
-    static std::unordered_map<RecordType, std::function<bool()>> table = {
+    judgeFuncTable_ = {
         {RecordType::KERNEL_LAUNCH_RECORD, []() { return IsNeedTraceKernelLaunch(); }},
         {RecordType::KERNEL_EXCUTE_RECORD, []() { return IsNeedTraceKernelLaunch(); }},
         {RecordType::MEMORY_POOL_RECORD, []() { return IsNeedTraceMemory(); }},
@@ -121,8 +121,6 @@ const std::unordered_map<RecordType, std::function<bool()>>& GetJudgeFuncTable()
         {RecordType::MEM_ACCESS_RECORD, []() { return IsNeedTraceAccess(); }},
         {RecordType::OP_LAUNCH_RECORD, []() { return IsNeedTraceOpLaunch(); }},
     };
-
-    return table;
 };
 
 // 1、判断是否处在采集范围
@@ -133,10 +131,13 @@ bool EventTraceManager::IsNeedTrace(const RecordType type)
         return false;
     }
 
-    const auto& table = GetJudgeFuncTable();
-
-    auto itr = table.find(type);
-    if (itr == table.end()) {
+    // 单例类析构之后不再访问其成员变量
+    if (destroyed_.load()) {
+        return false;
+    }
+ 
+    auto itr = judgeFuncTable_.find(type);
+    if (itr == judgeFuncTable_.end()) {
         return true;
     }
 
