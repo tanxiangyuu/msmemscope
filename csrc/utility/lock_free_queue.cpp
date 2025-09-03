@@ -15,7 +15,7 @@ namespace Utility {
 
 struct DataHeader {
     /* 此处complate_flag需要放在最开头 */
-    std::atomic<uint8_t> complateFlag{0};
+    uint8_t complateFlag;
     uint8_t pad_[3];
     uint32_t magicPrefix;
     size_t dataSize;
@@ -141,6 +141,7 @@ bool LockFreeQueue::EnQueue(const void* data, size_t dataSize, size_t id)
     }
 
     DataHeader head;
+    head.complateFlag = 0;
     head.magicPrefix = LEAKS_MAGIC_PREFIX;
     head.dataSize = dataSize;
     head.clientId = id;
@@ -149,7 +150,8 @@ bool LockFreeQueue::EnQueue(const void* data, size_t dataSize, size_t id)
     }
 
     /* 所有数据拷贝好后最后置falg */
-    static_cast<DataHeader*>(static_cast<void*>(dataBuf + oriTail % size_))->complateFlag.store(1, std::memory_order_release);
+    std::atomic_thread_fence(std::memory_order_release);
+    static_cast<DataHeader*>(static_cast<void*>(dataBuf + oriTail % size_))->complateFlag = 1;
     return true;
 }
 
@@ -163,7 +165,7 @@ bool LockFreeQueue::DeQueue(std::string& msg, size_t& id)
     uint8_t *dataBuf = static_cast<uint8_t*>(static_cast<void*>(this)) + sizeof(*this);
     DataHeader* dataHead = static_cast<DataHeader*>(static_cast<void*>(dataBuf + offset % size_));
     uint32_t cnt = LEAKS_MSG_RECV_TIMEOUT_MS * 1000;  // ms-->us
-    while (dataHead->complateFlag.load(std::memory_order_acquire) != 1) {
+    while (dataHead->complateFlag != 1) {
         if (--cnt == 0) {
             return false;
         }
@@ -172,6 +174,7 @@ bool LockFreeQueue::DeQueue(std::string& msg, size_t& id)
         ts.tv_nsec = 1000;  // 1us
         nanosleep(&ts, nullptr);
     }
+    std::atomic_thread_fence(std::memory_order_acquire);
 
     DataHeader head;
     if (!RingBufferMemcpyOut(&head, sizeof(head), dataBuf, size_, offset)) {

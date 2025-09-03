@@ -96,11 +96,12 @@ bool SharedMemoryServer::Send(std::size_t clientId, const std::string& msg, size
     if (s2cBuffer_ == nullptr || size > SHM_S2C_SIZE) {
         return false;
     }
+    new (s2cBuffer_) std::atomic<size_t>(0);
     size = msg.size();
-    if (memcpy_s(s2cBuffer_ + sizeof(size_t), shmSize_ - sizeof(size_t), &size, sizeof(size_t))) {
+    if (memcpy_s(s2cBuffer_ + sizeof(std::atomic<size_t>), shmSize_ - sizeof(std::atomic<size_t>), &size, sizeof(size_t))) {
         return false;
     }
-    if (memcpy_s(s2cBuffer_ + sizeof(size_t) + sizeof(size_t), shmSize_ - sizeof(size_t) - sizeof(size_t), msg.data(), size)) {
+    if (memcpy_s(s2cBuffer_ + sizeof(std::atomic<size_t>) + sizeof(size_t), shmSize_ - sizeof(std::atomic<size_t>) - sizeof(size_t), msg.data(), size)) {
         return false;
     }
     return true;
