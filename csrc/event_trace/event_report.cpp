@@ -20,7 +20,6 @@
 namespace Leaks {
 bool g_isReportHostMem = false;
 thread_local bool g_isInReportFunction = false;
-static std::unordered_set<uint64_t> g_halPtrs;
 
 constexpr uint64_t MEM_MODULE_ID_BIT = 56;
 constexpr uint64_t MEM_VIRT_BIT = 10;
@@ -126,6 +125,11 @@ EventReport::EventReport(LeaksCommType type)
     RegisterRtProfileCallback();
 
     return;
+}
+
+EventReport::~EventReport()
+{
+    destroyed_.store(true);
 }
 
 bool EventReport::IsNeedSkip(int32_t devid)
@@ -241,8 +245,10 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
     record->kernelIndex = kernelLaunchRecordIndex_;
 
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        g_halPtrs.insert(addr);
+        if (!destroyed_.load()) {
+            std::lock_guard<std::mutex> lock(mutex_);
+            halPtrs_.insert(addr);
+        }
     }
 
     auto sendNums = ReportRecordEvent(buffer);
@@ -264,12 +270,16 @@ bool EventReport::ReportFree(uint64_t addr, CallStackString& stack)
     }
 
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        auto it = g_halPtrs.find(addr);
-        if (it == g_halPtrs.end()) {
+        // 单例类析构之后不再访问其成员变量
+        if (destroyed_.load()) {
             return true;
         }
-        g_halPtrs.erase(it);
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = halPtrs_.find(addr);
+        if (it == halPtrs_.end()) {
+            return true;
+        }
+        halPtrs_.erase(it);
     }
 
     TLVBlockType cStack = stack.cStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_C;

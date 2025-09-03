@@ -68,15 +68,22 @@ private:
     EventTraceManager()
     {
         InitTraceStatus();
+        InitJudgeFuncTable();
     }
-    ~EventTraceManager() = default;
+    ~EventTraceManager()
+    {
+        destroyed_.store(true);
+    }
 
     void InitTraceStatus(); // 命令行拉起时有一个初始化状态
+    void InitJudgeFuncTable();
 
     std::mutex mutex_;
     EventTraceStatus status_ = EventTraceStatus::IN_TRACING;
 
     std::atomic<bool> aclInit_{ false };
+    std::unordered_map<RecordType, std::function<bool()>> judgeFuncTable_;
+    std::atomic<bool> destroyed_{false};
 };
 
 }

@@ -67,7 +67,7 @@ public:
 private:
     void Init();
     explicit EventReport(LeaksCommType type);
-    ~EventReport() = default;
+    ~EventReport();
 
     bool IsNeedSkip(int32_t devid);
     void SetStepInfo(const MstxRecord &mstxRecord);
@@ -88,6 +88,8 @@ private:
     std::unordered_map<uint64_t, std::unordered_map<uint64_t, uint64_t>> mstxRangeIdTables_{};
 
     std::atomic<bool> isReceiveServerInfo_;
+    std::unordered_set<uint64_t> halPtrs_;
+    std::atomic<bool> destroyed_{false};
 };
 
 MemOpSpace GetMemOpSpace(unsigned long long flag);
