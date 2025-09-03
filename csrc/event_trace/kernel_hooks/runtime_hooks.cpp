@@ -21,6 +21,9 @@
 #include "record_info.h"
 #include "kernel_event_trace.h"
 
+#include "memory_watch/memory_watch.h"
+#include "bit_field.h"
+
 using namespace Leaks;
 
 static thread_local bool g_isInAclrtFunc = false;
@@ -29,6 +32,16 @@ static void StartKernelEventTrace()
 {
     static std::once_flag flag;
     std::call_once(flag, &KernelEventTrace::StartKernelEventTrace, &KernelEventTrace::GetInstance());
+}
+
+void KernelWatchEnd()
+{
+    bool isKernelLevel = BitPresent(GetConfig().levelType, static_cast<size_t>(LevelType::LEVEL_KERNEL));
+    if (!GetConfig().watchConfig.isWatched || !isKernelLevel) {
+        return ;
+    }
+    auto kernelName = RuntimeKernelLinker::GetInstance().GetLastKernelName(Utility::GetTid());
+    MemoryWatch::GetInstance().KernelExcuteEnd(nullptr, kernelName);
 }
 
 RTS_API rtError_t rtKernelLaunch(
@@ -48,6 +61,7 @@ RTS_API rtError_t rtKernelLaunch(
     StartKernelEventTrace();
     RuntimeKernelLinker::GetInstance().KernelLaunch();
     rtError_t ret = vallina(stubFunc, blockDim, args, argsSize, smDesc, stm);
+    KernelWatchEnd();
     return ret;
 }
 
@@ -68,6 +82,7 @@ RTS_API rtError_t rtKernelLaunchWithHandleV2(void *hdl, const uint64_t tilingKey
     StartKernelEventTrace();
     RuntimeKernelLinker::GetInstance().KernelLaunch();
     rtError_t ret = vallina(hdl, tilingKey, blockDim, argsInfo, smDesc, stm, cfgInfo);
+    KernelWatchEnd();
     return ret;
 }
 
@@ -88,6 +103,7 @@ RTS_API rtError_t rtKernelLaunchWithFlagV2(const void *stubFunc, uint32_t blockD
     StartKernelEventTrace();
     RuntimeKernelLinker::GetInstance().KernelLaunch();
     rtError_t ret = vallina(stubFunc, blockDim, argsInfo, smDesc, stm, flags, cfgInfo);
+    KernelWatchEnd();
     return ret;
 }
 
@@ -109,6 +125,7 @@ RTS_API rtError_t rtAicpuKernelLaunchExWithArgs(const uint32_t kernelType, const
     StartKernelEventTrace();
     RuntimeKernelLinker::GetInstance().KernelLaunch();
     rtError_t ret = vallina(kernelType, opName, blockDim, argsInfo, smDesc, stm, flags);
+    KernelWatchEnd();
     return ret;
 }
 
@@ -129,6 +146,7 @@ RTS_API rtError_t rtLaunchKernelByFuncHandle(rtFuncHandle funcHandle, uint32_t b
     StartKernelEventTrace();
     RuntimeKernelLinker::GetInstance().KernelLaunch();
     rtError_t ret = vallina(funcHandle, blockDim, argsHandle, stm);
+    KernelWatchEnd();
     return ret;
 }
 
@@ -149,6 +167,7 @@ RTS_API rtError_t rtLaunchKernelByFuncHandleV2(rtFuncHandle funcHandle, uint32_t
     StartKernelEventTrace();
     RuntimeKernelLinker::GetInstance().KernelLaunch();
     rtError_t ret = vallina(funcHandle, blockDim, argsHandle, stm, cfgInfo);
+    KernelWatchEnd();
     return ret;
 }
 
@@ -167,6 +186,7 @@ aclError aclrtLaunchKernelImpl(aclrtFuncHandle funcHandle, uint32_t blockDim, co
     g_isInAclrtFunc = true;
     aclError ret = vallina(funcHandle, blockDim, argsData, argsSize, stream);
     g_isInAclrtFunc = false;
+    KernelWatchEnd();
     return ret;
 }
 
@@ -185,6 +205,7 @@ aclError aclrtLaunchKernelWithConfigImpl(aclrtFuncHandle funcHandle, uint32_t bl
     g_isInAclrtFunc = true;
     aclError ret = vallina(funcHandle, blockDim, stream, cfg, argsHandle, reserve);
     g_isInAclrtFunc = false;
+    KernelWatchEnd();
     return ret;
 }
 
@@ -203,6 +224,7 @@ aclError aclrtLaunchKernelV2Impl(aclrtFuncHandle funcHandle, uint32_t blockDim, 
     g_isInAclrtFunc = true;
     aclError ret = vallina(funcHandle, blockDim, argsData, argsSize, cfg, stream);
     g_isInAclrtFunc = false;
+    KernelWatchEnd();
     return ret;
 }
 

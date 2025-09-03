@@ -2,10 +2,10 @@
 
 #include <gtest/gtest.h>
 #define private public
-#include "event_trace/op_watch/tensor_dumper.h"
+#include "event_trace/memory_watch/tensor_dumper.h"
 #undef private
-#include "event_trace/op_watch/op_excute_watch.h"
-#include "event_trace/op_watch/tensor_monitor.h"
+#include "event_trace/memory_watch/memory_watch.h"
+#include "event_trace/memory_watch/tensor_monitor.h"
 #include "file.h"
 
 using namespace Leaks;
@@ -32,7 +32,6 @@ TEST(TesnorDumperTest, dump_tensor_MD5_expect_success)
 
 TEST(TesnorDumperTest, dump_expect_success)
 {
-    RecordSubType type = RecordSubType::ATEN_START;
     std::string fileName = "test";
     MonitoredTensor tensor = {};
     uint64_t ptr = 6666;
@@ -41,11 +40,11 @@ TEST(TesnorDumperTest, dump_expect_success)
     TensorDumper::GetInstance().SetDumpName(ptr, "test_op");
     TensorDumper::GetInstance().SetDumpNums(ptr, 2);
     TensorMonitor::GetInstance().pythonWatchedTensorsMap_.insert({ptr, tensor});
-    TensorDumper::GetInstance().Dump(nullptr, fileName, type);
+    TensorDumper::GetInstance().Dump(nullptr, fileName, true);
     EXPECT_EQ(TensorDumper::GetInstance().GetDumpNums(ptr), 1);
 
     TensorDumper::GetInstance().SetDumpNums(ptr, 0);
-    TensorDumper::GetInstance().Dump(nullptr, fileName, type);
+    TensorDumper::GetInstance().Dump(nullptr, fileName, true);
 }
 
 TEST(TesnorDumperTest, set_dump_name_expect_success)
