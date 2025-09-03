@@ -222,7 +222,7 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
     }
 
     MemOpSpace space = GetMemOpSpace(flag);
-    if (space == MemOpSpace::HOST && !GetConfig().collectCpu) {
+    if (space == MemOpSpace::HOST && !g_isReportHostMem) {
         return true;
     }
     int32_t moduleId = GetMallocModuleId(flag);
@@ -312,10 +312,6 @@ bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size, CallStackString
         return true;
     }
 
-    if (!GetConfig().collectCpu) {
-        return true;
-    }
-
     TLVBlockType cStack = stack.cStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_C;
     TLVBlockType pyStack = stack.pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
 
@@ -346,10 +342,6 @@ bool EventReport::ReportHostFree(uint64_t addr)
     g_isInReportFunction = true;
 
     if (!IsConnectToServer()) {
-        return true;
-    }
-
-    if (!GetConfig().collectCpu) {
         return true;
     }
 
@@ -443,18 +435,14 @@ bool EventReport::ReportMark(RecordBuffer &mstxRecordBuffer)
             strcmp(markMessage.c_str(), "report host memory info start") == 0) {
             mstxRangeIdTables_[pid][tid] = record->rangeId;
             CLIENT_INFO_LOG("[mark] Start report host memory info...");
-            Config config = GetConfig();
-            config.collectCpu = true;
-            ConfigManager::Instance().SetConfig(config);
+            g_isReportHostMem = true;
         } else if (record->markType == MarkType::RANGE_END &&
             mstxRangeIdTables_.find(pid) != mstxRangeIdTables_.end() &&
             mstxRangeIdTables_[pid].find(tid) != mstxRangeIdTables_[pid].end() &&
             mstxRangeIdTables_[pid][tid] == record->rangeId) {
             mstxRangeIdTables_[pid].erase(tid);
             CLIENT_INFO_LOG("[mark] Stop report host memory info.");
-            Config config = GetConfig();
-            config.collectCpu = false;
-            ConfigManager::Instance().SetConfig(config);
+            g_isReportHostMem = false;
         }
     }
 
