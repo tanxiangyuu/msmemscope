@@ -91,8 +91,7 @@ void ShowHelpInfo()
         << "    --output=path                            The path to store the generated files." << std::endl
         << "    --log-level                              Set log level to <level> [warn]." << std::endl
         << "    --data-format=<db|csv>                   Set data format to <format> (default:csv)." << std::endl
-        << "    --device=<cpu|npu|npu:x>,...             Set device(s) to collect, 'cpu' for cpu, 'npu' for all npu,"
-        << std::endl
+        << "    --device=<npu|npu:x>,...                 Set device(s) to collect, 'npu' for all npu," << std::endl
         << "                                             and 'npu:x' for npu in slot x (default:npu). " << std::endl
         << "                                             Fields separated by,or，." << std::endl
         << "    --collect-mode=<immediate|deferred>      Set data collect mode. Default: immediate." << std::endl;
@@ -655,9 +654,6 @@ void ParseDevice(const std::string &param, Config &config, bool &printHelpInfo)
         std::string device = it->str();
         if (device == "npu") {
             config.collectAllNpu = true;
-        } else if (device == "cpu") {
-            config.collectCpu = true;
-            setenv(ENABLE_CPU_IN_CMD, "", 0);
         } else if (device.substr(0, 4) == "npu:") {
             std::string slot = device.substr(4);
             uint32_t slotNum = 0;
@@ -674,7 +670,7 @@ void ParseDevice(const std::string &param, Config &config, bool &printHelpInfo)
     }
 
     config.npuSlots = slotsBit.getValue();
-    if (!config.collectAllNpu && !config.collectCpu && config.npuSlots == 0) {
+    if (!config.collectAllNpu && config.npuSlots == 0) {
         return parseFailed();
     }
 
