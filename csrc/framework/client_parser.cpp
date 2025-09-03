@@ -91,11 +91,10 @@ void ShowHelpInfo()
         << "    --output=path                            The path to store the generated files." << std::endl
         << "    --log-level                              Set log level to <level> [warn]." << std::endl
         << "    --data-format=<db|csv>                   Set data format to <format> (default:csv)." << std::endl
-        << "    --device=<cpu|npu|npu:x>,...             Set device(s) to collect, 'cpu' for cpu, 'npu' for all npu,"
-        << std::endl
+        << "    --device=<npu|npu:x>,...                 Set device(s) to collect, 'npu' for all npu," << std::endl
         << "                                             and 'npu:x' for npu in slot x (default:npu). " << std::endl
         << "                                             Fields separated by,or，." << std::endl
-        << "    --collect-mode=<full|custom>             Set data collect mode. Default: full." << std::endl;
+        << "    --collect-mode=<immediate|deferred>      Set data collect mode. Default: immediate." << std::endl;
 }
 
 void ShowVersion()
@@ -651,13 +650,10 @@ void ParseDevice(const std::string &param, Config &config, bool &printHelpInfo)
     BitField<decltype(config.npuSlots)> slotsBit;
     config.collectAllNpu = false;
 
-    while (it != end) {
+    for (; it != end; it++) {
         std::string device = it->str();
         if (device == "npu") {
             config.collectAllNpu = true;
-        } else if (device == "cpu") {
-            config.collectCpu = true;
-            setenv(ENABLE_CPU_IN_CMD, "", 0);
         } else if (device.substr(0, 4) == "npu:") {
             std::string slot = device.substr(4);
             uint32_t slotNum = 0;
@@ -666,25 +662,30 @@ void ParseDevice(const std::string &param, Config &config, bool &printHelpInfo)
                 return parseFailed();
             }
             slotsBit.setBit(slotNum);
+        } else if (device.empty()) {
+            continue;
         } else {
             return parseFailed();
         }
-        it++;
     }
 
     config.npuSlots = slotsBit.getValue();
+    if (!config.collectAllNpu && config.npuSlots == 0) {
+        return parseFailed();
+    }
+
     return;
 }
 
 static void ParseCollectMode(const std::string &param, UserCommand &userCommand)
 {
-    if (param == "full") {
-        userCommand.config.collectMode = static_cast<uint8_t>(CollectMode::FULL);
-    } else if (param == "custom") {
-        userCommand.config.collectMode = static_cast<uint8_t>(CollectMode::CUSTOM);
+    if (param == "immediate") {
+        userCommand.config.collectMode = static_cast<uint8_t>(CollectMode::IMMEDIATE);
+    } else if (param == "deferred") {
+        userCommand.config.collectMode = static_cast<uint8_t>(CollectMode::DEFERRED);
     } else {
         std::cout << "[msleaks] ERROR: --collect-mode param is invalid. "
-                  << "Collect mode can only be set to full,custom." << std::endl;
+                  << "Collect mode can only be set to immediate,deferred." << std::endl;
         userCommand.printHelpInfo = true;
     }
 
@@ -762,7 +763,7 @@ void ClientParser::InitialUserCommand(UserCommand &userCommand)
     userCommand.config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
     userCommand.config.logLevel = static_cast<uint8_t>(LogLv::WARN);
     userCommand.config.collectAllNpu = true;
-    userCommand.config.collectMode = static_cast<uint8_t>(CollectMode::FULL);
+    userCommand.config.collectMode = static_cast<uint8_t>(CollectMode::IMMEDIATE);
 
     BitField<decltype(userCommand.config.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));

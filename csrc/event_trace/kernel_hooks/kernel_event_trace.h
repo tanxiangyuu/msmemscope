@@ -68,6 +68,7 @@ public:
     void SetHashInfo(uint64_t hashId, const std::string &hashInfo);
     std::string GetHashInfo(uint64_t hashId);
     std::string GetKernelName(const TaskKey& key, RecordSubType type);
+    std::string GetLastKernelName(uint64_t tid);
 private:
     RuntimeKernelLinker() = default;
     ~RuntimeKernelLinker() = default;
@@ -77,6 +78,7 @@ private:
     std::unordered_map<ThreadId, std::vector<AclnnKernelMapInfo>> kernelNameMp_;
 
     std::unordered_map<uint64_t, std::string> hashInfo_map_;
+    std::unordered_map<uint64_t, std::string> currentNameMap_;
 };
 
 }

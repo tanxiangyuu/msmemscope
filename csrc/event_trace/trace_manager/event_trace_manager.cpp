@@ -9,10 +9,10 @@
 namespace Leaks {
 
 const std::unordered_map<std::string, std::function<void(const std::string&, Config&, bool&)>> parserConfigTable = {
-    {"--call-stack", ParseCallstack},
-    {"--level", ParseDataLevel},
-    {"--events", ParseEventTraceType},
-    {"--device", ParseDevice},
+    {"call_stack", ParseCallstack},
+    {"level", ParseDataLevel},
+    {"events", ParseEventTraceType},
+    {"device", ParseDevice},
 };
 
 ConfigManager::ConfigManager()
@@ -34,7 +34,6 @@ void ConfigManager::SetConfigImpl(const Config &config)
     SetEventDefaultConfig(config_);
     SetAnalysisDefaultConfig(config_);
 
-    g_isReportHostMem = config_.collectCpu;
     EventTraceManager::Instance().HandleWithATenCollect();
 }
 
@@ -108,16 +107,19 @@ bool IsNeedTraceMemory()
     return IsNeedTraceAlloc() && IsNeedTraceFree();
 }
 
-static std::unordered_map<RecordType, std::function<bool()>> g_JdugeFuncTable = {
-    {RecordType::KERNEL_LAUNCH_RECORD, []() { return IsNeedTraceKernelLaunch(); }},
-    {RecordType::KERNEL_EXCUTE_RECORD, []() { return IsNeedTraceKernelLaunch(); }},
-    {RecordType::MEMORY_POOL_RECORD, []() { return IsNeedTraceMemory(); }},
-    {RecordType::MEMORY_RECORD, []() { return IsNeedTraceMemory(); }},
-    {RecordType::ATB_OP_EXECUTE_RECORD, []() { return IsNeedTraceOp(); }},
-    {RecordType::ATEN_OP_LAUNCH_RECORD, []() { return IsNeedTraceOpLaunch(); }},
-    {RecordType::ATB_KERNEL_RECORD, []() { return IsNeedTraceKernel(); }},
-    {RecordType::MEM_ACCESS_RECORD, []() { return IsNeedTraceAccess(); }},
-    {RecordType::OP_LAUNCH_RECORD, []() { return IsNeedTraceOpLaunch(); }},
+void EventTraceManager::InitJudgeFuncTable()
+{
+    judgeFuncTable_ = {
+        {RecordType::KERNEL_LAUNCH_RECORD, []() { return IsNeedTraceKernelLaunch(); }},
+        {RecordType::KERNEL_EXCUTE_RECORD, []() { return IsNeedTraceKernelLaunch(); }},
+        {RecordType::MEMORY_POOL_RECORD, []() { return IsNeedTraceMemory(); }},
+        {RecordType::MEMORY_RECORD, []() { return IsNeedTraceMemory(); }},
+        {RecordType::ATB_OP_EXECUTE_RECORD, []() { return IsNeedTraceOp(); }},
+        {RecordType::ATEN_OP_LAUNCH_RECORD, []() { return IsNeedTraceOpLaunch(); }},
+        {RecordType::ATB_KERNEL_RECORD, []() { return IsNeedTraceKernel(); }},
+        {RecordType::MEM_ACCESS_RECORD, []() { return IsNeedTraceAccess(); }},
+        {RecordType::OP_LAUNCH_RECORD, []() { return IsNeedTraceOpLaunch(); }},
+    };
 };
 
 // 1、判断是否处在采集范围
@@ -128,8 +130,13 @@ bool EventTraceManager::IsNeedTrace(const RecordType type)
         return false;
     }
 
-    auto itr = g_JdugeFuncTable.find(type);
-    if (itr == g_JdugeFuncTable.end()) {
+    // 单例类析构之后不再访问其成员变量
+    if (destroyed_.load()) {
+        return false;
+    }
+ 
+    auto itr = judgeFuncTable_.find(type);
+    if (itr == judgeFuncTable_.end()) {
         return true;
     }
 
@@ -138,8 +145,8 @@ bool EventTraceManager::IsNeedTrace(const RecordType type)
 
 void EventTraceManager::InitTraceStatus()
 {
-    auto status = (GetConfig().collectMode == static_cast<uint8_t>(CollectMode::FULL)) ? EventTraceStatus::IN_TRACING :
-        EventTraceStatus::NOT_IN_TRACING;
+    auto status = (GetConfig().collectMode == static_cast<uint8_t>(CollectMode::IMMEDIATE)) ?
+        EventTraceStatus::IN_TRACING : EventTraceStatus::NOT_IN_TRACING;
     SetTraceStatus(status);
     return;
 }

@@ -13,9 +13,9 @@ class DomainSocketClient : public CommunicationProxyClient {
 public:
     explicit DomainSocketClient(CommType type);
     ~DomainSocketClient() override;
-    bool init() override;
-    bool send(const std::string& msg, size_t& size) override;
-    bool receive(std::string& msg, size_t& size, uint32_t timeOut) override;
+    bool Init() override;
+    bool Send(const std::string& msg, size_t& size) override;
+    bool Receive(std::string& msg, size_t& size, uint32_t timeOut) override;
 private:
     Client* client_;
     std::mutex sentMutex_;

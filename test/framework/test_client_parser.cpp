@@ -621,28 +621,28 @@ TEST(ClientParser, test_collect_mode_full)
 {
     std::vector<const char*> argv = {
         "msleaks",
-        "--collect-mode=full"
+        "--collect-mode=immediate"
     };
 
     optind = 1;
     ClientParser cliParser;
     UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_FALSE(cmd.printHelpInfo);
-    ASSERT_EQ(cmd.config.collectMode, static_cast<std::uint8_t>(CollectMode::FULL));
+    ASSERT_EQ(cmd.config.collectMode, static_cast<std::uint8_t>(CollectMode::IMMEDIATE));
 }
 
 TEST(ClientParser, test_collect_mode_custom)
 {
     std::vector<const char*> argv = {
         "msleaks",
-        "--collect-mode=custom"
+        "--collect-mode=deferred"
     };
 
     optind = 1;
     ClientParser cliParser;
     UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_FALSE(cmd.printHelpInfo);
-    ASSERT_EQ(cmd.config.collectMode, static_cast<std::uint8_t>(CollectMode::CUSTOM));
+    ASSERT_EQ(cmd.config.collectMode, static_cast<std::uint8_t>(CollectMode::DEFERRED));
 }
 
 TEST(ClientParser, test_collect_mode_empty)
@@ -656,7 +656,7 @@ TEST(ClientParser, test_collect_mode_empty)
     ClientParser cliParser;
     UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_TRUE(cmd.printHelpInfo);
-    ASSERT_EQ(cmd.config.collectMode, static_cast<std::uint8_t>(CollectMode::FULL));
+    ASSERT_EQ(cmd.config.collectMode, static_cast<std::uint8_t>(CollectMode::IMMEDIATE));
 }
 
 TEST(ClientParser, test_collect_mode_input_error)
@@ -670,7 +670,7 @@ TEST(ClientParser, test_collect_mode_input_error)
     ClientParser cliParser;
     UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_TRUE(cmd.printHelpInfo);
-    ASSERT_EQ(cmd.config.collectMode, static_cast<std::uint8_t>(CollectMode::FULL));
+    ASSERT_EQ(cmd.config.collectMode, static_cast<std::uint8_t>(CollectMode::IMMEDIATE));
 }
 
 TEST(ClientParser, test_print_version)
@@ -993,7 +993,6 @@ TEST(ClientParser, test_valid_device_case)
     ClientParser cliParser;
     UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_TRUE(cmd.config.collectAllNpu);
-    ASSERT_FALSE(cmd.config.collectCpu);
 
     argv = {
         "msleaks",
@@ -1004,7 +1003,6 @@ TEST(ClientParser, test_valid_device_case)
     optind = 1;
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_TRUE(cmd.config.collectAllNpu);
-    ASSERT_FALSE(cmd.config.collectCpu);
 
     argv = {
         "msleaks",
@@ -1015,17 +1013,5 @@ TEST(ClientParser, test_valid_device_case)
     optind = 1;
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_FALSE(cmd.config.collectAllNpu);
-    ASSERT_FALSE(cmd.config.collectCpu);
     ASSERT_EQ(cmd.config.npuSlots, 5);
-
-    argv = {
-        "msleaks",
-        "--device=cpu"
-    };
- 
-    /// Reset getopt states
-    optind = 1;
-    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
-    ASSERT_FALSE(cmd.config.collectAllNpu);
-    ASSERT_TRUE(cmd.config.collectCpu);
 }

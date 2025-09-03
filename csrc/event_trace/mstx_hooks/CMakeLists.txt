@@ -7,9 +7,9 @@ target_sources(ascend_mstx_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/memory_pool_trace/mindspore_memory_pool_trace.cpp
   ${EVENT_TRACE_INC_DIR}/memory_pool_trace/pta_caching_pool_trace.cpp
   ${EVENT_TRACE_INC_DIR}/memory_pool_trace/pta_workspace_pool_trace.cpp
-  ${EVENT_TRACE_INC_DIR}/op_watch/op_excute_watch.cpp
-  ${EVENT_TRACE_INC_DIR}/op_watch/tensor_dumper.cpp
-  ${EVENT_TRACE_INC_DIR}/op_watch/tensor_monitor.cpp
+  ${EVENT_TRACE_INC_DIR}/memory_watch/memory_watch.cpp
+  ${EVENT_TRACE_INC_DIR}/memory_watch/tensor_dumper.cpp
+  ${EVENT_TRACE_INC_DIR}/memory_watch/tensor_monitor.cpp
   ${FRAMEWORK_INC_DIR}/client_process.cpp
   ${UTILITY_INC_DIR}/log.cpp
   ${UTILITY_INC_DIR}/call_stack.cpp

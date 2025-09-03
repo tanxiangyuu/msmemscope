@@ -11,7 +11,7 @@
 #include "event_report.h"
 #include "bit_field.h"
 #include "securec.h"
-#include "op_watch/op_excute_watch.h"
+#include "memory_watch/memory_watch.h"
 #include "trace_manager/event_trace_manager.h"
 
 using namespace Leaks;
@@ -244,7 +244,7 @@ extern "C" atb::Status _ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE(atb::Runn
         }
     }
     if (config.watchConfig.isWatched) {
-        OpExcuteBegin(stream, cDirPath, AccessMemType::ATB);
+        OpExcuteBegin(stream, cDirPath);
     }
     atb::Status st = funcExecute(thisPtr, runnerVariantPack);
     if (config.watchConfig.isWatched) {
@@ -255,7 +255,7 @@ extern "C" atb::Status _ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE(atb::Runn
             tensors[loop].data = item.deviceData;
             loop++;
         }
-        OpExcuteEnd(stream, cDirPath, tensors, runnerVariantPack.outTensors.size(), AccessMemType::ATB);
+        OpExcuteEnd(stream, cDirPath, tensors, runnerVariantPack.outTensors.size());
     }
     if (EventTraceManager::Instance().IsNeedTrace(RecordType::OP_LAUNCH_RECORD)) {
         atb::LeaksReportOp(name, params, false);
@@ -293,7 +293,7 @@ extern "C" void _ZN3atb9StoreUtil15SaveLaunchParamEPvRKN3Mki11LaunchParamERKNSt7
             CLIENT_ERROR_LOG("strncpy_s FAILED");
             cDirPath[0] = '\0';
         }
-        KernelExcute(stream, cDirPath, getOutTensors(const_cast<Mki::LaunchParam*>(&launchParam)), AccessMemType::ATB);
+        ATBKernelExcute(stream, cDirPath, getOutTensors(const_cast<Mki::LaunchParam*>(&launchParam)));
     }
     std::string name;
     bool isBeforeLaunch;
