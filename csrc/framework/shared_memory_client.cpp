@@ -84,11 +84,11 @@ bool SharedMemoryClient::Receive(std::string& msg, size_t& size, uint32_t timeOu
 
     clientId_ = atomicPtr->fetch_add(1, std::memory_order_relaxed);
 
-    if (memcpy_s(&size, sizeof(size_t), s2cBuffer_ + sizeof(size_t), sizeof(size_t))) {
+    if (memcpy_s(&size, sizeof(size_t), s2cBuffer_ + sizeof(std::atomic<ClientId>), sizeof(size_t))) {
         return false;
     }
     uint8_t* ptr = new uint8_t[size];
-    if (memcpy_s(ptr, size, s2cBuffer_ + sizeof(size_t) + sizeof(size_t), size)) {
+    if (memcpy_s(ptr, size, s2cBuffer_ + sizeof(std::atomic<ClientId>) + sizeof(size_t), size)) {
         return false;
     }
     msg = std::string(reinterpret_cast<char*>(ptr), size);
