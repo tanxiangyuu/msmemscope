@@ -274,7 +274,7 @@ void TraceRecord::CpuMemRecordToString(const MemOpRecord *memRecord, std::string
             hostMemUsage_ = Utility::GetSubResult(hostMemUsage_, hostMemAllocation_[addr]);
             hostMemAllocation_.erase(addr);
         } else {
-            LOG_WARN("Invalid free addr %llx.", addr);
+            LOG_DEBUG("Invalid free addr %llx.", addr);
             return;
         }
     }
