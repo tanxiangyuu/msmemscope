@@ -24,7 +24,7 @@ ATTR_INDEX = 9                  # attr在csv中的列索引
 class OriginEvent:
     # OriginEvent会将除了id和timestamp以外的所有变量用str读取
     def __init__(self, event_id: int, event: str, event_type: str, name: str,
-                timestamp: int, pid: str, tid: str, device: str,
+                timestamp: str, pid: str, tid: str, device: str,
                 ptr: str, attr: str, cpp_call_stack: str, python_call_stack: str, row_num: int):
         self.event_id = event_id
         self.event = event
@@ -210,7 +210,7 @@ class Inefficient:
                     event=row["Event"],
                     event_type=row["Event Type"],
                     name=row["Name"],
-                    timestamp=int(row["Timestamp(ns)"]),
+                    timestamp=row["Timestamp(ns)"],
                     pid=row["Process Id"],
                     tid=row["Thread Id"],
                     device=row["Device Id"],
@@ -259,7 +259,7 @@ class Inefficient:
                     event=str(row["Event"]).strip(),
                     event_type=str(row["Event Type"]).strip(),
                     name=str(row["Name"]).strip(),
-                    timestamp=row["Timestamp(ns)"],
+                    timestamp=str(row["Timestamp(ns)"]),
                     pid=str(row["Process Id"]).strip(),
                     tid=str(row["Thread Id"]).strip(),
                     device=str(row["Device Id"]).strip(),
@@ -625,8 +625,11 @@ class Inefficient:
         # 更新inefficient_type
         attr_dict['inefficient_type'] = ','.join(inefficient_value)
 
-        # 转回字符串格式
-        updated_attr_pairs = [f'{k}:"{v}"' for k, v in attr_dict.items()]
+        # 转回字符串格式 csv和db格式略有不同
+        if self.data_format == "db":
+            updated_attr_pairs = [f'"{k}":"{v}"' for k, v in attr_dict.items()]
+        else:
+            updated_attr_pairs = [f'{k}:{v}' for k, v in attr_dict.items()]
         return '{' + ','.join(updated_attr_pairs) + '}'
 
     def clear(self):
