@@ -628,7 +628,7 @@ class Inefficient:
         # 转回字符串格式 csv和db格式略有不同
         if self.data_format == "db":
             updated_attr_pairs = [f'{k}:"{v}"' for k, v in attr_dict.items()]
-        else :
+        else:
             updated_attr_pairs = [f'{k}:{v}' for k, v in attr_dict.items()]
         return '{' + ','.join(updated_attr_pairs) + '}'
 
