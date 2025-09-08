@@ -24,7 +24,7 @@ ATTR_INDEX = 9                  # attr在csv中的列索引
 class OriginEvent:
     # OriginEvent会将除了id和timestamp以外的所有变量用str读取
     def __init__(self, event_id: int, event: str, event_type: str, name: str,
-                timestamp: int, pid: str, tid: str, device: str,
+                timestamp: str, pid: str, tid: str, device: str,
                 ptr: str, attr: str, cpp_call_stack: str, python_call_stack: str, row_num: int):
         self.event_id = event_id
         self.event = event
