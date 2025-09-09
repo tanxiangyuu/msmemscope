@@ -655,7 +655,7 @@ bool EventReport::ReportTraceStatus(const EventTraceStatus status)
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportAtbOpExecute(RecordBuffer& atbOpExecuteRecordBuffer)
+bool EventReport::ReportAtbOpExecute(char* name, char* attr, RecordSubType type)
 {
     g_isInReportFunction = true;
 
@@ -672,18 +672,21 @@ bool EventReport::ReportAtbOpExecute(RecordBuffer& atbOpExecuteRecordBuffer)
         return true;
     }
 
-    AtbOpExecuteRecord* record = atbOpExecuteRecordBuffer.Cast<AtbOpExecuteRecord>();
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<AtbOpExecuteRecord>(
+        TLVBlockType::ATB_NAME, name, TLVBlockType::ATB_PARAMS, attr);
+    AtbOpExecuteRecord* record = buffer.Cast<AtbOpExecuteRecord>();
+    record->subtype = type;
     record->type = RecordType::ATB_OP_EXECUTE_RECORD;
     record->devId = devId;
     record->recordIndex = ++recordIndex_;
 
-    auto sendNums = ReportRecordEvent(atbOpExecuteRecordBuffer);
+    auto sendNums = ReportRecordEvent(buffer);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportAtbKernel(RecordBuffer& atbKernelRecordBuffer)
+bool EventReport::ReportAtbKernel(char* name, char* attr, RecordSubType type)
 {
     g_isInReportFunction = true;
 
@@ -700,18 +703,21 @@ bool EventReport::ReportAtbKernel(RecordBuffer& atbKernelRecordBuffer)
         return true;
     }
 
-    AtbKernelRecord* record = atbKernelRecordBuffer.Cast<AtbKernelRecord>();
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<AtbKernelRecord>(
+        TLVBlockType::ATB_NAME, name, TLVBlockType::ATB_PARAMS, attr);
+    AtbKernelRecord* record = buffer.Cast<AtbKernelRecord>();
+    record->subtype = type;
     record->type = RecordType::ATB_KERNEL_RECORD;
     record->devId = devId;
     record->recordIndex = ++recordIndex_;
 
-    auto sendNums = ReportRecordEvent(atbKernelRecordBuffer);
+    auto sendNums = ReportRecordEvent(buffer);
 
     g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportAtbAccessMemory(std::vector<RecordBuffer>& memAccessRecordBuffers)
+bool EventReport::ReportAtbAccessMemory(char* name, char* attr, uint64_t addr, uint64_t size, AccessType type)
 {
     g_isInReportFunction = true;
 
@@ -728,21 +734,23 @@ bool EventReport::ReportAtbAccessMemory(std::vector<RecordBuffer>& memAccessReco
         return true;
     }
 
-    for (auto& buffer : memAccessRecordBuffers) {
-        MemAccessRecord* record = buffer.Cast<MemAccessRecord>();
-        record->type = RecordType::MEM_ACCESS_RECORD;
-        record->devId = devId;
-        record->devType = DeviceType::NPU;
-        record->recordIndex = ++recordIndex_;
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemAccessRecord>(
+        TLVBlockType::OP_NAME, name, TLVBlockType::MEM_ATTR, attr);
+    MemAccessRecord* record = buffer.Cast<MemAccessRecord>();
+    record->addr = addr;
+    record->memSize = size;
+    record->eventType = type;
 
-        auto sendNums = ReportRecordEvent(buffer);
-        if (sendNums < 0) {
-            return false;
-        }
-    }
+    record->memType = AccessMemType::ATB;
+    record->type = RecordType::MEM_ACCESS_RECORD;
+    record->devId = devId;
+    record->devType = DeviceType::NPU;
+    record->recordIndex = ++recordIndex_;
+
+    auto sendNums = ReportRecordEvent(buffer);
 
     g_isInReportFunction = false;
-    return true;
+    return (sendNums >= 0);
 }
 
 }
