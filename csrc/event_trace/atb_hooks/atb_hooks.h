@@ -12,6 +12,7 @@ using LeaksOriginalRunnerExecuteFunc = atb::Status (*)(atb::Runner*, atb::Runner
 using LeaksOriginalGetOperationName = std::string (*)(atb::Runner*);
 using LeaksOriginalGetSaveTensorDir = std::string (*)(atb::Runner*);
 using LeaksOriginalGetExecuteStream = aclrtStream (*)(atb::Runner*, atb::Context *context);
+constexpr uint16_t LEAKS_STRING_MAX_LENGTH = 255;
 }
 
 namespace Leaks {

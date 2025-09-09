@@ -319,8 +319,9 @@ TEST(EventReportTest, ReportAtbOpExecuteTest) {
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
-    RecordBuffer atbOpExecuteRecord = RecordBuffer::CreateRecordBuffer<AtbOpExecuteRecord>();
-    EXPECT_TRUE(instance.ReportAtbOpExecute(atbOpExecuteRecord));
+    char name[255] = "operation";
+    char attr[255] = "path:model_struct";
+    EXPECT_TRUE(instance.ReportAtbOpExecute(name, attr, RecordSubType::ATB_START));
     instance.isReceiveServerInfo_ = true;
 }
 
@@ -330,8 +331,9 @@ TEST(EventReportTest, ReportAtbKernelTest) {
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
-    RecordBuffer atbKernelRecord = RecordBuffer::CreateRecordBuffer<AtbKernelRecord>();
-    EXPECT_TRUE(instance.ReportAtbKernel(atbKernelRecord));
+    char name[255] = "operation";
+    char attr[255] = "path:model_struct";
+    EXPECT_TRUE(instance.ReportAtbKernel(name, attr, RecordSubType::KERNEL_START));
     instance.isReceiveServerInfo_ = true;
 }
 
@@ -341,10 +343,11 @@ TEST(EventReportTest, ReportAtbMemAccessTest) {
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
-    RecordBuffer memAccessRecord = RecordBuffer::CreateRecordBuffer<MemAccessRecord>();
-    std::vector<RecordBuffer> records;
-    records.push_back(memAccessRecord);
-    EXPECT_TRUE(instance.ReportAtbAccessMemory(records));
+    char name[255] = "operation";
+    char attr[255] = "path:model_struct";
+    uint64_t addr = 123;
+    uint64_t size = 1;
+    EXPECT_TRUE(instance.ReportAtbAccessMemory(name, attr, addr, size, AccessType::UNKNOWN));
     instance.isReceiveServerInfo_ = true;
 }
 
