@@ -117,6 +117,9 @@ void MemoryWatch::KernelExcuteEnd(aclrtStream stream, const std::string &rawKern
     if (isRepeatWatch_[Utility::GetTid()] && !isOuterLayer) {
         return ;
     }
+    if (isOuterLayer) {
+        isRepeatWatch_[Utility::GetTid()] = false;
+    }
     std::string kernelDir = rawKernel.substr(rawKernel.find("/") + 1);
     if (!IsFirstWatchTarget(kernelDir)) {
         return EndExcute(stream, kernelDir, rawKernel);
@@ -136,9 +139,6 @@ void MemoryWatch::KernelExcuteEnd(aclrtStream stream, const std::string &rawKern
         dumpTensors.emplace_back(tensor);
     }
     EndExcute(stream, kernelDir, rawKernel, dumpTensors, outputId_);
-    if (isOuterLayer) {
-        isRepeatWatch_[Utility::GetTid()] = false;
-    }
 }
 
 void ATBKernelExcute(aclrtStream stream, char* rawKernel, const Mki::SVector<Mki::Tensor>& tensors)
