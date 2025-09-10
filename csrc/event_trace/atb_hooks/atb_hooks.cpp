@@ -54,74 +54,83 @@ namespace atb {
 
     static void LeaksReportTensors(const atb::RunnerVariantPack& runnerVariantPack, const std::string& name)
     {
-        std::vector<RecordBuffer> buffers;
         for (auto& tensor : runnerVariantPack.inTensors) {
-            RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemAccessRecord>(
-                TLVBlockType::OP_NAME, name, TLVBlockType::MEM_ATTR, LeaksGetTensorInfo(tensor));
-            MemAccessRecord* record = buffer.Cast<MemAccessRecord>();
-            record->addr = static_cast<uint64_t>((std::uintptr_t)tensor.deviceData);
-            record->memSize = tensor.dataSize;
-            record->eventType = AccessType::UNKNOWN;
-            record->memType = AccessMemType::ATB;
-            buffers.push_back(buffer);
+            char nameStr[LEAKS_STRING_MAX_LENGTH];
+            char attrStr[LEAKS_STRING_MAX_LENGTH];
+            if (strncpy_s(nameStr, LEAKS_STRING_MAX_LENGTH, name.c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+                nameStr[0] = '\0';
+            }
+            if (strncpy_s(attrStr, LEAKS_STRING_MAX_LENGTH, LeaksGetTensorInfo(tensor).c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+                attrStr[0] = '\0';
+            }
+            EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbAccessMemory(
+                nameStr, attrStr,
+                static_cast<uint64_t>((std::uintptr_t)tensor.deviceData),
+                tensor.dataSize, AccessType::UNKNOWN);
         }
         for (auto& tensor : runnerVariantPack.outTensors) {
-            RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemAccessRecord>(
-                TLVBlockType::OP_NAME, name, TLVBlockType::MEM_ATTR, LeaksGetTensorInfo(tensor));
-            MemAccessRecord* record = buffer.Cast<MemAccessRecord>();
-            record->addr = static_cast<uint64_t>((std::uintptr_t)tensor.deviceData);
-            record->memSize = tensor.dataSize;
-            record->eventType = AccessType::WRITE;
-            record->memType = AccessMemType::ATB;
-            buffers.push_back(buffer);
+            char nameStr[LEAKS_STRING_MAX_LENGTH];
+            char attrStr[LEAKS_STRING_MAX_LENGTH];
+            if (strncpy_s(nameStr, LEAKS_STRING_MAX_LENGTH, name.c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+                nameStr[0] = '\0';
+            }
+            if (strncpy_s(attrStr, LEAKS_STRING_MAX_LENGTH, LeaksGetTensorInfo(tensor).c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+                attrStr[0] = '\0';
+            }
+            EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbAccessMemory(
+                nameStr, attrStr,
+                static_cast<uint64_t>((std::uintptr_t)tensor.deviceData),
+                tensor.dataSize, AccessType::WRITE);
         }
-
-        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbAccessMemory(buffers)) {
-            CLIENT_ERROR_LOG("Report atb op end event failed.\n");
-        }
-        return;
     }
 
     static void LeaksReportTensors(Mki::LeaksOriginalGetInTensors &getInTensors,
         Mki::LeaksOriginalGetOutTensors &getOutTensors,
         const Mki::LaunchParam &launchParam, const std::string& name)
     {
-        std::vector<RecordBuffer> buffers;
         for (auto& tensor : getInTensors(const_cast<Mki::LaunchParam*>(&launchParam))) {
-            RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemAccessRecord>(
-                TLVBlockType::OP_NAME, name, TLVBlockType::MEM_ATTR, LeaksGetTensorInfo(tensor));
-            MemAccessRecord* record = buffer.Cast<MemAccessRecord>();
-            record->addr = static_cast<uint64_t>((std::uintptr_t)tensor.data);
-            record->memSize = tensor.dataSize;
-            record->eventType = AccessType::UNKNOWN;
-            record->memType = AccessMemType::ATB;
-            buffers.push_back(buffer);
+            char nameStr[LEAKS_STRING_MAX_LENGTH];
+            char attrStr[LEAKS_STRING_MAX_LENGTH];
+            if (strncpy_s(nameStr, LEAKS_STRING_MAX_LENGTH, name.c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+                nameStr[0] = '\0';
+            }
+            if (strncpy_s(attrStr, LEAKS_STRING_MAX_LENGTH, LeaksGetTensorInfo(tensor).c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+                attrStr[0] = '\0';
+            }
+            EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbAccessMemory(
+                nameStr, attrStr,
+                static_cast<uint64_t>((std::uintptr_t)tensor.data),
+                tensor.dataSize, AccessType::UNKNOWN);
         }
         for (auto& tensor : getOutTensors(const_cast<Mki::LaunchParam*>(&launchParam))) {
-            RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemAccessRecord>(
-                TLVBlockType::OP_NAME, name, TLVBlockType::MEM_ATTR, LeaksGetTensorInfo(tensor));
-            MemAccessRecord* record = buffer.Cast<MemAccessRecord>();
-            record->addr = static_cast<uint64_t>((std::uintptr_t)tensor.data);
-            record->memSize = tensor.dataSize;
-            record->eventType = AccessType::WRITE;
-            record->memType = AccessMemType::ATB;
-            buffers.push_back(buffer);
+            char nameStr[LEAKS_STRING_MAX_LENGTH];
+            char attrStr[LEAKS_STRING_MAX_LENGTH];
+            if (strncpy_s(nameStr, LEAKS_STRING_MAX_LENGTH, name.c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+                nameStr[0] = '\0';
+            }
+            if (strncpy_s(attrStr, LEAKS_STRING_MAX_LENGTH, LeaksGetTensorInfo(tensor).c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+                attrStr[0] = '\0';
+            }
+            EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbAccessMemory(
+                nameStr, attrStr,
+                static_cast<uint64_t>((std::uintptr_t)tensor.data),
+                tensor.dataSize, AccessType::WRITE);
         }
-
-        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbAccessMemory(buffers)) {
-            CLIENT_ERROR_LOG("Report atb op end event failed.\n");
-        }
-        return;
     }
 
     static void LeaksReportOp(const std::string& name, const std::string& params, bool isStart)
     {
-        RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<AtbOpExecuteRecord>(
-            TLVBlockType::ATB_NAME, name, TLVBlockType::ATB_PARAMS, params);
-        AtbOpExecuteRecord* record = buffer.Cast<AtbOpExecuteRecord>();
-        record->subtype = isStart ? RecordSubType::ATB_START : RecordSubType::ATB_END;
+        char nameStr[LEAKS_STRING_MAX_LENGTH];
+        char attrStr[LEAKS_STRING_MAX_LENGTH];
+        if (strncpy_s(nameStr, LEAKS_STRING_MAX_LENGTH, name.c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+            nameStr[0] = '\0';
+        }
+        if (strncpy_s(attrStr, LEAKS_STRING_MAX_LENGTH, params.c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+            attrStr[0] = '\0';
+        }
+        RecordSubType type = isStart ? RecordSubType::ATB_START : RecordSubType::ATB_END;
 
-        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbOpExecute(buffer)) {
+        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbOpExecute(nameStr, attrStr, type)) {
             CLIENT_ERROR_LOG("Report atb op start event failed.\n");
         }
     }
@@ -195,13 +204,18 @@ namespace atb {
         oss << "path:" << dirPath;
         std::string params = oss.str();
 
-        RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<AtbKernelRecord>(
-            TLVBlockType::ATB_NAME, name, TLVBlockType::ATB_PARAMS, params);
+        char nameStr[LEAKS_STRING_MAX_LENGTH];
+        char attrStr[LEAKS_STRING_MAX_LENGTH];
+        if (strncpy_s(nameStr, LEAKS_STRING_MAX_LENGTH, name.c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+            nameStr[0] = '\0';
+        }
+        if (strncpy_s(attrStr, LEAKS_STRING_MAX_LENGTH, params.c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+            attrStr[0] = '\0';
+        }
 
-        AtbKernelRecord* record = buffer.Cast<AtbKernelRecord>();
-        record->subtype = isBeforeLaunch ? RecordSubType::KERNEL_START : RecordSubType::KERNEL_END;
+        RecordSubType type = isBeforeLaunch ? RecordSubType::KERNEL_START : RecordSubType::KERNEL_END;
 
-        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbKernel(buffer)) {
+        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbKernel(nameStr, attrStr, type)) {
             CLIENT_ERROR_LOG("Report atb run kernel event failed.\n");
         }
         return true;
