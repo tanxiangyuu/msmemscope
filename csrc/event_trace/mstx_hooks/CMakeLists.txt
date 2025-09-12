@@ -20,8 +20,6 @@ target_sources(ascend_mstx_hook PRIVATE
 target_include_directories(ascend_mstx_hook PUBLIC
   ${FRAMEWORK_INC_DIR}
   ${EVENT_TRACE_INC_DIR}
-  ${FUNC_INJECTION_DIR}
-  ${FUNC_HOSTINJECTION_DIR}
   ${UTILITY_INC_DIR}
   ${SECUREC_INC_DIR}
   ${Python3_INCLUDE_DIRS}
