@@ -716,7 +716,7 @@ TEST(ClientParser, test_not_set_output)
     ASSERT_EQ(cmd.outputPath, "");
 }
 
-TEST(ClientParser, test_set_valid_output)
+TEST(ClientParser, test_set_valid_output1)
 {
     std::vector<const char*> argv = {
         "msleaks",
@@ -766,10 +766,36 @@ TEST(ClientParser, test_set_valid_output)
 
     argv = {
         "msleaks",
-        "--output=./测试/测试"
+        "--output=./测试/测试/中nihao"
     };
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_FALSE(cmd.outputPath.empty());
+}
+
+TEST(ClientParser, test_set_valid_output2)
+{
+    std::vector<const char*> argv = {
+        "msleaks",
+        "--output=./テスト"
+    };
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.outputPath.empty());
+
+    argv = {
+        "msleaks",
+        "--output=./café"
+    };
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.outputPath.empty());
+
+    argv = {
+        "msleaks",
+        "--output=./📁backup"
+    };
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_TRUE(cmd.outputPath.empty());
 }
 
 TEST(ClientParser, test_set_invalid_output)

@@ -14,8 +14,6 @@ target_compile_definitions(atb_abi_0_hook PRIVATE -D_GLIBCXX_USE_CXX11_ABI=0)
 target_include_directories(atb_abi_0_hook PUBLIC
   ${FRAMEWORK_INC_DIR}
   ${EVENT_TRACE_INC_DIR}
-  ${FUNC_INJECTION_DIR}
-  ${FUNC_HOSTINJECTION_DIR}
   ${UTILITY_INC_DIR}
   ${SECUREC_INC_DIR}
 )
@@ -42,8 +40,6 @@ target_sources(atb_abi_1_hook PRIVATE
 target_include_directories(atb_abi_1_hook PUBLIC
   ${FRAMEWORK_INC_DIR}
   ${EVENT_TRACE_INC_DIR}
-  ${FUNC_INJECTION_DIR}
-  ${FUNC_HOSTINJECTION_DIR}
   ${UTILITY_INC_DIR}
   ${SECUREC_INC_DIR}
 )

@@ -9,26 +9,18 @@
 #include <cerrno>
 #include "protocol.h"
 #include "serializer.h"
-#include "domain_socket_client.h"
 #include "shared_memory_client.h"
-#include "host_injection/core/FuncSelector.h"
-#include "host_injection/utils/InjectLogger.h"
 
 namespace Leaks {
 
-ClientProcess::ClientProcess(LeaksCommType type) : logLevel_(Leaks::LogLv::INFO)
+ClientProcess::ClientProcess(LeaksCommType type) : logLevel_(Leaks::LogLv::INFO), client_(nullptr)
 {
-    char* test = std::getenv("LEAKS_TEST");
-    if (test) {
-        type = LeaksCommType::MEMORY_DEBUG;
-    }
-    if (LeaksCommType::DOMAIN_SOCKET == type) {
-        client_ = new DomainSocketClient(CommType::SOCKET);
-    } else if (LeaksCommType::SHARED_MEMORY == type) {
+    if (LeaksCommType::SHARED_MEMORY == type) {
         client_ = new SharedMemoryClient();
+        client_->Init();
     } else if (LeaksCommType::MEMORY_DEBUG == type) {
         std::cout << "LEAKS_TEST" << std::endl;
-        client_ = new DomainSocketClient(CommType::MEMORY);
+        client_ = new SharedMemoryClient();
     } else {
         client_ = nullptr; //  invalid type
     }
@@ -36,7 +28,6 @@ ClientProcess::ClientProcess(LeaksCommType type) : logLevel_(Leaks::LogLv::INFO)
         std::cout << "Initial client failed" << std::endl;
         return;
     }
-    client_->Init();
 }
 
 ClientProcess &ClientProcess::GetInstance(LeaksCommType type)

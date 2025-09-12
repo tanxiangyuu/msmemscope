@@ -3,19 +3,16 @@
 #include "server_process.h"
 #include <thread>
 #include "utility/log.h"
-#include "domain_socket_server.h"
 #include "shared_memory_server.h"
 
 namespace Leaks {
 
 ServerProcess::ServerProcess(LeaksCommType type)
 {
-    if (LeaksCommType::DOMAIN_SOCKET == type) {
-        server_ = new DomainSocketServer(CommType::SOCKET);
-    } else if (LeaksCommType::SHARED_MEMORY == type) {
+    if (LeaksCommType::SHARED_MEMORY == type) {
         server_ = new SharedMemoryServer();
     } else if (LeaksCommType::MEMORY_DEBUG == type) {
-        server_ = new DomainSocketServer(CommType::MEMORY);
+        std::cout << "REMOVE SOCKET" << std::endl;
     } else {
         server_ = nullptr; //  invalid type
     }

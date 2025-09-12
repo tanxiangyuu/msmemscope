@@ -5,8 +5,9 @@
 
 #include <unordered_map>
 #include <mutex>
+#include <functional>
 #include "record_info.h"
-#include "host_injection/core/Communication.h"
+#include "comm_def.h"
 
 namespace Leaks {
 /*
