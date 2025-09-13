@@ -162,9 +162,9 @@ void Process::EventHandler(std::shared_ptr<EventBase> event)
             EventHandler(cleanUpEvent);                                 // 最大递归深度为2，因为这里传入事件的类型为CLEAN_UP
             MemoryStateManager::GetInstance().AddEvent(memEvent);       // 再次尝试添加
         }
-        state = MemoryStateManager::GetInstance().GetState(event->poolType, MemoryStateKey{event->pid, event->addr});
+        state = MemoryStateManager::GetInstance().GetState(memEvent);
     } else if (event->eventType == EventBaseType::MEMORY_OWNER || event->eventType == EventBaseType::CLEAN_UP) {
-        state = MemoryStateManager::GetInstance().GetState(event->poolType, MemoryStateKey{event->pid, event->addr});
+        state = MemoryStateManager::GetInstance().GetState(event);
     } else if (event->eventSubType == EventSubType::TRACE_START || event->eventSubType == EventSubType::TRACE_STOP) {
         for (auto& state : MemoryStateManager::GetInstance().GetAllStateKeys()) {
             // 清空对应pid的所有事件

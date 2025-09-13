@@ -79,9 +79,17 @@ bool MemoryStateManager::DeteleState(const PoolType& poolType, const MemoryState
     return true;
 }
 
-MemoryState* MemoryStateManager::GetState(const PoolType& poolType, const MemoryStateKey& key)
+MemoryState* MemoryStateManager::GetState(std::shared_ptr<MemoryEvent>& event)
 {
     std::lock_guard<std::mutex> lock(mtx_);
+    return FindStateInPool(event->poolType, MemoryStateKey{event->pid, event->addr}, event->size);
+}
+
+MemoryState* MemoryStateManager::GetState(std::shared_ptr<EventBase>& event)
+{
+    std::lock_guard<std::mutex> lock(mtx_);
+    auto poolType = event->poolType;
+    auto key = MemoryStateKey{event->pid, event->addr};
     if (poolsMap_.find(poolType) == poolsMap_.end()) {
         // LOG_DEBUG
         return nullptr;
