@@ -89,7 +89,8 @@ public:
 
     bool AddEvent(std::shared_ptr<MemoryEvent>& event);
     bool DeteleState(const PoolType& poolType, const MemoryStateKey& key);
-    MemoryState* GetState(const PoolType& poolType, const MemoryStateKey& key);
+    MemoryState* GetState(std::shared_ptr<EventBase>& event);
+    MemoryState* GetState(std::shared_ptr<MemoryEvent>& event);
     std::vector<std::pair<PoolType, MemoryStateKey>> GetAllStateKeys();
 private:
     MemoryState* FindStateInPool(const PoolType& poolType, const MemoryStateKey& key, uint64_t size);
