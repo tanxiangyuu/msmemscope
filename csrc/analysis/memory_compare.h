@@ -96,6 +96,7 @@ private:
         const std::tuple<std::string, std::string, size_t> &compareData);
     void ReadFile(std::string &path, std::unordered_map<DEVICEID, ORIGINAL_FILE_DATA> &data);
     bool CheckCsvHeader(std::string &path, std::ifstream& file, std::vector<std::string> &headerData);
+    std::string NormalizeString(const std::string& str);
 private:
     FILE* compareFile_ = nullptr;
     std::unordered_map<DEVICEID, ORIGINAL_FILE_DATA> baseFileOriginData_;

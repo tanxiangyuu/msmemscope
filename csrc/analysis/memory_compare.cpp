@@ -92,13 +92,38 @@ bool MemoryCompare::CheckCsvHeader(std::string &path, std::ifstream& file, std::
     std::string line;
     getline(file, line);
 
-    if (line + "\n" != std::string(LEAKS_HEADERS)) {
+    std::string normalizedLine = NormalizeString(line);
+    if (normalizedLine + "\n" != std::string(LEAKS_HEADERS)) {
         return false;
     }
 
-    Utility::Split(line, std::back_inserter(headerData), ",");
+    Utility::Split(normalizedLine, std::back_inserter(headerData), ",");
+
     return true;
 }
+
+
+std::string MemoryCompare::NormalizeString(const std::string& line)
+{
+    std::string result = line;
+    // 清除header的多余\r或者\n
+    result.erase(
+        std::remove_if(result.begin(), result.end(), [](unsigned char c) {
+            return c == '\r' || c == '\n';
+        }),
+        result.end()
+    );
+
+    // 清除header多余前导和后缀空格
+    auto start = result.begin();
+    auto end = result.end();
+
+    while (start != end && std::isspace(*start)) ++start;
+    while (start != end && std::isspace(*(end - 1))) --end;
+
+    return std::string(start, end);
+}
+
 
 bool IsSupportedFramework(const std::string& name)
 {
