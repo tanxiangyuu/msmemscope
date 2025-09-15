@@ -11,6 +11,7 @@ import sys
 import os
 import re
 from collections import defaultdict
+from pathlib import Path
 
 BYTE_TO_MB = 1024 * 1024
 
@@ -21,18 +22,24 @@ class LeakChecker:
         self.error = None
 
     def _validate_path(self, csv_path):
-        """验证路径安全性"""
+        # 将字符串转换为 Path 对象 兼容string和path
+        path_obj = Path(csv_path)
 
         # 检查文件是否存在且可读
-        if not os.path.isfile(csv_path):
-            self.error = "Error: CSV File not found or not a regular file"
+        if not path_obj.is_file():
+            self.error = "Error: File not found or not a regular file"
             return False
-            
-        if not os.access(csv_path, os.R_OK):
-            self.error = "Error: Permission denied - CSV file is not readable"
+
+        if not os.access(path_obj, os.R_OK):
+            self.error = "Error: Permission denied - file is not readable"
             return False
-            
-        self._abs_path = csv_path  # 保存验证后的绝对路径
+
+        file_suffix = path_obj.suffix.lower()
+        if file_suffix != ".csv":
+            print(f"Error: Unsupported file format: {file_suffix}")
+            return False
+
+        self._abs_path = path_obj.resolve()  # 保存绝对路径
         return True
 
     def _read_file(self):
