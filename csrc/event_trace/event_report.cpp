@@ -655,7 +655,8 @@ bool EventReport::ReportTraceStatus(const EventTraceStatus status)
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportAtbOpExecute(char* name, char* attr, RecordSubType type)
+bool EventReport::ReportAtbOpExecute(char* name, uint32_t nameLength,
+    char* attr, uint32_t attrLength, RecordSubType type)
 {
     g_isInReportFunction = true;
 
@@ -686,7 +687,8 @@ bool EventReport::ReportAtbOpExecute(char* name, char* attr, RecordSubType type)
     return (sendNums >= 0);
 }
 
-bool EventReport::ReportAtbKernel(char* name, char* attr, RecordSubType type)
+bool EventReport::ReportAtbKernel(char* name, uint32_t nameLength,
+    char* attr, uint32_t attrLength, RecordSubType type)
 {
     g_isInReportFunction = true;
 

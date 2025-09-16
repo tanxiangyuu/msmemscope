@@ -14,7 +14,7 @@ class LockFreeQueue {
 public:
     bool ServerInit(uint64_t size);
     bool ClientInit();
-    bool EnQueue(const void* data, size_t data_size, size_t id);
+    bool EnQueue(const void* data, size_t dataSize, size_t id);
     bool DeQueue(std::string& msg, size_t& id);
     bool IsEmpty() const {return head_.load(std::memory_order_relaxed) == tail_.load(std::memory_order_relaxed);}
 

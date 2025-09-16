@@ -58,8 +58,8 @@ public:
     int ReportRecordEvent(const RecordBuffer& record);
     Config GetInitConfig();
     bool ReportMemPoolRecord(RecordBuffer &memPoolRecordBuffer);
-    bool ReportAtbOpExecute(char* name, char* attr, RecordSubType type);
-    bool ReportAtbKernel(char* name, char* attr, RecordSubType type);
+    bool ReportAtbOpExecute(char* name, uint32_t nameLength, char* attr, uint32_t attrLength, RecordSubType type);
+    bool ReportAtbKernel(char* name, uint32_t nameLength, char* attr, uint32_t attrLength, RecordSubType type);
     bool ReportAtbAccessMemory(char* name, char* attr, uint64_t addr, uint64_t size, AccessType type);
     bool ReportAtenLaunch(RecordBuffer& atenOpLaunchRecordBuffer);
     bool ReportAtenAccess(RecordBuffer &memAccessRecordBuffer);

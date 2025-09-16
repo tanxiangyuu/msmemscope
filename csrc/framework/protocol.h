@@ -65,6 +65,7 @@ public:
     explicit Packet(EventRecord const &record, std::string &pyStack, std::string &cStack)
     {
         head_.type = PacketType::RECORD;
+        head_.length = sizeof(head_.type);
         uint64_t cLen = std::min(cStack.size(), MAX_STRING_LEN);
         uint64_t pyLen = std::min(pyStack.size(), MAX_STRING_LEN);
         body_.record.eventRecord = record;
@@ -79,6 +80,7 @@ public:
     {
         uint64_t len = std::min(log.size(), MAX_STRING_LEN);
         head_.type = PacketType::LOG;
+        head_.length = sizeof(head_.type);
         body_.log.len = len;
         body_.log.buf = new char[len];
         log.copy(body_.log.buf, len);
@@ -131,12 +133,12 @@ public:
     inline bool View(T &val) {return extractor_->View(val);}
     template<typename T>
     inline bool Read(T &val) {return extractor_->Read(val);}
-    bool GetStringData(std::string &data, uint64_t len);
+    bool GetStringData(std::string &data, uint64_t size);
     Packet GetPacket(void);
 private:
     Packet GetPayLoad(PacketHead head);
     Packet GetRecord(void);
-    Packet GetLog(uint64_t);
+    Packet GetLog(uint64_t len);
     std::shared_ptr<Extractor> extractor_;
 };
 

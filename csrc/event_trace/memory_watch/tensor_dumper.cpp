@@ -23,11 +23,9 @@ void CleanFileName(std::string& fileName)
     return;
 }
 
-TensorDumper::TensorDumper()
+TensorDumper::TensorDumper() : fullContent_(GetConfig().watchConfig.fullContent),
+    dumpDir_(std::string(GetConfig().outputDir) + "/watch_dump")
 {
-    fullContent_ = GetConfig().watchConfig.fullContent;
-
-    dumpDir_ = std::string(GetConfig().outputDir) + "/watch_dump";
 }
 
 TensorDumper::~TensorDumper()
@@ -115,8 +113,7 @@ bool TensorDumper::DumpOneTensor(const MonitoredTensor& tensor, std::string& fil
 std::string TensorDumper::GetFileName(const std::string &op, std::string watchedOpName,
     uint64_t index, bool isWatchStart)
 {
-    std::string type;
-    type = isWatchStart ? "before" : "after";
+    std::string type = isWatchStart ? "before" : "after";
     std::string name = op + "-" + watchedOpName + "_" + std::to_string(index) + "_" + type + ".bin";
     return name;
 }

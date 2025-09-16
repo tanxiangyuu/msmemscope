@@ -104,9 +104,9 @@ public:
  
 class MemoryEvent : public EventBase {
 public:
-    uint64_t size = 0;
-    uint64_t total = 0;
-    uint64_t used = 0;
+    int64_t size = 0;
+    int64_t total = 0;
+    int64_t used = 0;
     uint64_t eventIndex = 0;
     int32_t moduleId = -1;
     std::string describeOwner;
