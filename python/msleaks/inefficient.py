@@ -606,7 +606,7 @@ class Inefficient:
             if conn:
                 conn.close()
 
-    def _update_attr(self, original_attr: str, inefficient_value: list[str]):
+    def _update_attr(self, original_attr: str, inefficient_value: List[str]):
         # 把低效显存结果写回
         attr_str = original_attr.strip()
         if attr_str.startswith('{') and attr_str.endswith('}'):
