@@ -1,8 +1,8 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 
 #include <cstdint>
-#include "string_validator.h"
 #include "utils.h"
+#include "string_validator.h"
 
 namespace Utility {
 

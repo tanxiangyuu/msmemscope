@@ -36,11 +36,9 @@ public:
     std::string GetWatchedTargetName();
 
 private:
-    MemoryWatch()
+    MemoryWatch() : firstWatchTarget_(std::string(GetConfig().watchConfig.start)),
+        lastWatchTarget_(std::string(GetConfig().watchConfig.end)), outputId_(GetConfig().watchConfig.outputId)
     {
-        firstWatchTarget_ = std::string(GetConfig().watchConfig.start);
-        lastWatchTarget_ = std::string(GetConfig().watchConfig.end);
-        outputId_ = GetConfig().watchConfig.outputId;
     };
     ~MemoryWatch() = default;
 

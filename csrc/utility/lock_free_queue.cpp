@@ -9,9 +9,9 @@
 
 namespace Utility {
 
-#define LEAKS_MAGIC_PREFIX 0xABCD1234
-#define LEAKS_MSG_SEND_TIMEOUT_MS 3000
-#define LEAKS_MSG_RECV_TIMEOUT_MS 50
+constexpr uint32_t LEAKS_MAGIC_PREFIX = 0xABCD1234;
+constexpr uint32_t LEAKS_MSG_SEND_TIMEOUT_MS = 3000;
+constexpr uint32_t LEAKS_MSG_RECV_TIMEOUT_MS = 50;
 
 struct DataHeader {
     /* 此处complate_flag需要放在最开头 */

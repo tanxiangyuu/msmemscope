@@ -130,7 +130,8 @@ namespace atb {
         }
         RecordSubType type = isStart ? RecordSubType::ATB_START : RecordSubType::ATB_END;
 
-        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbOpExecute(nameStr, attrStr, type)) {
+        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbOpExecute(nameStr, sizeof(nameStr),
+            attrStr, sizeof(attrStr), type)) {
             CLIENT_ERROR_LOG("Report atb op start event failed.\n");
         }
     }
@@ -215,7 +216,8 @@ namespace atb {
 
         RecordSubType type = isBeforeLaunch ? RecordSubType::KERNEL_START : RecordSubType::KERNEL_END;
 
-        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbKernel(nameStr, attrStr, type)) {
+        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbKernel(nameStr, sizeof(nameStr),
+            attrStr, sizeof(attrStr), type)) {
             CLIENT_ERROR_LOG("Report atb run kernel event failed.\n");
         }
         return true;

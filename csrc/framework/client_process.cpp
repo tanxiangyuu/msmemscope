@@ -74,7 +74,7 @@ void ClientProcess::SetLogLevel(LogLv level)
 int ClientProcess::Notify(const std::string &msg)
 {
     size_t sentBytes = msg.size();
-    if (client_->Send(msg, sentBytes) == false) {
+    if (!client_->Send(msg, sentBytes)) {
         std::cout << "client notify failed!" << std::endl;
         return 0;
     }

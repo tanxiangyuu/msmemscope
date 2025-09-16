@@ -42,7 +42,7 @@ private:
     bool DumpTensorHashValue(const std::vector<uint8_t> &hostData, std::string& fileName);
     void SynchronizeStream(aclrtStream stream);
     uint64_t CountOpName(const std::string& name);
-    std::string GetFileName(const std::string &op, std::string watchedOpName, uint64_t index, bool isFirstOp);
+    std::string GetFileName(const std::string &op, std::string watchedOpName, uint64_t index, bool isWatchStart);
 
 private:
     bool fullContent_;
