@@ -17,13 +17,6 @@ PyDoc_STRVAR(MsleaksCModuleDoc,
  \n\
 ...");
 
-PyDoc_STRVAR(StepDoc,
-"step($self, /)\n--\n\nUpdata step.");
-static PyObject* MsleaksStep(PyObject *self)
-{
-    Py_RETURN_NONE;
-}
-
 PyDoc_STRVAR(StartDoc,
 "start()\n--\n\nstart trace data.");
 static PyObject* MsleaksStart()
@@ -99,7 +92,6 @@ static PyObject* MsleaksConfig(PyObject* self, PyObject* args, PyObject* kwargs)
 }
 
 static PyMethodDef g_MsleaksMethods[] = {
-    {"step", reinterpret_cast<PyCFunction>(MsleaksStep), METH_NOARGS, StepDoc},
     {"start", reinterpret_cast<PyCFunction>(MsleaksStart), METH_NOARGS, StartDoc},
     {"stop", reinterpret_cast<PyCFunction>(MsleaksStop), METH_NOARGS, StopDoc},
     {"config", reinterpret_cast<PyCFunction>(MsleaksConfig), METH_VARARGS | METH_KEYWORDS, ConfigDoc},
