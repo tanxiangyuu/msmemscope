@@ -34,7 +34,7 @@ static void StartKernelEventTrace()
     std::call_once(flag, &KernelEventTrace::StartKernelEventTrace, &KernelEventTrace::GetInstance());
 }
 
-void KernelWatchEnd()
+static void KernelWatchEnd()
 {
     bool isKernelLevel = BitPresent(GetConfig().levelType, static_cast<size_t>(LevelType::LEVEL_KERNEL));
     if (!GetConfig().watchConfig.isWatched || !isKernelLevel) {
