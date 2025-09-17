@@ -321,7 +321,7 @@ TEST(EventReportTest, ReportAtbOpExecuteTest) {
     ConfigManager::Instance().SetConfig(config);
     char name[255] = "operation";
     char attr[255] = "path:model_struct";
-    EXPECT_TRUE(instance.ReportAtbOpExecute(name, attr, RecordSubType::ATB_START));
+    EXPECT_TRUE(instance.ReportAtbOpExecute(name, sizeof(name), attr, sizeof(attr), RecordSubType::ATB_START));
     instance.isReceiveServerInfo_ = true;
 }
 
@@ -333,7 +333,7 @@ TEST(EventReportTest, ReportAtbKernelTest) {
     ConfigManager::Instance().SetConfig(config);
     char name[255] = "operation";
     char attr[255] = "path:model_struct";
-    EXPECT_TRUE(instance.ReportAtbKernel(name, attr, RecordSubType::KERNEL_START));
+    EXPECT_TRUE(instance.ReportAtbKernel(name, sizeof(name), attr, sizeof(attr), RecordSubType::KERNEL_START));
     instance.isReceiveServerInfo_ = true;
 }
 

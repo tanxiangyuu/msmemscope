@@ -215,7 +215,9 @@ private:
         *(static_cast<uint32_t*>(static_cast<void*>(data))) = static_cast<uint32_t>(value.length() + 1);
         data += sizeof(uint32_t);
         /* 此处data buffer长度为blockLength，减去T和L后长度为 value.length() + 1；使用memcpy而非strcpy是为了拷贝效率更高 */
-        memcpy_s(data, value.length() + 1, value.c_str(), value.length());
+        if (memcpy_s(data, value.length() + 1, value.c_str(), value.length()) != EOK) {
+            std::cout << "[ERROR] make record buffer memcpy failed!" << std::endl;
+        }
         data[value.length()] = '\0';
     }
 
@@ -240,7 +242,7 @@ struct MemoryUsage {
     int8_t deviceIndex;
     uint8_t dataType;           // 0-malloc, 1-free, 2-block_free
     uint8_t allocatorType;      // 0-Inner(for PTA), 1-external(for GE)
-    int64_t ptr;
+    uint64_t ptr;
     int64_t allocSize;
     int64_t totalAllocated;
     int64_t totalReserved;
