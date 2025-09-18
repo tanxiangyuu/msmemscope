@@ -14,16 +14,16 @@ TEST(File, input_empty_path_expect_set_default_path)
     SetDirPath(pathStr, std::string(Leaks::OUTPUT_PATH));
     Utility::Path path = Utility::Path{std::string(Leaks::OUTPUT_PATH)};
     auto realPath = path.Resolved().ToString();
-    ASSERT_EQ(g_dirPath, realPath);
-    g_dirPath.clear();
+    ASSERT_EQ(Utility::DirPathManager::GetInstance().GetDirPath(), realPath);
+    Utility::DirPathManager::GetInstance().ClearDirPath();
 }
 
 TEST(File, input_path_expect_set_true_path)
 {
     std::string pathStr = "test path";
     SetDirPath(pathStr, std::string(Leaks::OUTPUT_PATH));
-    ASSERT_EQ(g_dirPath, pathStr);
-    g_dirPath.clear();
+    ASSERT_EQ(Utility::DirPathManager::GetInstance().GetDirPath(), pathStr);
+    Utility::DirPathManager::GetInstance().ClearDirPath();
 }
 
 TEST(File, make_empty_path_expect_return_false)
