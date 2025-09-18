@@ -107,7 +107,7 @@ void TraceRecord::TraceHandler(const RecordBase *record)
 void TraceRecord::SetDirPath()
 {
     std::lock_guard<std::mutex> lock(fileMutex_);
-    dirPath_ = Utility::g_dirPath + "/" + std::string(TRACE_FILE);
+    dirPath_ = Utility::DirPathManager::GetInstance().GetDirPath() + "/" + std::string(TRACE_FILE);
 }
 bool TraceRecord::CreateFileByDevice(const Device &device)
 {

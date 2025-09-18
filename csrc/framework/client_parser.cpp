@@ -177,8 +177,8 @@ void DoUserCommand(UserCommand userCommand)
     SetAnalysisDefaultConfig(userCommand.config);
 
     Utility::SetDirPath(userCommand.outputPath, std::string(OUTPUT_PATH));
-    if (strncpy_s(userCommand.config.outputDir, sizeof(userCommand.config.outputDir), Utility::g_dirPath.c_str(),
-            sizeof(userCommand.config.outputDir) - 1) != EOK) {
+    if (strncpy_s(userCommand.config.outputDir, sizeof(userCommand.config.outputDir),
+        Utility::DirPathManager::GetInstance().GetDirPath().c_str(), sizeof(userCommand.config.outputDir) - 1) != EOK) {
         std::cout << "strncpy_s FAILED" << std::endl;
     }
 

@@ -7,8 +7,6 @@
 
 namespace Utility {
 
-    std::string g_dirPath;
-
     // Log创建之前不要使用LOG_***
     bool CheckFileBeforeCreate(const std::string &path)
     {
