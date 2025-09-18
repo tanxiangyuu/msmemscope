@@ -51,7 +51,7 @@ public:
     explicit MemoryState(std::shared_ptr<MemoryEvent>& event)
     {
         events.push_back(event);
-        size = event->size;
+        size = static_cast<uint64_t>(event->size);
         leaksDefinedOwner = "";
         userDefinedOwner = event->describeOwner;
         inefficientType = "";
