@@ -277,12 +277,12 @@ void StepInnerAnalyzer::RecordNpuMalloc(const ClientId &clientId, const DeviceId
     const MemPoolRecord &memPoolRecord)
 {
     MemoryUsage memoryusage = memPoolRecord.memoryUsage;
-    int64_t npumemptr = memoryusage.ptr;
+    uint64_t npumemptr = memoryusage.ptr;
     std::string poolName = GetMemoryPoolName(memPoolRecord.type);
     if ((npuMemUsages_[deviceId].poolOpTable.find(NpuMemKey(npumemptr, memPoolRecord.type))
         != npuMemUsages_[deviceId].poolOpTable.end())) {
         LOG_WARN(
-            "[npu%d malloc][client %u]:!!! ------double malloc in %s------!!!, ptr: %lld",
+            "[npu%d malloc][client %u]:!!! ------double malloc in %s------!!!, ptr: %llu",
                 deviceId, clientId, poolName.c_str(), npumemptr);
     }
 
@@ -308,12 +308,12 @@ void  StepInnerAnalyzer::RecordNpuFree(const ClientId &clientId, const DeviceId 
     const MemPoolRecord &memPoolRecord)
 {
     MemoryUsage memoryusage = memPoolRecord.memoryUsage;
-    int64_t npumemptr = memoryusage.ptr;
+    uint64_t npumemptr = memoryusage.ptr;
     std::string poolName = GetMemoryPoolName(memPoolRecord.type);
     if ((npuMemUsages_[deviceId].poolOpTable.find(NpuMemKey(npumemptr, memPoolRecord.type))
         == npuMemUsages_[deviceId].poolOpTable.end())) {
         LOG_WARN(
-            "[npu%d free][client %u]:!!! ------free error in %s------!!!, ptr: %lld",
+            "[npu%d free][client %u]:!!! ------free error in %s------!!!, ptr: %llu",
                 deviceId, clientId, poolName.c_str(), npumemptr);
     }
 
