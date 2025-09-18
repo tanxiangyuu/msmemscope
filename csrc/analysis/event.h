@@ -132,7 +132,7 @@ public:
         device = (record.devId == GD_INVALID_NUM) ? "N/A"
             : (record.space == MemOpSpace::HOST || record.devType == DeviceType::CPU) ? "host"
             : std::to_string(record.devId);
-        size = record.subtype == RecordSubType::MALLOC ? record.memSize : 0;  // hal和host的free事件没有size信息
+        size = record.subtype == RecordSubType::MALLOC ? static_cast<int64_t>(record.memSize) : 0;  // hal和host的free事件没有size信息
         moduleId = record.devType == DeviceType::NPU ? record.modid : -1;     // host事件没有moduleId信息
         const TLVBlock* ownerBlock = GetTlvBlock(record, TLVBlockType::MEM_OWNER);
         describeOwner = ownerBlock == nullptr ? "" : std::string(ownerBlock->data);
@@ -198,7 +198,7 @@ public:
         device = (record.devId == GD_INVALID_NUM) ? "N/A" : std::to_string(record.devId);
         const TLVBlock* opName = GetTlvBlock(record, TLVBlockType::OP_NAME);
         name = opName == nullptr ? "N/A" : std::string(opName->data);
-        size = record.memSize;
+        size = static_cast<int64_t>(record.memSize);
         const TLVBlock* memAttrBlock = GetTlvBlock(record, TLVBlockType::MEM_ATTR);
         attr = memAttrBlock == nullptr ? "" : std::string(memAttrBlock->data);
     }
