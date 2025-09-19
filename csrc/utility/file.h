@@ -20,8 +20,33 @@ namespace Utility {
     constexpr uint32_t DEFAULT_UMASK_FOR_CSV_FILE = 0177;
     constexpr uint32_t DEFAULT_UMASK_FOR_DB_FILE = 0177;
     constexpr uint32_t DEFAULT_UMASK_FOR_BIN_FILE = 0177;
-    extern std::string g_dirPath;
     constexpr uint64_t MAX_INPUT_FILE_SIZE = 1UL << 33; // 8GB
+
+    class DirPathManager {
+    public:
+        static DirPathManager& GetInstance()
+        {
+            static DirPathManager instance;
+            return instance;
+        }
+
+        void SetDirPath(const std::string& path)
+        {
+            dirPath_ = path;
+        }
+
+        std::string GetDirPath()
+        {
+            return dirPath_;
+        }
+
+        void ClearDirPath()
+        {
+            dirPath_.clear();
+        }
+    private:
+        std::string dirPath_;
+    };
 
     inline void SetDirPath(const std::string& dirPath, const std::string& defaultDirPath)
     {
@@ -34,9 +59,9 @@ namespace Utility {
             Utility::Path path = Utility::Path{defaultDirPath};
             Utility::Path realPath = path.Resolved();
             if (realPath.ErrorOccured()) { return; }
-            g_dirPath = realPath.ToString();
+            DirPathManager::GetInstance().SetDirPath(realPath.ToString());
         } else {
-            g_dirPath = dirPath;
+            DirPathManager::GetInstance().SetDirPath(dirPath);
         }
     }
 
