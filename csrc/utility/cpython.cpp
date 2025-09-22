@@ -79,9 +79,27 @@ PyInterpGuard::~PyInterpGuard()
     PyGILState_Release(gstate);
 }
 
+bool IsPythonThread()
+{
+#define THREAD_NAME_LEN 16
+    char name[THREAD_NAME_LEN] = {0};
+    pthread_getname_np(pthread_self(), name, sizeof(name));
+    std::string threadName = std::string(name);
+    if (threadName.find("python") != std::string::npos) {
+        return true;
+    }
+    return false;
+}
+
 void PythonCallstack(uint32_t pyDepth, std::string& pyStack)
 {
-    if (!IsPyInterpRepeInited()) {
+    thread_local static std::once_flag flag;
+    thread_local static bool isPythonThread;
+
+    std::call_once(flag, []() {
+        isPythonThread = IsPythonThread();
+    });
+    if (!isPythonThread || !IsPyInterpRepeInited()) {
         pyStack = "\"NA\"";
         return;
     }
