@@ -12,8 +12,6 @@ set(leaks_header ${SRC_DIR}
                  ${SRC_DIR}/framework
                  ${SRC_DIR}/event_trace
                  ${SRC_DIR}/utility
-                 ${ROOT_DIR}/platform/func_injection
-                 ${ROOT_DIR}/platform/func_injection/host_injection
                  ${ROOT_DIR}/platform/securec/include)
 
 set(gtest_header ../opensource/googletest/googletest/include/)
@@ -22,12 +20,6 @@ file(GLOB_RECURSE SRC_SOURCE ${SRC_DIR}/framework/*.cpp
                                        ${SRC_DIR}/analysis/*.cpp
                                        ${SRC_DIR}/event_trace/*.cpp
                                        ${SRC_DIR}/utility/*.cpp
-                                       ${ROOT_DIR}/platform/func_injection/host_injection/core/Communication.cpp
-                                       ${ROOT_DIR}/platform/func_injection/host_injection/core/DomainSocket.cpp
-                                       ${ROOT_DIR}/platform/func_injection/host_injection/core/LocalProcess.cpp
-                                       ${ROOT_DIR}/platform/func_injection/host_injection/utils/FileSystem.cpp
-                                       ${ROOT_DIR}/platform/func_injection/host_injection/utils/Ustring.cpp
-                                       ${ROOT_DIR}/platform/func_injection/host_injection/utils/FuncSelector.cpp
                                        ${ROOT_DIR}/platform/securec/src/*.c)
 list(FILTER SRC_SOURCE EXCLUDE REGEX "host_memory_hooks\\.cpp$")
 list(FILTER SRC_SOURCE EXCLUDE REGEX ".*\/atb_hooks\/.*")

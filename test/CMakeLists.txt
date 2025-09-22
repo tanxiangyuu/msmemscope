@@ -19,8 +19,6 @@ set(leaks_header ../csrc
                  ../csrc/framework
                  ../csrc/event_trace
                  ../csrc/utility
-                 ../platform/func_injection
-                 ../platform/func_injection/host_injection
                  ../platform/securec/include)
 set(CMAKE_CXX_FLAGS "-fprofile-arcs -ftest-coverage -lgcov")
 set(gtest_header ../opensource/googletest/googletest/include/)
@@ -29,12 +27,6 @@ file(GLOB_RECURSE TEST_ORIGINAL_SOURCE ../csrc/framework/*.cpp
                                        ../csrc/analysis/*.cpp
                                        ../csrc/event_trace/*.cpp
                                        ../csrc/utility/*.cpp
-                                       ../platform/func_injection/host_injection/core/Communication.cpp
-                                       ../platform/func_injection/host_injection/core/DomainSocket.cpp
-                                       ../platform/func_injection/host_injection/core/LocalProcess.cpp
-                                       ../platform/func_injection/host_injection/utils/FileSystem.cpp
-                                       ../platform/func_injection/host_injection/utils/Ustring.cpp
-                                       ../platform/func_injection/host_injection/utils/FuncSelector.cpp
                                        ../platform/securec/src/*.c)
 list(FILTER TEST_ORIGINAL_SOURCE EXCLUDE REGEX "host_memory_hooks\\.cpp$")
 list(FILTER TEST_ORIGINAL_SOURCE EXCLUDE REGEX ".*\/atb_hooks\/.*")
