@@ -7,13 +7,15 @@ for package in check_packages:
         importlib.import_module(package)
     except ImportError:
         print(f"ERROR: Msleaks import {package} failed! Please check it")
-
 import csv
 import sqlite3
-import os
-from pathlib import Path
 from collections import defaultdict
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, List
+from .base import BaseAnalyzer, AnalysisConfig
+import os
+
 
 MAX_UINT64 = (1 << 64) - 1
 MIN_EVENTS_NUM = 2              # state buffer中需要最少有两条内存访问记录
@@ -21,156 +23,117 @@ LAST_EVENTS_NUM = 1             # 上一个元素
 ATTR_INDEX = 9                  # attr在csv中的列索引
 
 
-class OriginEvent:
-    # OriginEvent会将除了id和timestamp以外的所有变量用str读取
-    def __init__(self, event_id: int, event: str, event_type: str, name: str,
-                timestamp: str, pid: str, tid: str, device: str,
-                ptr: str, attr: str, cpp_call_stack: str, python_call_stack: str, row_num: int):
-        self.event_id = event_id
-        self.event = event
-        self.event_type = event_type
-        self.name = name
-        self.timestamp = timestamp
-        self.pid = pid
-        self.tid = tid
-        self.device = device
-        self.ptr = ptr
-        self.attr = attr
-        self.cpp_call_stack = cpp_call_stack
-        self.python_call_stack = python_call_stack
-        self.row_num = row_num                           # 数据的行号
+class InefficientConfig(AnalysisConfig):
+    """低效代码分析配置"""
+    def __init__(self, input_path: str, mem_size: int = 0, inefficient_type: List[str] = None, idle_threshold: int = 3000):
+        super().__init__(input_path=input_path)
+        self.mem_size = mem_size
+        if inefficient_type is None:
+            self.inefficient_type: List[str] = ["early_allocation", "late_deallocation", "temporary_idleness"]
+        else:
+            self.inefficient_type = inefficient_type
+        self.idle_threshold = idle_threshold
+        self.__post_init__()
 
+    def __post_init__(self):
+        super().__post_init__()
+        # 需要额外校验是否可写入
+        path = Path(self.input_path)
+        if not os.access(str(path), os.W_OK):
+            raise PermissionError(f"Write permission denied: {path}")
 
-class IneffEvent:
-    # 这里只采集和低效显存识别相关的数据
-    def __init__(self, event_id: int, event: str, event_type: str, name: str, pid: int,
-                 allocation_id: int, size: int, api_id: int, inefficient_type: List[str], row_num: int, access_type: str):
-        self.event_id = event_id
-        self.event = event
-        self.event_type = event_type
-        self.name = name
-        self.pid = pid
-        self.allocation_id = allocation_id
-        self.size = size
-        self.api_id = api_id
-        self.inefficient_type = inefficient_type
-        self.row_num = row_num
-        self.access_type = access_type
-
-
-class PidState:
-    # 包含低效显存相关信息
-    def __init__(self, api_tmp: List[IneffEvent], api_id: int, malloc_api_tmp_id: int, free_api_tmp_id: int, is_operation_started: bool):
-        self.api_tmp = api_tmp
-        self.api_id = api_id
-        self.malloc_api_tmp_id = malloc_api_tmp_id
-        self.free_api_tmp_id = free_api_tmp_id
-        self.is_operation_started = is_operation_started
-
-
-class Inefficient:
-    """
-    inefficient - 低效显存识别类
-
-    配置说明（通过 set_config() 设置）：
-
-    - mem_size (int): 低效显存阈值（单位：Bytes）
-        - 当识别出的低效显存大小小于阈值 不做上报
-        - 默认值：0
-        - 示例：mem_size=1024
-
-    - inefficient_type (str): 低效类型分类，决定判断策略
-        - 可选值："early_allocation","late_deallocation","temporary_idleness"
-            • "early_allocation"    → 过早申请
-            • "late_deallocation"   → 过迟释放
-            • "temporary_idleness"  → 临时闲置
-        - 默认值："early_allocation","late_deallocation","temporary_idleness" 三种低效显存均识别
-        - 示例：inefficient_type=["early_allocation","late_deallocation","temporary_idleness"]
-
-    - idle_threshold (int): 临时闲置Api阈值
-        - 超过3000个Api未被访问 视为临时闲置
-        - 默认值：3000
-        - 示例：idle_threshold=3000
-
-    使用示例：
-        from inefficient import _inefficient
-        _inefficient.set_config(mem_size=0, 
-                                inefficient_type=["early_allocation","late_deallocation","temporary_idleness"],
-                                idle_threshold=3000)
-    """
-    def __init__(self):
-        self.config = {
-            "mem_size": 0,                          # 默认情况下所有内存块都会被校验
-            "inefficient_type": ["early_allocation", "late_deallocation", "temporary_idleness"],     # 默认情况下 三种低效显存都会被识别
-            "idle_threshold": 3000,                # 默认情况下临时闲置的api间隔
-        }
-        self.memory_state: Dict[str, List[IneffEvent]] = defaultdict(list)  # 参考MemoryStateKey实现，key是 pid, event_id 的拼接字符串
-        self.inefficient_results: Dict[str, List[str]] = defaultdict(list)   # key是row_num, pid, event_id拼接字符串
-        self.pta_pid_states: Dict[int, PidState] = defaultdict(PidState)
-        self.atb_pid_states: Dict[int, PidState] = defaultdict(PidState)
-        self.headers = [
-            "ID", "Event", "Event Type", "Name", "Timestamp(ns)",
-            "Process Id", "Thread Id", "Device Id", "Ptr", "Attr",
-            "Call Stack(Python)", "Call Stack(C)"
-        ]
-        self.data_format: str                                              
-
-    def set_config(self, **kwargs):
-        # 定义校验函数
         def _validate_mem_size(v):
             if not isinstance(v, int) or v < 0:
-                raise ValueError("mem_size must be a non-negative integer")
+                raise ValueError("Memory size must be a non-negative integer")
             return v  
 
         def _validate_inefficient_type(v):
-            # 处理单个字符串转为列表的逻辑 如果用户输入单个字符串 默认转为list
             types = [v] if isinstance(v, str) else v
             if not isinstance(types, list) or not types:
-                raise ValueError("inefficient_type must be a non-empty list or a single valid string")
+                raise ValueError("Inefficient type must be a non-empty list or a single valid string")
+            valid_types = {"early_allocation", "late_deallocation", "temporary_idleness"}
             for t in types:
                 if t not in valid_types:
-                    raise ValueError(f"Invalid inefficient access_type: {t}, valid values are {list(valid_types)}")
+                    raise ValueError(f"Invalid inefficient type: {t}, valid values are {list(valid_types)}")
             return types 
 
         def _validate_idle_threshold(v):
             if not isinstance(v, int) or v <= 0:
-                raise ValueError("idle_threshold must be a positive integer")
+                raise ValueError("Idle threshold must be a positive integer")
             return v  
 
-        valid_keys = ["mem_size", "inefficient_type", "idle_threshold"]
-        valid_types = {"early_allocation", "late_deallocation", "temporary_idleness"}
         validators = {
             "mem_size": _validate_mem_size,
             "inefficient_type": _validate_inefficient_type,
             "idle_threshold": _validate_idle_threshold
         }
-
-        for k, v in kwargs.items():
-            if k not in valid_keys:
-                raise ValueError("Input config must be mem_size, inefficient_type or idle_threshold")
-            validator = validators.get(k)
-            if validator is None:
-                raise KeyError(f"Key '{k}' not found in validators")
-            processed_value = validator(v)
-            self.config[k] = processed_value
-
-    def run(self, dump_file: str):
-        # 安全校验
-        def _check_file_path(file_path: Path):
-            if not file_path.is_absolute():
-                raise ValueError(f"File path must be absolute: {file_path}")
-            if not file_path.exists():
-                raise FileNotFoundError(f"File not found: {file_path}")
-            if not os.access(str(file_path), os.R_OK):
-                raise PermissionError(f"Read permission denied: {file_path}")
-            if not os.access(str(file_path), os.W_OK):
-                raise PermissionError(f"Write permission denied: {file_path}")
-
-        file_path = Path(dump_file)
-        _check_file_path(file_path)
+        self.mem_size = validators["mem_size"](self.mem_size)
+        self.inefficient_type = validators["inefficient_type"](self.inefficient_type)
+        self.idle_threshold = validators["idle_threshold"](self.idle_threshold)
         
+
+@dataclass
+class OriginEvent:
+    event_id: int
+    event: str
+    event_type: str
+    name: str
+    timestamp: str
+    pid: str
+    tid: str
+    device: str
+    ptr: str
+    attr: str
+    cpp_call_stack: str
+    python_call_stack: str
+    row_num: str
+
+
+@dataclass
+class IneffEvent:
+    # 这里只采集和低效显存识别相关的数据
+    event_id: int
+    event: str
+    event_type: str
+    name: str
+    pid: int
+    allocation_id: int
+    size: int
+    api_id: int
+    inefficient_type: List[str]
+    row_num: int
+    access_type: str
+
+
+@dataclass
+class PidState:
+    # 包含低效显存相关信息
+    api_tmp: List[IneffEvent]
+    api_id: int
+    malloc_api_tmp_id: int 
+    free_api_tmp_id: int
+    is_operation_started: bool
+
+
+class InefficientAnalyzer(BaseAnalyzer):
+    def __init__(self):
+        self.memory_state: Dict[str, List[IneffEvent]] = defaultdict(list)   # 参考MemoryStateKey实现，key是 pid, event_id 的拼接字符串
+        self.inefficient_results: Dict[str, List[str]] = defaultdict(list)   # key是row_num, pid, event_id拼接字符串
+        self.pta_pid_states: Dict[int, PidState] = defaultdict(PidState)
+        self.atb_pid_states: Dict[int, PidState] = defaultdict(PidState)
+        self.headers = [
+                "ID", "Event", "Event Type", "Name", "Timestamp(ns)",
+                "Process Id", "Thread Id", "Device Id", "Ptr", "Attr",
+                "Call Stack(Python)", "Call Stack(C)"
+            ]
+        self.data_format: str
+        self.config: InefficientConfig
+
+    def analyze(self, config: InefficientConfig):
+        self.config = config
+        path = Path(config.input_path)
         # 根据id排序文件
-        origin_events = self.file_to_events(file_path)
+        origin_events = self.file_to_events(path)
         origin_events.sort(key=lambda origin_event: origin_event.event_id) 
         
         # 处理事件流
@@ -178,32 +141,31 @@ class Inefficient:
             self.event_handle(origin_event)
 
         # 写回原文件以及清除缓存
-        self.write_back_file(file_path)
-        self.clear()
+        self.write_back_file(path)
 
-    def file_to_events(self, file_path: Path) -> List[OriginEvent]:
+    def file_to_events(self, input_path: Path) -> List[OriginEvent]:
 
-        file_suffix = file_path.suffix.lower()
+        file_suffix = input_path.suffix.lower()
         if file_suffix == ".csv":
-            origin_events = self._read_csv_file(file_path)
+            origin_events = self._read_csv_file(input_path)
             self.data_format = "csv"
         elif file_suffix == ".db":
-            origin_events = self._read_db_file(file_path)
+            origin_events = self._read_db_file(input_path)
             self.data_format = "db"
         else:
-            print(f"ERROR: Unsupported file format: {file_suffix}")
+            raise ValueError(f"Unsupported file format: {file_suffix}.")
 
         return origin_events
 
-    def _read_csv_file(self, file_path: Path) -> List[OriginEvent]:
+    def _read_csv_file(self, input_path: Path) -> List[OriginEvent]:
 
         csv_events = []
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(input_path, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             missing_headers = [h for h in self.headers if h not in reader.fieldnames]
             if missing_headers:
-                print(f"ERROR: CSV format error: missing headers {missing_headers}")
-    
+                raise ValueError(f"ERROR: CSV format error: missing headers {missing_headers}")
+            print(f"INFO: Connected to CSV file")
             for row_num, row in enumerate(reader, start=2): 
                 event_obj = OriginEvent(
                     event_id=int(row["ID"]),
@@ -222,29 +184,28 @@ class Inefficient:
                 )
                 csv_events.append(event_obj)
 
+        print(f"INFO: CSV file read successfully")
         return csv_events
         
-    def _read_db_file(self, file_path: Path, db_table: str = "leaks_dump") -> List[OriginEvent]:     
+    def _read_db_file(self, input_path: Path, db_table: str = "leaks_dump") -> List[OriginEvent]:     
         # 数据库会保存原始数据类型 这里需要额外转化为str（与 CSV 格式对齐）
         db_events = []
         conn = None             # 数据库连接（后续需确保关闭）
         cursor = None           # 游标
         try:
-            conn = sqlite3.connect(str(file_path))                   # 连接 SQLite 数据库
+            conn = sqlite3.connect(str(input_path))                   # 连接 SQLite 数据库
             cursor = conn.cursor()
-            print(f"INFO: Connected to {file_path.name} (table: {db_table})")
+            print(f"INFO: Connected to {input_path.name} (table: {db_table})")
 
             cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{db_table}'")
             if not cursor.fetchone():
-                print(f"ERROR: Table '{db_table}' not found in {file_path.name}")
-                return db_events
+                raise ValueError(f"Table '{db_table}' not found in database {input_path}")
 
             cursor.execute(f"PRAGMA table_info({db_table})")            
             db_columns = [col[1] for col in cursor.fetchall()]          
             missing_headers = [h for h in self.headers if h not in db_columns]
             if missing_headers:
-                print(f"ERROR: Missing required columns → {missing_headers}")
-                return db_events
+                raise ValueError(f"ERROR: DB format error: missing headers {missing_headers}")
 
             cursor.execute(f"SELECT * FROM {db_table}")
             db_rows = cursor.fetchall()  
@@ -282,6 +243,7 @@ class Inefficient:
             if conn:
                 conn.close()
 
+        print(f"INFO: DB file read successfully")
         return db_events
 
     def event_handle(self, origin_event: OriginEvent):
@@ -464,7 +426,7 @@ class Inefficient:
         # 如果FREE的API Id在FA与MALLOC之间，则判断MALLOC内存块为过早申请
         # 根据之前识别低效显存的设计,最后的结果都会
         if (first_access_api_id > pid_state.free_api_tmp_id and malloc_api_id < pid_state.free_api_tmp_id):
-            if (state[0].size >= self.config["mem_size"] and "early_allocation" in self.config["inefficient_type"]):
+            if (state[0].size >= self.config.mem_size and "early_allocation" in self.config.inefficient_type):
                 state[0].inefficient_type.append("early_allocation")
                 key = f"{state[0].row_num}_{ineff_event.pid}_{state[0].event_id}"
                 self.inefficient_results[key].append("early_allocation")
@@ -488,7 +450,7 @@ class Inefficient:
 
         # 如果LA与FREE中存在MALLOC的API，则说明为过迟释放
         if (last_access_api_id < pid_state.malloc_api_tmp_id and pid_state.api_id > pid_state.malloc_api_tmp_id):
-            if (state[0].size >= self.config["mem_size"] and "late_deallocation" in self.config["inefficient_type"]):
+            if (state[0].size >= self.config.mem_size and "late_deallocation" in self.config.inefficient_type):
                 state[0].inefficient_type.append("late_deallocation")
                 key = f"{state[0].row_num}_{ineff_event.pid}_{state[0].event_id}"
                 self.inefficient_results[key].append("late_deallocation")
@@ -508,27 +470,27 @@ class Inefficient:
             return
         # 当最后一个API值大于倒数第2个API值 并且 其差值大于阈值时，判为临时闲置
         if (state[eventsLen - LAST_EVENTS_NUM].api_id > state[eventsLen - MIN_EVENTS_NUM].api_id and 
-            state[eventsLen - LAST_EVENTS_NUM].api_id - state[eventsLen - MIN_EVENTS_NUM].api_id > self.config["idle_threshold"]):
-            if (state[0].size >= self.config["mem_size"] and "temporary_idleness" in self.config["inefficient_type"]):
+            state[eventsLen - LAST_EVENTS_NUM].api_id - state[eventsLen - MIN_EVENTS_NUM].api_id > self.config.idle_threshold):
+            if (state[0].size >= self.config.mem_size and "temporary_idleness" in self.config.inefficient_type):
                 state[0].inefficient_type.append("temporary_idleness")
                 key = f"{state[0].row_num}_{ineff_event.pid}_{state[0].event_id}"
                 self.inefficient_results[key].append("temporary_idleness")
 
-    def write_back_file(self, file_path: Path):
+    def write_back_file(self, input_path: Path):
 
-        file_suffix = file_path.suffix.lower()
+        file_suffix = input_path.suffix.lower()
         if file_suffix == ".csv":
-            self._write_back_csv(file_path)
+            self._write_back_csv(input_path)
         elif file_suffix == ".db":
-            self._write_back_db(file_path)
+            self._write_back_db(input_path)
 
-    def _write_back_csv(self, file_path: Path):
+    def _write_back_csv(self, input_path: Path):
 
-        with open(file_path, 'r', newline='', encoding='utf-8') as file:
+        with open(input_path, 'r', newline='', encoding='utf-8') as file:
             reader = csv.reader(file)
             data = list(reader)
 
-        print(f"INFO: Connecting to csv {file_path.name} to write results")
+        print(f"INFO: Connecting to csv {input_path.name} to write results")
         # 低效显存写回attr
         for inefficient_key, inefficient_value in self.inefficient_results.items():
  
@@ -543,22 +505,22 @@ class Inefficient:
             row_data[ATTR_INDEX] = updated_attr_str
  
         # 提交所有更新
-        with open(file_path, 'w', newline='', encoding='utf-8') as file:
+        with open(input_path, 'w', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
             writer.writerows(data)
-        print(f"INFO: All results have been successfully written to csv {file_path.name}")
+        print(f"INFO: All results have been successfully written to csv {input_path.name}")
 
-    def _write_back_db(self, file_path: Path, db_table: str = "leaks_dump"):
+    def _write_back_db(self, input_path: Path, db_table: str = "leaks_dump"):
 
         conn = None
         cursor = None
         try:
-            conn = sqlite3.connect(str(file_path))
+            conn = sqlite3.connect(str(input_path))
             cursor = conn.cursor()
             cursor.execute("PRAGMA journal_mode=WAL;")              # 启用WAL模式 加快文件写入
             cursor.execute("PRAGMA synchronous=NORMAL;")            # 降低磁盘同步次数 如果遇到断电、崩溃可能会有风险 但是会大幅提高速度
             cursor.execute("PRAGMA cache_size=-20000;")             # 增大内存缓存大小
-            print(f"INFO: Connecting to database {file_path.name} to write results")
+            print(f"INFO: Connecting to database {input_path.name} to write results")
 
             for inefficient_key, inefficient_value in self.inefficient_results.items():
 
@@ -590,7 +552,7 @@ class Inefficient:
 
             # 提交所有更新
             conn.commit()
-            print(f"INFO: All results have been successfully written to database {file_path.name}")
+            print(f"INFO: All results have been successfully written to database {input_path.name}")
 
         except sqlite3.OperationalError as e:
             print(f"ERROR: Database operation failed → {str(e)} (check if file is a valid SQLite database)")
@@ -632,11 +594,18 @@ class Inefficient:
             updated_attr_pairs = [f'{k}:{v}' for k, v in attr_dict.items()]
         return '{' + ','.join(updated_attr_pairs) + '}'
 
-    def clear(self):
-        self.memory_state.clear()
-        self.inefficient_results.clear()
-        self.pta_pid_states.clear()
-        self.atb_pid_states.clear()
 
-# 定义顶层导出对象 供msleaks模块使用
-inefficient_inner = Inefficient()
+# 对外暴露的便捷低效显存识别函数
+def check_inefficient(input_path: str, mem_size: int = 0, inefficient_type: List[str] = None, idle_threshold: int = 3000):
+
+    if inefficient_type is None:
+        inefficient_type: List[str] = ["early_allocation", "late_deallocation", "temporary_idleness"]
+
+    config = InefficientConfig(
+        input_path=input_path,
+        mem_size=mem_size,
+        inefficient_type=inefficient_type,
+        idle_threshold=idle_threshold,
+    )
+    
+    return InefficientAnalyzer().analyze(config)
