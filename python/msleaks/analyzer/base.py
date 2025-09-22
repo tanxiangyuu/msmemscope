@@ -39,7 +39,7 @@ class AnalysisConfig:
             raise ValueError(f"Unsupported file type: {path} is a symbolic link")
         if (file_stat.st_mode & stat.S_IWGRP) or (file_stat.st_mode & stat.S_IWOTH):
             raise PermissionError(f"Group or others have write permission: {path}. ")
-        if not path .is_absolute():
+        if not path.is_absolute():
             raise ValueError(f"File path must be absolute: {path}")
         # 目前只涉及csv和db文件的操作
         valid_extensions = {'.csv', '.db'}
