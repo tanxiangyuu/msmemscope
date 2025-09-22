@@ -26,11 +26,3 @@ if [ ! -d "$SECUREC_DIR" ]; then
 else
     echo "platform/securec already exists. no need to download. exit."
 fi
-
-FUNC_INJECTION_DIR="${TOP_DIR}/platform/func_injection"
-if [ ! -d "$FUNC_INJECTION_DIR" ]; then
-    cd ${TOP_DIR}/platform
-    git clone https://codehub-dg-y.huawei.com/mindstudio/MindStudio-Backend/func_injection.git func_injection -b master
-else
-    echo "platform/func_injection already exists. no need to download. exit."
-fi
