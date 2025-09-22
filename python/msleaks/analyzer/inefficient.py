@@ -2,6 +2,7 @@ import importlib
 check_packages = [
     "sqlite3",
 ]
+
 for package in check_packages:
     try:
         importlib.import_module(package)
@@ -187,7 +188,10 @@ class InefficientAnalyzer(BaseAnalyzer):
         print(f"INFO: CSV file read successfully")
         return csv_events
         
-    def _read_db_file(self, input_path: Path, db_table: str = "leaks_dump") -> List[OriginEvent]:     
+    def _read_db_file(self, input_path: Path, db_table: str = "leaks_dump") -> List[OriginEvent]:
+        ALLOWED_TABLES = {"leaks_dump"}
+        if db_table not in ALLOWED_TABLES:
+            raise ValueError(f"Invalid table name: {db_table}")
         # 数据库会保存原始数据类型 这里需要额外转化为str（与 CSV 格式对齐）
         db_events = []
         conn = None             # 数据库连接（后续需确保关闭）
@@ -511,7 +515,9 @@ class InefficientAnalyzer(BaseAnalyzer):
         print(f"INFO: All results have been successfully written to csv {input_path.name}")
 
     def _write_back_db(self, input_path: Path, db_table: str = "leaks_dump"):
-
+        ALLOWED_TABLES = {"leaks_dump"}
+        if db_table not in ALLOWED_TABLES:
+            raise ValueError(f"Invalid table name: {db_table}")
         conn = None
         cursor = None
         try:
@@ -582,7 +588,7 @@ class InefficientAnalyzer(BaseAnalyzer):
             for pair in [p.strip() for p in attr_content.split(',')]:
                 if ':' in pair:
                     key, value = pair.split(':', 1)
-                    attr_dict[key.strip()] = value.strip().strip('"')
+                    attr_dict[key.strip().strip('"')] = value.strip().strip('"')
 
         # 更新inefficient_type
         attr_dict['inefficient_type'] = ','.join(inefficient_value)
