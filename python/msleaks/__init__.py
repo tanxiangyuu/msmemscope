@@ -20,10 +20,13 @@ from ._msleaks import _watcher
 from ._msleaks import _tracer
 from ._msleaks import start, stop, config
 
-from .leak_checker import _leakchecker
-from .inefficient import inefficient_inner
-
 tracer = _tracer
 watcher = _watcher
-leakchecker = _leakchecker
-inefficient = inefficient_inner
+
+from .analyzer import (
+    analyze,
+    list_analyzers,
+    get_analyzer_config,
+    check_leaks,
+    check_inefficient
+)
