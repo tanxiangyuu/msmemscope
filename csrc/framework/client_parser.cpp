@@ -333,10 +333,10 @@ static bool CheckIsValidDepthInfo(const std::string &param, Config &config)
         }
     }
 
-    if (callType == "python" && !config.enablePyStack) {
+    if (callType == "python") {
         config.enablePyStack = true;
         config.pyStackDepth = depth;
-    } else if (callType == "c" && !config.enableCStack) {
+    } else if (callType == "c") {
         config.enableCStack = true;
         config.cStackDepth = depth;
     } else {
