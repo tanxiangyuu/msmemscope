@@ -915,16 +915,22 @@ TEST(ClientParser, test_parse_call_stack_expect_true)
     ASSERT_FALSE(cmd.printHelpInfo);
     argv = {
         "msleaks",
-        "--call-stack=c:10,c:10"
+        "--call-stack=c:10,c:15"
     };
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
-    ASSERT_TRUE(cmd.printHelpInfo);
+    ASSERT_FALSE(cmd.printHelpInfo);
+    ASSERT_EQ(cmd.config.enableCStack, true);
+    ASSERT_EQ(cmd.config.cStackDepth, 15);
     argv = {
         "msleaks",
-        "--call-stack=python:10,python:10"
+        "--call-stack=c:13,python:10,python:12"
     };
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
-    ASSERT_TRUE(cmd.printHelpInfo);
+    ASSERT_FALSE(cmd.printHelpInfo);
+    ASSERT_EQ(cmd.config.enableCStack, true);
+    ASSERT_EQ(cmd.config.cStackDepth, 13);
+    ASSERT_EQ(cmd.config.enablePyStack, true);
+    ASSERT_EQ(cmd.config.pyStackDepth, 12);
 }
 
 TEST(ClientParser, pass_data_format_case_db)
