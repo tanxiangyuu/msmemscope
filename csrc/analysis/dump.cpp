@@ -80,7 +80,7 @@ void Dump::DumpMemoryEvent(std::shared_ptr<MemoryEvent>& event, MemoryState* sta
     // 组装attr
     std::string attr;
     attr += "allocation_id:" + std::to_string(state->allocationId) + ",";
-    attr += "addr:" + std::to_string(event->addr) + ",";
+    attr += "addr:" + Uint64ToHexString(event->addr) + ",";
     attr += "size:" + std::to_string(event->size) + ",";
     if (event->eventType != EventBaseType::ACCESS
         && event->eventSubType != EventSubType::HAL
