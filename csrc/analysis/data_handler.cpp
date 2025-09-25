@@ -89,7 +89,7 @@ bool CsvHandler::WriteDumpRecord(std::shared_ptr<EventBase>& event)
         ? "N/A" : EVENT_SUB_TYPE_MAP.at(event->eventSubType);
     std::string addr = (event->eventType == EventBaseType::MALLOC
         || event->eventType == EventBaseType::FREE
-        || event->eventType == EventBaseType::ACCESS) ? std::to_string(event->addr) : "N/A";
+        || event->eventType == EventBaseType::ACCESS) ? Uint64ToHexString(event->addr) : "N/A";
     if (!Utility::Fprintf(file_, "%lu,%s,%s,%s,%lu,%s,%s,%s,%s,%s,%s,%s",
         event->id, eventType.c_str(), eventSubType.c_str(), event->name.c_str(), event->timestamp,
         pid.c_str(), tid.c_str(), event->device.c_str(), addr.c_str(), event->attr.c_str(),
@@ -225,7 +225,7 @@ bool DbHandler::WriteDumpRecord(std::shared_ptr<EventBase>& event)
         ? "N/A" : EVENT_SUB_TYPE_MAP.at(event->eventSubType);
     std::string addr = (event->eventType == EventBaseType::MALLOC
         || event->eventType == EventBaseType::FREE
-        || event->eventType == EventBaseType::ACCESS) ? std::to_string(event->addr) : "N/A";
+        || event->eventType == EventBaseType::ACCESS) ? Uint64ToHexString(event->addr) : "N/A";
     std::string attrJson = FixJson(event->attr);
     int paramIndex = 1;
     std::lock_guard<std::mutex> lock(dbFileMutex_);
@@ -405,5 +405,12 @@ std::vector<std::string> ParserHeader(const std::vector<std::pair<std::string, s
         result.push_back(item.first);
     }
     return result;
+}
+
+std::string Uint64ToHexString(uint64_t value)
+{
+    std::stringstream ss;
+    ss << "0x" << std::hex << std::setw(16) << std::setfill('0') << value;
+    return ss.str();
 }
 };
