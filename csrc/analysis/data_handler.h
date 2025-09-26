@@ -83,6 +83,7 @@ private:
     std::mutex dbFileMutex_;
 };
 
+std::string Uint64ToHexString(uint64_t value);
 std::string BuildInsertStatement(const std::string& table, const std::vector<std::string>& columns);
 std::string BuildCreateStatement(const std::string& table,
     const std::vector<std::pair<std::string, std::string>>& columns);
