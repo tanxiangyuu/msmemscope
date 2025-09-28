@@ -48,6 +48,7 @@ namespace Utility {
 
 const Version VER39("3.9.0");
 constexpr uint32_t PRE_ALLOC_SIZE = 2048;
+constexpr uint32_t THREAD_NAME_LEN = 16;
 TraceCbFunc callFunc = nullptr;
 PyInterpreterState *interpreter = nullptr;
 
@@ -81,7 +82,6 @@ PyInterpGuard::~PyInterpGuard()
 
 bool IsPythonThread()
 {
-#define THREAD_NAME_LEN 16
     char name[THREAD_NAME_LEN] = {0};
     pthread_getname_np(pthread_self(), name, sizeof(name));
     std::string threadName = std::string(name);
