@@ -14,6 +14,11 @@ thread_local bool g_reportInfo = true;
 extern "C" void* malloc(size_t size)
 {
     static void* (*realMalloc)(size_t) = (void* (*)(size_t))dlsym(RTLD_NEXT, "malloc");     // 获取系统malloc函数
+    if (!realMalloc) {
+        std::cerr << "Error: Failed to resolve real malloc" << std::endl;
+        return nullptr;
+    }
+
     void* ptr = realMalloc(size);
     if (!ptr) {
         return ptr;
@@ -48,6 +53,11 @@ extern "C" void* malloc(size_t size)
 extern "C" void free(void* ptr)
 {
     static void (*realFree)(void*) = (void (*)(void*))dlsym(RTLD_NEXT, "free");             // 获取系统free函数
+    if (!realFree) {
+        std::cerr << "Error: Failed to resolve real free" << std::endl;
+        return;
+    }
+    
     realFree(ptr);
     if (!ptr) {
         return;
