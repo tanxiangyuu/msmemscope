@@ -41,8 +41,18 @@ bool IsTorchTensor(PyObject* obj)
         return false;
     }
 
-    std::string moduleStr = std::string(PyUnicode_AsUTF8(module));
-    std::string nameStr = std::string(PyUnicode_AsUTF8(name));
+    const char* module_cstr = PyUnicode_AsUTF8(module);
+    const char* name_cstr = PyUnicode_AsUTF8(name);
+    std::string moduleStr;
+    std::string nameStr;
+ 
+    if (module_cstr != nullptr) {
+        moduleStr = std::string(module_cstr);
+    }
+    if (name_cstr != nullptr) {
+        nameStr = std::string(name_cstr);
+    }
+    
     bool isTensor = (!moduleStr.empty() && !nameStr.empty() && moduleStr == "torch" && nameStr == "Tensor");
 
     Py_DECREF(cls);

@@ -125,9 +125,28 @@ void PythonCallstack(uint32_t pyDepth, std::string& pyStack)
         PythonObject codeObj(reinterpret_cast<PyObject*>(code));
         auto funcName = codeObj.Get("co_name");
         auto fileName = codeObj.Get("co_filename");
-        pyStack += std::string(PyUnicode_AsUTF8(PyObject_Str(fileName))) + "(" +
+        if (funcName == nullptr || fileName == nullptr) {
+            std::cerr << "Error: Failed to get code object attributes."<< std::endl;
+            return;
+        }
+
+        auto funcNameStrObj = PyObject_Str(funcName);
+        auto fileNameStrObj = PyObject_Str(fileName);
+        if (funcNameStrObj == nullptr || fileNameStrObj == nullptr) {
+            std::cerr << "Error: PyObject_Str failed for funcName."<< std::endl;
+            return;
+        }
+
+        const char* funcNameCStr = PyUnicode_AsUTF8(funcNameStrObj);
+        const char* fileNameCStr = PyUnicode_AsUTF8(fileNameStrObj);
+        if (funcNameCStr == nullptr || fileNameCStr == nullptr) {
+            std::cerr << "Error: Failed to convert code object attributes to UTF8 string."<< std::endl;
+            return;
+        }
+ 
+        pyStack += std::string(fileNameCStr) + "(" +
                    std::to_string(PyFrame_GetLineNumber(frame)) +
-                   "): " + std::string(PyUnicode_AsUTF8(PyObject_Str(funcName))) + "\n";
+                   "): " + std::string(funcNameCStr) + "\n";
 
         PyFrameObject *prevFrame = PyFrame_GetBack(frame);
         Py_DecRef(reinterpret_cast<PyObject *>(frame));
