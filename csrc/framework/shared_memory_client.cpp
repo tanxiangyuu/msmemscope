@@ -58,11 +58,13 @@ bool SharedMemoryClient::Init()
         return false;
     }
 
-    s2cBuffer_ = static_cast<uint8_t*>(mmap(nullptr, shmSize_, PROT_READ | PROT_WRITE, MAP_SHARED, fdc2s_, 0));
-    if (s2cBuffer_ == nullptr) {
-        std::cout << "[msleaks] Failed to map shared memory. SharedMemoryClient init Failed.\n";
+    void* ptr = mmap(nullptr, shmSize_, PROT_READ | PROT_WRITE, MAP_SHARED, fdc2s_, 0);
+    if (ptr == MAP_FAILED) {
+        std::cout << "[msleaks] Failed to map shared memory. SharedMemoryClient init Failed." << std::endl;
         return false;
     }
+
+    s2cBuffer_ = static_cast<uint8_t*>(ptr);
 
     c2sQueue_ = reinterpret_cast<Utility::LockFreeQueue*>(s2cBuffer_ + SHM_S2C_SIZE);
     c2sQueue_->ClientInit();
@@ -99,9 +101,11 @@ SharedMemoryClient::~SharedMemoryClient()
 {
     if (s2cBuffer_ != nullptr) {
         munmap(s2cBuffer_, shmSize_);
+        s2cBuffer_ = nullptr;
     }
     if (fdc2s_ != -1) {
         close(fdc2s_);
+        fdc2s_ = -1;
     }
 }
 
