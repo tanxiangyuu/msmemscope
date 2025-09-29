@@ -168,6 +168,9 @@ PythonObject::PythonObject(const PythonObject &obj)
 
 PythonObject& PythonObject::operator=(const PythonObject &obj)
 {
+    if (this == &obj) {
+        return *this;
+    }
     SetPtr(obj.ptr);
     return *this;
 }
