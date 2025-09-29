@@ -4,6 +4,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List
 from .base import BaseAnalyzer, AnalysisConfig
+from .utility_function import safe_convert_int
 
 BYTE_TO_MB = 1024 * 1024
 
@@ -88,7 +89,7 @@ class LeaksAnalyzer(BaseAnalyzer):
             
             print(f"INFO: Starting to analyze data for device {device_id}...")
             # 按ID排序,需转为int
-            events.sort(key=lambda x: int(x['ID']))
+            events.sort(key=lambda x: safe_convert_int(x['ID']))
             
             # 查找指定内容的MSTX事件
             defined_mark_events = self._find_mstx_events(events)
@@ -111,9 +112,9 @@ class LeaksAnalyzer(BaseAnalyzer):
                     continue
                 
                 # 获取三个打点ID
-                section1_start = int(point_a['ID'])
-                section1_end = int(point_b['ID'])
-                section2_end = int(point_c['ID'])
+                section1_start = safe_convert_int(point_a['ID'])
+                section1_end = safe_convert_int(point_b['ID'])
+                section2_end = safe_convert_int(point_c['ID'])
 
                 # 分析内存泄漏
                 for event in events:
@@ -122,7 +123,7 @@ class LeaksAnalyzer(BaseAnalyzer):
             if allocations:
                 self.leaks.append(f"====== ERROR: Detected memory leaks on device {device_id} ======")
                 for index, info in list(allocations.items()):
-                    self.leaks.append(f"Direct Hal memory leak of {info['size']} Mb(s) at {hex(int(info['addr']))}"
+                    self.leaks.append(f"Direct Hal memory leak of {info['size']} Mb(s) at {hex(safe_convert_int(info['addr']))}"
                      f" in Index {index}.")
             else:
                 self.leaks.append(f"No hal memory leaks detected on device {device_id}.")
@@ -143,18 +144,18 @@ class LeaksAnalyzer(BaseAnalyzer):
 
         event_id = event.get('ID')
         # 超出第三个打点位置的直接跳过
-        if int(event_id) > section2_end:
+        if safe_convert_int(event_id) > section2_end:
             return
         
         # 记录MALLOC事件
-        if section1_start <= int(event_id) <= section1_end and event.get('Event') == 'MALLOC':
+        if section1_start <= safe_convert_int(event_id) <= section1_end and event.get('Event') == 'MALLOC':
             alloc_addr = event.get('Ptr', '')
             match = re.search(r'size:(\d+)', event.get('Attr', ''))  # 匹配 "size:数字"
-            alloc_size = int(match.group(1))/BYTE_TO_MB  # 提取数字并转为整数
+            alloc_size = safe_convert_int(match.group(1))/BYTE_TO_MB  # 提取数字并转为整数
             allocations[event_id] = {"addr": alloc_addr, "size": alloc_size}
             
         # 处理FREE事件
-        if section1_start <= int(event_id) and event.get('Event') == 'FREE':
+        if section1_start <= safe_convert_int(event_id) and event.get('Event') == 'FREE':
             free_addr = event.get('Ptr')
             # 不考虑double free 
             for index, info in list(allocations.items()):

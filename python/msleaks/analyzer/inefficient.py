@@ -14,8 +14,10 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
-from .base import BaseAnalyzer, AnalysisConfig
 import os
+from .base import BaseAnalyzer, AnalysisConfig
+from .utility_function import safe_convert_int
+
 
 
 MAX_UINT64 = (1 << 64) - 1
@@ -169,7 +171,7 @@ class InefficientAnalyzer(BaseAnalyzer):
             print(f"INFO: Connected to CSV file")
             for row_num, row in enumerate(reader, start=2): 
                 event_obj = OriginEvent(
-                    event_id=int(row["ID"]),
+                    event_id=safe_convert_int(row["ID"]),
                     event=row["Event"],
                     event_type=row["Event Type"],
                     name=row["Name"],
@@ -220,7 +222,7 @@ class InefficientAnalyzer(BaseAnalyzer):
             
                 # 构建 OriginEvent 对象（参数与 CSV 完全一致）
                 event_obj = OriginEvent(
-                    event_id=row["ID"],
+                    event_id=safe_convert_int(row["ID"]),
                     event=str(row["Event"]).strip(),
                     event_type=str(row["Event Type"]).strip(),
                     name=str(row["Name"]).strip(),
