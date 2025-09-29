@@ -185,7 +185,6 @@ bool LockFreeQueue::DeQueue(std::string& msg, size_t& id)
     }
     msg.resize(head.dataSize);
     uint8_t *output = static_cast<uint8_t*>(static_cast<void*>((const_cast<char*>(msg.c_str()))));
-    output[head.dataSize] = 0;
     if (!RingBufferMemcpyOut(output, head.dataSize, dataBuf, size_, offset + sizeof(head))) {
         return false;
     }
