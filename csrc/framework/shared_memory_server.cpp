@@ -36,18 +36,17 @@ bool SharedMemoryServer::Init()
     name_ = new char[name.size() + 1];
     strcpy_s(name_, name.size() + 1, name.c_str());
 
-    fdc2s_ = shm_open(name_, O_CREAT | O_RDWR, 0600);
+    fdc2s_ = shm_open(name_, O_CREAT | O_EXCL | O_RDWR, 0600);
     shmSize_ = GetShmAvailable();
     if (fdc2s_ == -1 || shmSize_ == 0) {
+        std::cout<< "Error: Shared memory object init failed"<< std::endl;
         return false;
     }
-
     if (shmSize_ >= SHM_SIZE) {
         shmSize_ = SHM_SIZE;
     } else {
         return false;
     }
-
     if (ftruncate(fdc2s_, shmSize_) == -1) {
         return false;
     }
@@ -59,7 +58,6 @@ bool SharedMemoryServer::Init()
     }
 
     s2cBuffer_ = static_cast<uint8_t*>(ptr);
-
     c2sQueue_ = reinterpret_cast<Utility::LockFreeQueue*>(s2cBuffer_ + SHM_S2C_SIZE);
     c2sQueue_->ServerInit(shmSize_ - SHM_S2C_SIZE);
 
@@ -134,6 +132,7 @@ SharedMemoryServer::~SharedMemoryServer()
 {
     if (c2sQueue_ != nullptr) {
         while (!c2sQueue_->IsEmpty()) {}
+        c2sQueue_ = nullptr;
     }
     isRunning_ = false;
     if (receiveWorker_.joinable()) {
@@ -141,12 +140,16 @@ SharedMemoryServer::~SharedMemoryServer()
     }
     if (s2cBuffer_ != nullptr) {
         munmap(s2cBuffer_, shmSize_);
+        s2cBuffer_ = nullptr;
     }
     if (fdc2s_ != -1) {
         close(fdc2s_);
+        fdc2s_ = -1;
     }
     if (name_ != nullptr) {
         shm_unlink(name_);
+        delete[] name_;
+        name_ = nullptr;
     }
 }
 
