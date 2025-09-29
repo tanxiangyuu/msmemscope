@@ -102,6 +102,7 @@ namespace Utility {
         if (strncpy_s(config.dbFileName, sizeof(config.dbFileName),
             name.c_str(), sizeof(config.dbFileName) - 1) != EOK) {
             std::cout << "[msleaks] strncpy_s FAILED DB" << std::endl;
+            return false;
         }
         return true;
     }

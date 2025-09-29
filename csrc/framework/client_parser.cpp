@@ -179,7 +179,8 @@ void DoUserCommand(UserCommand userCommand)
     Utility::SetDirPath(userCommand.outputPath, std::string(OUTPUT_PATH));
     if (strncpy_s(userCommand.config.outputDir, sizeof(userCommand.config.outputDir),
         Utility::DirPathManager::GetInstance().GetDirPath().c_str(), sizeof(userCommand.config.outputDir) - 1) != EOK) {
-        std::cout << "strncpy_s FAILED" << std::endl;
+        std::cout << "[msleaks] Error: strncpy dirpath FAILED" << std::endl;
+        return;
     }
 
     userCommand.config.outputDir[sizeof(userCommand.config.outputDir) - 1] = '\0';
