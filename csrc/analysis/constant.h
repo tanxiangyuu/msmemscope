@@ -16,7 +16,6 @@ const std::unordered_map<PoolType, std::string> PoolTypeMap = {
     {PoolType::ATB, "ATB"},
     {PoolType::MINDSPORE, "MINDSPORE"},
     {PoolType::HAL, "HAL"},
-    {PoolType::HOST, "HOST"},
 };
 
 // Module id

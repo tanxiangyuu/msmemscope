@@ -45,10 +45,7 @@ protected:
         // 初始化单例类的参数
         ResetSingleton();
  
-        AddHostMemoryEvent();
-        AddHalHostMemoryEvent();
         AddHalDeviceMemoryEvent();
- 
         AddAccessEvent();
  
         AddPtaCachingMemoryEvent();
@@ -77,82 +74,6 @@ protected:
     }
  
 private:
-    void AddHostMemoryEvent()
-    {
-        auto event0 = std::make_shared<MemoryEvent>();
-        event0->poolType = PoolType::HOST;
-        event0->id = 0;
-        event0->timestamp = 0;
-        event0->pid = 123;
-        event0->tid = 1234;
-        event0->addr = 0x000000000001e240;
-        event0->device = "host";
-        event0->name = "N/A";
-        event0->eventType = EventBaseType::MALLOC;
-        event0->eventSubType = EventSubType::HOST;
-        event0->size = 10;
-        eventMap["HostUnknownMallocEvent"] = event0;
- 
-        auto event1 = std::make_shared<MemoryEvent>();
-        event1->poolType = PoolType::HOST;
-        event1->id = 3;
-        event1->timestamp = 3;
-        event1->pid = 123;
-        event1->tid = 1234;
-        event1->addr = 0x000000000001e240;
-        event1->device = "host";
-        event1->name = "N/A";
-        event1->eventType = EventBaseType::MALLOC;
-        event1->eventSubType = EventSubType::HOST;
-        event1->size = 10;
-        eventMap["HostMallocEvent"] = event1;
- 
-        auto event2 = std::make_shared<MemoryEvent>();
-        event2->poolType = PoolType::HOST;
-        event2->id = 54;
-        event2->timestamp = 54;
-        event2->pid = 123;
-        event2->tid = 1234;
-        event2->addr = 0x000000000001e240;
-        event2->device = "host";
-        event2->name = "N/A";
-        event2->eventType = EventBaseType::FREE;
-        event2->eventSubType = EventSubType::HOST;
-        eventMap["HostFreeEvent"] = event2;
-    }
- 
-    void AddHalHostMemoryEvent()
-    {
-        auto event1 = std::make_shared<MemoryEvent>();
-        event1->poolType = PoolType::HAL;
-        event1->id = 3;
-        event1->timestamp = 3;
-        event1->pid = 123;
-        event1->tid = 1234;
-        event1->addr = 0x0000000000003039;
-        event1->device = "host";
-        event1->name = "N/A";
-        event1->eventType = EventBaseType::MALLOC;
-        event1->eventSubType = EventSubType::HAL;
-        event1->size = 10;
-        event1->moduleId = 100;
-        eventMap["HalHostMallocEvent"] = event1;
- 
-        auto event2 = std::make_shared<MemoryEvent>();
-        event2->poolType = PoolType::HAL;
-        event2->id = 54;
-        event2->timestamp = 54;
-        event2->pid = 123;
-        event2->tid = 1234;
-        event2->addr = 0x0000000000003039;
-        event2->device = "N/A";
-        event2->name = "N/A";
-        event2->eventType = EventBaseType::FREE;
-        event2->eventSubType = EventSubType::HAL;
-        event2->moduleId = 100;
-        eventMap["HalHostFreeEvent"] = event2;
-    }
- 
     void AddHalDeviceMemoryEvent()
     {
         auto event1 = std::make_shared<MemoryEvent>();
@@ -183,6 +104,20 @@ private:
         event2->eventSubType = EventSubType::HAL;
         event2->moduleId = 1;
         eventMap["HalDeviceFreeEvent"] = event2;
+
+        auto event3 = std::make_shared<MemoryEvent>();
+        event3->poolType = PoolType::HAL;
+        event3->id = 0;
+        event3->timestamp = 0;
+        event3->pid = 123;
+        event3->tid = 1234;
+        event3->addr = 0x0000000000003039;
+        event3->device = "0";
+        event3->name = "N/A";
+        event3->eventType = EventBaseType::MALLOC;
+        event3->eventSubType = EventSubType::HAL;
+        event3->size = 10;
+        eventMap["HalUnknownMallocEvent"] = event3;
     }
  
     void AddAccessEvent()
@@ -618,12 +553,10 @@ private:
  
     void AddCleanUpEvent()
     {
-        auto event1 = std::make_shared<CleanUpEvent>(PoolType::HOST, 123, 0x000000000001e240);
-        eventMap["HostCleanUpEvent"] = event1;
-        auto event2 = std::make_shared<CleanUpEvent>(PoolType::HAL, 123, 0x0000000000003039);
-        eventMap["HalCleanUpEvent"] = event2;
-        auto event3 = std::make_shared<CleanUpEvent>(PoolType::PTA_CACHING, 123, 0x0000000000003039);
-        eventMap["PtaCleanUpEvent"] = event3;
+        auto event1 = std::make_shared<CleanUpEvent>(PoolType::HAL, 123, 0x0000000000003039);
+        eventMap["HalCleanUpEvent"] = event1;
+        auto event2 = std::make_shared<CleanUpEvent>(PoolType::PTA_CACHING, 123, 0x0000000000003039);
+        eventMap["PtaCleanUpEvent"] = event2;
     }
 };
  
@@ -717,39 +650,7 @@ static void CleanUpEventInMemoryStateManager(Process& process)
         process.EventHandler(event);
     }
 }
- 
-TEST_F(TestProcess, process_host_memory_event)
-{
-    Config config;
-    config.enableCStack = false;
-    config.enablePyStack = false;
-    config.dataFormat = 0;
-    std::string path = "test_process";
-    strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
-    MemoryState::ResetCount();
-    Process process(config);
- 
-    process.EventHandler(eventMap["HostMallocEvent"]);
-    process.EventHandler(eventMap["HostFreeEvent"]);
-    process.EventHandler(eventMap["HalHostMallocEvent"]);
-    process.EventHandler(eventMap["HalHostFreeEvent"]);
- 
-    std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
-",Call Stack(Python),Call Stack(C)\n"
-"3,MALLOC,HOST,N/A,3,123,1234,host,0x000000000001e240,\"{allocation_id:1,addr:0x000000000001e240,size:10}\",,\n"
-"54,FREE,HOST,N/A,54,123,1234,host,0x000000000001e240,\"{allocation_id:1,addr:0x000000000001e240,size:10}\",,\n"
-"3,MALLOC,HAL,N/A,3,123,1234,host,0x0000000000003039,\"{allocation_id:2,addr:0x0000000000003039,size:10}\",,\n"
-"54,FREE,HAL,N/A,54,123,1234,host,0x0000000000003039,\"{allocation_id:2,addr:0x0000000000003039,size:10}\",,\n";
-    std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
-    bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
-    EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
-}
- 
+
 TEST_F(TestProcess, process_hal_device_memory_event)
 {
     Config config;
@@ -1094,14 +995,14 @@ TEST_F(TestProcess, dump_event_before_malloc)
     MemoryState::ResetCount();
     Process process(config);
  
-    process.EventHandler(eventMap["HostUnknownMallocEvent"]);
-    process.EventHandler(eventMap["HostMallocEvent"]);
+    process.EventHandler(eventMap["HalUnknownMallocEvent"]);
+    process.EventHandler(eventMap["HalDeviceMallocEvent"]);
     CleanUpEventInMemoryStateManager(process);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
-"0,MALLOC,HOST,N/A,0,123,1234,host,0x000000000001e240,\"{allocation_id:1,addr:0x000000000001e240,size:10}\",,\n"
-"3,MALLOC,HOST,N/A,3,123,1234,host,0x000000000001e240,\"{allocation_id:2,addr:0x000000000001e240,size:10}\",,\n";
+"0,MALLOC,HAL,N/A,0,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10}\",,\n"
+"3,MALLOC,HAL,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:2,addr:0x0000000000003039,size:10}\",,\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -1123,16 +1024,16 @@ TEST_F(TestProcess, dump_two_malloc_event)
     MemoryState::ResetCount();
     Process process(config);
  
-    process.EventHandler(eventMap["HostMallocEvent"]);
-    process.EventHandler(eventMap["HostFreeEvent"]);
-    process.EventHandler(eventMap["HostUnknownMallocEvent"]);
-    process.EventHandler(eventMap["HostCleanUpEvent"]);
+    process.EventHandler(eventMap["HalDeviceMallocEvent"]);
+    process.EventHandler(eventMap["HalDeviceFreeEvent"]);
+    process.EventHandler(eventMap["HalUnknownMallocEvent"]);
+    process.EventHandler(eventMap["HalCleanUpEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
-"3,MALLOC,HOST,N/A,3,123,1234,host,0x000000000001e240,\"{allocation_id:1,addr:0x000000000001e240,size:10}\",,\n"
-"54,FREE,HOST,N/A,54,123,1234,host,0x000000000001e240,\"{allocation_id:1,addr:0x000000000001e240,size:10}\",,\n"
-"0,MALLOC,HOST,N/A,0,123,1234,host,0x000000000001e240,\"{allocation_id:2,addr:0x000000000001e240,size:10}\",,\n";
+"3,MALLOC,HAL,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10}\",,\n"
+"54,FREE,HAL,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10}\",,\n"
+"0,MALLOC,HAL,N/A,0,123,1234,0,0x0000000000003039,\"{allocation_id:2,addr:0x0000000000003039,size:10}\",,\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -1154,7 +1055,7 @@ TEST_F(TestProcess, clean_up_event_failed)
     MemoryState::ResetCount();
     Process process(config);
  
-    process.EventHandler(eventMap["HostCleanUpEvent"]);
+    process.EventHandler(eventMap["HalCleanUpEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n";
@@ -1308,9 +1209,7 @@ TEST_F(TestProcess, init_memory_owner)
     process.EventHandler(eventMap["MindsporeFreeEvent"]);
     process.EventHandler(eventMap["HalDeviceMallocEvent"]);
     process.EventHandler(eventMap["HalDeviceFreeEvent"]);
-    process.EventHandler(eventMap["HalHostMallocEvent"]);
-    process.EventHandler(eventMap["HalHostFreeEvent"]);
- 
+
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
 "3,MALLOC,PTA,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,total:10,used:10,owner:PTA}\",,\n"
@@ -1323,9 +1222,7 @@ TEST_F(TestProcess, init_memory_owner)
 "3,MALLOC,MINDSPORE,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:4,addr:0x0000000000003039,size:10,total:10,used:10,owner:MINDSPORE}\",,\n"
 "54,FREE,MINDSPORE,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:4,addr:0x0000000000003039,size:10,total:0,used:0}\",,\n"
 "3,MALLOC,HAL,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:5,addr:0x0000000000003039,size:10,owner:CANN@IDEDD}\",,\n"
-"54,FREE,HAL,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:5,addr:0x0000000000003039,size:10}\",,\n"
-"3,MALLOC,HAL,N/A,3,123,1234,host,0x0000000000003039,\"{allocation_id:6,addr:0x0000000000003039,size:10,owner:CANN@UNKNOWN}\",,\n"
-"54,FREE,HAL,N/A,54,123,1234,host,0x0000000000003039,\"{allocation_id:6,addr:0x0000000000003039,size:10}\",,\n";
+"54,FREE,HAL,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:5,addr:0x0000000000003039,size:10}\",,\n";
     std::string fileContent;
     Dump::GetInstance(config).handler_.reset();
     bool hasReadFile = ReadFile(path, fileContent);

@@ -20,8 +20,6 @@
 #include "trace_manager/event_trace_manager.h"
 
 namespace Leaks {
-extern bool g_isReportHostMem;
-extern thread_local bool g_isInReportFunction;
 
 constexpr mode_t REGULAR_MODE_MASK = 0177;
 constexpr char ATEN_MSG[] = "leaks-aten-";
@@ -82,10 +80,8 @@ private:
 
     MstxStepInfo stepInfo_;
     std::mutex mutex_;
-    std::mutex rangeIdTableMutex_;
 
     Config initConfig_;
-    std::unordered_map<uint64_t, std::unordered_map<uint64_t, uint64_t>> mstxRangeIdTables_{};
 
     std::atomic<bool> isReceiveServerInfo_;
     std::unordered_set<uint64_t> halPtrs_;

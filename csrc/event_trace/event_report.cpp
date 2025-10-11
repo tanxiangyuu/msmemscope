@@ -19,7 +19,6 @@
 
 namespace Leaks {
 bool g_isReportHostMem = false;
-thread_local bool g_isInReportFunction = false;
 
 constexpr uint64_t MEM_MODULE_ID_BIT = 56;
 constexpr uint64_t MEM_VIRT_BIT = 10;
@@ -182,7 +181,6 @@ bool EventReport::IsConnectToServer()
 
 bool EventReport::ReportAddrInfo(RecordBuffer &infoBuffer)
 {
-    g_isInReportFunction = true;
     if (!IsConnectToServer()) {
         return true;
     }
@@ -196,14 +194,11 @@ bool EventReport::ReportAddrInfo(RecordBuffer &infoBuffer)
     AddrInfo* info = infoBuffer.Cast<AddrInfo>();
     info->type = RecordType::ADDR_INFO_RECORD;
     auto sendNums = ReportRecordEvent(infoBuffer);
-    g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
 bool EventReport::ReportMemPoolRecord(RecordBuffer &memPoolRecordBuffer)
 {
-    g_isInReportFunction = true;
-
     if (!EventTraceManager::Instance().IsNeedTrace(RecordType::MEMORY_POOL_RECORD)) {
         return true;
     }
@@ -223,15 +218,11 @@ bool EventReport::ReportMemPoolRecord(RecordBuffer &memPoolRecordBuffer)
     record->recordIndex = ++recordIndex_;
     auto sendNums = ReportRecordEvent(memPoolRecordBuffer);
 
-    g_isInReportFunction = false;
-
     return (sendNums >= 0);
 }
 
 bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag, CallStackString& stack)
 {
-    g_isInReportFunction = true;
-
     if (!IsConnectToServer()) {
         return true;
     }
@@ -243,7 +234,8 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
     }
 
     MemOpSpace space = GetMemOpSpace(flag);
-    if (space == MemOpSpace::HOST && !g_isReportHostMem) {
+    // 不采集hal接口在host申请的pin memory
+    if (space == MemOpSpace::HOST) {
         return true;
     }
     int32_t moduleId = GetMallocModuleId(flag);
@@ -259,7 +251,6 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
     record->space = space;
     record->addr = addr;
     record->memSize = size;
-    record->devType = DeviceType::NPU;
     record->devId = devId;
     record->modid = moduleId;
     record->recordIndex = ++recordIndex_;
@@ -274,14 +265,11 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
 
     auto sendNums = ReportRecordEvent(buffer);
 
-    g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
 bool EventReport::ReportFree(uint64_t addr, CallStackString& stack)
 {
-    g_isInReportFunction = true;
-
     if (!IsConnectToServer()) {
         return true;
     }
@@ -313,7 +301,6 @@ bool EventReport::ReportFree(uint64_t addr, CallStackString& stack)
     record->space = MemOpSpace::INVALID;
     record->addr = addr;
     record->memSize = 0;
-    record->devType = DeviceType::NPU;
     record->devId = GD_INVALID_NUM;
     record->modid = INVALID_MODID;
     record->recordIndex = ++recordIndex_;
@@ -321,67 +308,6 @@ bool EventReport::ReportFree(uint64_t addr, CallStackString& stack)
 
     auto sendNums = ReportRecordEvent(buffer);
 
-    g_isInReportFunction = false;
-    return (sendNums >= 0);
-}
-
-bool EventReport::ReportHostMalloc(uint64_t addr, uint64_t size, CallStackString& stack)
-{
-    g_isInReportFunction = true;
-
-    if (!IsConnectToServer()) {
-        return true;
-    }
-
-    TLVBlockType cStack = stack.cStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_C;
-    TLVBlockType pyStack = stack.pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
-
-    std::string owner = DescribeTrace::GetInstance().GetDescribe();
-    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemOpRecord>(TLVBlockType::MEM_OWNER, owner,
-        cStack, stack.cStack, pyStack, stack.pyStack);
-    MemOpRecord* record = buffer.Cast<MemOpRecord>();
-    record->type = RecordType::MEMORY_RECORD;
-    record->subtype = RecordSubType::MALLOC;
-    record->flag = FLAG_INVALID;
-    record->space = MemOpSpace::INVALID;
-    record->addr = addr;
-    record->memSize = size;
-    record->devType = DeviceType::CPU;
-    record->devId = 0;
-    record->modid = INVALID_MODID;
-    record->recordIndex = ++recordIndex_;
-    record->kernelIndex = kernelLaunchRecordIndex_;
-
-    auto sendNums = ReportRecordEvent(buffer);
-
-    g_isInReportFunction = false;
-    return (sendNums >= 0);
-}
- 
-bool EventReport::ReportHostFree(uint64_t addr)
-{
-    g_isInReportFunction = true;
-
-    if (!IsConnectToServer()) {
-        return true;
-    }
-
-    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemOpRecord>();
-    MemOpRecord* record = buffer.Cast<MemOpRecord>();
-    record->type = RecordType::MEMORY_RECORD;
-    record->subtype = RecordSubType::FREE;
-    record->flag = FLAG_INVALID;
-    record->space = MemOpSpace::INVALID;
-    record->addr = addr;
-    record->memSize = 0;
-    record->devType = DeviceType::CPU;
-    record->devId = 0;
-    record->modid = INVALID_MODID;
-    record->recordIndex = ++recordIndex_;
-    record->kernelIndex = kernelLaunchRecordIndex_;
-    auto sendNums = ReportRecordEvent(buffer);
-
-    g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
@@ -419,8 +345,6 @@ void EventReport::SetStepInfo(const MstxRecord &mstxRecord)
 
 bool EventReport::ReportMark(RecordBuffer &mstxRecordBuffer)
 {
-    g_isInReportFunction = true;
-
     if (!IsConnectToServer()) {
         return true;
     }
@@ -445,36 +369,11 @@ bool EventReport::ReportMark(RecordBuffer &mstxRecordBuffer)
 
     auto sendNums = ReportRecordEvent(mstxRecordBuffer);
 
-    // 通过有无固化语句判断是否要采集host侧内存数据
-    {
-        std::lock_guard<std::mutex> lock(rangeIdTableMutex_);
-        const TLVBlock* tlv = GetTlvBlock(*record, TLVBlockType::MARK_MESSAGE);
-        std::string markMessage = tlv == nullptr ? "N/A" : tlv->data;
-        uint64_t pid = record->pid;
-        uint64_t tid = record->tid;
-        if (record->markType == MarkType::RANGE_START_A &&
-            strcmp(markMessage.c_str(), "report host memory info start") == 0) {
-            mstxRangeIdTables_[pid][tid] = record->rangeId;
-            CLIENT_INFO_LOG("[mark] Start report host memory info...");
-            g_isReportHostMem = true;
-        } else if (record->markType == MarkType::RANGE_END &&
-            mstxRangeIdTables_.find(pid) != mstxRangeIdTables_.end() &&
-            mstxRangeIdTables_[pid].find(tid) != mstxRangeIdTables_[pid].end() &&
-            mstxRangeIdTables_[pid][tid] == record->rangeId) {
-            mstxRangeIdTables_[pid].erase(tid);
-            CLIENT_INFO_LOG("[mark] Stop report host memory info.");
-            g_isReportHostMem = false;
-        }
-    }
-
-    g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
 bool EventReport::ReportAtenLaunch(RecordBuffer &atenOpLaunchRecordBuffer)
 {
-    g_isInReportFunction = true;
-
     if (!IsConnectToServer()) {
         return true;
     }
@@ -495,14 +394,11 @@ bool EventReport::ReportAtenLaunch(RecordBuffer &atenOpLaunchRecordBuffer)
 
     auto sendNums = ReportRecordEvent(atenOpLaunchRecordBuffer);
 
-    g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
 bool EventReport::ReportAtenAccess(RecordBuffer &memAccessRecordBuffer)
 {
-    g_isInReportFunction = true;
-
     if (!IsConnectToServer()) {
         return true;
     }
@@ -519,19 +415,15 @@ bool EventReport::ReportAtenAccess(RecordBuffer &memAccessRecordBuffer)
     MemAccessRecord* record = memAccessRecordBuffer.Cast<MemAccessRecord>();
     record->type = RecordType::MEM_ACCESS_RECORD;
     record->devId = devId;
-    record->devType = DeviceType::NPU;
     record->recordIndex = ++recordIndex_;
 
     auto sendNums = ReportRecordEvent(memAccessRecordBuffer);
 
-    g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
 bool EventReport::ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
 {
-    g_isInReportFunction = true;
-
     if (!EventTraceManager::Instance().IsNeedTrace(RecordType::KERNEL_LAUNCH_RECORD)) {
         return true;
     }
@@ -566,14 +458,11 @@ bool EventReport::ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
         return false;
     }
 
-    g_isInReportFunction = false;
     return true;
 }
 
 bool EventReport::ReportKernelExcute(const TaskKey &key, std::string &name, uint64_t time, RecordSubType type)
 {
-    g_isInReportFunction = true;
-
     if (!EventTraceManager::Instance().IsNeedTrace(RecordType::KERNEL_EXCUTE_RECORD)) {
         return true;
     }
@@ -597,13 +486,10 @@ bool EventReport::ReportKernelExcute(const TaskKey &key, std::string &name, uint
     record->timestamp = time;
     auto sendNums = ReportRecordEvent(buffer);
 
-    g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 bool EventReport::ReportAclItf(RecordSubType subtype)
 {
-    g_isInReportFunction = true;
-
     if (!IsConnectToServer()) {
         return true;
     }
@@ -627,14 +513,11 @@ bool EventReport::ReportAclItf(RecordSubType subtype)
     record->kernelIndex = kernelLaunchRecordIndex_;
     auto sendNums = ReportRecordEvent(buffer);
 
-    g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
 bool EventReport::ReportTraceStatus(const EventTraceStatus status)
 {
-    g_isInReportFunction = true;
-
     if (!IsConnectToServer()) {
         return true;
     }
@@ -651,15 +534,12 @@ bool EventReport::ReportTraceStatus(const EventTraceStatus status)
     record->status = static_cast<uint8_t>(status);
     auto sendNums = ReportRecordEvent(buffer);
 
-    g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
 bool EventReport::ReportAtbOpExecute(char* name, uint32_t nameLength,
     char* attr, uint32_t attrLength, RecordSubType type)
 {
-    g_isInReportFunction = true;
-
     if (!IsConnectToServer()) {
         return true;
     }
@@ -683,15 +563,12 @@ bool EventReport::ReportAtbOpExecute(char* name, uint32_t nameLength,
 
     auto sendNums = ReportRecordEvent(buffer);
 
-    g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
 bool EventReport::ReportAtbKernel(char* name, uint32_t nameLength,
     char* attr, uint32_t attrLength, RecordSubType type)
 {
-    g_isInReportFunction = true;
-
     if (!IsConnectToServer()) {
         return true;
     }
@@ -715,14 +592,11 @@ bool EventReport::ReportAtbKernel(char* name, uint32_t nameLength,
 
     auto sendNums = ReportRecordEvent(buffer);
 
-    g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
 bool EventReport::ReportAtbAccessMemory(char* name, char* attr, uint64_t addr, uint64_t size, AccessType type)
 {
-    g_isInReportFunction = true;
-
     if (!IsConnectToServer()) {
         return true;
     }
@@ -746,12 +620,10 @@ bool EventReport::ReportAtbAccessMemory(char* name, char* attr, uint64_t addr, u
     record->memType = AccessMemType::ATB;
     record->type = RecordType::MEM_ACCESS_RECORD;
     record->devId = devId;
-    record->devType = DeviceType::NPU;
     record->recordIndex = ++recordIndex_;
 
     auto sendNums = ReportRecordEvent(buffer);
 
-    g_isInReportFunction = false;
     return (sendNums >= 0);
 }
 
