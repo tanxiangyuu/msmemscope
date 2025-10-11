@@ -454,4 +454,12 @@ void MemoryCompare::SetDirPath()
     std::lock_guard<std::mutex> lock(fileMutex_);
     dirPath_ = Utility::DirPathManager::GetInstance().GetDirPath() + "/" + std::string(COMPARE_FILE);
 }
+
+MemoryCompare::~MemoryCompare()
+{
+    if (compareFile_ != nullptr) {
+        std::fclose(compareFile_);
+        compareFile_ = nullptr;
+    }
+}
 }
