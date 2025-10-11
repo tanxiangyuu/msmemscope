@@ -26,52 +26,6 @@ TEST(TestRecordToEvent, check_device_str_is_valid)
     std::string device3 = "host";
     EXPECT_FALSE(IsInvalidDevice(device3));
 }
-
-TEST(TestRecordToEvent, transfer_hal_host_malloc_free)
-{
-    Config config;
-    Process process(config);
- 
-    auto record1 = MemOpRecord{};
-    record1.type = RecordType::MEMORY_RECORD;
-    record1.subtype = RecordSubType::MALLOC;
-    record1.space = MemOpSpace::HOST;
-    record1.devType = DeviceType::NPU;
-    record1.recordIndex = 1;
-    record1.timestamp = 12;
-    record1.pid = 123;
-    record1.tid = 1234;
-    record1.modid = 0;
-    record1.devId = 0;
-    record1.addr = 0x1234;
-    record1.memSize = 128;
- 
-    auto event1 = process.RecordToEvent(static_cast<RecordBase*>(&record1));
-    EXPECT_EQ(event1->poolType, PoolType::HAL);
-    EXPECT_EQ(event1->device, "host");
-
-    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemOpRecord>(
-        TLVBlockType::MEM_OWNER, "leaks_mem",
-        TLVBlockType::CALL_STACK_C, "c_file: c_func()",
-        TLVBlockType::CALL_STACK_PYTHON, "py_file: py_func1()\npy_file: py_func2()");
-    auto& record2 = *(buffer.Cast<MemOpRecord>());
-    record2.type = RecordType::MEMORY_RECORD;
-    record2.subtype = RecordSubType::FREE;
-    record2.space = MemOpSpace::HOST;
-    record2.devType = DeviceType::NPU;
-    record2.recordIndex = 1;
-    record2.timestamp = 12;
-    record2.pid = 123;
-    record2.tid = 1234;
-    record2.modid = 0;
-    record2.devId = GD_INVALID_NUM;
-    record2.addr = 0x1234;
-    record2.memSize = 0;
- 
-    auto event2 = process.RecordToEvent(static_cast<RecordBase*>(&record2));
-    EXPECT_EQ(event2->poolType, PoolType::HAL);
-    EXPECT_EQ(event2->device, "N/A");
-}
  
 TEST(TestRecordToEvent, transfer_hal_device_malloc_free)
 {
@@ -82,7 +36,6 @@ TEST(TestRecordToEvent, transfer_hal_device_malloc_free)
     record1.type = RecordType::MEMORY_RECORD;
     record1.subtype = RecordSubType::MALLOC;
     record1.space = MemOpSpace::DEVICE;
-    record1.devType = DeviceType::NPU;
     record1.recordIndex = 1;
     record1.timestamp = 12;
     record1.pid = 123;
@@ -100,7 +53,6 @@ TEST(TestRecordToEvent, transfer_hal_device_malloc_free)
     record2.type = RecordType::MEMORY_RECORD;
     record2.subtype = RecordSubType::FREE;
     record2.space = MemOpSpace::DEVICE;
-    record2.devType = DeviceType::NPU;
     record2.recordIndex = 1;
     record2.timestamp = 12;
     record2.pid = 123;
@@ -114,49 +66,7 @@ TEST(TestRecordToEvent, transfer_hal_device_malloc_free)
     EXPECT_EQ(event2->poolType, PoolType::HAL);
     EXPECT_EQ(event2->device, "N/A");
 }
- 
-TEST(TestRecordToEvent, transfer_host_malloc_free)
-{
-    Config config;
-    Process process(config);
- 
-    auto record1 = MemOpRecord{};
-    record1.type = RecordType::MEMORY_RECORD;
-    record1.subtype = RecordSubType::MALLOC;
-    record1.space = MemOpSpace::INVALID;
-    record1.devType = DeviceType::CPU;
-    record1.recordIndex = 1;
-    record1.timestamp = 12;
-    record1.pid = 123;
-    record1.tid = 1234;
-    record1.modid = -1;
-    record1.devId = 0;
-    record1.addr = 0x1234;
-    record1.memSize = 128;
- 
-    auto event1 = process.RecordToEvent(static_cast<RecordBase*>(&record1));
-    EXPECT_EQ(event1->poolType, PoolType::HOST);
-    EXPECT_EQ(event1->device, "host");
- 
-    auto record2 = MemOpRecord{};
-    record2.type = RecordType::MEMORY_RECORD;
-    record2.subtype = RecordSubType::FREE;
-    record2.space = MemOpSpace::INVALID;
-    record2.devType = DeviceType::CPU;
-    record2.recordIndex = 1;
-    record2.timestamp = 12;
-    record2.pid = 123;
-    record2.tid = 1234;
-    record2.modid = -1;
-    record2.devId = 0;
-    record2.addr = 0x1234;
-    record2.memSize = 0;
- 
-    auto event2 = process.RecordToEvent(static_cast<RecordBase*>(&record2));
-    EXPECT_EQ(event2->poolType, PoolType::HOST);
-    EXPECT_EQ(event2->device, "host");
-}
- 
+
 TEST(TestRecordToEvent, transfer_pta_caching_malloc_free)
 {
     Config config;

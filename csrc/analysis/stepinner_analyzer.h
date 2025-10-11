@@ -3,9 +3,11 @@
 #ifndef STEPINNER_ANALYZER_H
 #define STEPINNER_ANALYZER_H
 
-#include "trace_record.h"
+#include <unordered_map>
+
 #include "config_info.h"
 #include "comm_def.h"
+#include "framework/record_info.h"
 
 namespace Leaks {
 /*
@@ -121,7 +123,6 @@ private:
     void SetStepId(const DeviceId &deviceId, const uint64_t &stepId);
     void CheckGap(const DeviceId &deviceId);
     void CheckNpuLeak(const DeviceId &deviceId, const uint64_t stepId);
-    void NotifyTraceRecord(const int32_t &devId, const MemPoolRecord &memPoolRecord);
     bool CreateMstxTables(const DeviceId &deviceId);
     bool CreateTables(const DeviceId &deviceId);
     bool CreateLeakSumTables(const DeviceId &deviceId);

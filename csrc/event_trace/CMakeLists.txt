@@ -10,7 +10,6 @@ target_sources(ascend_leaks PRIVATE ${SOURCE})
 # libascend_hal.so placeholder for link
 add_library(ascend_hal SHARED ${EVENT_TRACE_INC_DIR}/ascend_hal_stub.cpp)
 add_subdirectory(hal_hooks)
-add_subdirectory(host_memory_hooks)
 add_subdirectory(atb_hooks)
 add_subdirectory(mstx_hooks)
 add_subdirectory(kernel_hooks)

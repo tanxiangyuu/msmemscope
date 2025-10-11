@@ -39,7 +39,7 @@ bool MemoryStateManager::AddEvent(std::shared_ptr<MemoryEvent>& event)
 
     // hal和host内存存在free事件没有size信息，在此处匹配到malloc事件并填写size
     if (event->eventType == EventBaseType::FREE
-        && (event->poolType == PoolType::HOST || event->poolType == PoolType::HAL)
+        && event->poolType == PoolType::HAL
         && !statesMap[key].events.empty() && statesMap[key].events[0]->eventType == EventBaseType::MALLOC) {
         event->size = statesMap[key].events[0]->size;
     }

@@ -112,10 +112,6 @@ bool HalAnalyzer::Record(const ClientId &clientId, const RecordBase &record)
         return true;
     }
     auto memRecord = static_cast<const MemOpRecord&>(record);
-    // 目前不处理CPU侧数据
-    if (memRecord.devType == DeviceType::CPU) {
-        return true;
-    }
     if (!CreateMemTables(clientId)) {
         LOG_ERROR("[client %u]: Create hal Memory table failed.", clientId);
         return false;

@@ -275,11 +275,6 @@ enum class StepType : uint8_t {
     STOP,
 };
 
-enum class DeviceType : uint8_t {
-    NPU = 0,
-    CPU = 1,
-};
-
 enum class PyTraceType : uint8_t {
     PYCALL = 0,
     PYEXCEPTION,
@@ -295,7 +290,6 @@ struct MemOpRecord : public RecordBase {
     uint64_t kernelIndex;       // 当前所属kernellaunch索引
     unsigned long long flag;    // 内存属性
     int32_t modid;              // moduleID
-    DeviceType devType;         // 所属device类型，0为npu，1为cpu
     MemOpSpace space;           // 内存操作空间：device还是host
     uint64_t addr;              // 地址
     uint64_t memSize;           // 操作大小
@@ -368,7 +362,6 @@ enum class AccessMemType : uint8_t {
 struct MemAccessRecord : public RecordBase {
     AccessType eventType;
     AccessMemType memType;     // 所属的mem类型
-    DeviceType devType;         // 所属device类型，0为npu，1为cpu
     uint64_t addr;              // 地址
     uint64_t memSize;           // 操作大小
     /* TLVBlockType::OP_NAME */
