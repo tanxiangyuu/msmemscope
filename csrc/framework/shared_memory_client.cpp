@@ -94,6 +94,7 @@ bool SharedMemoryClient::Receive(std::string& msg, size_t& size, uint32_t timeOu
         return false;
     }
     msg = std::string(reinterpret_cast<char*>(ptr), size);
+    delete[] ptr;
     return true;
 }
 
