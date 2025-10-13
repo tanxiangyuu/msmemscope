@@ -79,6 +79,7 @@ public:
     void RunComparison(const std::vector<std::string> &paths);
 private:
     explicit MemoryCompare(Config config);
+    ~MemoryCompare();
     void SetDirPath();
     std::vector<std::string> SplitLineData(std::string line);
     std::string ReadQuotedField(std::stringstream& ss);
