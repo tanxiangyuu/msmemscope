@@ -176,7 +176,6 @@ TEST(MemoryCompareTest, do_write_compare_data_to_csv_expect_true)
     FILE *fp = fopen("test_leaks.csv", "w");
     memCompare.compareFile_ = fp;
     ASSERT_TRUE(memCompare.WriteCompareDataToCsv());
-    fclose(fp);
     remove("test_leaks.csv");
 }
 
@@ -188,7 +187,6 @@ TEST(MemoryCompareTest, do_empty_compare_data_to_csv_expect_false)
     FILE *fp = fopen("test_leaks.csv", "w");
     memCompare.compareFile_ = fp;
     ASSERT_FALSE(memCompare.WriteCompareDataToCsv());
-    fclose(fp);
     remove("test_leaks.csv");
 }
 
@@ -355,7 +353,6 @@ TEST(MemoryCompareTest, do_kernel_launch_compare)
     fprintf(fp, "5,MALLOC,PTA,N/A,5,123,234,2,0,{size:1024},,\n");
 
     fclose(fp);
-
     std::vector<std::string> paths;
     paths.emplace_back("test_leaks.csv");
     paths.emplace_back("test_leaks.csv");
