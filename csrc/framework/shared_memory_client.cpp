@@ -91,6 +91,7 @@ bool SharedMemoryClient::Receive(std::string& msg, size_t& size, uint32_t timeOu
     }
     uint8_t* ptr = new uint8_t[size];
     if (memcpy_s(ptr, size, s2cBuffer_ + sizeof(std::atomic<ClientId>) + sizeof(size_t), size)) {
+        delete[] ptr;
         return false;
     }
     msg = std::string(reinterpret_cast<char*>(ptr), size);
