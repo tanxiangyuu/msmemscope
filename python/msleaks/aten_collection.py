@@ -31,10 +31,6 @@ from packaging import version
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 
-# Note that this is only factories that take Tensor as input as they are
-# the ones we care about.
-FACTORY_FUNCTION_REGEX = re.compile("(new_.*|.*_like)")
-
 
 def calculate_tensor_size(tensor: torch.Tensor):
     numel = np.prod(tensor.shape)
@@ -172,7 +168,8 @@ class MemoryDispatchMode(TorchDispatchMode):
         if kwargs is None:
             kwargs = {}
 
-        is_factory = bool(FACTORY_FUNCTION_REGEX.match(func._schema.name))
+        # 匹配工厂函数
+        is_factory = func._schema.name.startswith("new_") or func._schema.name.endswith("_like")
         # 获取aten算子执行开始事件
         mstx.mark(f"leaks-aten-b: name={func.__module__}.{func.__name__}", None)
 
