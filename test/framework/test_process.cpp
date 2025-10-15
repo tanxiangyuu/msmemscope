@@ -14,6 +14,7 @@
 #include "bit_field.h"
 using namespace Leaks;
 
+// 大部分单例config在此初始化，config相关修改请修改此处。
 void setConfig(Config &config)
 {
     BitField<decltype(config.eventType)> eventBit;
@@ -33,6 +34,7 @@ void setConfig(Config &config)
     config.enablePyStack = true;
     config.stepList.stepCount = 0;
     config.dataFormat = 0;
+    config.collectMode = static_cast<uint8_t>(CollectMode::IMMEDIATE);
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
 }
 
