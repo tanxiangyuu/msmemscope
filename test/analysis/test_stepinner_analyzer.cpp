@@ -13,7 +13,7 @@
 
 using namespace Leaks;
 
-MstxRecord CreatMstxRecord(MarkType type, const char* message, uint64_t stepId, uint64_t rangeId, uint64_t streamId)
+RecordBuffer CreateMstxBuffer(MarkType type, const char* message, uint64_t stepId, uint64_t rangeId, uint64_t streamId)
 {
     auto buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>(TLVBlockType::MARK_MESSAGE, message);
     MstxRecord* mstxRecord = buffer.Cast<MstxRecord>();
@@ -22,7 +22,7 @@ MstxRecord CreatMstxRecord(MarkType type, const char* message, uint64_t stepId, 
     mstxRecord->stepId = stepId;
     mstxRecord->rangeId = rangeId;
     mstxRecord->streamId = streamId;
-    return *mstxRecord;
+    return buffer;
 }
 
 TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_sucess) {
@@ -70,7 +70,7 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks_warning)
     MstxRecord* mstxRecordStart1 = mstxRecordStartBuf1.Cast<MstxRecord>();
     mstxRecordStart1->markType = MarkType::RANGE_START_A;
     mstxRecordStart1->devId = 0;
-    mstxRecordStart1->stepId = 1;
+    mstxRecordStart1->stepId = 2;
     mstxRecordStart1->streamId = 123;
 
     // 经过第二个step，但仍然未释放
@@ -78,14 +78,14 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks_warning)
     MstxRecord* mstxRecordStart2 = mstxRecordStartBuf2.Cast<MstxRecord>();
     mstxRecordStart2->markType = MarkType::RANGE_START_A;
     mstxRecordStart2->devId = 0;
-    mstxRecordStart2->stepId = 2;
+    mstxRecordStart2->stepId = 3;
     mstxRecordStart2->streamId = 123;
 
     auto mstxRecordEndBuf = RecordBuffer::CreateRecordBuffer<MstxRecord>();
     MstxRecord* mstxRecordEnd = mstxRecordEndBuf.Cast<MstxRecord>();
     mstxRecordEnd->markType = MarkType::RANGE_END;
     mstxRecordEnd->devId = 0;
-    mstxRecordEnd->stepId = 2;
+    mstxRecordEnd->stepId = 3;
     mstxRecordEnd->streamId = 123;
 
     // 经过两个step的内存
@@ -110,8 +110,8 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks_warning)
     analysisConfig.stepList.stepCount = 0;
     StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
     static StepInnerAnalyzer analyzer(analysisConfig);
-    EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, *record1));
     StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStart1);
+    EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, *record1));
     StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStart2);
     StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordEnd);
 }
@@ -234,20 +234,20 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_torch_leaks) {
     static StepInnerAnalyzer analyzer(analysisConfig);
 
     // 第一个step会跳过
-    auto mstxRecordStartFirst = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 1, 1, 123);
-    auto mstxRecordEndFirst = CreatMstxRecord(MarkType::RANGE_END, "", 1, 1, 123);
+    auto mstxRecordStartFirstBuffer = CreateMstxBuffer(MarkType::RANGE_START_A, "step start", 1, 1, 123);
+    auto mstxRecordEndFirstBuffer = CreateMstxBuffer(MarkType::RANGE_END, "", 1, 1, 123);
 
     // 第二个step发生泄漏
-    auto mstxRecordStartSecond = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 2, 2, 123);
-    auto mstxRecordEndSecond = CreatMstxRecord(MarkType::RANGE_END, "", 2, 2, 123);
+    auto mstxRecordStartSecondBuffer = CreateMstxBuffer(MarkType::RANGE_START_A, "step start", 2, 2, 123);
+    auto mstxRecordEndSecondBuffer = CreateMstxBuffer(MarkType::RANGE_END, "", 2, 2, 123);
 
     // 构造第三个step时仍未释放的情景
-    auto mstxRecordStartThird = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 3, 3, 123);
-    auto mstxRecordEndThird = CreatMstxRecord(MarkType::RANGE_END, "", 3, 3, 123);
+    auto mstxRecordStartThirdBuffer = CreateMstxBuffer(MarkType::RANGE_START_A, "step start", 3, 3, 123);
+    auto mstxRecordEndThirdBuffer = CreateMstxBuffer(MarkType::RANGE_END, "", 3, 3, 123);
 
     // 构造第四个step时仍未释放的情景，超过duration限制
-    auto mstxRecordStartFourth = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 4, 4, 123);
-    auto mstxRecordEndFourth = CreatMstxRecord(MarkType::RANGE_END, "", 4, 4, 123);
+    auto mstxRecordStartFourthBuffer = CreateMstxBuffer(MarkType::RANGE_START_A, "step start", 4, 4, 123);
+    auto mstxRecordEndFourthBuffer = CreateMstxBuffer(MarkType::RANGE_END, "", 4, 4, 123);
 
     // step前后allocated内存不一致
     auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
@@ -263,16 +263,17 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_torch_leaks) {
     memoryusage.totalAllocated = 512;
     record->memoryUsage = memoryusage;
 
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartFirst);
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndFirst);
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartSecond);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStartFirstBuffer.Cast<MstxRecord>());
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordEndFirstBuffer.Cast<MstxRecord>());
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStartSecondBuffer.Cast<MstxRecord>());
     EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, *record));
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndSecond);
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartThird);
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndThird);
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartFourth);
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndFourth);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordEndSecondBuffer.Cast<MstxRecord>());
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStartThirdBuffer.Cast<MstxRecord>());
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordEndThirdBuffer.Cast<MstxRecord>());
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStartFourthBuffer.Cast<MstxRecord>());
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordEndFourthBuffer.Cast<MstxRecord>());
 }
+
 
 TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_mindspore_leaks) {
     ClientId clientId = 0;
@@ -287,14 +288,14 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_mindspore_leaks) {
     StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
     static StepInnerAnalyzer analyzer(analysisConfig);
 
-    auto mstxRecordStartFirst = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 1, 1, 123);
-    auto mstxRecordEndFirst = CreatMstxRecord(MarkType::RANGE_END, "", 1, 1, 123);
-    auto mstxRecordStartSecond = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 2, 2, 123);
-    auto mstxRecordEndSecond = CreatMstxRecord(MarkType::RANGE_END, "", 2, 2, 123);
-    auto mstxRecordStartThird = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 3, 3, 123);
-    auto mstxRecordEndThird = CreatMstxRecord(MarkType::RANGE_END, "", 3, 3, 123);
-    auto mstxRecordStartFourth = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 4, 4, 123);
-    auto mstxRecordEndFourth = CreatMstxRecord(MarkType::RANGE_END, "", 4, 4, 123);
+    auto mstxRecordStartFirstBuffer = CreateMstxBuffer(MarkType::RANGE_START_A, "step start", 1, 1, 123);
+    auto mstxRecordEndFirstBuffer = CreateMstxBuffer(MarkType::RANGE_END, "", 1, 1, 123);
+    auto mstxRecordStartSecondBuffer = CreateMstxBuffer(MarkType::RANGE_START_A, "step start", 2, 2, 123);
+    auto mstxRecordEndSecondBuffer = CreateMstxBuffer(MarkType::RANGE_END, "", 2, 2, 123);
+    auto mstxRecordStartThirdBuffer = CreateMstxBuffer(MarkType::RANGE_START_A, "step start", 3, 3, 123);
+    auto mstxRecordEndThirdBuffer = CreateMstxBuffer(MarkType::RANGE_END, "", 3, 3, 123);
+    auto mstxRecordStartFourthBuffer = CreateMstxBuffer(MarkType::RANGE_START_A, "step start", 4, 4, 123);
+    auto mstxRecordEndFourthBuffer = CreateMstxBuffer(MarkType::RANGE_END, "", 4, 4, 123);
 
     // step前后allocated内存不一致
     auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
@@ -309,15 +310,15 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_mindspore_leaks) {
     memoryusage.totalAllocated = 512;
     record->memoryUsage = memoryusage;
 
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartFirst);
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndFirst);
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartSecond);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStartFirstBuffer.Cast<MstxRecord>());
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordEndFirstBuffer.Cast<MstxRecord>());
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStartSecondBuffer.Cast<MstxRecord>());
     EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, *record));
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndSecond);
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartThird);
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndThird);
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartFourth);
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndFourth);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordEndSecondBuffer.Cast<MstxRecord>());
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStartThirdBuffer.Cast<MstxRecord>());
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordEndThirdBuffer.Cast<MstxRecord>());
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStartFourthBuffer.Cast<MstxRecord>());
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordEndFourthBuffer.Cast<MstxRecord>());
 }
 
 TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_atb_leaks) {
@@ -332,14 +333,14 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_atb_leaks) {
     StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
     static StepInnerAnalyzer analyzer(analysisConfig);
 
-    auto mstxRecordStartFirst = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 1, 1, 123);
-    auto mstxRecordEndFirst = CreatMstxRecord(MarkType::RANGE_END, "", 1, 1, 123);
-    auto mstxRecordStartSecond = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 2, 2, 123);
-    auto mstxRecordEndSecond = CreatMstxRecord(MarkType::RANGE_END, "", 2, 2, 123);
-    auto mstxRecordStartThird = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 3, 3, 123);
-    auto mstxRecordEndThird = CreatMstxRecord(MarkType::RANGE_END, "", 3, 3, 123);
-    auto mstxRecordStartFourth = CreatMstxRecord(MarkType::RANGE_START_A, "step start", 4, 4, 123);
-    auto mstxRecordEndFourth = CreatMstxRecord(MarkType::RANGE_END, "", 4, 4, 123);
+    auto mstxRecordStartFirstBuffer = CreateMstxBuffer(MarkType::RANGE_START_A, "step start", 1, 1, 123);
+    auto mstxRecordEndFirstBuffer = CreateMstxBuffer(MarkType::RANGE_END, "", 1, 1, 123);
+    auto mstxRecordStartSecondBuffer = CreateMstxBuffer(MarkType::RANGE_START_A, "step start", 2, 2, 123);
+    auto mstxRecordEndSecondBuffer = CreateMstxBuffer(MarkType::RANGE_END, "", 2, 2, 123);
+    auto mstxRecordStartThirdBuffer = CreateMstxBuffer(MarkType::RANGE_START_A, "step start", 3, 3, 123);
+    auto mstxRecordEndThirdBuffer = CreateMstxBuffer(MarkType::RANGE_END, "", 3, 3, 123);
+    auto mstxRecordStartFourthBuffer = CreateMstxBuffer(MarkType::RANGE_START_A, "step start", 4, 4, 123);
+    auto mstxRecordEndFourthBuffer = CreateMstxBuffer(MarkType::RANGE_END, "", 4, 4, 123);
 
     // step前后allocated内存不一致
     auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
@@ -356,15 +357,15 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_atb_leaks) {
     memoryusage.totalAllocated = 512;
     record->memoryUsage = memoryusage;
 
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartFirst);
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndFirst);
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartSecond);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStartFirstBuffer.Cast<MstxRecord>());
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordEndFirstBuffer.Cast<MstxRecord>());
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStartSecondBuffer.Cast<MstxRecord>());
     EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, *record));
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndSecond);
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartThird);
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndThird);
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordStartFourth);
-    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(mstxRecordEndFourth);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordEndSecondBuffer.Cast<MstxRecord>());
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStartThirdBuffer.Cast<MstxRecord>());
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordEndThirdBuffer.Cast<MstxRecord>());
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStartFourthBuffer.Cast<MstxRecord>());
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordEndFourthBuffer.Cast<MstxRecord>());
 }
 
 TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateTables_return_true)
