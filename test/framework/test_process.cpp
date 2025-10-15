@@ -8,7 +8,6 @@
 #include "process.h"
 #undef private
 #include "analysis/mstx_analyzer.h"
-#include "analysis/trace_record.h"
 #include "client_process.h"
 #include "client_parser.h"
 #include "bit_field.h"
@@ -77,7 +76,7 @@ TEST(Process, process_setpreloadenv_without_atb_expect_success)
     Process process(config);
     process.SetPreloadEnv();
     char *env = getenv("LD_PRELOAD");
-    std::string hooksSo = "libleaks_ascend_hal_hook.so:libhost_memory_hook.so:"
+    std::string hooksSo = "libleaks_ascend_hal_hook.so:"
                           "libascend_mstx_hook.so:libascend_kernel_hook.so";
     EXPECT_EQ(std::string(env), hooksSo);
     setenv("LD_PRELOAD", "test.so", 1);
@@ -95,7 +94,7 @@ TEST(Process, process_setpreloadenv_with_atb_abi_0_expect_success)
     Process process(config);
     process.SetPreloadEnv();
     char *env = getenv("LD_PRELOAD");
-    std::string hooksSo = "libleaks_ascend_hal_hook.so:libhost_memory_hook.so:"
+    std::string hooksSo = "libleaks_ascend_hal_hook.so:"
                           "libascend_mstx_hook.so:libascend_kernel_hook.so:libatb_abi_0_hook.so";
     EXPECT_EQ(std::string(env), hooksSo);
     setenv("LD_PRELOAD", "test.so", 1);
@@ -113,7 +112,7 @@ TEST(Process, process_setpreloadenv_with_atb_abi_1_expect_success)
     Process process(config);
     process.SetPreloadEnv();
     char *env = getenv("LD_PRELOAD");
-    std::string hooksSo = "libleaks_ascend_hal_hook.so:libhost_memory_hook.so:"
+    std::string hooksSo = "libleaks_ascend_hal_hook.so:"
                           "libascend_mstx_hook.so:libascend_kernel_hook.so:libatb_abi_1_hook.so";
     EXPECT_EQ(std::string(env), hooksSo);
     setenv("LD_PRELOAD", "test.so", 1);

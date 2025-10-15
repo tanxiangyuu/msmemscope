@@ -176,25 +176,6 @@ void StepInnerAnalyzer::CheckNpuLeak(const DeviceId &deviceId, const uint64_t st
     return;
 }
 
-void StepInnerAnalyzer::NotifyTraceRecord(const int32_t &devId, const MemPoolRecord &memPoolRecord)
-{
-    uint64_t ptr = memPoolRecord.memoryUsage.ptr;
-    if (npuMemUsages_[devId].poolOpTable[NpuMemKey(ptr, memPoolRecord.type)].duration >= (durationThreshold_ + 1)
-        && npuMemUsages_[devId].poolOpTable[NpuMemKey(ptr, memPoolRecord.type)].stepId > skipSteps_
-    ) {
-        TorchMemLeakInfo info{
-            devId,
-            npuMemUsages_[devId].poolOpTable[NpuMemKey(ptr, memPoolRecord.type)].kernelIndex,
-            memPoolRecord.kernelIndex
-                - npuMemUsages_[devId].poolOpTable[NpuMemKey(ptr, memPoolRecord.type)].kernelIndex,
-            ptr,
-            memPoolRecord.memoryUsage.allocSize
-        };
-        TraceRecord::GetInstance().ProcessTorchMemLeakInfo(info);
-    }
-    return;
-}
-
 void StepInnerAnalyzer::UpdateAllocated(const DeviceId &deviceId, const RecordType &poolType,
     const int64_t &totalAllocated)
 {
@@ -323,9 +304,6 @@ void  StepInnerAnalyzer::RecordNpuFree(const ClientId &clientId, const DeviceId 
         MemoryPoolStatus memPoolStatus{};
         npuMemUsages_[deviceId].poolStatusTable.emplace(memPoolRecord.type, memPoolStatus);
     }
-
-    // 在释放时获取跨多个Step释放内存信息
-    NotifyTraceRecord(deviceId, memPoolRecord);
 
     npuMemUsages_[deviceId].poolOpTable.erase(NpuMemKey(npumemptr, memPoolRecord.type));
     UpdateAllocated(deviceId, memPoolRecord.type, memoryusage.totalAllocated);
