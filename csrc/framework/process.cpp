@@ -11,7 +11,6 @@
 #include "ustring.h"
 #include "log.h"
 #include "serializer.h"
-#include "analysis/trace_record.h"
 #include "analysis/mstx_analyzer.h"
 #include "analysis/hal_analyzer.h"
 #include "analysis/stepinner_analyzer.h"
@@ -125,8 +124,6 @@ void Process::RecordHandler(const ClientId &clientId, const RecordBuffer& buffer
 {
     RecordBase* record = buffer.Cast<RecordBase>();
     EventHandler(RecordToEvent(record));
-
-    TraceRecord::GetInstance().TraceHandler(record);
 
     switch (record->type) {
         case RecordType::MEMORY_RECORD:
@@ -259,7 +256,6 @@ void Process::SetPreloadEnv()
 
     std::vector<string> hookLibNames{
         "libleaks_ascend_hal_hook.so",
-        "libhost_memory_hook.so",
         "libascend_mstx_hook.so",
         "libascend_kernel_hook.so"
     };

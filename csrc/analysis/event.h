@@ -124,16 +124,15 @@ public:
         cCallStack = cStackBlock == nullptr ? "" : std::string(cStackBlock->data);
         pyCallStack = pyStackBlock == nullptr ? "" : std::string(pyStackBlock->data);
  
-        poolType = record.devType == DeviceType::CPU ? PoolType::HOST : PoolType::HAL;
+        poolType = PoolType::HAL;
         eventType = record.subtype == RecordSubType::MALLOC ? EventBaseType::MALLOC : EventBaseType::FREE;
-        eventSubType = record.devType == DeviceType::CPU ? EventSubType::HOST : EventSubType::HAL;
+        eventSubType = EventSubType::HAL;
         addr = record.addr;
         name = "N/A";
-        device = (record.devId == GD_INVALID_NUM) ? "N/A"
-            : (record.space == MemOpSpace::HOST || record.devType == DeviceType::CPU) ? "host"
-            : std::to_string(record.devId);
-        size = record.subtype == RecordSubType::MALLOC ? static_cast<int64_t>(record.memSize) : 0;  // hal和host的free事件没有size信息
-        moduleId = record.devType == DeviceType::NPU ? record.modid : -1;     // host事件没有moduleId信息
+        device = (record.devId == GD_INVALID_NUM) ? "N/A" : std::to_string(record.devId);
+        // hal的free事件没有size信息
+        size = record.subtype == RecordSubType::MALLOC ? static_cast<int64_t>(record.memSize) : 0;
+        moduleId = record.modid;
         const TLVBlock* ownerBlock = GetTlvBlock(record, TLVBlockType::MEM_OWNER);
         describeOwner = ownerBlock == nullptr ? "" : std::string(ownerBlock->data);
     }

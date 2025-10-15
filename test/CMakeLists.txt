@@ -28,7 +28,6 @@ file(GLOB_RECURSE TEST_ORIGINAL_SOURCE ../csrc/framework/*.cpp
                                        ../csrc/event_trace/*.cpp
                                        ../csrc/utility/*.cpp
                                        ../platform/securec/src/*.c)
-list(FILTER TEST_ORIGINAL_SOURCE EXCLUDE REGEX "host_memory_hooks\\.cpp$")
 list(FILTER TEST_ORIGINAL_SOURCE EXCLUDE REGEX ".*\/atb_hooks\/.*")
 
 list(SORT TEST_ORIGINAL_SOURCE)
