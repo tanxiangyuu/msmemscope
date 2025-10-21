@@ -38,7 +38,7 @@ private:
     TensorMonitor(const TensorMonitor&) = delete;
     TensorMonitor& operator=(const TensorMonitor&) = delete;
 private:
-    uint32_t outputId_ = {0};
+    uint32_t outputId_ = UINT32_MAX;
     std::unordered_map<uint64_t, MonitoredTensor> cmdWatchedTensorsMap_ = {};
     std::unordered_map<uint64_t, MonitoredTensor> pythonWatchedTensorsMap_ = {};
     std::mutex mapMutex_;

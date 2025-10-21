@@ -45,7 +45,7 @@ private:
     // 落盘时需要用完整的opName，包含卡号和线程号。
     void BeginExcute(aclrtStream stream, const std::string &rawItem);
     void EndExcute(aclrtStream stream, const std::string &excuteItem, const std::string &rawItem,
-        const std::vector<MonitoredTensor> &outputTensors = {}, uint32_t outputId = 0);
+        const std::vector<MonitoredTensor> &outputTensors = {}, uint32_t outputId = UINT32_MAX);
 
     bool IsFirstWatchTarget(const std::string &name);
     bool IsLastWatchTarget(const std::string &name);
@@ -58,7 +58,7 @@ private:
     std::string watchedTargetName_ {};
     std::string firstWatchTarget_;
     std::string lastWatchTarget_;
-    uint32_t outputId_;
+    uint32_t outputId_ = UINT32_MAX;
     std::mutex mutex_;
     std::unordered_map<std::string, uint64_t> targetNameCnt_;
     uint32_t firstWatchTargetCnt_ = 1;

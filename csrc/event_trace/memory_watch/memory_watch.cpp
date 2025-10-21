@@ -92,6 +92,8 @@ void MemoryWatch::OpExcuteEnd(aclrtStream stream,
         MonitoredTensor tensor = tensors[outputId_];
         dumpTensors.emplace_back(tensor);
         return EndExcute(stream, op, rawOp, dumpTensors, outputId_);
+    } else {
+        outputId_ = UINT32_MAX;
     }
     return EndExcute(stream, op, rawOp, tensors);
 }
@@ -131,6 +133,8 @@ void MemoryWatch::KernelExcuteEnd(aclrtStream stream, const std::string &rawKern
         tensor.dataSize = static_cast<uint64_t>(tensors[outputId_].dataSize);
         dumpTensors.emplace_back(tensor);
         return EndExcute(stream, kernelDir, rawKernel, dumpTensors, outputId_);
+    } else {
+        outputId_ = UINT32_MAX;
     }
     for (auto &item : tensors) {
         MonitoredTensor tensor {};
