@@ -103,7 +103,7 @@ NC='\033[0m'
 
 # 安装配置
 TOOL_NAME="msmemscope"
-DEFAULT_INSTALL_PATH="./$TOOL_NAME"
+DEFAULT_INSTALL_PATH="."
 BACKUP_DIR="/tmp/${TOOL_NAME}_backup_$$"  # 使用进程ID确保备份目录唯一
 
 # 日志函数 - 所有用户输出都是英文
@@ -447,7 +447,7 @@ show_installation_info() {
         log_info "Installation completed successfully"
     fi
 }
-# 安装模式的主函数 - 最终简化版
+# 安装模式的主函数
 install_main() {
     local install_path=""
     local is_upgrade=false
