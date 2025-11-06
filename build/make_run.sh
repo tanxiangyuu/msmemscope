@@ -151,11 +151,21 @@ validate_install_path() {
         log_error "Install path must be an absolute path: $install_path"
         return 1
     fi
+
+    # 检查安装目录本身是否存在 - 新增的关键检查
+    if [ -e "$install_path" ]; then
+        if [ ! -d "$install_path" ]; then
+            log_error "Install path exists but is not a directory: $install_path"
+            return 1
+        fi
+    else
+        log_error "Install directory does not exist: $install_path"
+        return 1
+    fi
     
-    # 检查父目录是否有写入权限
-    local parent_dir=$(dirname "$install_path")
-    if [ ! -w "$parent_dir" ]; then
-        log_error "No write permission for directory: $parent_dir"
+    # 检查安装目录是否有写入权限
+    if [ ! -w "$install_path" ]; then
+        log_error "No write permission for directory: $install_path"
         return 1
     fi
     
@@ -328,7 +338,13 @@ confirm_uninstall() {
     echo "Installation directory: $INSTALL_DIR"
     echo "Version: $(grep 'version:' $INSTALL_DIR/version.txt 2>/dev/null | cut -d' ' -f2 || echo 'Unknown')"
     echo ""
-    echo -e "${YELLOW}Warning: This operation will permanently delete all files!${NC}"
+    
+    # 显示警告信息
+    echo -e "${YELLOW}Warning: This operation will permanently delete ALL files and subdirectories${NC}"
+    echo -e "${YELLOW}within the installation directory, including any user-created content!${NC}"
+    echo ""
+    echo -e "${RED}The following directory and ALL its contents will be deleted:${NC}"
+    echo -e "${RED}  $INSTALL_DIR${NC}"
     echo ""
     
     read -p "Are you sure you want to uninstall? (y/N): " confirm
@@ -426,18 +442,17 @@ show_installation_info() {
     local install_path="$1"
     local is_upgrade="$2"
     
+    # 规范化路径，移除多余的 ./ 和 ../
+    local normalized_path=$(cd "$install_path" && pwd)
+    
     local action="${is_upgrade:-Installation}"
     echo ""
     echo "=============================================="
     echo "          $TOOL_NAME ${action} Complete"
     echo "=============================================="
-    echo "Installation path: $install_path/msmemscope"
+    echo "Installation path: $normalized_path/msmemscope"
     echo "Version: $(grep 'version:' "$install_path/msmemscope/version.txt" | cut -d' ' -f2)"
     echo "Install time: $(date '+%Y-%m-%d %H:%M:%S')"
-    echo ""
-    echo "Usage instructions:"
-    echo "  Start tool: $install_path/msmemscope/bin/start.sh"
-    echo "  Uninstall: bash $install_path/msmemscope/uninstall.sh"
     echo ""
     
     # 如果是升级操作，显示升级成功信息
@@ -447,6 +462,7 @@ show_installation_info() {
         log_info "Installation completed successfully"
     fi
 }
+
 # 安装模式的主函数
 install_main() {
     local install_path=""
@@ -455,9 +471,9 @@ install_main() {
     # 解析命令行参数
     while [[ $# -gt 0 ]]; do
         case $1 in
-            --install-path)
-                install_path="$2"
-                shift 2
+            --install-path=*)
+                install_path="${1#*=}"
+                shift
                 ;;
             --upgrade)
                 is_upgrade=true
@@ -488,31 +504,25 @@ install_main() {
     # 检查磁盘空间
     check_disk_space "$install_path" || exit 1
     
-    # 简化逻辑：直接询问用户是否继续
-    if [ -d "$install_path/msmemscope" ] && [ -f "$install_path/msmemscope/version.txt" ] && [ "$is_upgrade" = false ]; then
-        log_warn "Tool is already installed. Use upgrade mode or uninstall first."
-        read -p "Continue with installation? (y/N): " confirm
-        case "$confirm" in
-            [yY]|[yY][eE][sS])
-                log_info "Proceeding with reinstallation..."
-                ;;
-            *)
-                echo "Installation cancelled"
-                exit 0
-                ;;
-        esac
-    elif [ "$is_upgrade" = true ] && [ ! -f "$install_path/msmemscope/version.txt" ]; then
+    # 检查安装状态
+    if [ -d "$install_path/msmemscope" ] && [ -f "$install_path/msmemscope/version.txt" ]; then
+        if [ "$is_upgrade" = true ]; then
+            # 升级模式：需要备份
+            log_info "Starting upgrade process..."
+            backup_existing "$install_path"
+        else
+            # 普通安装模式：已存在就报错退出
+            log_warn "Tool is already installed. Use upgrade mode or uninstall first."
+            exit 1
+        fi
+    elif [ "$is_upgrade" = true ]; then
+        # 升级模式但目录无效
         log_error "Target directory is not a valid installation for upgrade"
         exit 1
     else
-        log_info "Proceeding with installation..."
+        # 全新安装
+        log_info "Starting fresh installation..."
     fi
-    
-    # 执行安装操作
-    log_info "Starting installation process..."
-    
-    # 备份现有安装
-    backup_existing "$install_path"
     
     # 执行安装操作
     perform_installation "$install_path" "$([ "$is_upgrade" = true ] && echo "Upgrading")"
@@ -527,9 +537,9 @@ upgrade_main() {
     # 解析参数
     while [[ $# -gt 0 ]]; do
         case $1 in
-            --install-path)
-                install_path="$2"
-                shift 2
+            --install-path=*)
+                install_path="${1#*=}"
+                shift
                 ;;
             *)
                 log_warn "Unknown parameter: $1"
@@ -541,7 +551,7 @@ upgrade_main() {
     # 检查必须参数
     if [ -z "$install_path" ]; then
         log_error "Upgrade requires --install-path parameter"
-        echo "Usage: $0 --upgrade --install-path <path>"
+        echo "Usage: $0 --upgrade --install-path=<path>"
         exit 1
     fi
     
@@ -559,7 +569,31 @@ upgrade_main() {
     
     log_info "Starting upgrade for: $install_path"
     # 调用安装主函数，并设置升级标志
-    install_main --install-path "$install_path" --upgrade
+    install_main --install-path="$install_path" --upgrade
+}
+
+# 显示版本信息
+show_version() {
+    echo "=============================================="
+    echo "           $TOOL_NAME Version Info"
+    echo "=============================================="
+    
+    # 检查是否在run文件内部（安装前）
+    if [ -f "version.txt" ]; then
+        # 在构建目录中
+        cat "version.txt"
+    else
+        # 尝试从run文件的payload中提取版本信息
+        local payload_start=$(awk '/^__PAYLOAD_BELOW__/ {print NR + 1; exit 0; }' "$0")
+        if [ -n "$payload_start" ]; then
+            # 提取version.txt文件内容
+            tail -n +$payload_start "$0" | tar -xz -O "msmemscope/version.txt" 2>/dev/null || \
+            echo "Version: 1.0.0 (build $(date '+%Y%m%d'))"
+        else
+            echo "Version: 1.0.0 (build $(date '+%Y%m%d'))"
+        fi
+    fi
+    echo ""
 }
 
 # 显示帮助信息
@@ -568,14 +602,16 @@ show_help() {
     echo ""
     echo "Options:"
     echo "  --install               Install the tool"
-    echo "  --install-path PATH     Specify installation path (must be absolute)"
+    echo "  --install-path=PATH     Specify installation path (must be absolute)"
     echo "  --upgrade               Upgrade an existing installation"
+    echo "  --version               Show version information"
     echo "  --help                  Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0 --install                                  # Install to default path"
-    echo "  $0 --install --install-path /usr/local/msmemscope"
-    echo "  $0 --upgrade --install-path /opt/msmemscope"
+    echo "  $0 --install                                    # Install to default path"
+    echo "  $0 --install --install-path=/usr/local/msmemscope"
+    echo "  $0 --upgrade --install-path=/opt/msmemscope"
+    echo "  $0 --version                                    # Show version"
     echo "  $0 --help"
     echo ""
 }
@@ -596,6 +632,9 @@ main() {
         --upgrade)
             shift
             upgrade_main "$@"
+            ;;
+        --version|-v)
+            show_version
             ;;
         --help|-h)
             show_help
@@ -655,6 +694,12 @@ show_build_info() {
     local run_file_size=$(du -h "$RUN_FILE" | cut -f1)
     local run_file_path="$BUILD_DIR/$RUN_FILE"
     
+    # 从version.txt获取版本信息
+    local version_info=""
+    if [ -f "$TEMP_DIR/payload/msmemscope/version.txt" ]; then
+        version_info=$(grep "version:" "$TEMP_DIR/payload/msmemscope/version.txt" | cut -d' ' -f2)
+    fi
+    
     echo ""
     echo "=============================================="
     echo "           $TOOL_NAME Run Package Built"
@@ -662,10 +707,12 @@ show_build_info() {
     echo "File: $RUN_FILE"
     echo "Size: $run_file_size"
     echo "Location: $run_file_path"
+    echo "Version: ${version_info:-1.0.0}"
     echo ""
     echo "Usage instructions:"
-    echo "  Install: bash $RUN_FILE --install [--install-path /path]"
-    echo "  Upgrade: bash $RUN_FILE --upgrade --install-path /path"
+    echo "  Install: bash $RUN_FILE --install [--install-path=/path]"
+    echo "  Upgrade: bash $RUN_FILE --upgrade --install-path=/path"
+    echo "  Version: bash $RUN_FILE --version"
     echo "  Help:    bash $RUN_FILE --help"
     echo ""
     log_info "Build process completed successfully"
