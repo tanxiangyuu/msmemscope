@@ -104,7 +104,6 @@ NC='\033[0m'
 # 安装配置
 TOOL_NAME="msmemscope"
 DEFAULT_INSTALL_PATH="."
-BACKUP_DIR="/tmp/${TOOL_NAME}_backup_$$"  # 使用进程ID确保备份目录唯一
 
 # 日志函数 - 所有用户输出都是英文
 log_info() {
@@ -176,74 +175,6 @@ validate_install_path() {
     fi
     
     return 0
-}
-
-# 检查是否已经安装了该工具
-check_installed() {
-    local install_path="$1"
-    
-    log_info "check_installed: Checking directory: $install_path/msmemscope"  # 内部调试
-    
-    if [ -d "$install_path/msmemscope" ]; then
-        log_info "check_installed: Directory exists"  # 内部调试
-        
-        # 安全地检查目录是否为空，避免set -e导致退出
-        local is_empty=true
-        if ls -A "$install_path/msmemscope" >/dev/null 2>&1; then
-            # ls命令成功，说明目录不为空
-            log_info "check_installed: Directory is NOT empty"  # 内部调试
-            is_empty=false
-        else
-            log_info "check_installed: Directory is empty"  # 内部调试
-        fi
-        
-        if [ "$is_empty" = true ]; then
-            log_info "Target directory is empty, proceeding with fresh installation"
-            return 2  # 空目录
-        elif [ -f "$install_path/msmemscope/version.txt" ]; then
-            # 有效安装
-            log_info "check_installed: Valid installation found"  # 内部调试
-            return 0
-        else
-            # 目录非空但没有version.txt，可能是其他软件
-            log_warn "Directory exists but may not be a valid installation: $install_path/msmemscope"
-            log_info "check_installed: Returning status 1"  # 内部调试
-            return 1
-        fi
-    else
-        # 目录不存在
-        log_info "Target directory does not exist, will create during installation"
-        log_info "check_installed: Returning status 3"  # 内部调试
-        return 3  # 目录不存在
-    fi
-    
-    log_info "check_installed: Falling through to default return"  # 内部调试
-    return 2
-}
-
-# 备份现有安装（用于升级或重新安装场景）
-backup_existing() {
-    local install_path="$1"
-    
-    if [ -d "$install_path/msmemscope" ]; then
-        mkdir -p "$BACKUP_DIR"
-        log_info "Backing up existing installation to: $BACKUP_DIR"
-        # 使用cp -r备份msmemscope目录，忽略可能的权限错误
-        cp -r "$install_path/msmemscope" "$BACKUP_DIR/" 2>/dev/null || true
-    fi
-}
-
-# 恢复备份（在安装失败时使用）
-restore_backup() {
-    local install_path="$1"
-    
-    if [ -d "$BACKUP_DIR" ] && [ -d "$BACKUP_DIR/msmemscope" ]; then
-        log_info "Restoring from backup..."
-        rm -rf "$install_path/msmemscope"
-        mv "$BACKUP_DIR/msmemscope" "$install_path/"
-        rm -rf "$BACKUP_DIR"
-        log_info "Backup restored successfully"
-    fi
 }
 
 # 执行实际的安装操作
@@ -507,9 +438,8 @@ install_main() {
     # 检查安装状态
     if [ -d "$install_path/msmemscope" ] && [ -f "$install_path/msmemscope/version.txt" ]; then
         if [ "$is_upgrade" = true ]; then
-            # 升级模式：需要备份
+            # 升级模式
             log_info "Starting upgrade process..."
-            backup_existing "$install_path"
         else
             # 普通安装模式：已存在就报错退出
             log_warn "Tool is already installed. Use upgrade mode or uninstall first."
