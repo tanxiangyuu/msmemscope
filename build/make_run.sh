@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 # 设置脚本遇到错误立即退出，避免错误累积
@@ -66,21 +65,25 @@ create_temp_dir() {
 copy_artifacts() {
     log_info "Copying artifacts to temporary directory..."
     
+    # 在payload下创建msmemscope目录
+    mkdir -p "$TEMP_DIR/payload/msmemscope"
+    
     # 使用rsync保持文件权限和属性，如果rsync不可用则用cp
     if command -v rsync >/dev/null 2>&1; then
-        rsync -av "$PYTHON_DIR/" "$TEMP_DIR/payload/python/" --exclude="*.pyc" --exclude="__pycache__"
-        rsync -av "$BIN_DIR/" "$TEMP_DIR/payload/bin/"
-        rsync -av "$LIB64_DIR/" "$TEMP_DIR/payload/lib64/"
+        rsync -av "$PYTHON_DIR/" "$TEMP_DIR/payload/msmemscope/python/" --exclude="*.pyc" --exclude="__pycache__"
+        rsync -av "$BIN_DIR/" "$TEMP_DIR/payload/msmemscope/bin/"
+        rsync -av "$LIB64_DIR/" "$TEMP_DIR/payload/msmemscope/lib64/"
     else
-        cp -r "$PYTHON_DIR" "$TEMP_DIR/payload/"
-        cp -r "$BIN_DIR" "$TEMP_DIR/payload/"
-        cp -r "$LIB64_DIR" "$TEMP_DIR/payload/"
+        mkdir -p "$TEMP_DIR/payload/msmemscope"
+        cp -r "$PYTHON_DIR" "$TEMP_DIR/payload/msmemscope/"
+        cp -r "$BIN_DIR" "$TEMP_DIR/payload/msmemscope/"
+        cp -r "$LIB64_DIR" "$TEMP_DIR/payload/msmemscope/"
     fi
     
-    # 创建版本信息文件，用于后续的安装和升级验证
-    echo "version: 1.0.0" > "$TEMP_DIR/payload/version.txt"
-    echo "build_date: $(date '+%Y-%m-%d %H:%M:%S')" >> "$TEMP_DIR/payload/version.txt"
-    echo "build_hash: $(date +%s | sha256sum | head -c 8)" >> "$TEMP_DIR/payload/version.txt"
+    # 创建版本信息文件，放在msmemscope目录下
+    echo "version: 1.0.0" > "$TEMP_DIR/payload/msmemscope/version.txt"
+    echo "build_date: $(date '+%Y-%m-%d %H:%M:%S')" >> "$TEMP_DIR/payload/msmemscope/version.txt"
+    echo "build_hash: $(date +%s | sha256sum | head -c 8)" >> "$TEMP_DIR/payload/msmemscope/version.txt"
 }
 
 # 创建安装脚本 - 这个脚本会被嵌入到run文件中
@@ -100,7 +103,7 @@ NC='\033[0m'
 
 # 安装配置
 TOOL_NAME="msmemscope"
-DEFAULT_INSTALL_PATH="/opt/$TOOL_NAME"
+DEFAULT_INSTALL_PATH="./$TOOL_NAME"
 BACKUP_DIR="/tmp/${TOOL_NAME}_backup_$$"  # 使用进程ID确保备份目录唯一
 
 # 日志函数 - 所有用户输出都是英文
@@ -169,14 +172,14 @@ validate_install_path() {
 check_installed() {
     local install_path="$1"
     
-    log_info "check_installed: Checking directory: $install_path"  # 内部调试
+    log_info "check_installed: Checking directory: $install_path/msmemscope"  # 内部调试
     
-    if [ -d "$install_path" ]; then
+    if [ -d "$install_path/msmemscope" ]; then
         log_info "check_installed: Directory exists"  # 内部调试
         
         # 安全地检查目录是否为空，避免set -e导致退出
         local is_empty=true
-        if ls -A "$install_path" >/dev/null 2>&1; then
+        if ls -A "$install_path/msmemscope" >/dev/null 2>&1; then
             # ls命令成功，说明目录不为空
             log_info "check_installed: Directory is NOT empty"  # 内部调试
             is_empty=false
@@ -187,13 +190,13 @@ check_installed() {
         if [ "$is_empty" = true ]; then
             log_info "Target directory is empty, proceeding with fresh installation"
             return 2  # 空目录
-        elif [ -f "$install_path/version.txt" ]; then
+        elif [ -f "$install_path/msmemscope/version.txt" ]; then
             # 有效安装
             log_info "check_installed: Valid installation found"  # 内部调试
             return 0
         else
             # 目录非空但没有version.txt，可能是其他软件
-            log_warn "Directory exists but may not be a valid installation: $install_path"
+            log_warn "Directory exists but may not be a valid installation: $install_path/msmemscope"
             log_info "check_installed: Returning status 1"  # 内部调试
             return 1
         fi
@@ -212,11 +215,11 @@ check_installed() {
 backup_existing() {
     local install_path="$1"
     
-    if [ -d "$install_path" ]; then
+    if [ -d "$install_path/msmemscope" ]; then
         mkdir -p "$BACKUP_DIR"
         log_info "Backing up existing installation to: $BACKUP_DIR"
-        # 使用cp -r备份，忽略可能的权限错误
-        cp -r "$install_path" "$BACKUP_DIR/" 2>/dev/null || true
+        # 使用cp -r备份msmemscope目录，忽略可能的权限错误
+        cp -r "$install_path/msmemscope" "$BACKUP_DIR/" 2>/dev/null || true
     fi
 }
 
@@ -224,10 +227,10 @@ backup_existing() {
 restore_backup() {
     local install_path="$1"
     
-    if [ -d "$BACKUP_DIR" ] && [ -d "$BACKUP_DIR/$TOOL_NAME" ]; then
+    if [ -d "$BACKUP_DIR" ] && [ -d "$BACKUP_DIR/msmemscope" ]; then
         log_info "Restoring from backup..."
-        rm -rf "$install_path"
-        mv "$BACKUP_DIR/$TOOL_NAME" "$install_path"
+        rm -rf "$install_path/msmemscope"
+        mv "$BACKUP_DIR/msmemscope" "$install_path/"
         rm -rf "$BACKUP_DIR"
         log_info "Backup restored successfully"
     fi
@@ -239,7 +242,7 @@ perform_installation() {
     local is_upgrade="$2"
     
     local action="${is_upgrade:-Installing}"
-    log_info "${action} to: $install_path"
+    log_info "${action} to: $install_path/msmemscope"
     
     # 创建安装目录，-p参数确保父目录也存在
     mkdir -p "$install_path"
@@ -252,13 +255,13 @@ perform_installation() {
     tail -n +$PAYLOAD_START "$0" | tar -xz -C "$install_path"
     
     # 设置文件权限，确保可执行文件有执行权限
-    if [ -d "$install_path/bin" ]; then
-        chmod -R 755 "$install_path/bin"
+    if [ -d "$install_path/msmemscope/bin" ]; then
+        chmod -R 755 "$install_path/msmemscope/bin"
         log_info "Set execute permissions for bin directory"
     fi
     
-    if [ -d "$install_path/python" ]; then
-        chmod -R 755 "$install_path/python"
+    if [ -d "$install_path/msmemscope/python" ]; then
+        chmod -R 755 "$install_path/msmemscope/python"
         log_info "Set execute permissions for python directory"
     fi
     
@@ -269,8 +272,8 @@ perform_installation() {
 create_uninstall_script() {
     local install_path="$1"
     
-    # 生成卸载脚本文件
-    cat > "$install_path/uninstall.sh" << UNINSTALL_EOF
+    # 生成卸载脚本文件，放在msmemscope目录下
+    cat > "$install_path/msmemscope/uninstall.sh" << 'UNINSTALL_EOF'
 #!/bin/bash
 
 set -e
@@ -283,33 +286,33 @@ NC='\033[0m'
 
 # 日志函数
 log_info() {
-    echo -e "\${GREEN}[INFO]\${NC} \$1"
+    echo -e "${GREEN}[INFO]${NC} $1"
 }
 
 log_warn() {
-    echo -e "\${YELLOW}[WARN]\${NC} \$1"
+    echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
 log_error() {
-    echo -e "\${RED}[ERROR]\${NC} \$1"
+    echo -e "${RED}[ERROR]${NC} $1"
 }
 
 # 获取安装目录（卸载脚本所在目录）
-INSTALL_DIR="\$(cd "\$(dirname "\$0")" && pwd)"
+INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # 检查安装完整性，确保是有效的安装
 check_installation_integrity() {
     # 检查版本文件是否存在
-    if [ ! -f "\$INSTALL_DIR/version.txt" ]; then
+    if [ ! -f "$INSTALL_DIR/version.txt" ]; then
         log_error "Installation directory is incomplete or corrupted"
         return 1
     fi
     
     # 检查必要的目录是否存在
     local required_dirs=("bin" "python" "lib64")
-    for dir in "\${required_dirs[@]}"; do
-        if [ ! -d "\$INSTALL_DIR/\$dir" ]; then
-            log_error "Missing required directory: \$dir"
+    for dir in "${required_dirs[@]}"; do
+        if [ ! -d "$INSTALL_DIR/$dir" ]; then
+            log_error "Missing required directory: $dir"
             return 1
         fi
     done
@@ -320,16 +323,16 @@ check_installation_integrity() {
 # 确认卸载操作，避免误操作
 confirm_uninstall() {
     echo "=============================================="
-    echo "           Uninstall $TOOL_NAME"
+    echo "           Uninstall msmemscope"
     echo "=============================================="
-    echo "Installation directory: \$INSTALL_DIR"
-    echo "Version: \$(grep 'version:' \$INSTALL_DIR/version.txt 2>/dev/null | cut -d' ' -f2 || echo 'Unknown')"
+    echo "Installation directory: $INSTALL_DIR"
+    echo "Version: $(grep 'version:' $INSTALL_DIR/version.txt 2>/dev/null | cut -d' ' -f2 || echo 'Unknown')"
     echo ""
-    echo -e "\${YELLOW}Warning: This operation will permanently delete all files!\${NC}"
+    echo -e "${YELLOW}Warning: This operation will permanently delete all files!${NC}"
     echo ""
     
     read -p "Are you sure you want to uninstall? (y/N): " confirm
-    case "\$confirm" in
+    case "$confirm" in
         [yY]|[yY][eE][sS])
             return 0
             ;;
@@ -346,16 +349,16 @@ check_running_processes() {
     
     # 使用lsof检查是否有进程在使用安装目录
     if command -v lsof >/dev/null 2>&1; then
-        if lsof +D "\$INSTALL_DIR" 2>/dev/null | grep -q "."; then
+        if lsof +D "$INSTALL_DIR" 2>/dev/null | grep -q "."; then
             log_warn "Found processes using the installation directory:"
-            lsof +D "\$INSTALL_DIR" 2>/dev/null | head -10
+            lsof +D "$INSTALL_DIR" 2>/dev/null | head -10
             return 1
         fi
     fi
     
     # 使用fuser作为备选检查方法
     if command -v fuser >/dev/null 2>&1; then
-        if fuser "\$INSTALL_DIR" 2>/dev/null; then
+        if fuser "$INSTALL_DIR" 2>/dev/null; then
             log_warn "Found processes using the installation directory"
             return 1
         fi
@@ -372,7 +375,7 @@ perform_uninstall() {
     if ! check_running_processes; then
         log_warn "Processes are using the installation directory"
         read -p "Force uninstall anyway? (y/N): " force_uninstall
-        case "\$force_uninstall" in
+        case "$force_uninstall" in
             [yY]|[yY][eE][sS])
                 log_warn "Forcing uninstall..."
                 ;;
@@ -384,11 +387,8 @@ perform_uninstall() {
     fi
     
     # 删除安装目录
-    log_info "Removing installation directory: \$INSTALL_DIR"
-    rm -rf "\$INSTALL_DIR"
-    
-    # 删除卸载脚本自身（当前正在运行的脚本）
-    log_info "Removing uninstall script"
+    log_info "Removing installation directory: $INSTALL_DIR"
+    rm -rf "$INSTALL_DIR"
     
     log_info "Uninstallation completed successfully"
 }
@@ -396,7 +396,7 @@ perform_uninstall() {
 # 主函数
 main() {
     echo "=============================================="
-    echo "          $TOOL_NAME Uninstaller"
+    echo "          msmemscope Uninstaller"
     echo "=============================================="
     
     # 检查安装完整性
@@ -413,12 +413,12 @@ main() {
 }
 
 # 脚本入口点
-main "\$@"
+main "$@"
 UNINSTALL_EOF
 
     # 设置卸载脚本为可执行
-    chmod +x "$install_path/uninstall.sh"
-    log_info "Uninstall script created: $install_path/uninstall.sh"
+    chmod +x "$install_path/msmemscope/uninstall.sh"
+    log_info "Uninstall script created: $install_path/msmemscope/uninstall.sh"
 }
 
 # 显示安装完成信息
@@ -431,13 +431,13 @@ show_installation_info() {
     echo "=============================================="
     echo "          $TOOL_NAME ${action} Complete"
     echo "=============================================="
-    echo "Installation path: $install_path"
-    echo "Version: $(grep 'version:' "$install_path/version.txt" | cut -d' ' -f2)"
+    echo "Installation path: $install_path/msmemscope"
+    echo "Version: $(grep 'version:' "$install_path/msmemscope/version.txt" | cut -d' ' -f2)"
     echo "Install time: $(date '+%Y-%m-%d %H:%M:%S')"
     echo ""
     echo "Usage instructions:"
-    echo "  Start tool: $install_path/bin/start.sh"
-    echo "  Uninstall: bash $install_path/uninstall.sh"
+    echo "  Start tool: $install_path/msmemscope/bin/start.sh"
+    echo "  Uninstall: bash $install_path/msmemscope/uninstall.sh"
     echo ""
     
     # 如果是升级操作，显示升级成功信息
@@ -472,10 +472,14 @@ install_main() {
     
     log_info "Starting installation to: $install_path"
     
-    # 设置默认安装路径
+    # 设置默认安装路径时，如果是相对路径就转换为绝对路径
     if [ -z "$install_path" ]; then
         install_path="$DEFAULT_INSTALL_PATH"
-        log_info "Using default installation path: $install_path"
+        # 将相对路径转换为绝对路径
+        if [[ "$install_path" != /* ]]; then
+            install_path="$(pwd)/$install_path"
+        fi
+        log_info "Using installation path: $install_path"
     fi
     
     # 验证安装路径
@@ -485,7 +489,7 @@ install_main() {
     check_disk_space "$install_path" || exit 1
     
     # 简化逻辑：直接询问用户是否继续
-    if [ -d "$install_path" ] && [ -f "$install_path/version.txt" ] && [ "$is_upgrade" = false ]; then
+    if [ -d "$install_path/msmemscope" ] && [ -f "$install_path/msmemscope/version.txt" ] && [ "$is_upgrade" = false ]; then
         log_warn "Tool is already installed. Use upgrade mode or uninstall first."
         read -p "Continue with installation? (y/N): " confirm
         case "$confirm" in
@@ -497,7 +501,7 @@ install_main() {
                 exit 0
                 ;;
         esac
-    elif [ "$is_upgrade" = true ] && [ ! -f "$install_path/version.txt" ]; then
+    elif [ "$is_upgrade" = true ] && [ ! -f "$install_path/msmemscope/version.txt" ]; then
         log_error "Target directory is not a valid installation for upgrade"
         exit 1
     else
@@ -548,7 +552,7 @@ upgrade_main() {
     fi
     
     # 验证目标目录是否是有效的安装
-    if [ ! -f "$install_path/version.txt" ]; then
+    if [ ! -f "$install_path/msmemscope/version.txt" ]; then
         log_error "Target directory is not a valid $TOOL_NAME installation"
         exit 1
     fi
