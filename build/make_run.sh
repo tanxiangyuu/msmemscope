@@ -61,6 +61,33 @@ create_temp_dir() {
     mkdir -p "$TEMP_DIR/payload"  # payload目录用于存放要打包的文件
 }
 
+# 生成文件校验和
+generate_file_hashes() {
+    local payload_dir="$TEMP_DIR/payload/msmemscope"
+    local hash_file="$payload_dir/file_checksums.sha256"
+    
+    log_info "Generating file checksums..."
+    
+    # 检查sha256sum命令是否可用
+    if ! command -v sha256sum >/dev/null 2>&1; then
+        log_warn "sha256sum not available, skipping checksum generation"
+        return 0
+    fi
+    
+    cd "$payload_dir"
+    
+    # 生成详细的文件哈希列表（排除校验文件自身）
+    find . -type f ! -name "file_checksums.sha256" ! -name "version.txt" -exec sha256sum {} \; > "$hash_file"
+    
+    # 计算总体哈希（基于哈希文件本身）
+    local overall_hash=$(sha256sum "$hash_file" | cut -d' ' -f1)
+    echo "build_hash: $overall_hash" >> "version.txt"
+    echo "integrity_check: enabled" >> "version.txt"
+    
+    cd - > /dev/null
+    log_info "File checksums generated with overall hash: ${overall_hash:0:16}..."
+}
+
 # 复制交付件到临时目录
 copy_artifacts() {
     log_info "Copying artifacts to temporary directory..."
@@ -79,11 +106,22 @@ copy_artifacts() {
         cp -r "$BIN_DIR" "$TEMP_DIR/payload/msmemscope/"
         cp -r "$LIB64_DIR" "$TEMP_DIR/payload/msmemscope/"
     fi
+
+    # 复制 _msleaks.so 到 python/msleaks 目录
+    log_info "Copying _msleaks.so to python directory..."
+    if [ -f "$TEMP_DIR/payload/msmemscope/lib64/_msleaks.so" ]; then
+        cp "$TEMP_DIR/payload/msmemscope/lib64/_msleaks.so" "$TEMP_DIR/payload/msmemscope/python/msleaks/"
+        log_info "Copied _msleaks.so to python/msleaks/"
+    else
+        log_warn "_msleaks.so not found in lib64 directory"
+    fi
     
     # 创建版本信息文件，放在msmemscope目录下
     echo "version: 1.0.0" > "$TEMP_DIR/payload/msmemscope/version.txt"
     echo "build_date: $(date '+%Y-%m-%d %H:%M:%S')" >> "$TEMP_DIR/payload/msmemscope/version.txt"
-    echo "build_hash: $(date +%s | sha256sum | head -c 8)" >> "$TEMP_DIR/payload/msmemscope/version.txt"
+    
+    # 生成文件校验和
+    generate_file_hashes
 }
 
 # 创建安装脚本 - 这个脚本会被嵌入到run文件中
@@ -116,6 +154,41 @@ log_warn() {
 
 log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# 验证文件完整性
+verify_installation_integrity() {
+    local install_path="$1"
+    local install_dir="$install_path/msmemscope"
+    local checksum_file="$install_dir/file_checksums.sha256"
+    
+    log_info "Verifying installation integrity..."
+    
+    # 检查校验文件是否存在
+    if [ ! -f "$checksum_file" ]; then
+        log_warn "Checksum file not found, skipping integrity verification"
+        return 0
+    fi
+    
+    # 检查sha256sum命令
+    if ! command -v sha256sum >/dev/null 2>&1; then
+        log_warn "sha256sum not available, skipping integrity verification"
+        return 0
+    fi
+    
+    cd "$install_dir"
+    
+    # 执行校验
+    if sha256sum -c file_checksums.sha256 --quiet > /dev/null 2>&1; then
+        log_info "✓ All files passed integrity verification"
+        cd - > /dev/null
+        return 0
+    else
+        log_error "✗ Integrity verification failed! Some files are corrupted or modified."
+        log_error "Run 'sha256sum -c file_checksums.sha256' for details."
+        cd - > /dev/null
+        return 1
+    fi
 }
 
 # 检查磁盘空间是否足够
@@ -151,7 +224,7 @@ validate_install_path() {
         return 1
     fi
 
-    # 检查安装目录本身是否存在 - 新增的关键检查
+    # 检查安装目录本身是否存在
     if [ -e "$install_path" ]; then
         if [ ! -d "$install_path" ]; then
             log_error "Install path exists but is not a directory: $install_path"
@@ -177,6 +250,56 @@ validate_install_path() {
     return 0
 }
 
+# 创建环境变量设置脚本
+create_set_env_script() {
+    local install_path="$1"
+    local set_env_script="$install_path/msmemscope/set_env.sh"
+    
+    log_info "Creating environment setup script..."
+    
+    cat > "$set_env_script" << 'SETENV_EOF'
+#!/bin/bash
+
+# msmemscope environment setup script
+# This script sets up PYTHONPATH and PATH for msmemscope
+
+# Get the directory where this script is located
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+# Add python directory to PYTHONPATH
+if [ -d "$SCRIPT_DIR/python" ]; then
+    if [ -z "$PYTHONPATH" ]; then
+        export PYTHONPATH="$SCRIPT_DIR/python"
+    else
+        # Check if already in PYTHONPATH to avoid duplicates
+        if [[ ":$PYTHONPATH:" != *":$SCRIPT_DIR/python:"* ]]; then
+            export PYTHONPATH="$SCRIPT_DIR/python:$PYTHONPATH"
+        fi
+    fi
+    echo "Added to PYTHONPATH: $SCRIPT_DIR/python"
+fi
+
+# Add bin directory to PATH
+if [ -d "$SCRIPT_DIR/bin" ]; then
+    if [ -z "$PATH" ]; then
+        export PATH="$SCRIPT_DIR/bin"
+    else
+        # Check if already in PATH to avoid duplicates
+        if [[ ":$PATH:" != *":$SCRIPT_DIR/bin:"* ]]; then
+            export PATH="$SCRIPT_DIR/bin:$PATH"
+        fi
+    fi
+    echo "Added to PATH: $SCRIPT_DIR/bin"
+fi
+
+echo "msmemscope environment setup completed"
+SETENV_EOF
+
+    # 设置环境脚本为可执行
+    chmod +x "$set_env_script"
+    log_info "Environment setup script created: $set_env_script"
+}
+
 # 执行实际的安装操作
 perform_installation() {
     local install_path="$1"
@@ -195,6 +318,12 @@ perform_installation() {
     # 从payload起始行开始提取并解压到安装目录
     tail -n +$PAYLOAD_START "$0" | tar -xz -C "$install_path"
     
+    # 验证文件完整性
+    if ! verify_installation_integrity "$install_path"; then
+        log_error "Installation integrity check failed"
+        exit 1
+    fi
+    
     # 设置文件权限，确保可执行文件有执行权限
     if [ -d "$install_path/msmemscope/bin" ]; then
         chmod -R 755 "$install_path/msmemscope/bin"
@@ -205,6 +334,9 @@ perform_installation() {
         chmod -R 755 "$install_path/msmemscope/python"
         log_info "Set execute permissions for python directory"
     fi
+    
+    # 创建环境变量设置脚本
+    create_set_env_script "$install_path"
     
     log_info "File ${is_upgrade:-installation} completed"
 }
@@ -314,6 +446,45 @@ check_running_processes() {
     return 0
 }
 
+# 添加环境变量清理函数
+cleanup_environment_variables() {
+    local install_dir="$INSTALL_DIR"
+    
+    # 清理 PYTHONPATH
+    if [ -n "$PYTHONPATH" ]; then
+        # 移除包含安装目录的路径
+        export PYTHONPATH=$(echo "$PYTHONPATH" | \
+            sed "s|:$install_dir/python/msleaks||g" | \
+            sed "s|$install_dir/python/msleaks:||g" | \
+            sed "s|$install_dir/python/msleaks||g")
+        
+        # 如果 PYTHONPATH 为空，则取消设置
+        if [ -z "$PYTHONPATH" ]; then
+            unset PYTHONPATH
+        fi
+        
+        log_info "Cleaned PYTHONPATH"
+    fi
+    
+    # 清理 PATH
+    if [ -n "$PATH" ]; then
+        # 移除包含安装目录 bin 的路径
+        export PATH=$(echo "$PATH" | \
+            sed "s|:$install_dir/bin||g" | \
+            sed "s|$install_dir/bin:||g" | \
+            sed "s|$install_dir/bin||g")
+        
+        log_info "Cleaned PATH"
+    fi
+    
+    # 也清理当前 shell 的环境变量（可选）
+    log_info "Environment variables cleaned up"
+    
+    # 显示清理后的状态
+    echo "PYTHONPATH after cleanup: ${PYTHONPATH:-<not set>}"
+    echo "PATH after cleanup: $PATH"
+}
+
 # 执行卸载操作
 perform_uninstall() {
     log_info "Starting uninstallation..."
@@ -332,7 +503,11 @@ perform_uninstall() {
                 ;;
         esac
     fi
-    
+
+    # 清理环境变量
+    log_info "Cleaning up environment variables..."
+    cleanup_environment_variables
+
     # 删除安装目录
     log_info "Removing installation directory: $INSTALL_DIR"
     rm -rf "$INSTALL_DIR"
@@ -383,7 +558,11 @@ show_installation_info() {
     echo "=============================================="
     echo "Installation path: $normalized_path/msmemscope"
     echo "Version: $(grep 'version:' "$install_path/msmemscope/version.txt" | cut -d' ' -f2)"
+    echo "Integrity: $(grep 'integrity_check:' "$install_path/msmemscope/version.txt" | cut -d' ' -f2 || echo 'unknown')"
     echo "Install time: $(date '+%Y-%m-%d %H:%M:%S')"
+    echo ""
+    echo "Environment setup:"
+    echo "  To set up environment variables, run: source $normalized_path/msmemscope/set_env.sh"
     echo ""
     
     # 如果是升级操作，显示升级成功信息
@@ -626,8 +805,10 @@ show_build_info() {
     
     # 从version.txt获取版本信息
     local version_info=""
+    local integrity_info=""
     if [ -f "$TEMP_DIR/payload/msmemscope/version.txt" ]; then
         version_info=$(grep "version:" "$TEMP_DIR/payload/msmemscope/version.txt" | cut -d' ' -f2)
+        integrity_info=$(grep "integrity_check:" "$TEMP_DIR/payload/msmemscope/version.txt" | cut -d' ' -f2)
     fi
     
     echo ""
@@ -638,12 +819,16 @@ show_build_info() {
     echo "Size: $run_file_size"
     echo "Location: $run_file_path"
     echo "Version: ${version_info:-1.0.0}"
+    echo "Integrity Check: ${integrity_info:-enabled}"
     echo ""
     echo "Usage instructions:"
     echo "  Install: bash $RUN_FILE --install [--install-path=/path]"
     echo "  Upgrade: bash $RUN_FILE --upgrade --install-path=/path"
     echo "  Version: bash $RUN_FILE --version"
     echo "  Help:    bash $RUN_FILE --help"
+    echo ""
+    echo "After installation:"
+    echo "  To set up environment: source <install-path>/msmemscope/set_env.sh"
     echo ""
     log_info "Build process completed successfully"
 }
