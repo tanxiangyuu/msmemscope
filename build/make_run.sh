@@ -115,7 +115,7 @@ copy_artifacts() {
     else
         log_warn "_msleaks.so not found in lib64 directory"
     fi
-    
+
     # 创建版本信息文件，放在msmemscope目录下
     echo "version: 1.0.0" > "$TEMP_DIR/payload/msmemscope/version.txt"
     echo "build_date: $(date '+%Y-%m-%d %H:%M:%S')" >> "$TEMP_DIR/payload/msmemscope/version.txt"
@@ -817,7 +817,7 @@ show_build_info() {
     echo "=============================================="
     echo "File: $RUN_FILE"
     echo "Size: $run_file_size"
-    echo "Location: $run_file_path"
+    echo "Package: $(basename "$RUN_FILE")"
     echo "Version: ${version_info:-1.0.0}"
     echo "Integrity Check: ${integrity_info:-enabled}"
     echo ""
