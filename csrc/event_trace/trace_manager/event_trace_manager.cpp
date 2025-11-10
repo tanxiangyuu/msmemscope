@@ -17,11 +17,14 @@ const std::unordered_map<std::string, std::function<void(const std::string&, Con
     {"data_format", ParseDataFormat},
     {"output", ParseOutputPath},
     {"analysis", ParseAnalysis},
+    {"watch", ParseWatchConfig},
 };
 
+// 只允许设置一次的config参数
 const std::vector<std::string> configPolicyTable = {
-    "output",          // 只允许一次
+    "output",
     "data_format",
+    "watch",
 };
 
 ConfigManager::ConfigManager()
@@ -52,6 +55,7 @@ void ConfigManager::GetConfigAfterInit(Config &config)
     config.collectMode = static_cast<uint8_t>(CollectMode::DEFERRED);
     config.isEffective = config_.isEffective;
     config.dataFormat = config_.dataFormat;
+    config.watchConfig = config_.watchConfig;
 
     if (strncpy_s(config.outputDir, sizeof(config.outputDir),
         config_.outputDir, sizeof(config.outputDir) - 1) != EOK) {
@@ -81,11 +85,6 @@ void ConfigManager::SetConfigImpl(const Config &config)
         config_ = config;
         SetEventDefaultConfig(config_);
         SetAnalysisDefaultConfig(config_);
-
-        if (config_.watchConfig.isWatched) {
-            std::cout << "[msleaks] Info: the output of watch will be saved in the " <<
-                config_.outputDir << "/watch_dump" << std::endl;
-        }
     }
 }
 
@@ -116,6 +115,7 @@ bool ConfigManager::SetConfig(const std::unordered_map<std::string, std::string>
 
         auto policyItr = std::find(configPolicyTable.begin(), configPolicyTable.end(), key);
         if (policyItr != configPolicyTable.end() && config.isEffective) {
+            std::cout << "[msleaks] Warn: Config:\"output\",\"data_format\",\"watch\" cannot be set twice." << std::endl;
             continue;
         }
         bool parseFail = false;
