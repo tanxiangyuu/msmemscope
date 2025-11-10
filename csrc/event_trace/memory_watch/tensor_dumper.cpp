@@ -23,7 +23,7 @@ void CleanFileName(std::string& fileName)
 }
 
 TensorDumper::TensorDumper() : fullContent_(GetConfig().watchConfig.fullContent),
-    dumpDir_(Utility::FileCreateManager::GetInstance(GetConfig().outputDir).GetProjectDir() + "/" + WATCH_DUMP_DIR)
+    dumpDir_(Utility::FileCreateManager::GetInstance(GetConfig().outputDir).GetProjectDir())
 {
 }
 
@@ -44,15 +44,27 @@ bool TensorDumper::DumpTensorBinary(const std::vector<uint8_t> &hostData, std::s
 {
     CleanFileName(fileName);
 
+    int32_t devId = GD_INVALID_NUM;
+    if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
+        LOG_ERROR("DumpTensorBinary get device id failed, " + std::to_string(devId));
+    }
+    std::string binOutDir = dumpDir_ + "/" + "device_" + std::to_string(devId) + "/" + WATCH_DUMP_DIR;
+    if (!Utility::MakeDir(binOutDir)) {
+        LOG_ERROR("Make DumpTensorBinary dir failed.");
+        return false;
+    }
     Utility::UmaskGuard guard{Utility::DEFAULT_UMASK_FOR_BIN_FILE};
-    std::ofstream outFile(dumpDir_ + "/" + fileName, std::ios::binary);
+    std::string outpath = binOutDir + "/" + fileName;
+    std::ofstream outFile(outpath, std::ios::binary);
     if (!outFile) {
+        LOG_ERROR("outFile false.");
         return false;
     }
 
     outFile.write(reinterpret_cast<const char*>(hostData.data()), hostData.size());
 
     if (!outFile.good()) {
+        LOG_ERROR("outFile write false.");
         return false;
     }
 
@@ -66,11 +78,11 @@ bool TensorDumper::DumpTensorHashValue(const std::vector<uint8_t> &hostData, std
     if (csvFile_ == nullptr) {
         int32_t devId = GD_INVALID_NUM;
         if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
-            LOG_ERROR("get device id failed, " + std::to_string(devId));
+            LOG_ERROR("DumpTensorHashValue get device id failed, " + std::to_string(devId));
         }
         if (!Utility::FileCreateManager::GetInstance(GetConfig().outputDir).CreateCsvFile(&csvFile_,
             std::to_string(devId), WATCH_CSV_FILE_PREFIX, WATCH_DUMP_DIR, WATCH_HASH_HEADERS)) {
-            LOG_ERROR("Create csv file failed.");
+            LOG_ERROR("DumpTensorHashValue create csv file failed.");
             return false;
         }
     }

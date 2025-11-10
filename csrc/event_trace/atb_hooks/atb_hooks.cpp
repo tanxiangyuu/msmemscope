@@ -257,17 +257,17 @@ extern "C" atb::Status _ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE(atb::Runn
     }
     char cDirPath[WATCH_OP_DIR_MAX_LENGTH];
     static Config config = GetConfig();
-    if (config.watchConfig.isWatched) {
+    if (config.watchConfig.isWatched || TensorMonitor::GetInstance().IsInMonitoring()) {
         if (strncpy_s(cDirPath, WATCH_OP_DIR_MAX_LENGTH, dir.c_str(), WATCH_OP_DIR_MAX_LENGTH - 1) != EOK) {
             LOG_ERROR("strncpy_s FAILED");
             cDirPath[0] = '\0';
         }
     }
-    if (config.watchConfig.isWatched) {
+    if (config.watchConfig.isWatched || TensorMonitor::GetInstance().IsInMonitoring()) {
         OpExcuteBegin(stream, cDirPath);
     }
     atb::Status st = funcExecute(thisPtr, runnerVariantPack);
-    if (config.watchConfig.isWatched) {
+    if (config.watchConfig.isWatched || TensorMonitor::GetInstance().IsInMonitoring()) {
         MonitoredTensor tensors[runnerVariantPack.outTensors.size()];
         size_t loop = 0;
         for (auto &item : runnerVariantPack.outTensors) {
@@ -309,7 +309,7 @@ extern "C" void _ZN3atb9StoreUtil15SaveLaunchParamEPvRKN3Mki11LaunchParamERKNSt7
         return;
     }
     
-    if (GetConfig().watchConfig.isWatched) {
+    if (GetConfig().watchConfig.isWatched || TensorMonitor::GetInstance().IsInMonitoring()) {
         char cDirPath[WATCH_OP_DIR_MAX_LENGTH];
         if (strncpy_s(cDirPath, WATCH_OP_DIR_MAX_LENGTH, dirPath.c_str(), WATCH_OP_DIR_MAX_LENGTH - 1) != EOK) {
             LOG_ERROR("strncpy_s FAILED");
