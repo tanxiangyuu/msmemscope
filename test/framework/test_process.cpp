@@ -2,13 +2,11 @@
  
 #include <gtest/gtest.h>
 #include <vector>
-#include "serializer.h"
 #include "securec.h"
 #define private public
 #include "process.h"
 #undef private
 #include "analysis/mstx_analyzer.h"
-#include "client_process.h"
 #include "client_parser.h"
 #include "bit_field.h"
 using namespace Leaks;
@@ -37,42 +35,12 @@ void setConfig(Config &config)
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
 }
 
-TEST(Process, process_launch_ls_expect_success)
-{
-    std::vector<std::string> execParams = {"/bin/ls"};
-    std::stringstream buffer;
-    std::streambuf *sbuf = std::cout.rdbuf();
-    std::cout.rdbuf(buffer.rdbuf());
-    std::string outputInfo = "user program exited";
-    Config config;
-    Process process(config);
-    process.Launch(execParams);
-    std::string captureInfo = buffer.str();
-    EXPECT_EQ(captureInfo.find(outputInfo), std::string::npos);
-    std::cout.rdbuf(sbuf);
-}
- 
-TEST(Process, process_launch_empty_expect_success)
-{
-    std::vector<std::string> execParams = {""};
-    std::stringstream buffer;
-    std::streambuf *sbuf = std::cout.rdbuf();
-    std::cout.rdbuf(buffer.rdbuf());
-    std::string outputInfo = "exited abnormally";
-
-    Config config;
-    Process process(config);
-    process.Launch(execParams);
-    std::string captureInfo = buffer.str();
-    EXPECT_NE(captureInfo.find(outputInfo), std::string::npos);
-    std::cout.rdbuf(sbuf);
-}
-
 TEST(Process, process_setpreloadenv_without_atb_expect_success)
 {
     unsetenv("ATB_HOME_PATH");
     setenv("LD_PRELOAD_PATH", "/lib64/", 1);
     Config config;
+    Utility::FileCreateManager::GetInstance("testmsleaks");
     Process process(config);
     process.SetPreloadEnv();
     char *env = getenv("LD_PRELOAD");
@@ -91,6 +59,7 @@ TEST(Process, process_setpreloadenv_with_atb_abi_0_expect_success)
     setenv("ATB_HOME_PATH", "/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_0", 1);
     setenv("LD_PRELOAD_PATH", "/lib64/", 1);
     Config config;
+    Utility::FileCreateManager::GetInstance("testmsleaks");
     Process process(config);
     process.SetPreloadEnv();
     char *env = getenv("LD_PRELOAD");
@@ -109,6 +78,7 @@ TEST(Process, process_setpreloadenv_with_atb_abi_1_expect_success)
     setenv("ATB_HOME_PATH", "/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1", 1);
     setenv("LD_PRELOAD_PATH", "/lib64/", 1);
     Config config;
+    Utility::FileCreateManager::GetInstance("testmsleaks");
     Process process(config);
     process.SetPreloadEnv();
     char *env = getenv("LD_PRELOAD");
@@ -124,7 +94,6 @@ TEST(Process, process_setpreloadenv_with_atb_abi_1_expect_success)
 
 TEST(Process, do_record_handler_except_success)
 {
-    ClientId clientId = 0;
     auto buffer1 = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* record1 = buffer1.Cast<MemPoolRecord>();
     record1->type = RecordType::PTA_CACHING_POOL_RECORD;
@@ -170,71 +139,10 @@ TEST(Process, do_record_handler_except_success)
 
     Config config;
     setConfig(config);
-    Process process(config);
-    process.RecordHandler(clientId, buffer1);
-    process.RecordHandler(clientId, buffer2);
-    process.RecordHandler(clientId, buffer3);
-    process.RecordHandler(clientId, buffer4);
-    process.RecordHandler(clientId, buffer5);
-    process.RecordHandler(clientId, buffer6);
-}
-
-TEST(Process, do_msg_handler_record_packet_type_except_success)
-{
-    Config config;
-    setConfig(config);
-    Process process(config);
-
-    size_t clientId = 0;
-    auto record = EventRecord {};
-    auto memRecord = MemOpRecord {};
-    memRecord.recordIndex = 123;
-    memRecord.kernelIndex = 123;
-    memRecord.flag = 123;
-    memRecord.pid = 123;
-    memRecord.tid = 321;
-    memRecord.devId = 9;
-    memRecord.subtype = RecordSubType::MALLOC;
-    memRecord.space = MemOpSpace::HOST;
-    memRecord.modid = 234;
-    memRecord.addr = 0x758;
-    memRecord.memSize = 10240;
-    memRecord.timestamp = 1234567;
-    record.type = RecordType::MEMORY_RECORD;
-    record.record.memoryRecord = memRecord;
-    std::string testMsg = "test";
-    record.pyStackLen = testMsg.size();
-    record.cStackLen = testMsg.size();
-    PacketHead recordHead {PacketType::RECORD, sizeof(MemOpRecord) + record.pyStackLen + record.cStackLen};
-    std::string str = Serialize(recordHead, record);
-    str += testMsg + testMsg;
-    process.MsgHandle(clientId, str);
-
-    std::string logMsg = "test";
-    PacketHead logHead {PacketType::LOG, logMsg.size()};
-    std::string buffer = Serialize<PacketHead>(logHead);
-    buffer += logMsg;
-    process.MsgHandle(clientId, buffer);
-
-    RecordBuffer rb = RecordBuffer::CreateRecordBuffer<MemOpRecord>(TLVBlockType::CALL_STACK_C, testMsg,
-                                                                    TLVBlockType::CALL_STACK_PYTHON, testMsg);
-    PacketHead newHead {PacketType::RECORD, rb.Size()};
-    std::string buffer2 = Serialize<PacketHead>(newHead) + rb.Get();
-    process.MsgHandle(clientId, buffer2);
-}
-
-TEST(Process, server_process_notify_test)
-{
-    std::string msg;
-    ServerProcess server(LeaksCommType::SHARED_MEMORY);
-    server.Start();
-    server.Notify(0, msg);
-}
-
-TEST(Process, server_process_wait_test)
-{
-    std::string msg;
-    ServerProcess server(LeaksCommType::SHARED_MEMORY);
-    server.Start();
-    server.Wait(0, msg);
+    Process::GetInstance(config).RecordHandler(buffer1);
+    Process::GetInstance(config).RecordHandler(buffer2);
+    Process::GetInstance(config).RecordHandler(buffer3);
+    Process::GetInstance(config).RecordHandler(buffer4);
+    Process::GetInstance(config).RecordHandler(buffer5);
+    Process::GetInstance(config).RecordHandler(buffer6);
 }

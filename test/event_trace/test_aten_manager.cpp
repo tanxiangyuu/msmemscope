@@ -7,13 +7,10 @@
 #include "bit_field.h"
 #include "event_trace/mstx_hooks/mstx_manager.h"
 #include "event_trace/memory_watch/tensor_monitor.h"
-#include "server_process.h"
 
 using namespace Leaks;
 
 TEST(AtenManagerTest, ReportAtenStartLaunchTest) {
-    ServerProcess sp(LeaksCommType::SHARED_MEMORY);
-    sp.Start();
     Config config = GetConfig();
     BitField<decltype(config.eventType)> eventBit;
     BitField<decltype(config.levelType)> levelBit;

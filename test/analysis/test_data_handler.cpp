@@ -16,8 +16,23 @@
 
 using namespace Leaks;
 extern bool g_isDlsymNullptr;
+std::string devId = "0";
 
-TEST(DataHandler, CsvHandler_Write_LeakRecord)
+class DataHandlerTest : public ::testing::Test {
+protected:
+    void SetUp() override
+    {
+        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("./testmsleaks");
+    }
+
+    void TearDown() override
+    {
+        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("");
+        rmdir("./testmsleaks");
+    }
+};
+
+TEST_F(DataHandlerTest, CsvHandler_Write_LeakRecord)
 {
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
@@ -25,7 +40,7 @@ TEST(DataHandler, CsvHandler_Write_LeakRecord)
     config.enablePyStack = false;
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
 
-    CsvHandler handler(config, DataType::LEAKS_EVENT);
+    CsvHandler handler(config, DataType::LEAKS_EVENT, devId);
     handler.Init();
     std::shared_ptr<EventBase> data1 = std::make_shared<EventBase>();
     data1->id = 1;
@@ -41,13 +56,13 @@ TEST(DataHandler, CsvHandler_Write_LeakRecord)
     ASSERT_TRUE(handler.Write(data1));
 
     config.enablePyStack = true;
-    CsvHandler handlerPy(config, DataType::LEAKS_EVENT);
+    CsvHandler handlerPy(config, DataType::LEAKS_EVENT, devId);
     handlerPy.Init();
     CallStackString stack_;
     data1->pyCallStack = "call_stack_py";
     ASSERT_TRUE(handlerPy.Write(data1));
 
-    CsvHandler handler_(config, DataType::PYTHON_TRACE_EVENT);
+    CsvHandler handler_(config, DataType::PYTHON_TRACE_EVENT, devId);
     handler_.Init();
     std::shared_ptr<TraceEvent> data2 = std::make_shared<TraceEvent>();
     data2->startTs = 1000;
@@ -59,7 +74,7 @@ TEST(DataHandler, CsvHandler_Write_LeakRecord)
     ASSERT_TRUE(handler_.Write(data2));
 }
 
-TEST(DataHandler, Sqlite3_open)
+TEST_F(DataHandlerTest, Sqlite3_open)
 {
     g_isDlsymNullptr = false;
     sqlite3* db = nullptr;
@@ -69,7 +84,7 @@ TEST(DataHandler, Sqlite3_open)
     Sqlite3Errmsg(db);
 }
 
-TEST(DataHandler, DbHandler_Write_LeakRecord)
+TEST_F(DataHandlerTest, DbHandler_Write_LeakRecord)
 {
     g_isDlsymNullptr = false;
     Config config;
@@ -77,9 +92,8 @@ TEST(DataHandler, DbHandler_Write_LeakRecord)
     config.enableCStack = true;
     config.enablePyStack = true;
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
-    Utility::CreateDbPath(config, DB_DUMP_FILE);
 
-    std::unique_ptr<DataHandler> handler = MakeDataHandler(config, DataType::LEAKS_EVENT);
+    std::unique_ptr<DataHandler> handler = MakeDataHandler(config, DataType::LEAKS_EVENT, devId);
     handler->Init();
     std::shared_ptr<EventBase> data1 = std::make_shared<EventBase>();
     data1->id = 1;
@@ -98,7 +112,7 @@ TEST(DataHandler, DbHandler_Write_LeakRecord)
 
     config.enableCStack = false;
     config.enablePyStack = false;
-    DbHandler handler_(config, DataType::PYTHON_TRACE_EVENT);
+    DbHandler handler_(config, DataType::PYTHON_TRACE_EVENT, devId);
     handler_.Init();
     std::shared_ptr<TraceEvent> data2 = std::make_shared<TraceEvent>();
     data2->startTs = 1000;
@@ -110,34 +124,34 @@ TEST(DataHandler, DbHandler_Write_LeakRecord)
     ASSERT_TRUE(handler_.Write(data2));
 }
 
-TEST(DataHandler, CsvHandler_InitSetParm_Default)
+TEST_F(DataHandlerTest, CsvHandler_InitSetParm_Default)
 {
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
-    CsvHandler handler(config, static_cast<DataType>(999));
+    CsvHandler handler(config, static_cast<DataType>(999), devId);
     EXPECT_TRUE(true);
 }
 
-TEST(DataHandler, CsvHandler_Write_NullData)
+TEST_F(DataHandlerTest, CsvHandler_Write_NullData)
 {
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
-    CsvHandler handler(config, DataType::LEAKS_EVENT);
+    CsvHandler handler(config, DataType::LEAKS_EVENT, devId);
     handler.Init();
     ASSERT_FALSE(handler.Write(nullptr));
 }
 
-TEST(DataHandler, DbHandler_InitSetParm_Default)
+TEST_F(DataHandlerTest, DbHandler_InitSetParm_Default)
 {
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::DB);
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
-    DbHandler handler(config, static_cast<DataType>(999));
+    DbHandler handler(config, static_cast<DataType>(999), devId);
 }
 
-TEST(DataHandler, DbHandler_Write_NullData)
+TEST_F(DataHandlerTest, DbHandler_Write_NullData)
 {
     g_isDlsymNullptr = false;
     Config config;
@@ -145,36 +159,34 @@ TEST(DataHandler, DbHandler_Write_NullData)
     config.enableCStack = false;
     config.enablePyStack = false;
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
-    Utility::CreateDbPath(config, DB_DUMP_FILE);
-    DbHandler handler(config, DataType::LEAKS_EVENT);
+    DbHandler handler(config, DataType::LEAKS_EVENT, devId);
     handler.Init();
     ASSERT_FALSE(handler.Write(nullptr));
 }
 
-TEST(DataHandler, MakeDataHandler_FALSE)
+TEST_F(DataHandlerTest, MakeDataHandler_FALSE)
 {
     Config config;
     config.dataFormat = 2;
-    auto handler = Leaks::MakeDataHandler(config, static_cast<DataType>(999));
+    auto handler = Leaks::MakeDataHandler(config, static_cast<DataType>(999), devId);
     EXPECT_EQ(handler, nullptr);
 }
 
-TEST(DataHandler, DataHandler_Write_Type_False)
+TEST_F(DataHandlerTest, DataHandler_Write_Type_False)
 {
     g_isDlsymNullptr = false;
     std::shared_ptr<DataBase> data = std::make_shared<DataBase>(static_cast<DataType>(999));
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::DB);
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
-    Utility::CreateDbPath(config, DB_DUMP_FILE);
-    DbHandler handler(config, DataType::LEAKS_EVENT);
+    DbHandler handler(config, DataType::LEAKS_EVENT, devId);
     EXPECT_FALSE(handler.Write(data));
     config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
-    CsvHandler handler_(config, DataType::LEAKS_EVENT);
+    CsvHandler handler_(config, DataType::LEAKS_EVENT, devId);
     EXPECT_FALSE(handler_.Write(data));
 }
 
-TEST(DataHandler, DataHandler_FixJson)
+TEST_F(DataHandlerTest, DataHandler_FixJson)
 {
     std::string input = "\"{addr:20616937226752,size:28160,total:2097152,used:1617920}\"";
     std::string expected = R"({"addr":"20616937226752","size":"28160","total":"2097152","used":"1617920"})";

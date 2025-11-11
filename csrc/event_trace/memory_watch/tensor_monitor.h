@@ -7,6 +7,8 @@
 #include <vector>
 #include <mutex>
 
+#include "log.h"
+
 using TENSOR_ADDR = uint64_t;
 using TENSOR_SIZE = uint64_t;
 

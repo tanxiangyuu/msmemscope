@@ -13,6 +13,7 @@
 #include "decompose_analyzer.h"
 #include "data_handler.h"
 #include "process.h"
+#include "memory_state_manager.h"
 #undef private
 #include "record_info.h"
 #include "config_info.h"
@@ -20,21 +21,66 @@
 #include "file.h"
 #include "event.h"
 #include "event_dispatcher.h"
-#include "memory_state_manager.h"
  
 using namespace Leaks;
  
 std::unordered_map<std::string, std::shared_ptr<EventBase>> eventMap;
+std::string testdDevId = "0";
+Config config;
  
 static void ResetSingleton()
 {
     // 全局变量初始化
-    Config config;
     DecomposeAnalyzer::GetInstance();
     Dump::GetInstance(config);
  
     // 取消数据订阅与部分config参数
     EventDispatcher::GetInstance().UnSubscribe(SubscriberId::DECOMPOSE_ANALYZER);
+}
+
+static bool RemoveDir(const std::string& dirPath)
+{
+    DIR* dir = opendir(dirPath.c_str());
+    if (dir == nullptr) {
+        return false;
+    }
+ 
+    // 清除路径下所有文件
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != nullptr) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+ 
+        std::string fullPath = dirPath + "/" + entry->d_name;
+ 
+        struct stat statBuf;
+        if (stat(fullPath.c_str(), &statBuf) != 0) {
+            closedir(dir);
+            return false;
+        }
+ 
+        if (S_ISDIR(statBuf.st_mode)) {
+            if (!RemoveDir(fullPath)) {
+                closedir(dir);
+                return false;
+            }
+        } else {
+            if (unlink(fullPath.c_str()) != 0) {
+                closedir(dir);
+                return false;
+            }
+        }
+    }
+ 
+    closedir(dir);
+ 
+    // 删除空目录
+    if (rmdir(dirPath.c_str()) != 0) {
+        return false;
+    }
+ 
+    return true;
 }
  
 // 定义测试夹具
@@ -42,6 +88,10 @@ class TestProcess : public ::testing::Test {
 protected:
     void SetUp() override
     {
+        config = Config{};
+        RemoveDir("./testmsleaks");
+        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("./testmsleaks");
+        MemoryStateManager::GetInstance().poolsMap_.clear();
         // 初始化单例类的参数
         ResetSingleton();
  
@@ -70,7 +120,15 @@ protected:
  
     void TearDown() override
     {
+        // 清空设置
+        config = Config{};
+        Dump::GetInstance(config).config_ = Config{};
+        Dump::GetInstance(config).handlerMap_.clear();
+        Dump::GetInstance(config).sharedEventLists_.clear();
         std::unordered_map<std::string, std::shared_ptr<EventBase>>().swap(eventMap);
+        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("");
+        MemoryStateManager::GetInstance().poolsMap_.clear();
+        RemoveDir("./testmsleaks");
     }
  
 private:
@@ -562,7 +620,7 @@ private:
  
 static bool ReadFile(std::string filePath, std::string &content)
 {
-    filePath += "/dump";
+    filePath = Utility::FileCreateManager::GetInstance(filePath).GetProjectDir() + "/device_" + testdDevId + "/" + Leaks::DUMP_DIR;
     DIR* dir = opendir(filePath.c_str());
     if (!dir) {
         return false;
@@ -598,105 +656,64 @@ static bool ReadFile(std::string filePath, std::string &content)
     return true;
 }
  
-static bool RemoveDir(const std::string& dirPath)
-{
-    DIR* dir = opendir(dirPath.c_str());
-    if (dir == nullptr) {
-        return false;
-    }
- 
-    // 清除路径下所有文件
-    struct dirent* entry;
-    while ((entry = readdir(dir)) != nullptr) {
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-            continue;
-        }
- 
-        std::string fullPath = dirPath + "/" + entry->d_name;
- 
-        struct stat statBuf;
-        if (stat(fullPath.c_str(), &statBuf) != 0) {
-            closedir(dir);
-            return false;
-        }
- 
-        if (S_ISDIR(statBuf.st_mode)) {
-            if (!RemoveDir(fullPath)) {
-                closedir(dir);
-                return false;
-            }
-        } else {
-            if (unlink(fullPath.c_str()) != 0) {
-                closedir(dir);
-                return false;
-            }
-        }
-    }
- 
-    closedir(dir);
- 
-    // 删除空目录
-    if (rmdir(dirPath.c_str()) != 0) {
-        return false;
-    }
- 
-    return true;
-}
- 
-static void CleanUpEventInMemoryStateManager(Process& process)
+static void CleanUpEventInMemoryStateManager()
 {
     for (auto& state : MemoryStateManager::GetInstance().GetAllStateKeys()) {
         std::shared_ptr<EventBase> event = std::make_shared<CleanUpEvent>(state.first, state.second.pid, state.second.addr);
-        process.EventHandler(event);
+        EventHandler(event);
+    }
+}
+
+static void CleanUpDumpSharedEvents()
+{
+    for (auto& event : Dump::GetInstance(config).sharedEventLists_) {
+        for (auto& handler : Dump::GetInstance(config).handlerMap_) {
+            handler.second->Write(event);
+        }
     }
 }
 
 TEST_F(TestProcess, process_hal_device_memory_event)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
-    process.EventHandler(eventMap["HalDeviceMallocEvent"]);
-    process.EventHandler(eventMap["HalDeviceFreeEvent"]);
+    EventHandler(eventMap["HalDeviceMallocEvent"]);
+    EventHandler(eventMap["HalDeviceFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
 "3,MALLOC,HAL,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10}\",,\n"
 "54,FREE,HAL,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10}\",,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
  
 TEST_F(TestProcess, process_pta_caching_memory_event)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
-    process.EventHandler(eventMap["PtaCachingMallocEvent"]);
-    process.EventHandler(eventMap["PtaAccessEvent"]);
-    process.EventHandler(eventMap["DescribeOwnerEvent"]);
-    process.EventHandler(eventMap["TorchStepOwnerEvent"]);
-    process.EventHandler(eventMap["PtaCachingFreeEvent"]);
+    EventHandler(eventMap["PtaCachingMallocEvent"]);
+    EventHandler(eventMap["PtaAccessEvent"]);
+    EventHandler(eventMap["DescribeOwnerEvent"]);
+    EventHandler(eventMap["TorchStepOwnerEvent"]);
+    EventHandler(eventMap["PtaCachingFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
@@ -705,59 +722,53 @@ TEST_F(TestProcess, process_pta_caching_memory_event)
 "dtype:torch.float16,shape:torch.Size([1,5])}\",,\n"
 "54,FREE,PTA,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,total:0,used:0}\",,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
 
 TEST_F(TestProcess, process_pta_workspace_memory_event)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
-    process.EventHandler(eventMap["PtaWorkspaceMallocEvent"]);
-    process.EventHandler(eventMap["PtaWorkspaceFreeEvent"]);
+    EventHandler(eventMap["PtaWorkspaceMallocEvent"]);
+    EventHandler(eventMap["PtaWorkspaceFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
 "3,MALLOC,PTA_WORKSPACE,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,total:10,used:10}\",,\n"
 "54,FREE,PTA_WORKSPACE,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,total:0,used:0}\",,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
  
 TEST_F(TestProcess, process_atb_memory_event)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
-    process.EventHandler(eventMap["AtbMallocEvent"]);
-    process.EventHandler(eventMap["AtbAccessEvent"]);
-    process.EventHandler(eventMap["AtbAccessEventInDifferentPid"]);
-    process.EventHandler(eventMap["AtbFreeEvent"]);
-    CleanUpEventInMemoryStateManager(process);
+    EventHandler(eventMap["AtbMallocEvent"]);
+    EventHandler(eventMap["AtbAccessEvent"]);
+    EventHandler(eventMap["AtbAccessEventInDifferentPid"]);
+    EventHandler(eventMap["AtbFreeEvent"]);
+    CleanUpEventInMemoryStateManager();
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
@@ -768,116 +779,104 @@ TEST_F(TestProcess, process_atb_memory_event)
 "15,ACCESS,UNKNOWN,addOperation,14,1234,1234,0,0x000000000000303e,\"{allocation_id:2,addr:0x000000000000303e,size:5,type:ATB,"
 "dtype:FLOAT,format:NZD,shape:[1,5,]}\",,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
  
 TEST_F(TestProcess, process_mindspore_memory_event)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
-    process.EventHandler(eventMap["MindsporeMallocEvent"]);
-    process.EventHandler(eventMap["MindsporeFreeEvent"]);
+    EventHandler(eventMap["MindsporeMallocEvent"]);
+    EventHandler(eventMap["MindsporeFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
     ",Call Stack(Python),Call Stack(C)\n"
 "3,MALLOC,MINDSPORE,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,total:10,used:10}\",,\n"
 "54,FREE,MINDSPORE,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,total:0,used:0}\",,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
  
 TEST_F(TestProcess, process_aten_op_event)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
-    process.EventHandler(eventMap["AtenOpStartEvent"]);
-    process.EventHandler(eventMap["AtenOpEndEvent"]);
+    EventHandler(eventMap["AtenOpStartEvent"]);
+    EventHandler(eventMap["AtenOpEndEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
 "1,OP_LAUNCH,ATEN_START,aten.add,12,123,1234,0,N/A,,,\n"
 "2,OP_LAUNCH,ATEN_END,aten.add,13,123,1234,0,N/A,,,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
  
 TEST_F(TestProcess, process_atb_op_event)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
-    process.EventHandler(eventMap["AtbOpStartEvent"]);
-    process.EventHandler(eventMap["AtbOpEndEvent"]);
+    EventHandler(eventMap["AtbOpStartEvent"]);
+    EventHandler(eventMap["AtbOpEndEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
 "1,OP_LAUNCH,ATB_START,operation,12,123,1234,0,N/A,\"{path:0/0_123/operation,workspace_ptr:0x12313,workspace_size:12}\",,\n"
 "2,OP_LAUNCH,ATB_END,operation,13,123,1234,0,N/A,\"{path:0/0_123/operation,workspace_ptr:0x12313,workspace_size:12}\",,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
  
 TEST_F(TestProcess, process_kernel_event)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
-    process.EventHandler(eventMap["KernelLaunchEvent"]);
-    process.EventHandler(eventMap["KernelExecuteStartEvent"]);
-    process.EventHandler(eventMap["KernelExecuteEndEvent"]);
+    EventHandler(eventMap["KernelLaunchEvent"]);
+    EventHandler(eventMap["KernelExecuteStartEvent"]);
+    EventHandler(eventMap["KernelExecuteEndEvent"]);
  
-    process.EventHandler(eventMap["AtbKernelStartEvent"]);
-    process.EventHandler(eventMap["AtbKernelEndEvent"]);
+    EventHandler(eventMap["AtbKernelStartEvent"]);
+    EventHandler(eventMap["AtbKernelEndEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
@@ -887,29 +886,26 @@ TEST_F(TestProcess, process_kernel_event)
 "1,KERNEL_LAUNCH,KERNEL_START,add01,12,123,1234,0,N/A,\"{path:0/0_123/add}\",,\n"
 "2,KERNEL_LAUNCH,KERNEL_END,add01,13,123,1234,0,N/A,\"{path:0/0_123/add}\",,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
  
 TEST_F(TestProcess, process_mstx_event)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
-    process.EventHandler(eventMap["MstxMarkEvent"]);
-    process.EventHandler(eventMap["MstxRangeStartEvent"]);
-    process.EventHandler(eventMap["MstxRangeEndEvent"]);
+    EventHandler(eventMap["MstxMarkEvent"]);
+    EventHandler(eventMap["MstxRangeStartEvent"]);
+    EventHandler(eventMap["MstxRangeEndEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
@@ -917,57 +913,53 @@ TEST_F(TestProcess, process_mstx_event)
 "2,MSTX,Range_start,\"step start\",13,123,1234,0,N/A,,,\n"
 "3,MSTX,Range_end,\"\",14,123,1234,0,N/A,,,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
  
 TEST_F(TestProcess, process_system_event)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
-    process.EventHandler(eventMap["AclInitEvent"]);
-    process.EventHandler(eventMap["AclFinalEvent"]);
+    EventHandler(eventMap["AclInitEvent"]);
+    EventHandler(eventMap["AclFinalEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
 "1,SYSTEM,ACL_INIT,N/A,12,123,1234,N/A,N/A,,,\n"
 "2,SYSTEM,ACL_FINI,N/A,13,123,1234,N/A,N/A,,,\n";
+
+    CleanUpDumpSharedEvents();
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
  
 TEST_F(TestProcess, process_clean_up_event)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
-    process.EventHandler(eventMap["PtaCachingMallocEvent"]);
-    process.EventHandler(eventMap["PtaAccessEvent"]);
-    process.EventHandler(eventMap["PtaCleanUpEvent"]);
+    EventHandler(eventMap["PtaCachingMallocEvent"]);
+    EventHandler(eventMap["PtaAccessEvent"]);
+    EventHandler(eventMap["PtaCleanUpEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
@@ -975,59 +967,53 @@ TEST_F(TestProcess, process_clean_up_event)
 "13,ACCESS,UNKNOWN,aten.add,13,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,type:PTA,"
 "dtype:torch.float16,shape:torch.Size([1,5])}\",,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
  
 TEST_F(TestProcess, dump_event_before_malloc)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
-    process.EventHandler(eventMap["HalUnknownMallocEvent"]);
-    process.EventHandler(eventMap["HalDeviceMallocEvent"]);
-    CleanUpEventInMemoryStateManager(process);
+    EventHandler(eventMap["HalUnknownMallocEvent"]);
+    EventHandler(eventMap["HalDeviceMallocEvent"]);
+    CleanUpEventInMemoryStateManager();
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
 "0,MALLOC,HAL,N/A,0,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10}\",,\n"
 "3,MALLOC,HAL,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:2,addr:0x0000000000003039,size:10}\",,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
  
 TEST_F(TestProcess, dump_two_malloc_event)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
-    process.EventHandler(eventMap["HalDeviceMallocEvent"]);
-    process.EventHandler(eventMap["HalDeviceFreeEvent"]);
-    process.EventHandler(eventMap["HalUnknownMallocEvent"]);
-    process.EventHandler(eventMap["HalCleanUpEvent"]);
+    EventHandler(eventMap["HalDeviceMallocEvent"]);
+    EventHandler(eventMap["HalDeviceFreeEvent"]);
+    EventHandler(eventMap["HalUnknownMallocEvent"]);
+    EventHandler(eventMap["HalCleanUpEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
@@ -1035,50 +1021,44 @@ TEST_F(TestProcess, dump_two_malloc_event)
 "54,FREE,HAL,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10}\",,\n"
 "0,MALLOC,HAL,N/A,0,123,1234,0,0x0000000000003039,\"{allocation_id:2,addr:0x0000000000003039,size:10}\",,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
  
 TEST_F(TestProcess, clean_up_event_failed)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
-    process.EventHandler(eventMap["HalCleanUpEvent"]);
+    EventHandler(eventMap["HalCleanUpEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
  
 TEST_F(TestProcess, process_memory_owner_event)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
     auto func = std::bind(&DecomposeAnalyzer::EventHandle, &DecomposeAnalyzer::GetInstance(),
         std::placeholders::_1, std::placeholders::_2);
@@ -1086,11 +1066,11 @@ TEST_F(TestProcess, process_memory_owner_event)
     EventDispatcher::GetInstance().Subscribe(
         SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func);
  
-    process.EventHandler(eventMap["PtaCachingMallocEvent"]);
-    process.EventHandler(eventMap["PtaAccessEvent"]);
-    process.EventHandler(eventMap["DescribeOwnerEvent"]);
-    process.EventHandler(eventMap["TorchStepOwnerEvent"]);
-    process.EventHandler(eventMap["PtaCachingFreeEvent"]);
+    EventHandler(eventMap["PtaCachingMallocEvent"]);
+    EventHandler(eventMap["PtaAccessEvent"]);
+    EventHandler(eventMap["DescribeOwnerEvent"]);
+    EventHandler(eventMap["TorchStepOwnerEvent"]);
+    EventHandler(eventMap["PtaCachingFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
@@ -1100,25 +1080,22 @@ TEST_F(TestProcess, process_memory_owner_event)
 "dtype:torch.float16,shape:torch.Size([1,5])}\",,\n"
 "54,FREE,PTA,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,total:0,used:0}\",,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
  
 TEST_F(TestProcess, process_memory_owner_event_in_torch_step)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
     auto func = std::bind(&DecomposeAnalyzer::EventHandle, &DecomposeAnalyzer::GetInstance(),
         std::placeholders::_1, std::placeholders::_2);
@@ -1126,9 +1103,9 @@ TEST_F(TestProcess, process_memory_owner_event_in_torch_step)
     EventDispatcher::GetInstance().Subscribe(
         SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func);
  
-    process.EventHandler(eventMap["PtaCachingMallocEvent"]);
-    process.EventHandler(eventMap["TorchStepOwnerEvent"]);
-    process.EventHandler(eventMap["PtaCachingFreeEvent"]);
+    EventHandler(eventMap["PtaCachingMallocEvent"]);
+    EventHandler(eventMap["TorchStepOwnerEvent"]);
+    EventHandler(eventMap["PtaCachingFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
@@ -1136,25 +1113,22 @@ TEST_F(TestProcess, process_memory_owner_event_in_torch_step)
 "owner:PTA@model@gradient}\",,\n"
 "54,FREE,PTA,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,total:0,used:0}\",,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
  
 TEST_F(TestProcess, process_memory_owner_event_without_malloc)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
     auto func = std::bind(&DecomposeAnalyzer::EventHandle, &DecomposeAnalyzer::GetInstance(),
         std::placeholders::_1, std::placeholders::_2);
@@ -1162,10 +1136,10 @@ TEST_F(TestProcess, process_memory_owner_event_without_malloc)
     EventDispatcher::GetInstance().Subscribe(
         SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func);
  
-    process.EventHandler(eventMap["PtaAccessEvent"]);
-    process.EventHandler(eventMap["DescribeOwnerEvent"]);
-    process.EventHandler(eventMap["TorchStepOwnerEvent"]);
-    process.EventHandler(eventMap["PtaCachingFreeEvent"]);
+    EventHandler(eventMap["PtaAccessEvent"]);
+    EventHandler(eventMap["DescribeOwnerEvent"]);
+    EventHandler(eventMap["TorchStepOwnerEvent"]);
+    EventHandler(eventMap["PtaCachingFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
@@ -1173,25 +1147,22 @@ TEST_F(TestProcess, process_memory_owner_event_without_malloc)
 "dtype:torch.float16,shape:torch.Size([1,5])}\",,\n"
 "54,FREE,PTA,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,total:0,used:0}\",,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
  
 TEST_F(TestProcess, init_memory_owner)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
     auto func = std::bind(&DecomposeAnalyzer::EventHandle, &DecomposeAnalyzer::GetInstance(),
         std::placeholders::_1, std::placeholders::_2);
@@ -1199,16 +1170,16 @@ TEST_F(TestProcess, init_memory_owner)
     EventDispatcher::GetInstance().Subscribe(
         SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func);
  
-    process.EventHandler(eventMap["PtaCachingMallocEvent"]);
-    process.EventHandler(eventMap["PtaCachingFreeEvent"]);
-    process.EventHandler(eventMap["PtaWorkspaceMallocEvent"]);
-    process.EventHandler(eventMap["PtaWorkspaceFreeEvent"]);
-    process.EventHandler(eventMap["AtbMallocEvent"]);
-    process.EventHandler(eventMap["AtbFreeEvent"]);
-    process.EventHandler(eventMap["MindsporeMallocEvent"]);
-    process.EventHandler(eventMap["MindsporeFreeEvent"]);
-    process.EventHandler(eventMap["HalDeviceMallocEvent"]);
-    process.EventHandler(eventMap["HalDeviceFreeEvent"]);
+    EventHandler(eventMap["PtaCachingMallocEvent"]);
+    EventHandler(eventMap["PtaCachingFreeEvent"]);
+    EventHandler(eventMap["PtaWorkspaceMallocEvent"]);
+    EventHandler(eventMap["PtaWorkspaceFreeEvent"]);
+    EventHandler(eventMap["AtbMallocEvent"]);
+    EventHandler(eventMap["AtbFreeEvent"]);
+    EventHandler(eventMap["MindsporeMallocEvent"]);
+    EventHandler(eventMap["MindsporeFreeEvent"]);
+    EventHandler(eventMap["HalDeviceMallocEvent"]);
+    EventHandler(eventMap["HalDeviceFreeEvent"]);
 
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
@@ -1224,25 +1195,22 @@ TEST_F(TestProcess, init_memory_owner)
 "3,MALLOC,HAL,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:5,addr:0x0000000000003039,size:10,owner:CANN@IDEDD}\",,\n"
 "54,FREE,HAL,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:5,addr:0x0000000000003039,size:10}\",,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
  
 TEST_F(TestProcess, updata_owner_by_access_event)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
     auto func = std::bind(&DecomposeAnalyzer::EventHandle, &DecomposeAnalyzer::GetInstance(),
         std::placeholders::_1, std::placeholders::_2);
@@ -1250,9 +1218,9 @@ TEST_F(TestProcess, updata_owner_by_access_event)
     EventDispatcher::GetInstance().Subscribe(
         SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func);
  
-    process.EventHandler(eventMap["PtaCachingMallocEvent"]);
-    process.EventHandler(eventMap["PtaAccessEvent"]);
-    process.EventHandler(eventMap["PtaCachingFreeEvent"]);
+    EventHandler(eventMap["PtaCachingMallocEvent"]);
+    EventHandler(eventMap["PtaAccessEvent"]);
+    EventHandler(eventMap["PtaCachingFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
@@ -1261,25 +1229,22 @@ TEST_F(TestProcess, updata_owner_by_access_event)
 "shape:torch.Size([1,5])}\",,\n"
 "54,FREE,PTA,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,total:0,used:0}\",,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
  
 TEST_F(TestProcess, updata_owner_failed_by_atb_access_event)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
     auto func = std::bind(&DecomposeAnalyzer::EventHandle, &DecomposeAnalyzer::GetInstance(),
         std::placeholders::_1, std::placeholders::_2);
@@ -1287,9 +1252,9 @@ TEST_F(TestProcess, updata_owner_failed_by_atb_access_event)
     EventDispatcher::GetInstance().Subscribe(
         SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func);
  
-    process.EventHandler(eventMap["AtbMallocEvent"]);
-    process.EventHandler(eventMap["AtbAccessEvent"]);
-    process.EventHandler(eventMap["AtbFreeEvent"]);
+    EventHandler(eventMap["AtbMallocEvent"]);
+    EventHandler(eventMap["AtbAccessEvent"]);
+    EventHandler(eventMap["AtbFreeEvent"]);
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
@@ -1298,114 +1263,110 @@ TEST_F(TestProcess, updata_owner_failed_by_atb_access_event)
 "dtype:FLOAT,format:NZD,shape:[1,5,]}\",,\n"
 "54,FREE,ATB,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,total:0,used:0}\",,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
 
 TEST_F(TestProcess, get_different_allocation_id_with_trace_start_and_stop_event)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
-    process.EventHandler(eventMap["PtaCachingMallocEvent"]);
-    process.EventHandler(eventMap["TraceStartEvent"]);
-    process.EventHandler(eventMap["PtaAccessEvent"]);
-    process.EventHandler(eventMap["TraceStopEvent"]);
-    process.EventHandler(eventMap["PtaCachingFreeEvent"]);
+    EventHandler(eventMap["PtaCachingMallocEvent"]);
+    EventHandler(eventMap["TraceStartEvent"]);
+    EventHandler(eventMap["PtaAccessEvent"]);
+    EventHandler(eventMap["TraceStopEvent"]);
+    EventHandler(eventMap["PtaCachingFreeEvent"]);
+
+    CleanUpDumpSharedEvents();
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
 "3,MALLOC,PTA,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,total:10,used:10}\",,\n"
-"1,SYSTEM,START_TRACE,N/A,12,123,1234,N/A,N/A,,,\n"
 "13,ACCESS,UNKNOWN,aten.add,13,123,1234,0,0x0000000000003039,\"{allocation_id:2,addr:0x0000000000003039,size:10,type:PTA,"
 "dtype:torch.float16,shape:torch.Size([1,5])}\",,\n"
-"2,SYSTEM,STOP_TRACE,N/A,13,123,1234,N/A,N/A,,,\n"
-"54,FREE,PTA,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:3,addr:0x0000000000003039,size:10,total:0,used:0}\",,\n";
+"54,FREE,PTA,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:3,addr:0x0000000000003039,size:10,total:0,used:0}\",,\n"
+"1,SYSTEM,START_TRACE,N/A,12,123,1234,N/A,N/A,,,\n"
+"2,SYSTEM,STOP_TRACE,N/A,13,123,1234,N/A,N/A,,,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
 
 TEST_F(TestProcess, get_the_same_allocation_id_with_trace_start_and_stop_event)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
-    process.EventHandler(eventMap["TraceStartEvent"]);
-    process.EventHandler(eventMap["PtaCachingMallocEvent"]);
-    process.EventHandler(eventMap["PtaAccessEvent"]);
-    process.EventHandler(eventMap["PtaCachingFreeEvent"]);
-    process.EventHandler(eventMap["TraceStopEvent"]);
+    EventHandler(eventMap["TraceStartEvent"]);
+    EventHandler(eventMap["PtaCachingMallocEvent"]);
+    EventHandler(eventMap["PtaAccessEvent"]);
+    EventHandler(eventMap["PtaCachingFreeEvent"]);
+    EventHandler(eventMap["TraceStopEvent"]);
+
+    CleanUpDumpSharedEvents();
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
-"1,SYSTEM,START_TRACE,N/A,12,123,1234,N/A,N/A,,,\n"
 "3,MALLOC,PTA,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,total:10,used:10}\",,\n"
 "13,ACCESS,UNKNOWN,aten.add,13,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,type:PTA,"
 "dtype:torch.float16,shape:torch.Size([1,5])}\",,\n"
 "54,FREE,PTA,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,total:0,used:0}\",,\n"
+"1,SYSTEM,START_TRACE,N/A,12,123,1234,N/A,N/A,,,\n"
 "2,SYSTEM,STOP_TRACE,N/A,13,123,1234,N/A,N/A,,,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }
 
 TEST_F(TestProcess, add_memory_event_into_state)
 {
-    Config config;
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "test_process";
+    std::string path = "./testmsleaks";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handler_ = MakeDataHandler(config, DataType::LEAKS_EVENT);    // 重置文件指针
-    Dump::GetInstance(config).handler_->Init();
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
-    Process process(config);
  
-    process.EventHandler(eventMap["TraceStartEvent"]);
-    process.EventHandler(eventMap["PtaCachingMallocEvent"]);
-    process.EventHandler(eventMap["PtaAccessEvent"]);
-    process.EventHandler(eventMap["PtaCachingFreeEvent"]);
-    process.EventHandler(eventMap["TraceStopEvent"]);
+    EventHandler(eventMap["TraceStartEvent"]);
+    EventHandler(eventMap["PtaCachingMallocEvent"]);
+    EventHandler(eventMap["PtaAccessEvent"]);
+    EventHandler(eventMap["PtaCachingFreeEvent"]);
+    EventHandler(eventMap["TraceStopEvent"]);
+
+    CleanUpDumpSharedEvents();
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
-"1,SYSTEM,START_TRACE,N/A,12,123,1234,N/A,N/A,,,\n"
 "3,MALLOC,PTA,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,total:10,used:10}\",,\n"
 "13,ACCESS,UNKNOWN,aten.add,13,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,type:PTA,"
 "dtype:torch.float16,shape:torch.Size([1,5])}\",,\n"
 "54,FREE,PTA,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,total:0,used:0}\",,\n"
+"1,SYSTEM,START_TRACE,N/A,12,123,1234,N/A,N/A,,,\n"
 "2,SYSTEM,STOP_TRACE,N/A,13,123,1234,N/A,N/A,,,\n";
     std::string fileContent;
-    Dump::GetInstance(config).handler_.reset();
+    Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
-    bool hasRemoveDir = RemoveDir(path);
     EXPECT_EQ(result, fileContent);
-    EXPECT_TRUE(hasReadFile && hasRemoveDir);
+    EXPECT_TRUE(hasReadFile);
 }

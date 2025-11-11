@@ -22,10 +22,15 @@ constexpr const char *TRACE_HEADERS = "FuncInfo,StartTime(ns),EndTime(ns),Thread
 constexpr const char *WATCH_HASH_HEADERS = "Tensor info,Check data sum\n";
 constexpr const char *OUTPUT_PATH = "leaksDumpResults";
 constexpr const char *TRACE_FILE = "trace";
-constexpr const char *DUMP_FILE = "dump";
-constexpr const char *COMPARE_FILE = "compare";
+constexpr const char *DUMP_DIR = "dump";
+constexpr const char *WATCH_DUMP_DIR = "watch_dump";
+constexpr const char *LOG_DIR = "msleaks_logs";
+constexpr const char *COMPARE_DIR = "compare";
 constexpr uint16_t WATCH_OP_DIR_MAX_LENGTH = 255;
-constexpr const char *DB_DUMP_FILE = "leaks_dump";
+constexpr const char *CSV_FILE_PREFIX = "leaks_dump_";
+constexpr const char *PYTHON_TRACE_FILE_PREFIX = "python_trace_";
+constexpr const char *MEMORY_COMPARE_FILE_PREFIX = "memory_compare_";
+constexpr const char *WATCH_CSV_FILE_PREFIX = "watch_dump_data_check_sum_";
 constexpr int SQLITE_TIME_OUT = 5000;
 constexpr const char *ENABLE_CPU_IN_CMD = "MSLEAKS_ENABLE_CPU_IN_CMD";
 constexpr const char *EMPTY_DEVID = "";
@@ -100,7 +105,7 @@ struct Config {
     uint8_t collectMode;
     char outputDir[PATH_MAX];
     uint8_t dataFormat;
-    char dbFileName[PATH_MAX];
+    char dbFileName[PATH_MAX]; // 待删除
     bool collectAllNpu;
     /* 当前单机最多16卡，用32bits表示足够了，后续有需要再扩充 */
     uint32_t npuSlots;
