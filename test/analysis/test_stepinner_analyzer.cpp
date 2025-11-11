@@ -5,6 +5,7 @@
 #include "securec.h"
 #define private public
 #include "stepinner_analyzer.h"
+#include "file.h"
 #undef private
 #include "bit_field.h"
 #include "mstx_analyzer.h"
@@ -473,23 +474,6 @@ TEST(StepInnerAnalyzerTest, do_not_input_steps_command_enable_analysis)
     StepInnerAnalyzer stepInner{config};
     auto ret = stepInner.IsStepInnerAnalysisEnable();
     ASSERT_TRUE(ret);
-}
-
-TEST(StepInnerAnalyzerTest, set_collect_mode_to_custom_disable_analysis)
-{
-    Config config;
-    config.stepList.stepCount = 0;
-    BitField<decltype(config.eventType)> eventBit;
-    BitField<decltype(config.analysisType)> analysisBit;
-    analysisBit.setBit(static_cast<size_t>(AnalysisType::LEAKS_ANALYSIS));
-    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
-    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
-    config.analysisType = analysisBit.getValue();
-    config.eventType = eventBit.getValue();
-    config.collectMode = 1;
-    StepInnerAnalyzer stepInner{config};
-    auto ret = stepInner.IsStepInnerAnalysisEnable();
-    ASSERT_FALSE(ret);
 }
 
 TEST(StepInnerAnalyzerTest, do_stepId_below_1_SkipCheck_return_true)

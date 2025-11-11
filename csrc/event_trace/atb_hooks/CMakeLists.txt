@@ -6,7 +6,6 @@ target_sources(atb_abi_0_hook PRIVATE
   ${UTILITY_INC_DIR}/log.cpp
   ${UTILITY_INC_DIR}/file.cpp
   ${UTILITY_INC_DIR}/path.cpp
-  ${FRAMEWORK_INC_DIR}/client_process.cpp
 )
 
 target_compile_definitions(atb_abi_0_hook PRIVATE -D_GLIBCXX_USE_CXX11_ABI=0)
@@ -16,6 +15,8 @@ target_include_directories(atb_abi_0_hook PUBLIC
   ${EVENT_TRACE_INC_DIR}
   ${UTILITY_INC_DIR}
   ${SECUREC_INC_DIR}
+  ${ANALYSIS_DIR}
+  ${JSON_DIR}
 )
 
 target_link_libraries(atb_abi_0_hook ascend_leaks dl)
@@ -34,7 +35,6 @@ target_sources(atb_abi_1_hook PRIVATE
   ${UTILITY_INC_DIR}/log.cpp
   ${UTILITY_INC_DIR}/file.cpp
   ${UTILITY_INC_DIR}/path.cpp
-  ${FRAMEWORK_INC_DIR}/client_process.cpp
 )
 
 target_include_directories(atb_abi_1_hook PUBLIC
@@ -42,6 +42,8 @@ target_include_directories(atb_abi_1_hook PUBLIC
   ${EVENT_TRACE_INC_DIR}
   ${UTILITY_INC_DIR}
   ${SECUREC_INC_DIR}
+  ${ANALYSIS_DIR}
+  ${JSON_DIR}
 )
 
 target_link_libraries(atb_abi_1_hook ascend_leaks dl)

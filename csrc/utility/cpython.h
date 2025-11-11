@@ -8,9 +8,11 @@
 #include <stdexcept>
 #include <type_traits>
 #include <Python.h>
+#include <mutex>
 #include <functional>
 #include "ustring.h"
 #include "record_info.h"
+#include "log.h"
 
 namespace Utility {
 

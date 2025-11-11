@@ -26,3 +26,11 @@ if [ ! -d "$SECUREC_DIR" ]; then
 else
     echo "platform/securec already exists. no need to download. exit."
 fi
+
+JSON_PATH="${TOP_DIR}/opensource/json"
+if [ ! -d "$JSON_PATH" ]; then
+    cd ${TOP_DIR}/opensource
+    git clone https://szv-open.codehub.huawei.com/OpenSourceCenter/nlohmann/json.git json -b v3.11.3
+else
+    echo "opensource/json already exists. no need to download. exit."
+fi

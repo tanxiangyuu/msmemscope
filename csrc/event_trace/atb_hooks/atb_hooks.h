@@ -22,7 +22,7 @@ struct ATBLibLoader {
         std::string libName = "libatb.so";
         const char *pathEnv = std::getenv("ATB_HOME_PATH");
         if (!pathEnv || std::string(pathEnv).empty()) {
-            std::cout << "[msleaks] Failed to acquire ATB_HOME_PATH environment variable while loading "
+            std::cout << "[msleaks] Error: Failed to acquire ATB_HOME_PATH environment variable while loading "
                 << libName << "." << std::endl;
             return nullptr;
         }

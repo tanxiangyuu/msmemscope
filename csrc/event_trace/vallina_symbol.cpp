@@ -11,7 +11,7 @@ namespace Leaks {
     void *LibLoad(std::string libName)
     {
         if (libName.empty()) {
-            std::cout << "Null library name." << std::endl;
+            std::cout << "[msleaks] Error: Null library name." << std::endl;
             return nullptr;
         }
         std::string libPath = libName;
@@ -22,7 +22,7 @@ namespace Leaks {
             return dlopen(libPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
         }
         // 找不到Ascend Path
-        std::cout << "[msleaks] Failed to acquire ASCEND_HOME_PATH environment variable while loading "
+        std::cout << "[msleaks] Error: Failed to acquire ASCEND_HOME_PATH environment variable while loading "
             << libName << ". Try to load lib directly."
             << std::endl;
         return dlopen(libPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
@@ -39,7 +39,7 @@ namespace Leaks {
         std::string result;
         FILE* pipe = popen(cmd, "r");
         if (!pipe) {
-            std::cerr << "popen() failed!" << std::endl;
+            std::cout << "[msleaks] Error: popen() failed!" << std::endl;
             return result;
         }
         int bufferSize = 128;
@@ -104,7 +104,7 @@ namespace Leaks {
         struct stat st;
         int ret = stat(path.c_str(), &st);
         if (ret != 0) {
-            std::cout << "[msleaks] Error getting file status: " << path << std::endl;
+            std::cout << "[msleaks] Error: getting file status: " << path << std::endl;
             return false;
         }
 
@@ -147,7 +147,7 @@ namespace Leaks {
                 if (handle) {
                     return handle;
                 }
-                std::cout << "[msleaks] Failed to load " << candidatePath << ": " << dlerror() << std::endl;
+                std::cout << "[msleaks] Error: Failed to load " << candidatePath << ": " << dlerror() << std::endl;
             }
         }
         DIR* dir = opendir(dirPath.c_str());

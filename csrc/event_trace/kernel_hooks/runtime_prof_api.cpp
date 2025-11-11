@@ -1,6 +1,5 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 #include "runtime_prof_api.h"
-#include "client_process.h"
 #include "kernel_event_trace.h"
 #include "securec.h"
 #include "kernel_hooks/kernel_event_trace.h"
@@ -10,7 +9,7 @@ namespace Leaks {
 int32_t CompactInfoReporterCallbackImpl(uint32_t agingFlag, const void *data, uint32_t length)
 {
     if (data == nullptr || length != sizeof(struct MsprofCompactInfo)) {
-        CLIENT_ERROR_LOG("Report Compact Info failed with nullptr.");
+        LOG_ERROR("Report Compact Info failed with nullptr.");
         return PROFAPI_ERROR;
     }
     const MsprofCompactInfo* compact = reinterpret_cast<const MsprofCompactInfo*>(data);
@@ -38,7 +37,7 @@ static uint64_t GetHashIdImple(const std::string &hashInfo)
 uint64_t GetHashIdCallBackImply(const char* hashInfo, size_t len)
 {
     if (hashInfo == nullptr) {
-        CLIENT_ERROR_LOG("GenHashId failed. hashInfo is nullptr.");
+        LOG_ERROR("GenHashId failed. hashInfo is nullptr.");
         return 0;
     }
 
@@ -57,7 +56,7 @@ void RegisterRtProfileCallback()
     using RegisterFunc = int32_t(*)(int32_t, void *, uint32_t);
     auto vallina = VallinaSymbol<RtProfApiLoader>::Instance().Get<RegisterFunc>("MsprofRegisterProfileCallback");
     if (vallina == nullptr) {
-        CLIENT_ERROR_LOG("Get register func failed");
+        LOG_ERROR("Get register func failed");
         return;
     }
 
@@ -65,7 +64,7 @@ void RegisterRtProfileCallback()
     for (auto iter : CALLBACK_FUNC_LIST) {
         ret = vallina(iter.first, iter.second, sizeof(void *));
         if (ret != 0) {
-            CLIENT_ERROR_LOG("Register rtProfile callback failed, type = ." + std::to_string(iter.first));
+            LOG_ERROR("Register rtProfile callback failed, type = ." + std::to_string(iter.first));
         }
     }
 
@@ -89,13 +88,13 @@ void SetProfCommand(uint32_t devId)
     using ProfSetProfCommandFunc = int32_t(*)(void *, uint32_t);
     auto vallina = VallinaSymbol<RtProfApiLoader>::Instance().Get<ProfSetProfCommandFunc>("profSetProfCommand");
     if (vallina == nullptr) {
-        CLIENT_ERROR_LOG("Set prof command failed with nullptr.");
+        LOG_ERROR("Set prof command failed with nullptr.");
         return;
     }
 
     int ret = vallina(static_cast<void *>(&command), sizeof(CommandHandle));
     if (ret != 0) {
-        CLIENT_ERROR_LOG("Set prof command failed.");
+        LOG_ERROR("Set prof command failed.");
         return;
     }
 

@@ -12,7 +12,6 @@ target_sources(ascend_kernel_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/kernel_hooks/runtime_prof_api.cpp
   ${EVENT_TRACE_INC_DIR}/describe_trace.cpp
   ${EVENT_TRACE_INC_DIR}/vallina_symbol.cpp
-  ${FRAMEWORK_INC_DIR}/client_process.cpp
   ${UTILITY_INC_DIR}/cpython.cpp
   ${UTILITY_INC_DIR}/log.cpp
   ${UTILITY_INC_DIR}/file.cpp
@@ -31,6 +30,8 @@ target_include_directories(ascend_kernel_hook PUBLIC
   ${EVENT_TRACE_INC_DIR}
   ${UTILITY_INC_DIR}
   ${SECUREC_INC_DIR}
+  ${ANALYSIS_DIR}
+  ${JSON_DIR}
 )
 target_link_options(ascend_kernel_hook PRIVATE "-Wl,--disable-new-dtags")
 target_link_libraries(ascend_kernel_hook ascend_hal ascend_leaks dl pthread stdc++fs c_sec)
