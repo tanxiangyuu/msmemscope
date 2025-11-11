@@ -37,7 +37,7 @@ void MstxManager::ReportMarkA(const char* msg, int32_t streamId, LeaksCommType t
     record->streamId = streamId;
 
     if (!EventReport::Instance(type).ReportMark(buffer)) {
-        CLIENT_ERROR_LOG("Report Mark FAILED");
+        LOG_ERROR("Report Mark FAILED");
     }
 }
 
@@ -53,7 +53,7 @@ uint64_t MstxManager::ReportRangeStart(const char* msg, int32_t streamId)
     const TLVBlock* msgTlv = GetTlvBlock(*record, TLVBlockType::MARK_MESSAGE);
     std::string mstxMsgString = msgTlv == nullptr ? "N/A" : msgTlv->data;
     if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMark(buffer)) {
-        CLIENT_ERROR_LOG("Report Mark FAILED");
+        LOG_ERROR("Report Mark FAILED");
     }
     return record->rangeId;
 }
@@ -69,7 +69,7 @@ void MstxManager::ReportRangeEnd(uint64_t id)
     record->rangeId = id;
 
     if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMark(buffer)) {
-        CLIENT_ERROR_LOG("Report Mark FAILED");
+        LOG_ERROR("Report Mark FAILED");
     }
 }
 

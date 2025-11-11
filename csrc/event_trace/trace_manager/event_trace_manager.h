@@ -24,6 +24,8 @@ public:
     }
 
     Config GetConfig();
+    void InitConfig();
+    void InitStartConfig();
     bool SetConfig(const std::unordered_map<std::string, std::string> &config);
     void SetConfig(const Config &config);
 
@@ -33,9 +35,11 @@ private:
     ~ConfigManager() = default;
 
     void SetConfigImpl(const Config &config);
+    void GetConfigAfterInit(Config &config);
 
     std::mutex mutex_;
     Config config_;
+    bool firstConfig = true;
 };
 
 inline Config GetConfig()
@@ -60,6 +64,8 @@ public:
     }
     
     bool IsNeedTrace(const RecordType type = RecordType::INVALID_RECORD);
+    bool ShouldTraceType(const RecordType type = RecordType::INVALID_RECORD);
+    bool IsTracingEnabled();
     void SetTraceStatus(const EventTraceStatus status); // 通过python接口在运行时动态修改
 
     void SetAclInitStatus(bool isInit);
@@ -79,7 +85,7 @@ private:
     void InitJudgeFuncTable();
 
     std::mutex mutex_;
-    EventTraceStatus status_ = EventTraceStatus::IN_TRACING;
+    EventTraceStatus status_ = EventTraceStatus::NOT_IN_TRACING;
 
     std::atomic<bool> aclInit_{ false };
     std::unordered_map<RecordType, std::function<bool()>> judgeFuncTable_;

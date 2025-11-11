@@ -11,6 +11,8 @@ get_filename_component(SECUREC_INC_DIR ../platform/securec/include ABSOLUTE)
 get_filename_component(FRAMEWORK_INC_DIR ./framework ABSOLUTE)
 get_filename_component(EVENT_TRACE_INC_DIR ./event_trace ABSOLUTE)
 get_filename_component(UTILITY_INC_DIR ./utility ABSOLUTE)
+get_filename_component(ANALYSIS_DIR ./analysis ABSOLUTE)
+get_filename_component(JSON_DIR ../opensource/json/single_include ABSOLUTE)
 
 add_library(ascend_leaks SHARED dummy.cpp)
 

@@ -12,14 +12,13 @@
 #include "command.h"
 #include "file.h"
 #include "path.h"
-#include "log.h"
 #include "ustring.h"
 #include "bit_field.h"
 #include "securec.h"
 #include "vallina_symbol.h"
 #include "sqlite_loader.h"
 #include "string_validator.h"
-
+#include "event_trace/trace_manager/event_trace_manager.h"
 namespace Leaks {
 
 enum class OptVal : int32_t {
@@ -156,6 +155,15 @@ void SetAnalysisDefaultConfig(Config &config)
     config.eventType = eventTypeBit.getValue();
 }
 
+void SetEffectiveConfig(Config &config)
+{
+    // 调用SetConfig后，设置为EFFECTIVE
+    // 1.状态不为空桩，使能MemScope功能
+    // 2.只能设置一次的变量生效，不能在被python config接口改变
+    config.isEffective = true;
+    return;
+}
+
 void DoUserCommand(UserCommand userCommand)
 {
     if (userCommand.printHelpInfo) {
@@ -173,29 +181,7 @@ void DoUserCommand(UserCommand userCommand)
         return;
     }
 
-    SetEventDefaultConfig(userCommand.config);
-    SetAnalysisDefaultConfig(userCommand.config);
-
-    Utility::SetDirPath(userCommand.outputPath, std::string(OUTPUT_PATH));
-    if (strncpy_s(userCommand.config.outputDir, sizeof(userCommand.config.outputDir),
-        Utility::DirPathManager::GetInstance().GetDirPath().c_str(), sizeof(userCommand.config.outputDir) - 1) != EOK) {
-        std::cout << "[msleaks] Error: strncpy dirpath FAILED" << std::endl;
-        return;
-    }
-
-    userCommand.config.outputDir[sizeof(userCommand.config.outputDir) - 1] = '\0';
-
-    if (userCommand.config.watchConfig.isWatched) {
-        std::cout << "[msleaks] Info: the output of watch will be saved in the " <<
-            userCommand.config.outputDir << "/watch_dump" << std::endl;
-    }
-
-    if (userCommand.config.dataFormat == static_cast<uint8_t>(DataFormat::DB)) {
-        if (!Utility::CreateDbPath(userCommand.config, DB_DUMP_FILE)) {
-            std::cout << "[msleaks] Error: Create dbfile path failed. " << std::endl;
-            return;
-        }
-    }
+    ConfigManager::Instance().SetConfig(userCommand.config);
 
     Command command {userCommand};
     command.Exec();
@@ -245,24 +231,24 @@ std::string GetShortOptString(const std::vector<option> &longOptArray)
     return shortOpt;
 }
 
-static void ParseSelectSteps(const std::string &param, UserCommand &userCommand)
+void ParseSelectSteps(const std::string &param, Config &config, bool &printHelpInfo)
 {
     std::string dividePattern = "，,";
     std::vector<std::string> tokens = Utility::SplitString(param, dividePattern);
     auto it = tokens.begin();
     auto end = tokens.end();
 
-    userCommand.config.stepList.stepCount = 0;
+    config.stepList.stepCount = 0;
     Utility::IntValidateRule verRule;
     verRule.minValue = 1;
 
-    auto parseFailed = [&userCommand](void) {
-        std::cout << "[msleaks] ERROR: invalid steps input." << std::endl;
-        userCommand.printHelpInfo = true;
+    auto parseFailed = [&printHelpInfo](void) {
+        std::cout << "[msleaks] Error: invalid steps input." << std::endl;
+        printHelpInfo = true;
     };
 
     while (it != end) {
-        SelectedStepList &stepListInfo = userCommand.config.stepList;
+        SelectedStepList &stepListInfo = config.stepList;
 
         if (stepListInfo.stepCount >= SELECTED_STEP_MAX_NUM) {
             return parseFailed();
@@ -284,19 +270,19 @@ static void ParseSelectSteps(const std::string &param, UserCommand &userCommand)
     return;
 }
 
-static void ParseAnalysis(const std::string &param, UserCommand &userCommand)
+void ParseAnalysis(const std::string &param, Config &config, bool &printHelpInfo)
 {
     std::string dividePattern = "，,";
     std::vector<std::string> tokens = Utility::SplitString(param, dividePattern);
     auto it = tokens.begin();
     auto end = tokens.end();
 
-    auto parseFailed = [&userCommand](void) {
-        std::cout << "[msleaks] ERROR: invalid analysis type input." << std::endl;
-        userCommand.printHelpInfo = true;
+    auto parseFailed = [&printHelpInfo](void) {
+        std::cout << "[msleaks] Error: invalid analysis type input." << std::endl;
+        printHelpInfo = true;
     };
 
-    BitField<decltype(userCommand.config.analysisType)> analysisTypeBit;
+    BitField<decltype(config.analysisType)> analysisTypeBit;
 
     std::unordered_map<std::string, AnalysisType> analysisMp = {
         {"leaks", AnalysisType::LEAKS_ANALYSIS},
@@ -315,7 +301,7 @@ static void ParseAnalysis(const std::string &param, UserCommand &userCommand)
         it++;
     }
 
-    userCommand.config.analysisType = analysisTypeBit.getValue();
+    config.analysisType = analysisTypeBit.getValue();
     return;
 }
 
@@ -363,7 +349,7 @@ void ParseCallstack(const std::string &param, Config &config, bool &printHelpInf
     auto end = tokens.end();
 
     auto parseFailed = [&printHelpInfo](void) {
-        std::cout << "[msleaks] ERROR: invalid call-stack depth input." << std::endl;
+        std::cout << "[msleaks] Error: invalid call-stack depth input." << std::endl;
         printHelpInfo = true;
     };
 
@@ -399,14 +385,14 @@ static void ParseInputPaths(const std::string param, UserCommand &userCommand)
     }
 
     if (userCommand.inputPaths.size() != PATHSIZE) {
-        std::cout << "[msleaks] ERROR: invalid paths input." << std::endl;
+        std::cout << "[msleaks] Error: invalid paths input." << std::endl;
         userCommand.printHelpInfo = true;
     } else {
         userCommand.config.inputCorrectPaths = true;
     }
 }
 
-static void ParseOutputPath(const std::string param, UserCommand &userCommand)
+void ParseOutputPath(const std::string param, Config &config, bool &printHelpInfo)
 {
     if (param.length() > PATH_MAX) {
         std::cout << "[msleaks] Error: Parameter --output length exceeds the maximum length:"
@@ -414,10 +400,16 @@ static void ParseOutputPath(const std::string param, UserCommand &userCommand)
         return;
     }
     if (Utility::Strip(param).length() == 0) {
-        userCommand.config.outputCorrectPaths = false;
-        std::cout << "[msleaks] WARN: empty output path." << std::endl;
+        config.outputCorrectPaths = false;
+        std::cout << "[msleaks] Warn: empty output path." << std::endl;
         return;
     }
+
+    auto parseFailed = [&printHelpInfo](void) {
+        std::cout << "[msleaks] Error: invalid output path." << std::endl;
+        std::cout << "Please use correct output path!" << std::endl;
+        printHelpInfo = true;
+    };
 
     Utility::Path path = Utility::Path{param};
     Utility::Path realPath = path.Resolved();
@@ -425,12 +417,17 @@ static void ParseOutputPath(const std::string param, UserCommand &userCommand)
 
     std::string pattern = "(\\.|/|_|-|\\s|[~0-9a-zA-Z]|[\u4e00-\u9fa5])+";
     if (!Utility::CheckIsValidOutputPath(pathStr) || !Utility::IsValidOutputPath(pathStr)) {
-        userCommand.config.outputCorrectPaths = false;
-        std::cout << "[msleaks] WARN: invalid output path." << std::endl;
+        return parseFailed();
+    }
+
+    if (strncpy_s(config.outputDir, sizeof(config.outputDir),
+        pathStr.c_str(), sizeof(config.outputDir) - 1) != EOK) {
+        std::cout << "[msleaks] Error: strncpy dirpath FAILED" << std::endl;
         return;
     }
 
-    userCommand.outputPath = pathStr;
+    config.outputDir[sizeof(config.outputDir) - 1] = '\0';
+    return;
 }
 
 void ParseDataLevel(const std::string param, Config &config, bool &printHelpInfo)
@@ -443,7 +440,7 @@ void ParseDataLevel(const std::string param, Config &config, bool &printHelpInfo
     std::string pattern = "^(0|1|op|kernel)$";
 
     auto parseFailed = [&printHelpInfo](void) {
-        std::cout << "[msleaks] ERROR: invalid data trace level input." << std::endl;
+        std::cout << "[msleaks] Error: invalid data trace level input." << std::endl;
         printHelpInfo = true;
     };
 
@@ -476,7 +473,7 @@ void ParseEventTraceType(const std::string param, Config &config, bool &printHel
     auto end = tokens.end();
 
     auto parseFailed = [&printHelpInfo](void) {
-        std::cout << "[msleaks] ERROR: invalid event trace type input." << std::endl;
+        std::cout << "[msleaks] Error: invalid event trace type input." << std::endl;
         printHelpInfo = true;
     };
 
@@ -504,7 +501,7 @@ void ParseEventTraceType(const std::string param, Config &config, bool &printHel
     return;
 }
 
-static bool ParseWatchStartConfig(const std::string param, UserCommand &userCommand, size_t &pos)
+static bool ParseWatchStartConfig(const std::string param, Config &config, size_t &pos)
 {
     // 解析可选的 [start[:outid]] 部分
     size_t comma = param.find(',', pos);
@@ -525,7 +522,7 @@ static bool ParseWatchStartConfig(const std::string param, UserCommand &userComm
         if (outidStr[0] == '0' && outidStr.size() > 1) { // outidStr不能出现前导0
             return false;
         }
-        auto ret = strncpy_s(userCommand.config.watchConfig.start,
+        auto ret = strncpy_s(config.watchConfig.start,
             WATCH_OP_DIR_MAX_LENGTH, start.c_str(), WATCH_OP_DIR_MAX_LENGTH - 1);
         if (ret != EOK) {
             return false;
@@ -534,10 +531,10 @@ static bool ParseWatchStartConfig(const std::string param, UserCommand &userComm
         if (!Utility::StrToUint32(outId, outidStr)) {
             return false;
         }
-        userCommand.config.watchConfig.outputId = outId;
+        config.watchConfig.outputId = outId;
     } else {
         // 只有 start 没有 outid
-        auto ret = strncpy_s(userCommand.config.watchConfig.start,
+        auto ret = strncpy_s(config.watchConfig.start,
             WATCH_OP_DIR_MAX_LENGTH, startPart.c_str(), WATCH_OP_DIR_MAX_LENGTH - 1);
         if (ret != EOK) {
             return false;
@@ -548,7 +545,7 @@ static bool ParseWatchStartConfig(const std::string param, UserCommand &userComm
     return true;
 }
 
-static bool ParseWatchEndConfig(const std::string param, UserCommand &userCommand, size_t &pos)
+static bool ParseWatchEndConfig(const std::string param, Config &config, size_t &pos)
 {
     // 解析必需的 end 部分
     size_t comma = param.find(',', pos);
@@ -563,7 +560,7 @@ static bool ParseWatchEndConfig(const std::string param, UserCommand &userComman
     if (end.empty()) {
         return false;
     }
-    auto ret = strncpy_s(userCommand.config.watchConfig.end,
+    auto ret = strncpy_s(config.watchConfig.end,
         WATCH_OP_DIR_MAX_LENGTH, end.c_str(), WATCH_OP_DIR_MAX_LENGTH - 1);
     if (ret != EOK) {
         return false;
@@ -572,33 +569,33 @@ static bool ParseWatchEndConfig(const std::string param, UserCommand &userComman
     return true;
 }
 
-static void ParseWatchConfig(const std::string param, UserCommand &userCommand)
+void ParseWatchConfig(const std::string param, Config &config, bool &printHelpInfo)
 {
     size_t pos = 0;
     size_t len = param.length();
 
-    auto parseFailed = [&userCommand](void) {
-        std::cout << "[msleaks] ERROR: invalid watch config." << std::endl;
-        userCommand.printHelpInfo = true;
+    auto parseFailed = [&printHelpInfo](void) {
+        std::cout << "[msleaks] Error: invalid watch config." << std::endl;
+        printHelpInfo = true;
     };
 
-    if (!ParseWatchStartConfig(param, userCommand, pos)) {
+    if (!ParseWatchStartConfig(param, config, pos)) {
         return parseFailed();
     }
 
-    if (!ParseWatchEndConfig(param, userCommand, pos)) {
+    if (!ParseWatchEndConfig(param, config, pos)) {
         return parseFailed();
     }
     // 解析可选的 full-content
     if (pos < len) {
         if (param.substr(pos) == "full-content") {
-            userCommand.config.watchConfig.fullContent = true;
+            config.watchConfig.fullContent = true;
         } else {
             return parseFailed();
         }
     }
 
-    userCommand.config.watchConfig.isWatched = true;
+    config.watchConfig.isWatched = true;
 
     return;
 }
@@ -612,37 +609,42 @@ static void ParseLogLv(const std::string &param, UserCommand &userCommand)
     };
     auto it = logLevelMap.find(param);
     if (it == logLevelMap.end()) {
-        std::cout << "[msleaks] ERROR: --log-level param is invalid. "
+        std::cout << "[msleaks] Error: --log-level param is invalid. "
                   << "LOG_LEVEL can only be set info,warn,error." << std::endl;
         userCommand.printHelpInfo = true;
     } else {
         auto logLevel = it->second;
-        Utility::SetLogLevel(logLevel);
         userCommand.config.logLevel = static_cast<uint8_t>(logLevel);
     }
 }
 
-static void ParseDataFormat(const std::string &param, UserCommand &userCommand)
+void ParseDataFormat(const std::string &param, Config &config, bool &printHelpInfo)
 {
     const std::map<std::string, DataFormat> dataFormatMap = {
         {"csv", DataFormat::CSV},
         {"db", DataFormat::DB},
     };
+    auto parseFailedFormat = [&printHelpInfo](void) {
+        std::cout << "[msleaks] Error: --data-format param is invalid. "
+                  << "DATA_FORMAT can only be set csv,db." << std::endl;
+        printHelpInfo = true;
+    };
     auto it = dataFormatMap.find(param);
     if (it == dataFormatMap.end()) {
-        std::cout << "[msleaks] ERROR: --data-format param is invalid. "
-                  << "DATA_FORMAT can only be set csv,db." << std::endl;
-        userCommand.printHelpInfo = true;
+        return parseFailedFormat();
     } else {
         auto dataFormat = it->second;
-        userCommand.config.dataFormat = static_cast<uint8_t>(dataFormat);
+        config.dataFormat = static_cast<uint8_t>(dataFormat);
     }
 
-    if (userCommand.config.dataFormat == static_cast<uint8_t>(DataFormat::DB)) {
+    auto parseFailedSqlite = [&printHelpInfo](void) {
+        std::cout << "[msleaks] Error: SQLite library not installed." << std::endl;
+        printHelpInfo = true;
+    };
+    if (config.dataFormat == static_cast<uint8_t>(DataFormat::DB)) {
         auto func = VallinaSymbol<Sqlite3LibLoader>::Instance().Get<Sqlite3OpenFunc>("sqlite3_open");
         if (func == nullptr) {
-            std::cout << "[msleaks] ERROR: SQLite library not installed." << std::endl;
-            userCommand.printHelpInfo = true;
+            return parseFailedSqlite();
         }
     }
 
@@ -657,7 +659,7 @@ void ParseDevice(const std::string &param, Config &config, bool &printHelpInfo)
     auto end = tokens.end();
 
     auto parseFailed = [&printHelpInfo](void) {
-        std::cout << "[msleaks] ERROR: invalid device." << std::endl;
+        std::cout << "[msleaks] Error: invalid device." << std::endl;
         printHelpInfo = true;
     };
 
@@ -691,16 +693,19 @@ void ParseDevice(const std::string &param, Config &config, bool &printHelpInfo)
     return;
 }
 
-static void ParseCollectMode(const std::string &param, UserCommand &userCommand)
+void ParseCollectMode(const std::string &param, Config &config, bool &printHelpInfo)
 {
-    if (param == "immediate") {
-        userCommand.config.collectMode = static_cast<uint8_t>(CollectMode::IMMEDIATE);
-    } else if (param == "deferred") {
-        userCommand.config.collectMode = static_cast<uint8_t>(CollectMode::DEFERRED);
-    } else {
-        std::cout << "[msleaks] ERROR: --collect-mode param is invalid. "
+    auto parseFailed = [&printHelpInfo](void) {
+        std::cout << "[msleaks] Error: --collect-mode param is invalid. "
                   << "Collect mode can only be set to immediate,deferred." << std::endl;
-        userCommand.printHelpInfo = true;
+        printHelpInfo = true;
+    };
+    if (param == "immediate") {
+        config.collectMode = static_cast<uint8_t>(CollectMode::IMMEDIATE);
+    } else if (param == "deferred") {
+        config.collectMode = static_cast<uint8_t>(CollectMode::DEFERRED);
+    } else {
+        return parseFailed();
     }
 
     return;
@@ -710,7 +715,7 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
 {
     switch (opt) {
         case '?':
-            std::cout << "[msleaks] ERROR: unrecognized command " << std::endl;
+            std::cout << "[msleaks] Error: unrecognized command " << std::endl;
             userCommand.printHelpInfo = true;
             break;
         case 'h': // for --help
@@ -720,10 +725,10 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
             userCommand.printVersionInfo = true;
             break;
         case static_cast<int32_t>(OptVal::SELECT_STEPS):
-            ParseSelectSteps(param, userCommand);
+            ParseSelectSteps(param, userCommand.config, userCommand.printHelpInfo);
             break;
         case static_cast<int32_t>(OptVal::ANALYSIS):
-            ParseAnalysis(param, userCommand);
+            ParseAnalysis(param, userCommand.config, userCommand.printHelpInfo);
             break;
         case static_cast<int32_t>(OptVal::CALL_STACK):
             ParseCallstack(param, userCommand.config, userCommand.printHelpInfo);
@@ -732,13 +737,13 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
             userCommand.config.enableCompare = true;
             break;
         case static_cast<int32_t>(OptVal::WATCH):
-            ParseWatchConfig(param, userCommand);
+            ParseWatchConfig(param, userCommand.config, userCommand.printHelpInfo);
             break;
         case static_cast<int32_t>(OptVal::INPUT):
             ParseInputPaths(param, userCommand);
             break;
         case static_cast<int32_t>(OptVal::OUTPUT):
-            ParseOutputPath(param, userCommand);
+            ParseOutputPath(param, userCommand.config, userCommand.printHelpInfo);
             break;
         case static_cast<int32_t>(OptVal::DATA_TRACE_LEVEL):
             ParseDataLevel(param, userCommand.config, userCommand.printHelpInfo);
@@ -750,58 +755,76 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
             ParseLogLv(param, userCommand);
             break;
         case static_cast<int32_t>(OptVal::DATA_FORMAT):
-            ParseDataFormat(param, userCommand);
+            ParseDataFormat(param, userCommand.config, userCommand.printHelpInfo);
             break;
         case static_cast<int32_t>(OptVal::DEVICE):
             ParseDevice(param, userCommand.config, userCommand.printHelpInfo);
             break;
         case static_cast<int32_t>(OptVal::COLLECT_MODE):
-            ParseCollectMode(param, userCommand);
+            ParseCollectMode(param, userCommand.config, userCommand.printHelpInfo);
             break;
         default:
             ;
     }
 }
 
-void ClientParser::InitialUserCommand(UserCommand &userCommand)
+void SetDefaultOutputDir(Config &config)
 {
-    userCommand.config.stepList.stepCount = 0;
-    userCommand.config.enableCompare = false;
-    userCommand.config.enableCStack = false;
-    userCommand.config.enablePyStack = false;
-    userCommand.config.inputCorrectPaths = false;
-    userCommand.config.outputCorrectPaths = true;
-    userCommand.config.cStackDepth = 0;
-    userCommand.config.pyStackDepth = 0;
-    userCommand.config.levelType = 1;
-    userCommand.config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
-    userCommand.config.logLevel = static_cast<uint8_t>(LogLv::WARN);
-    userCommand.config.collectAllNpu = true;
-    userCommand.config.collectMode = static_cast<uint8_t>(CollectMode::IMMEDIATE);
+    if (config.outputDir[0] == '\0') {
+        std::string pathStr;
+        Utility::SetDirPath(pathStr, std::string(OUTPUT_PATH));
+        if (strncpy_s(config.outputDir, sizeof(config.outputDir),
+            pathStr.c_str(), sizeof(config.outputDir) - 1) != EOK) {
+            std::cout << "[msleaks] Error: strncpy dirpath FAILED" << std::endl;
+            return;
+        }
 
-    BitField<decltype(userCommand.config.eventType)> eventBit;
+        config.outputDir[sizeof(config.outputDir) - 1] = '\0';
+    }
+}
+
+void ClientParser::InitialConfig(Config &config)
+{
+    config.stepList.stepCount = 0;
+    config.enableCompare = false;
+    config.enableCStack = false;
+    config.enablePyStack = false;
+    config.inputCorrectPaths = false;
+    config.outputCorrectPaths = true;
+    config.cStackDepth = 0;
+    config.pyStackDepth = 0;
+    config.levelType = 1;
+    config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
+    config.logLevel = static_cast<uint8_t>(LogLv::WARN);
+    config.collectAllNpu = true;
+    config.collectMode = static_cast<uint8_t>(CollectMode::IMMEDIATE);
+    config.isEffective = false;
+
+    BitField<decltype(config.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
-    userCommand.config.eventType = eventBit.getValue();
+    config.eventType = eventBit.getValue();
 
-    BitField<decltype(userCommand.config.analysisType)> analysisBit;
+    BitField<decltype(config.analysisType)> analysisBit;
     analysisBit.setBit(static_cast<size_t>(AnalysisType::LEAKS_ANALYSIS));
-    userCommand.config.analysisType = analysisBit.getValue();
+    config.analysisType = analysisBit.getValue();
 
-    userCommand.config.watchConfig.isWatched = false;
-    (void)memset_s(userCommand.config.watchConfig.start, WATCH_OP_DIR_MAX_LENGTH, 0, WATCH_OP_DIR_MAX_LENGTH);
-    (void)memset_s(userCommand.config.watchConfig.end, WATCH_OP_DIR_MAX_LENGTH, 0, WATCH_OP_DIR_MAX_LENGTH);
-    userCommand.config.watchConfig.outputId = UINT32_MAX;
-    userCommand.config.watchConfig.fullContent = false;
+    config.watchConfig.isWatched = false;
+    (void)memset_s(config.watchConfig.start, WATCH_OP_DIR_MAX_LENGTH, 0, WATCH_OP_DIR_MAX_LENGTH);
+    (void)memset_s(config.watchConfig.end, WATCH_OP_DIR_MAX_LENGTH, 0, WATCH_OP_DIR_MAX_LENGTH);
+    config.watchConfig.outputId = UINT32_MAX;
+    config.watchConfig.fullContent = false;
 
+    (void)memset_s(config.outputDir, PATH_MAX, 0, PATH_MAX);
+    SetDefaultOutputDir(config);
     unsetenv(ENABLE_CPU_IN_CMD);
 }
 
 UserCommand ClientParser::Parse(int32_t argc, char **argv)
 {
     UserCommand userCommand;
-    InitialUserCommand(userCommand);
+    InitialConfig(userCommand.config);
     int32_t optionIndex = 0;
     int32_t opt = 0;
     auto longOptions = GetLongOptArray();

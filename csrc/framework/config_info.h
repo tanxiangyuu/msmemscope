@@ -7,6 +7,7 @@
 #include <vector>
 #include <string>
 #include <linux/limits.h>
+#include <unordered_map>
 
 namespace Leaks {
 
@@ -27,6 +28,7 @@ constexpr uint16_t WATCH_OP_DIR_MAX_LENGTH = 255;
 constexpr const char *DB_DUMP_FILE = "leaks_dump";
 constexpr int SQLITE_TIME_OUT = 5000;
 constexpr const char *ENABLE_CPU_IN_CMD = "MSLEAKS_ENABLE_CPU_IN_CMD";
+constexpr const char *EMPTY_DEVID = "";
 
 // level type可以多选，每一种type占一个bit位
 enum class LevelType : uint8_t {
@@ -102,6 +104,7 @@ struct Config {
     bool collectAllNpu;
     /* 当前单机最多16卡，用32bits表示足够了，后续有需要再扩充 */
     uint32_t npuSlots;
+    bool isEffective;
 };
 
 // 用于承载用户命令行参数的解析结果

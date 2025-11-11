@@ -15,16 +15,23 @@ class ClientParser {
 public:
     ClientParser() = default;
     void Interpretor(int32_t argc, char **argv);
+    void InitialConfig(Config &config);
 private:
     UserCommand Parse(int32_t argc, char **argv);
-    void InitialUserCommand(UserCommand &userCommand);
 };
 
 void ParseCallstack(const std::string &param, Config &config, bool &printHelpInfo);
 void ParseDataLevel(const std::string param, Config &config, bool &printHelpInfo);
 void ParseEventTraceType(const std::string param, Config &config, bool &printHelpInfo);
 void ParseDevice(const std::string &param, Config &config, bool &printHelpInfo);
+void ParseAnalysis(const std::string &param, Config &config, bool &printHelpInfo);
+void ParseWatchConfig(const std::string param, Config &config, bool &printHelpInfo);
+void ParseSelectSteps(const std::string &param, Config &config, bool &printHelpInfo);
+void ParseDataFormat(const std::string &param, Config &config, bool &printHelpInfo);
+void ParseCollectMode(const std::string &param, Config &config, bool &printHelpInfo);
+void ParseOutputPath(const std::string param, Config &config, bool &printHelpInfo);
 void SetEventDefaultConfig(Config &config);
 void SetAnalysisDefaultConfig(Config &config);
+void SetEffectiveConfig(Config &config);
 }
 #endif
