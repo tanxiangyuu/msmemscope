@@ -105,7 +105,6 @@ private:
     std::unordered_map<DEVICEID, std::vector<std::string>> result_;
     std::unordered_set<DEVICEID> deviceIdSet_;
     std::string fileNamePrefix_ = "memory_compare_";
-    std::string dirPath_;
     std::string framework_;
     std::mutex fileMutex_;
     Config config_;

@@ -13,7 +13,8 @@ DataHandler::DataHandler(const Config config)
 }
 
 // csv handler
-CsvHandler::CsvHandler(const Config config, DataType dataType) : DataHandler(config), dataType_(dataType)
+CsvHandler::CsvHandler(const Config config, DataType dataType, std::string devId) : DataHandler(config),
+    dataType_(dataType), devId_(devId)
 {
     InitSetParm();
 }
@@ -22,14 +23,12 @@ void CsvHandler::InitSetParm()
 {
     switch (dataType_) {
         case DataType::LEAKS_EVENT: {
-            prefix_ = "leaks_dump_";
-            dirPath_ = std::string(config_.outputDir) + "/" + std::string(DUMP_FILE);
+            prefix_ = CSV_FILE_PREFIX;
             csvHeader_ = LEAKS_HEADERS;
             break;
         }
         case DataType::PYTHON_TRACE_EVENT:
-            prefix_ = "python_trace_" + std::to_string(Utility::GetPid()) + "_";
-            dirPath_ = std::string(config_.outputDir) + "/" + std::string(DUMP_FILE);
+            prefix_ = PYTHON_TRACE_FILE_PREFIX;
             csvHeader_ = TRACE_HEADERS;
             break;
         default:
@@ -41,7 +40,8 @@ void CsvHandler::InitSetParm()
 bool CsvHandler::Init()
 {
     std::lock_guard<std::mutex> lock(csvFileMutex_);
-    return Utility::CreateCsvFile(&file_, dirPath_, prefix_, csvHeader_);
+    return Utility::FileCreateManager::GetInstance(config_.outputDir).CreateCsvFile(&file_, devId_, prefix_,
+        DUMP_DIR, csvHeader_);
 }
 
 bool CsvHandler::Write(std::shared_ptr<DataBase> data)
@@ -123,7 +123,8 @@ CsvHandler::~CsvHandler()
     }
 }
 
-DbHandler::DbHandler(const Config config, DataType dataType) : DataHandler(config), dataType_(dataType)
+DbHandler::DbHandler(const Config config, DataType dataType, std::string devId) : DataHandler(config),
+    dataType_(dataType), devId_(devId)
 {
     InitSetParm();
 }
@@ -178,9 +179,9 @@ void DbHandler::InitSetParm()
 
 bool DbHandler::Init()
 {
-    std::string filePath = std::string(config_.outputDir) + "/" + Leaks::DUMP_FILE + "/" + config_.dbFileName;
     std::lock_guard<std::mutex> lock(dbFileMutex_);
-    return Utility::CreateDbFile(&dataFileDb_, filePath, tableName_, dbHeader_);
+    return Utility::FileCreateManager::GetInstance(config_.outputDir).CreateDbFile(&dataFileDb_, devId_,
+        CSV_FILE_PREFIX, DUMP_DIR, tableName_, dbHeader_);
 }
 
 bool DbHandler::Write(std::shared_ptr<DataBase> data)
@@ -335,14 +336,14 @@ std::string BuildCreateStatement(const std::string& table,
     return oss.str();
 }
 
-std::unique_ptr<DataHandler> MakeDataHandler(Config config, DataType data)
+std::unique_ptr<DataHandler> MakeDataHandler(Config config, DataType data, std::string devId)
 {
     switch (config.dataFormat) {
         case static_cast<uint8_t>(DataFormat::CSV):
-            return std::unique_ptr<DataHandler>(new CsvHandler(config, data));
+            return std::unique_ptr<DataHandler>(new CsvHandler(config, data, devId));
             break;
         case static_cast<uint8_t>(DataFormat::DB):
-            return std::unique_ptr<DataHandler>(new DbHandler(config, data));
+            return std::unique_ptr<DataHandler>(new DbHandler(config, data, devId));
             break;
         default:
             LOG_ERROR("Unsupported format: %lu", config.dataFormat);

@@ -94,7 +94,7 @@ public:
     std::vector<std::pair<PoolType, MemoryStateKey>> GetAllStateKeys();
 private:
     MemoryState* FindStateInPool(const PoolType& poolType, const MemoryStateKey& key, uint64_t size);
-
+    ~MemoryStateManager() override;
     std::unordered_map<PoolType, Pool> poolsMap_;
     std::mutex mtx_;
 };

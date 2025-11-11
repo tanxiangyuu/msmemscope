@@ -49,64 +49,6 @@ namespace Utility {
         return true;
     }
 
-    FILE* CreateFileWithUmask(const std::string &path, const std::string &mode, mode_t mask)
-    {
-        if (path.empty()) {
-            return nullptr;
-        }
-        UmaskGuard guard{mask};
-        FILE *fp = fopen(path.c_str(), mode.c_str());
-        return fp;
-    }
-
-    FILE* CreateFile(const std::string &dir, const std::string &name, mode_t mask)
-    {
-        if (!MakeDir(dir)) {
-            return nullptr;
-        }
-        std::string filePath = dir + "/" + name;
-        if (!CheckFileBeforeCreate(dir)) {
-            return nullptr;
-        }
-        return CreateFileWithUmask(filePath, "a", mask);
-    }
-
-    bool CreateCsvFile(FILE **filefp, std::string dirPath, std::string fileName, std::string headers)
-    {
-        if (*filefp == nullptr) {
-            fileName = fileName + Utility::GetDateStr() + ".csv";
-            std::string filePath = dirPath + "/" + fileName;
-            FILE* fp = CreateFile(dirPath, fileName, DEFAULT_UMASK_FOR_CSV_FILE);
-            if (fp != nullptr) {
-                std::cout << "[msleaks] Info: create file " << filePath << "." << std::endl;
-                fprintf(fp, "%s", headers.c_str());
-                *filefp = fp;
-            } else {
-                std::cout << "[msleaks] Error: open file " << filePath << " failed." << std::endl;
-                return false;
-            }
-        }
-        return true;
-    }
-
-    bool CreateDbPath(Leaks::Config &config, const std::string &fileName)
-    {
-        std::string name = fileName + "_" + Utility::GetDateStr() + ".db";
-        std::string path = std::string(config.outputDir) + "/" + Leaks::DUMP_FILE;
-        if (!MakeDir(path)) {
-            return false;
-        }
-        if (!CheckFileBeforeCreate(path)) {
-            return false;
-        }
-        if (strncpy_s(config.dbFileName, sizeof(config.dbFileName),
-            name.c_str(), sizeof(config.dbFileName) - 1) != EOK) {
-            std::cout << "[msleaks] strncpy_s FAILED DB" << std::endl;
-            return false;
-        }
-        return true;
-    }
-
     bool FileExists(const std::string& filePath)
     {
         std::ifstream file(filePath);
@@ -132,34 +74,106 @@ namespace Utility {
         Sqlite3Finalize(stmt);
         return exists;
     }
-    
-    bool CreateDbTable(sqlite3 *filefp, std::string tableCreateSql)
+
+    FileCreateManager& FileCreateManager::GetInstance(const std::string outputDir)
     {
-        Sqlite3BusyTimeout(filefp, Leaks::SQLITE_TIME_OUT);
-        int rc = Sqlite3Exec(filefp, tableCreateSql.c_str(), nullptr, nullptr, nullptr);
-        if (rc != SQLITE_OK) {
-            std::cout << "[msleaks] Create SQLTable error: " << Sqlite3Errmsg(filefp) << std::endl;
+        static FileCreateManager instance(outputDir);
+        return instance;
+    }
+
+    FileCreateManager::FileCreateManager(const std::string outputDir)
+    {
+        projectDir_ = outputDir + "/" + "msleaks_" + std::to_string(GetPid()) + "_" + GetDateStr() + "_ascend";
+    }
+
+    std::string FileCreateManager::GetConfigFilePath() const
+    {
+        return projectDir_ + "/config.json";
+    }
+
+    FILE* FileCreateManager::CreateFileWithUmask(const std::string &path, const std::string &mode, mode_t mask)
+    {
+        if (path.empty()) {
+            return nullptr;
+        }
+        UmaskGuard guard{mask};
+        FILE *fp = fopen(path.c_str(), mode.c_str());
+        return fp;
+    }
+
+    FILE* FileCreateManager::CreateFile(const std::string &dir, const std::string &name, mode_t mask)
+    {
+        if (!MakeDir(dir)) {
+            return nullptr;
+        }
+        std::string filePath = dir + "/" + name;
+        if (!CheckFileBeforeCreate(dir)) {
+            return nullptr;
+        }
+        return CreateFileWithUmask(filePath, "a", mask);
+    }
+
+    bool FileCreateManager::CreateDir()
+    {
+        if (!MakeDir(projectDir_)) {
+            std::cerr << "[msleaks] Error: Failed to create directory: " << projectDir_ << std::endl;
+            return false;
+        }
+        if (!CheckFileBeforeCreate(projectDir_)) {
             return false;
         }
         return true;
     }
 
-    bool CreateDbFile(sqlite3 **filefp, std::string filePath, std::string tableName, std::string tableCreateSql)
+    bool FileCreateManager::CreateCsvFile(FILE **filefp, std::string devId, std::string filePrefix, std::string taskDir,
+        std::string headers)
     {
         if (*filefp == nullptr) {
+            std::string fileName = filePrefix + GetDateStr() + ".csv";
+            std::string dirPath;
+            if (devId.empty()) {
+                dirPath = projectDir_ + "/" + taskDir;
+            } else {
+                dirPath = projectDir_ + "/" + "device_" + devId + "/" + taskDir;
+            }
+            std::string filePath = dirPath + "/" + fileName;
+            FILE* fp = CreateFile(dirPath, fileName, DEFAULT_UMASK_FOR_CSV_FILE);
+            if (fp != nullptr) {
+                std::cout << "[msleaks] Info: create file " << filePath << "." << std::endl;
+                fprintf(fp, "%s", headers.c_str());
+                *filefp = fp;
+            } else {
+                std::cout << "[msleaks] Error: open file " << filePath << " failed." << std::endl;
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool FileCreateManager::CreateDbFile(sqlite3 **filefp, std::string devId, std::string filePrefix,
+        std::string taskDir, std::string tableName, std::string tableCreateSql)
+    {
+        if (*filefp == nullptr) {
+            std::string fileName = filePrefix + GetDateStr() + ".db";
+            std::string dirPath;
+            if (devId.empty()) {
+                dirPath = projectDir_ + "/" + taskDir;
+            } else {
+                dirPath = projectDir_ + "/" + "device_" + devId + "/" + taskDir;
+            }
+            std::string filePath = dirPath + "/" + fileName;
             // 在sqlite3_open前先创建好db文件
-            if (!FileExists(filePath)) {
-                FILE* fp = CreateFileWithUmask(filePath, "a", DEFAULT_UMASK_FOR_DB_FILE);
-                if (fp == nullptr) {
-                    std::cout << "[msleaks] Error: open file " << filePath << " failed." << std::endl;
-                    return false;
-                }
+            FILE* fp = CreateFile(dirPath, fileName, DEFAULT_UMASK_FOR_DB_FILE);
+            if (fp == nullptr) {
+                std::cout << "[msleaks] Error: open file " << filePath << " failed." << std::endl;
+                return false;
+            } else {
                 std::cout << "[msleaks] Info: create dbfile " << filePath << "." << std::endl;
             }
             sqlite3* db = nullptr;
             int rc = Sqlite3Open(filePath.c_str(), &db);
             if (rc != SQLITE_OK) {
-                std::cout << "[msleaks] Cannot open database: " << Sqlite3Errmsg(db) << std::endl;
+                std::cout << "[msleaks] Error: Cannot open database: " << Sqlite3Errmsg(db) << std::endl;
                 if (db != nullptr) {
                     Sqlite3Close(db);
                 }
@@ -178,4 +192,44 @@ namespace Utility {
         }
         return true;
     }
+
+    bool FileCreateManager::CreateLogFile(FILE **filefp, std::string taskDir, std::string& logFilePath)
+    {
+        if (*filefp == nullptr) {
+            std::string fileName = "msleaks_" + GetDateStr() + ".log";
+            std::string dirPath = projectDir_ + "/" + taskDir;
+            logFilePath = dirPath + "/" + fileName;
+            FILE* fp = CreateFile(dirPath, fileName, DEFAULT_UMASK_FOR_LOG_FILE);
+            if (fp == nullptr) {
+                std::cout << "[msleaks] Error: Create log file failed: " << logFilePath << std::endl;
+                return false;
+            } else {
+                std::cout << "[msleaks] Info: logging into file " << logFilePath << std::endl;
+                *filefp = fp;
+            }
+        }
+        return true;
+    }
+    
+    bool FileCreateManager::CreateDbTable(sqlite3 *filefp, std::string tableCreateSql)
+    {
+        Sqlite3BusyTimeout(filefp, Leaks::SQLITE_TIME_OUT);
+        int rc = Sqlite3Exec(filefp, tableCreateSql.c_str(), nullptr, nullptr, nullptr);
+        if (rc != SQLITE_OK) {
+            std::cout << "[msleaks] Error: Create SQLTable error: " << Sqlite3Errmsg(filefp) << std::endl;
+            return false;
+        }
+        return true;
+    }
+
+    std::string FileCreateManager::GetProjectDir()
+    {
+        return projectDir_;
+    }
+
+    void FileCreateManager::SetProjectDir(std::string dirPath)
+    {
+        projectDir_ = dirPath;
+    }
+
 }  // namespace Utility

@@ -16,7 +16,7 @@ aclError GetStreamID(aclrtStream stream, int32_t *streamId)
         vallina = VallinaSymbol<ACLImplLibLoader>::Instance().Get<AclrtGetStreamID>(sym);
     }
     if (vallina == nullptr) {
-        CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
+        LOG_ERROR("vallina func get FAILED: " + std::string(__func__));
         return ACL_ERROR_RT_FAILURE;
     }
     aclError ret = vallina(stream, streamId);
@@ -25,6 +25,9 @@ aclError GetStreamID(aclrtStream stream, int32_t *streamId)
 
 void MstxMarkAFunc(const char* msg, aclrtStream stream)
 {
+    if (!EventTraceManager::Instance().IsTracingEnabled()) {
+        return;
+    }
     int32_t streamId = -1;
     GetStreamID(stream, &streamId);
     MstxManager::GetInstance().ReportMarkA(msg, streamId);
@@ -32,6 +35,9 @@ void MstxMarkAFunc(const char* msg, aclrtStream stream)
 
 uint64_t MstxRangeStartAFunc(const char* msg, aclrtStream stream)
 {
+    if (!EventTraceManager::Instance().IsTracingEnabled()) {
+        return 0;
+    }
     int32_t streamId = -1;
     GetStreamID(stream, &streamId);
     return MstxManager::GetInstance().ReportRangeStart(msg, streamId);
@@ -39,6 +45,9 @@ uint64_t MstxRangeStartAFunc(const char* msg, aclrtStream stream)
 
 void  MstxRangeEndFunc(uint64_t id)
 {
+    if (!EventTraceManager::Instance().IsTracingEnabled()) {
+        return;
+    }
     MstxManager::GetInstance().ReportRangeEnd(id);
 }
 
@@ -49,7 +58,7 @@ bool MstxTableCoreInject(MstxGetModuleFuncTableFunc getFuncTable)
     if (getFuncTable == nullptr ||
         getFuncTable(mstxFuncModule::MSTX_API_MODULE_CORE, &outTable, &outSize) != MSTX_SUCCESS ||
         outTable == nullptr) {
-        CLIENT_ERROR_LOG("Failed to call getFuncTablecore");
+        LOG_ERROR("Failed to call getFuncTablecore");
         return false;
     }
 
@@ -77,7 +86,7 @@ bool MstxTableDomainCoreInject(MstxGetModuleFuncTableFunc getFuncTable)
     if (getFuncTable == nullptr ||
         getFuncTable(mstxFuncModule::MSTX_API_MODULE_CORE_DOMAIN, &outTable, &outSize) != MSTX_SUCCESS ||
         outTable == nullptr) {
-        CLIENT_ERROR_LOG("Failed to call getFuncTableDomaincore");
+        LOG_ERROR("Failed to call getFuncTableDomaincore");
         return false;
     }
 
@@ -95,7 +104,7 @@ bool MstxTableMemCoreInject(MstxGetModuleFuncTableFunc getFuncTable)
     if (getFuncTable == nullptr ||
         getFuncTable(mstxFuncModule::MSTX_API_MODULE_CORE_MEM, &outTable, &outSize) != MSTX_SUCCESS ||
         outTable == nullptr) {
-        CLIENT_ERROR_LOG("Failed to call getFuncTableMemcore");
+        LOG_ERROR("Failed to call getFuncTableMemcore");
         return false;
     }
 
@@ -121,26 +130,41 @@ bool MstxTableMemCoreInject(MstxGetModuleFuncTableFunc getFuncTable)
 
 mstxDomainHandle_t MstxDomainCreateAFunc(char const *domainName)
 {
+    if (!EventTraceManager::Instance().IsTracingEnabled()) {
+        return nullptr;
+    }
     return MstxManager::GetInstance().ReportDomainCreateA(domainName);
 }
 
 mstxMemHeapHandle_t MstxMemHeapRegisterFunc(mstxDomainHandle_t domain, mstxMemHeapDesc_t const *desc)
 {
+    if (!EventTraceManager::Instance().IsTracingEnabled()) {
+        return nullptr;
+    }
     return MstxManager::GetInstance().ReportHeapRegister(domain, desc);
 }
 
 void MstxMemHeapUnregisterFunc(mstxDomainHandle_t domain, mstxMemHeapHandle_t heap)
 {
+    if (!EventTraceManager::Instance().IsTracingEnabled()) {
+        return;
+    }
     MstxManager::GetInstance().ReportHeapUnregister(domain, heap);
 }
 
 void MstxMemRegionsRegisterFunc(mstxDomainHandle_t domain, mstxMemRegionsRegisterBatch_t const *desc)
 {
+    if (!EventTraceManager::Instance().IsTracingEnabled()) {
+        return;
+    }
     MstxManager::GetInstance().ReportRegionsRegister(domain, desc);
 }
 
 void MstxMemRegionsUnregisterFunc(mstxDomainHandle_t domain, mstxMemRegionsUnregisterBatch_t const *desc)
 {
+    if (!EventTraceManager::Instance().IsTracingEnabled()) {
+        return;
+    }
     MstxManager::GetInstance().ReportRegionsUnregister(domain, desc);
 }
 

@@ -20,35 +20,36 @@ namespace Utility {
     constexpr uint32_t DEFAULT_UMASK_FOR_CSV_FILE = 0177;
     constexpr uint32_t DEFAULT_UMASK_FOR_DB_FILE = 0177;
     constexpr uint32_t DEFAULT_UMASK_FOR_BIN_FILE = 0177;
+    constexpr uint32_t DEFAULT_UMASK_FOR_LOG_FILE = 0177;
     constexpr uint64_t MAX_INPUT_FILE_SIZE = 1UL << 33; // 8GB
 
-    class DirPathManager {
+    class FileCreateManager {
     public:
-        static DirPathManager& GetInstance()
-        {
-            static DirPathManager instance;
-            return instance;
-        }
+        static FileCreateManager& GetInstance(const std::string outputDir);
 
-        void SetDirPath(const std::string& path)
-        {
-            dirPath_ = path;
-        }
+        explicit FileCreateManager(const std::string outputDir);
 
-        std::string GetDirPath()
-        {
-            return dirPath_;
-        }
+        // 多线程情况下调用，需加锁保护
+        bool CreateCsvFile(FILE **filefp, std::string devId, std::string filePrefix, std::string taskDir,
+            std::string headers);
+        bool CreateDbFile(sqlite3 **filefp, std::string devId, std::string filePrefix, std::string taskDir,
+            std::string tableName, std::string tableCreateSql);
+        bool CreateLogFile(FILE **filefp, std::string taskDir, std::string& logFilePath);
 
-        void ClearDirPath()
-        {
-            dirPath_.clear();
-        }
+        /// 创建文件
+        FILE* CreateFileWithUmask(const std::string &path, const std::string &mode, mode_t mask);
+        FILE* CreateFile(const std::string &dir, const std::string &name, mode_t mask);
+        bool CreateDbTable(sqlite3 *filefp, std::string tableCreateSql);
+        bool CreateDir();
+        
+        std::string GetProjectDir();
+        std::string GetConfigFilePath() const;
+        void SetProjectDir(std::string dirPath);
     private:
-        std::string dirPath_;
+        std::string projectDir_;
     };
 
-    inline void SetDirPath(const std::string& dirPath, const std::string& defaultDirPath)
+    inline void SetDirPath(std::string& dirPath, const std::string& defaultDirPath)
     {
         if (dirPath.length() > PATH_MAX) {
             std::cout << "[msleaks] Error: Path " << dirPath << " length exceeds the maximum length:"
@@ -59,9 +60,7 @@ namespace Utility {
             Utility::Path path = Utility::Path{defaultDirPath};
             Utility::Path realPath = path.Resolved();
             if (realPath.ErrorOccured()) { return; }
-            DirPathManager::GetInstance().SetDirPath(realPath.ToString());
-        } else {
-            DirPathManager::GetInstance().SetDirPath(dirPath);
+            dirPath = realPath.ToString();
         }
     }
 
@@ -108,10 +107,6 @@ namespace Utility {
         return access(path.c_str(), F_OK) == 0;
     }
 
-    // 多线程情况下调用，需加锁保护
-    bool CreateCsvFile(FILE **filefp, std::string dirPath, std::string fileName, std::string headers);
-    bool CreateDbFile(sqlite3 **filefp, std::string filePath, std::string tableName, std::string tableCreateSql);
-
     template <typename... Args>
     inline bool Fprintf(FILE* fp, const std::string &format, const Args& ...args)
     {
@@ -152,11 +147,6 @@ namespace Utility {
     bool CheckFileBeforeCreate(const std::string &path);
     bool FileExists(const std::string& filePath);
     bool TableExists(sqlite3 *filefp, std::string tableName);
-    bool CreateDbPath(Leaks::Config &config, const std::string &fileName);
-    bool CreateDbTable(sqlite3 *filefp, std::string tableCreateSql);
-    /// 创建文件
-    FILE* CreateFileWithUmask(const std::string &path, const std::string &mode, mode_t mask);
-    FILE* CreateFile(const std::string &dir, const std::string &name, mode_t mask);
 
 }
 

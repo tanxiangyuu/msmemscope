@@ -37,7 +37,7 @@ private:
     bool IsIgnore(std::string funcName);
     PythonTrace()
     {
-        handler_ = MakeDataHandler(GetConfig(), DataType::PYTHON_TRACE_EVENT);
+        handler_ = MakeDataHandler(GetConfig(), DataType::PYTHON_TRACE_EVENT, EMPTY_DEVID);
     }
     ~PythonTrace() = default;
     std::unordered_map<uint64_t, std::stack<std::shared_ptr<TraceEvent>>> frameStack_;

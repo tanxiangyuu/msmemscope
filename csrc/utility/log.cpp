@@ -5,6 +5,8 @@
 #include <type_traits>
 #include <map>
 #include "file.h"
+#include "json_manager.h"
+#include "trace_manager/event_trace_manager.h"
 
 namespace Utility {
 
@@ -21,6 +23,14 @@ Log &Log::GetLog(void)
     static Log instance;
     return instance;
 }
+
+Log::Log(void)
+{
+    Leaks::Config config;
+    config = Leaks::GetConfig();
+    outputDir_ = config.outputDir;
+}
+
 Log::~Log()
 {
     if (fp_ != nullptr) {
@@ -38,19 +48,6 @@ std::string Log::AddPrefixInfo(std::string const &format, Leaks::LogLv lv, const
     std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", tm);
     std::string codePosition = "[" + fileName + ":" + std::to_string(line) + "] ";
     return std::string(buf) + " " + ToString(lv) + " " + codePosition + format;
-}
-bool Log::CreateLogFile()
-{
-    if (fp_ == nullptr) {
-        std::string fileName = "msleaks_" + GetDateStr() + ".log";
-        logFilePath_ = "./" + fileName;
-        if ((fp_ = CreateFile(".", fileName, DEFAULT_UMASK_FOR_LOG_FILE)) == nullptr) {
-            std::cout << "[msleaks] Error: Create log file failed: " << fileName << std::endl;
-            return false;
-        }
-        std::cout << "[msleaks] Info: logging into file " << fileName << std::endl;
-    }
-    return true;
 }
 void Log::SetLogLevel(const Leaks::LogLv &logLevel)
 {
