@@ -62,6 +62,7 @@ public:
     bool ReportAtenLaunch(RecordBuffer& atenOpLaunchRecordBuffer);
     bool ReportAtenAccess(RecordBuffer &memAccessRecordBuffer);
     bool ReportAddrInfo(RecordBuffer &infoBuffer);
+    void UpdateAnalysisType();
 private:
     void Init();
     explicit EventReport(LeaksCommType type);
