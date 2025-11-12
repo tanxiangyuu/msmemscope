@@ -10,15 +10,30 @@
 
 using namespace Leaks;
 
-TEST(EventReportTest, EventReportInstanceTest) {
+class EventReportTest : public ::testing::Test {
+protected:
+    void SetUp() override
+    {
+        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("./testmsleaks");
+    }
+
+    void TearDown() override
+    {
+        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("");
+        rmdir("./testmsleaks");
+    }
+};
+
+TEST_F(EventReportTest, EventReportInstanceTest)
+{
     EventReport& instance1 = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     EventReport& instance2 = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     EXPECT_EQ(&instance1, &instance2);
 }
 
-TEST(EventReportTest, ReportMallocTestDEVICE) {
+TEST_F(EventReportTest, ReportMallocTestDEVICE)
+{
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
-    instance.isReceiveServerInfo_ = true;
 
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
@@ -42,18 +57,17 @@ TEST(EventReportTest, ReportMallocTestDEVICE) {
 
     CallStackString callStack;
     EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
-    instance.isReceiveServerInfo_ = true;
 }
 
-TEST(EventReportTest, ReportAddrInfoTest) {
+TEST_F(EventReportTest, ReportAddrInfoTest)
+{
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     auto buffer = RecordBuffer::CreateRecordBuffer<AddrInfo>();
-    instance.isReceiveServerInfo_ = true;
     EXPECT_TRUE(instance.ReportAddrInfo(buffer));
-    instance.isReceiveServerInfo_ = true;
 }
 
-TEST(EventReportTest, ReportTorchNpuMallocTest) {
+TEST_F(EventReportTest, ReportTorchNpuMallocTest)
+{
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* npuRecordMalloc = buffer.Cast<MemPoolRecord>();
@@ -65,15 +79,14 @@ TEST(EventReportTest, ReportTorchNpuMallocTest) {
     memoryusage1.allocSize = 512;
     memoryusage1.totalAllocated = 512;
     npuRecordMalloc->memoryUsage = memoryusage1;
-    instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
     EXPECT_TRUE(instance.ReportMemPoolRecord(buffer));
-    instance.isReceiveServerInfo_ = true;
 }
 
-TEST(EventReportTest, ReportTorchNpuFreeTest) {
+TEST_F(EventReportTest, ReportTorchNpuFreeTest)
+{
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* npuRecordFree = buffer.Cast<MemPoolRecord>();
@@ -85,15 +98,14 @@ TEST(EventReportTest, ReportTorchNpuFreeTest) {
     memoryusage1.allocSize = 512;
     memoryusage1.totalAllocated = 512;
     npuRecordFree->memoryUsage = memoryusage1;
-    instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
     EXPECT_TRUE(instance.ReportMemPoolRecord(buffer));
-    instance.isReceiveServerInfo_ = true;
 }
 
-TEST(EventReportTest, ReportTorchNpuConditionTest) {
+TEST_F(EventReportTest, ReportTorchNpuConditionTest)
+{
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     auto buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
     MemPoolRecord* npuRecordFree = buffer.Cast<MemPoolRecord>();
@@ -105,7 +117,6 @@ TEST(EventReportTest, ReportTorchNpuConditionTest) {
     memoryusage1.allocSize = 512;
     memoryusage1.totalAllocated = 512;
     npuRecordFree->memoryUsage = memoryusage1;
-    instance.isReceiveServerInfo_ = true;
 
     EventTraceManager::Instance().SetTraceStatus(EventTraceStatus::NOT_IN_TRACING);
     EXPECT_TRUE(instance.ReportMemPoolRecord(buffer));
@@ -113,12 +124,11 @@ TEST(EventReportTest, ReportTorchNpuConditionTest) {
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
-    instance.isReceiveServerInfo_ = true;
     EXPECT_TRUE(instance.ReportMemPoolRecord(buffer));
-    instance.isReceiveServerInfo_ = true;
 }
 
-TEST(EventReportTest, ReportMallocTestHost) {
+TEST_F(EventReportTest, ReportMallocTestHost)
+{
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
@@ -135,13 +145,12 @@ TEST(EventReportTest, ReportMallocTestHost) {
     uint64_t testSize = 1024;
     unsigned long long testFlag = 504403158274934784;
     MemOpSpace space = MemOpSpace::HOST;
-    instance.isReceiveServerInfo_ = true;
     CallStackString callStack;
     EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
-    instance.isReceiveServerInfo_ = true;
 }
 
-TEST(EventReportTest, ReportFreeTest) {
+TEST_F(EventReportTest, ReportFreeTest)
+{
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
@@ -154,13 +163,12 @@ TEST(EventReportTest, ReportFreeTest) {
     config.enablePyStack = true;
     ConfigManager::Instance().SetConfig(config);
     uint64_t testAddr = 0x12345678;
-    instance.isReceiveServerInfo_ = true;
     CallStackString callStack;
     EXPECT_TRUE(instance.ReportFree(testAddr, callStack));
-    instance.isReceiveServerInfo_ = true;
 }
 
-TEST(EventReportTest, ReportMarkTest) {
+TEST_F(EventReportTest, ReportMarkTest)
+{
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
@@ -168,12 +176,11 @@ TEST(EventReportTest, ReportMarkTest) {
     auto buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>();
     MstxRecord* record = buffer.Cast<MstxRecord>();
     record->rangeId = 123;
-    instance.isReceiveServerInfo_ = true;
     EXPECT_TRUE(instance.ReportMark(buffer));
-    instance.isReceiveServerInfo_ = true;
 }
 
-TEST(EventReportTest, ReportKernelLaunchTest) {
+TEST_F(EventReportTest, ReportKernelLaunchTest)
+{
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
 
     Config config = Leaks::GetConfig();
@@ -187,7 +194,6 @@ TEST(EventReportTest, ReportKernelLaunchTest) {
     config.eventType = eventBit.getValue();
     ConfigManager::Instance().SetConfig(config);
 
-    instance.isReceiveServerInfo_ = true;
     int16_t devId = 1;
     int16_t streamId = 1;
     int16_t taskId = 1;
@@ -197,48 +203,44 @@ TEST(EventReportTest, ReportKernelLaunchTest) {
     kernelLaunchInfo.timestamp = 123;
     kernelLaunchInfo.kernelName = "add";
     EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchInfo));
-    instance.isReceiveServerInfo_ = true;
 }
 
-TEST(EventReportTest, ReportAclItfTest) {
+TEST_F(EventReportTest, ReportAclItfTest)
+{
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
-    instance.isReceiveServerInfo_ = true;
 
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
 
     EXPECT_TRUE(instance.ReportAclItf(RecordSubType::INIT));
-    instance.isReceiveServerInfo_ = true;
 }
 
-TEST(EventReportTest, ReportAtbOpExecuteTest) {
+TEST_F(EventReportTest, ReportAtbOpExecuteTest)
+{
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
-    instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
     char name[255] = "operation";
     char attr[255] = "path:model_struct";
     EXPECT_TRUE(instance.ReportAtbOpExecute(name, sizeof(name), attr, sizeof(attr), RecordSubType::ATB_START));
-    instance.isReceiveServerInfo_ = true;
 }
 
-TEST(EventReportTest, ReportAtbKernelTest) {
+TEST_F(EventReportTest, ReportAtbKernelTest)
+{
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
-    instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
     char name[255] = "operation";
     char attr[255] = "path:model_struct";
     EXPECT_TRUE(instance.ReportAtbKernel(name, sizeof(name), attr, sizeof(attr), RecordSubType::KERNEL_START));
-    instance.isReceiveServerInfo_ = true;
 }
 
-TEST(EventReportTest, ReportAtbMemAccessTest) {
+TEST_F(EventReportTest, ReportAtbMemAccessTest)
+{
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
-    instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
@@ -247,61 +249,51 @@ TEST(EventReportTest, ReportAtbMemAccessTest) {
     uint64_t addr = 123;
     uint64_t size = 1;
     EXPECT_TRUE(instance.ReportAtbAccessMemory(name, attr, addr, size, AccessType::UNKNOWN));
-    instance.isReceiveServerInfo_ = true;
 }
 
-TEST(EventReportTest, ReportAtenLaunchTestExpectSuccess)
+TEST_F(EventReportTest, ReportAtenLaunchTestExpectSuccess)
 {
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
-    instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
     auto atenOpLaunchRecord = RecordBuffer::CreateRecordBuffer<AtenOpLaunchRecord>();
     EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord));
-    instance.isReceiveServerInfo_ = true;
 }
 
-TEST(EventReportTest, ReportAtenAccessTestExpectSuccess)
+TEST_F(EventReportTest, ReportAtenAccessTestExpectSuccess)
 {
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
-    instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
     auto memAccessRecord = RecordBuffer::CreateRecordBuffer<MemAccessRecord>();
     EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord));
-    instance.isReceiveServerInfo_ = true;
 }
 
-TEST(EventReportTest, ReportAtenLaunchTestExpextSuccess)
+TEST_F(EventReportTest, ReportAtenLaunchTestExpextSuccess)
 {
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
-    instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
     auto atenOpLaunchRecord = RecordBuffer::CreateRecordBuffer<AtenOpLaunchRecord>();
     EXPECT_TRUE(instance.ReportAtenLaunch(atenOpLaunchRecord));
-    instance.isReceiveServerInfo_ = true;
 }
 
-TEST(EventReportTest, ReportAtenAccessTestExpextSuccess)
+TEST_F(EventReportTest, ReportAtenAccessTestExpextSuccess)
 {
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
-    instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
     auto memAccessRecord = RecordBuffer::CreateRecordBuffer<MemAccessRecord>();
     EXPECT_TRUE(instance.ReportAtenAccess(memAccessRecord));
-    instance.isReceiveServerInfo_ = true;
 }
 
-TEST(EventReportTest, ReportKernelExcuteTestExpextSuccess)
+TEST_F(EventReportTest, ReportKernelExcuteTestExpextSuccess)
 {
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
-    instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
@@ -312,7 +304,6 @@ TEST(EventReportTest, ReportKernelExcuteTestExpextSuccess)
     RecordSubType type = RecordSubType::KERNEL_START;
     TaskKey key;
     EXPECT_TRUE(instance.ReportKernelExcute(key, name, time, type));
-    instance.isReceiveServerInfo_ = true;
 }
 
 struct TestLoader {
@@ -323,8 +314,8 @@ struct TestLoader {
     }
 };
 
-TEST(EventReportTest, VallinaSymbolTest) {
-
+TEST_F(EventReportTest, VallinaSymbolTest)
+{
     using va = VallinaSymbol<TestLoader>;
     char const *symbol;
     va::Instance().Get(symbol);
@@ -339,10 +330,9 @@ void ResetEventReportStepInfo()
     return;
 }
 
-TEST(EventReportTest, TestReportSkipStepsNormal)
+TEST_F(EventReportTest, TestReportSkipStepsNormal)
 {
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
-    instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     config.stepList.stepCount = 3;
@@ -382,10 +372,9 @@ TEST(EventReportTest, TestReportSkipStepsNormal)
     ResetEventReportStepInfo();
 }
 
-TEST(EventReportTest, TestReportSkipStepsWithNoMstx)
+TEST_F(EventReportTest, TestReportSkipStepsWithNoMstx)
 {
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
-    instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     config.stepList.stepCount = 3;
@@ -399,10 +388,9 @@ TEST(EventReportTest, TestReportSkipStepsWithNoMstx)
     ResetEventReportStepInfo();
 }
 
-TEST(EventReportTest, TestReportSkipStepsWithOtherMessageMstx)
+TEST_F(EventReportTest, TestReportSkipStepsWithOtherMessageMstx)
 {
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
-    instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     config.stepList.stepCount = 3;
@@ -421,10 +409,9 @@ TEST(EventReportTest, TestReportSkipStepsWithOtherMessageMstx)
     ResetEventReportStepInfo();
 }
 
-TEST(EventReportTest, TestReportSkipStepsWithMstxEndMismatch)
+TEST_F(EventReportTest, TestReportSkipStepsWithMstxEndMismatch)
 {
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
-    instance.isReceiveServerInfo_ = true;
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
     config.stepList.stepCount = 3;
@@ -448,10 +435,9 @@ TEST(EventReportTest, TestReportSkipStepsWithMstxEndMismatch)
     ResetEventReportStepInfo();
 }
 
-TEST(EventReportTest, TestReportSkipStepsWithOnlyMstxEnd)
+TEST_F(EventReportTest, TestReportSkipStepsWithOnlyMstxEnd)
 {
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
-    instance.isReceiveServerInfo_ = true;
     
     Config config = Leaks::GetConfig();
     config.collectAllNpu = true;
@@ -470,7 +456,8 @@ TEST(EventReportTest, TestReportSkipStepsWithOnlyMstxEnd)
     ResetEventReportStepInfo();
 }
 
-TEST(EventReportTest, ReportTestWithNoReceiveServerInfo) {
+TEST_F(EventReportTest, ReportTestWithNoReceiveServerInfo)
+{
     EventReport& instance = EventReport::Instance(LeaksCommType::MEMORY_DEBUG);
     uint64_t testAddr = 0x12345678;
     uint64_t testSize = 1024;
@@ -510,49 +497,49 @@ constexpr uint64_t MEM_HOST_VAL = 0x2;
 constexpr uint64_t MEM_DVPP_VAL = 0x3;
 constexpr uint64_t MEM_INVALID_VAL = 0x4;
 
-TEST(GetMemOpSpaceFuncTest, GetMemOpSpaceIfINvalid)
+TEST_F(EventReportTest, GetMemOpSpaceIfINvalid)
 {
     unsigned long long flag = MEM_INVALID_VAL << MEM_VIRT_BIT;
     Leaks::MemOpSpace result = Leaks::GetMemOpSpace(flag);
     EXPECT_EQ(result, Leaks::MemOpSpace::INVALID);
 }
 
-TEST(GetMemOpSpaceFuncTest, GetMemOpSpaceIfSVM)
+TEST_F(EventReportTest, GetMemOpSpaceIfSVM)
 {
     unsigned long long flag = MEM_SVM_VAL << MEM_VIRT_BIT;
     Leaks::MemOpSpace result = Leaks::GetMemOpSpace(flag);
     EXPECT_EQ(result, Leaks::MemOpSpace::SVM);
 }
 
-TEST(GetMemOpSpaceFuncTest, GetMemOpSpaceIfDevice)
+TEST_F(EventReportTest, GetMemOpSpaceIfDevice)
 {
     unsigned long long flag = MEM_DEV_VAL << MEM_VIRT_BIT;
     Leaks::MemOpSpace result = Leaks::GetMemOpSpace(flag);
     EXPECT_EQ(result, Leaks::MemOpSpace::DEVICE);
 }
 
-TEST(GetMemOpSpaceFuncTest, GetMemOpSpaceIfHost)
+TEST_F(EventReportTest, GetMemOpSpaceIfHost)
 {
     unsigned long long flag = MEM_HOST_VAL << MEM_VIRT_BIT;
     Leaks::MemOpSpace result = Leaks::GetMemOpSpace(flag);
     EXPECT_EQ(result, Leaks::MemOpSpace::HOST);
 }
 
-TEST(GetMemOpSpaceFuncTest, GetMemOpSpaceIfDvpp)
+TEST_F(EventReportTest, GetMemOpSpaceIfDvpp)
 {
     unsigned long long flag = MEM_DVPP_VAL << MEM_VIRT_BIT;
     Leaks::MemOpSpace result = Leaks::GetMemOpSpace(flag);
     EXPECT_EQ(result, Leaks::MemOpSpace::DVPP);
 }
 
-TEST(GetMemOpSpaceFuncTest, GetMemOpSpaceIfOverType)
+TEST_F(EventReportTest, GetMemOpSpaceIfOverType)
 {
     unsigned long long flag = 0x5 << MEM_VIRT_BIT;
     Leaks::MemOpSpace result = Leaks::GetMemOpSpace(flag);
     EXPECT_EQ(result, Leaks::MemOpSpace::INVALID);
 }
 
-TEST(GetMemOpSpaceFuncTest, GetMemOpSpaceIfOverType1)
+TEST_F(EventReportTest, GetMemOpSpaceIfOverType1)
 {
     unsigned long long flag = 0xF << MEM_VIRT_BIT;
     Leaks::MemOpSpace result = Leaks::GetMemOpSpace(flag);
@@ -579,21 +566,21 @@ KernelLaunchRecord CreateKernelLaunchRecord(KernelLaunchRecord kernelLaunchRecor
     return record;
 }
 
-TEST(CreateAclItfRecordFuncTest, CreateAclItfRecordtestFinalize)
+TEST_F(EventReportTest, CreateAclItfRecordtestFinalize)
 {
     Leaks::RecordSubType subtype = Leaks::RecordSubType::FINALIZE;
     Leaks::AclItfRecord record = CreateAclItfRecord(subtype);
     EXPECT_EQ(subtype, record.subtype);
 }
 
-TEST(CreateAclItfRecordFuncTest, CreateAclItfRecordtestINIT)
+TEST_F(EventReportTest, CreateAclItfRecordtestINIT)
 {
     Leaks::RecordSubType subtype = Leaks::RecordSubType::INIT;
     Leaks::AclItfRecord record = CreateAclItfRecord(subtype);
     EXPECT_EQ(subtype, record.subtype);
 }
 
-TEST(GetSpaceFunc, GetMemOpSpaceExpectSuccess)
+TEST_F(EventReportTest, GetMemOpSpaceExpectSuccess)
 {
     unsigned long long flag = 0b00100000000000;
     ASSERT_EQ(GetMemOpSpace(flag), MemOpSpace::HOST);

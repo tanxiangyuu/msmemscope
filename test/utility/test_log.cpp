@@ -88,13 +88,3 @@ TEST(Log, log_level_different_threashold_expect_success)
     logger.fp_ = nullptr;
     EXPECT_TRUE(FindStr("output.txt", "message"));
 }
-
-TEST(Log, log_recv_expect_success)
-{
-    Log &logger = Log::GetLog();
-    logger.fp_ = fopen("output.txt", "w");
-    std::string testLog = "test log debug";
-    LOG_RECV(testLog);
-    logger.fp_ = nullptr;
-    EXPECT_TRUE(FindStr("output.txt", testLog));
-}

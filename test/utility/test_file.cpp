@@ -2,38 +2,36 @@
 
 #include <gtest/gtest.h>
 #include <dlfcn.h>
+#define private public
 #include "utility/file.h"
+#undef private
 #include "utility/log.h"
 #include "config_info.h"
 
 using namespace Utility;
 
-TEST(File, input_empty_path_expect_set_default_path)
-{
-    std::string pathStr;
-    SetDirPath(pathStr, std::string(Leaks::OUTPUT_PATH));
-    Utility::Path path = Utility::Path{std::string(Leaks::OUTPUT_PATH)};
-    auto realPath = path.Resolved().ToString();
-    ASSERT_EQ(Utility::DirPathManager::GetInstance().GetDirPath(), realPath);
-    Utility::DirPathManager::GetInstance().ClearDirPath();
-}
+class FileTest : public ::testing::Test {
+protected:
+    void SetUp() override
+    {
+        Utility::FileCreateManager::GetInstance("./testmsleaks");
+    }
+ 
+    void TearDown() override
+    {
+        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("");
+        rmdir("./testmsleaks");
+    }
+};
 
-TEST(File, input_path_expect_set_true_path)
-{
-    std::string pathStr = "test path";
-    SetDirPath(pathStr, std::string(Leaks::OUTPUT_PATH));
-    ASSERT_EQ(Utility::DirPathManager::GetInstance().GetDirPath(), pathStr);
-    Utility::DirPathManager::GetInstance().ClearDirPath();
-}
-
-TEST(File, make_empty_path_expect_return_false)
+TEST_F(FileTest, make_empty_path_expect_return_false)
 {
     std::string dirPath;
     auto ret = MakeDir(dirPath);
     ASSERT_FALSE(ret);
 }
 
-TEST(File, make_path_expect_return_true)
+TEST_F(FileTest, make_path_expect_return_true)
 {
     std::string dirPath = "test_dir";
     auto ret = MakeDir(dirPath);
@@ -41,7 +39,7 @@ TEST(File, make_path_expect_return_true)
     rmdir(dirPath.c_str());
 }
 
-TEST(File, make_recursive_path_expect_return_true)
+TEST_F(FileTest, make_recursive_path_expect_return_true)
 {
     std::string dirPath = "./test_dir/test1/test2";
     auto ret = MakeDir(dirPath);
@@ -52,7 +50,7 @@ TEST(File, make_recursive_path_expect_return_true)
 }
 
 
-TEST(File, make_exist_path_expect_return_false)
+TEST_F(FileTest, make_exist_path_expect_return_false)
 {
     char cwd[100];
     getcwd(cwd, sizeof(cwd));
@@ -61,42 +59,37 @@ TEST(File, make_exist_path_expect_return_false)
     ASSERT_TRUE(ret);
 }
 
-TEST(File, not_exist_path_expect_return_false)
+TEST_F(FileTest, not_exist_path_expect_return_false)
 {
     std::string path;
     auto ret = Exist(path);
     ASSERT_FALSE(ret);
 }
 
-TEST(File, exist_path_expect_return_false)
+TEST_F(FileTest, exist_path_expect_return_false)
 {
     std::string path = __FILE__;
     auto ret = Exist(path);
     ASSERT_TRUE(ret);
 }
 
-TEST(FILE, create_new_csv_file_expect_true)
+TEST_F(FileTest, create_new_csv_file_expect_true)
 {
     FILE *fp = nullptr;
-    auto ret = CreateCsvFile(&fp, "./testmsleaks", "test", "test_headers\n");
+    FileCreateManager::GetInstance("").projectDir_ = "./testmsleaks";
+    auto ret = FileCreateManager::GetInstance("./testmsleaks").CreateCsvFile(&fp, "0", "test",
+        Leaks::DUMP_DIR, "test_headers\n");
     ASSERT_TRUE(ret);
     fclose(fp);
     remove("./testmsleaks/test.csv");
     rmdir("./testmsleaks");
 }
 
-TEST(FILE, create_empty_csv_file_expect_false)
-{
-    FILE *fp = nullptr;
-    std::string dirPath;
-    auto ret = CreateCsvFile(&fp, dirPath, "test.csv", "test_headers\n");
-    ASSERT_FALSE(ret);
-}
-
-TEST(FILE, create_file_with_umask_failed)
+TEST_F(FileTest, create_file_with_umask_failed)
 {
     uint32_t mask = 0177;
     std::string path = "";
-    auto ret = CreateFileWithUmask(path, "", mask);
+    FileCreateManager::GetInstance("").projectDir_ = path;
+    auto ret = FileCreateManager::GetInstance(path).CreateFileWithUmask(path, "", mask);
     EXPECT_EQ(ret, nullptr);
 }

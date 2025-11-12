@@ -8,9 +8,8 @@
 #include <map>
 #include <set>
 #include <thread>
-#include "server_process.h"
-#include "protocol.h"
-#include "analysis/event.h"
+#include "event.h"
+#include "comm_def.h"
 
 namespace Leaks {
 struct ExecCmd {
@@ -32,24 +31,21 @@ private:
 */
 class Process {
 public:
+    static Process& GetInstance(Config config);
     explicit Process(const Config &config);
-    ~Process();
     void Launch(const std::vector<std::string> &execParams);
+    void RecordHandler(const RecordBuffer& record);
 private:
     void SetPreloadEnv();
     void DoLaunch(const ExecCmd &cmd);
-    void PostProcess(const ExecCmd &cmd);
 
-    void MsgHandle(size_t &clientId, std::string &msg);
-    void RecordHandler(const ClientId &clientId, const RecordBuffer& record);
     std::shared_ptr<EventBase> RecordToEvent(RecordBase* record);
-    void EventHandler(std::shared_ptr<EventBase> event);
     void MemoryRecordPreprocess(const ClientId &clientId, const RecordBase &record);
 private:
-    std::unique_ptr<ServerProcess> server_;
-    std::map<ClientId, Protocol> protocolList_;
     Config config_;
 };
+
+void EventHandler(std::shared_ptr<EventBase> event);
 
 }
 

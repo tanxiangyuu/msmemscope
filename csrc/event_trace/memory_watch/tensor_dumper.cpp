@@ -10,7 +10,6 @@
 #include "calculate_data_check_sum.h"
 #include "tensor_monitor.h"
 #include "memory_watch.h"
-#include "client_process.h"
 
 namespace Leaks {
 void CleanFileName(std::string& fileName)
@@ -24,7 +23,7 @@ void CleanFileName(std::string& fileName)
 }
 
 TensorDumper::TensorDumper() : fullContent_(GetConfig().watchConfig.fullContent),
-    dumpDir_(std::string(GetConfig().outputDir) + "/watch_dump")
+    dumpDir_(Utility::FileCreateManager::GetInstance(GetConfig().outputDir).GetProjectDir() + "/" + WATCH_DUMP_DIR)
 {
 }
 
@@ -67,18 +66,18 @@ bool TensorDumper::DumpTensorHashValue(const std::vector<uint8_t> &hostData, std
     if (csvFile_ == nullptr) {
         int32_t devId = GD_INVALID_NUM;
         if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
-            CLIENT_ERROR_LOG("get device id failed, " + std::to_string(devId));
+            LOG_ERROR("get device id failed, " + std::to_string(devId));
         }
-        fileName_ = "watch_dump_data_check_sum_" + std::to_string(devId) + "_";
-        if (!Utility::CreateCsvFile(&csvFile_, dumpDir_, fileName_, WATCH_HASH_HEADERS)) {
-            CLIENT_ERROR_LOG("Create csv file failed.");
+        if (!Utility::FileCreateManager::GetInstance(GetConfig().outputDir).CreateCsvFile(&csvFile_,
+            std::to_string(devId), WATCH_CSV_FILE_PREFIX, WATCH_DUMP_DIR, WATCH_HASH_HEADERS)) {
+            LOG_ERROR("Create csv file failed.");
             return false;
         }
     }
 
     auto hashValue = CalculateDataCheckSum64(hostData);
     if (!Utility::Fprintf(csvFile_, "%s,%s\n", fileName.c_str(), hashValue.c_str())) {
-        CLIENT_ERROR_LOG("Write tensor data check sum info failed.");
+        LOG_ERROR("Write tensor data check sum info failed.");
         return false;
     }
     return true;
@@ -87,7 +86,7 @@ bool TensorDumper::DumpTensorHashValue(const std::vector<uint8_t> &hostData, std
 bool TensorDumper::DumpOneTensor(const MonitoredTensor& tensor, std::string& fileName)
 {
     if (!Utility::MakeDir(dumpDir_)) {
-        CLIENT_ERROR_LOG("Make dir failed.");
+        LOG_ERROR("Make dir failed.");
         return false;
     }
     using AclrtMemcpy = decltype(&aclrtMemcpy);
@@ -123,13 +122,13 @@ void TensorDumper::SynchronizeStream(aclrtStream stream)
     using AclrtSynchronizeStream = decltype(&aclrtSynchronizeStream);
     static auto vallina = VallinaSymbol<AclLibLoader>::Instance().Get<AclrtSynchronizeStream>("aclrtSynchronizeStream");
     if (vallina == nullptr) {
-        CLIENT_ERROR_LOG("Gey aclrtSynchronizeStream func ptr failed");
+        LOG_ERROR("Gey aclrtSynchronizeStream func ptr failed");
         return;
     }
  
     int ret = vallina(stream);
     if (ret != ACL_SUCCESS) {
-        CLIENT_ERROR_LOG("Dump tensor synchronize stream failed, ret is" + std::to_string(ret));
+        LOG_ERROR("Dump tensor synchronize stream failed, ret is" + std::to_string(ret));
         return;
     }
     return;
@@ -146,7 +145,7 @@ void TensorDumper::Dump(aclrtStream stream, const std::string &op, bool isWatchS
         auto fileName = GetFileName(op, watchedOpName, outputId != UINT32_MAX ? outputId : index, isWatchStart);
         auto result = DumpOneTensor(tensorPair.second, fileName);
         if (!result) {
-            CLIENT_ERROR_LOG("Dump tensor failed, current op: " + op + ", watched op: " + watchedOpName);
+            LOG_ERROR("Dump tensor failed, current op: " + op + ", watched op: " + watchedOpName);
         }
         ++index;
     }
@@ -162,7 +161,7 @@ void TensorDumper::Dump(aclrtStream stream, const std::string &op, bool isWatchS
         }
         auto result = DumpOneTensor(tensorPair.second, fileName);
         if (!result) {
-            CLIENT_ERROR_LOG("Dump tensor failed, current op: " + op + ", watched op: " + watchedOpName);
+            LOG_ERROR("Dump tensor failed, current op: " + op + ", watched op: " + watchedOpName);
         }
         if (dumpNums > 0) {
             SetDumpNums(ptr, dumpNums-1);
