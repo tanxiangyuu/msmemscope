@@ -18,7 +18,7 @@ public:
     void EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state) override;
 private:
     explicit Dump(Config config);
-    ~Dump() override = default;
+    ~Dump() override;
     Dump(const Dump&) = delete;
     Dump& operator=(const Dump&) = delete;
     Dump(Dump&& other) = delete;
@@ -35,7 +35,8 @@ private:
     void WriteToFile(const std::shared_ptr<EventBase>& event);
 
     Config config_;
-    std::unique_ptr<DataHandler> handler_;
+    std::unordered_map<std::string, std::unique_ptr<DataHandler>> handlerMap_;
+    std::vector<std::shared_ptr<EventBase>> sharedEventLists_;
 };
 
 }

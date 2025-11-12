@@ -21,7 +21,7 @@ PyDoc_STRVAR(StartDoc,
 "start()\n--\n\nstart trace data.");
 static PyObject* MsleaksStart()
 {
-    EventTraceManager::Instance().SetTraceStatus(EventTraceStatus::IN_TRACING);
+    ConfigManager::Instance().InitStartConfig();
     Py_RETURN_NONE;
 }
 

@@ -11,6 +11,20 @@
 
 using namespace Leaks;
 
+class MemoryCompareTest : public ::testing::Test {
+protected:
+    void SetUp() override
+    {
+        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("./testmsleaks");
+    }
+
+    void TearDown() override
+    {
+        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("");
+        rmdir("./testmsleaks");
+    }
+};
+
 void CreateCsvData(ORIGINAL_FILE_DATA &data)
 {
     std::unordered_map<std::string, std::string> temp;
@@ -37,7 +51,7 @@ void CreateCsvData(ORIGINAL_FILE_DATA &data)
     data.emplace_back(temp);
 }
 
-TEST(MemoryCompareTest, do_read_csv_file_expect_read_correct_data)
+TEST_F(MemoryCompareTest, do_read_csv_file_expect_read_correct_data)
 {
     Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
     FILE *fp = fopen("test_leaks.csv", "w");
@@ -74,7 +88,7 @@ TEST(MemoryCompareTest, do_read_csv_file_expect_read_correct_data)
     remove("test_leaks.csv");
 }
 
-TEST(MemoryCompareTest, do_read_invalid_csv_file_expect_empty_data)
+TEST_F(MemoryCompareTest, do_read_invalid_csv_file_expect_empty_data)
 {
     Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
     Config config;
@@ -103,7 +117,7 @@ TEST(MemoryCompareTest, do_read_invalid_csv_file_expect_empty_data)
     remove("test_leaks.csv");
 }
 
-TEST(MemoryCompareTest, do_read_kernelLaunch_data_expect_return_true_and_correct_data)
+TEST_F(MemoryCompareTest, do_read_kernelLaunch_data_expect_return_true_and_correct_data)
 {
     Config config;
     BitField<decltype(config.levelType)> levelBit;
@@ -121,7 +135,7 @@ TEST(MemoryCompareTest, do_read_kernelLaunch_data_expect_return_true_and_correct
     ASSERT_EQ(std::get<2>(result[1]), 2);
 }
 
-TEST(MemoryCompareTest, do_read_no_kernelLaunch_data_expect_return_false_and_empty_data)
+TEST_F(MemoryCompareTest, do_read_no_kernelLaunch_data_expect_return_false_and_empty_data)
 {
     Config config;
     ORIGINAL_FILE_DATA data;
@@ -131,7 +145,7 @@ TEST(MemoryCompareTest, do_read_no_kernelLaunch_data_expect_return_false_and_emp
     ASSERT_EQ(result.size(), 0);
 }
 
-TEST(MemoryCompareTest, do_read_invalid_kernelLaunch_data_expect_falseand_empty_data)
+TEST_F(MemoryCompareTest, do_read_invalid_kernelLaunch_data_expect_falseand_empty_data)
 {
     Config config;
     ORIGINAL_FILE_DATA data;
@@ -143,7 +157,7 @@ TEST(MemoryCompareTest, do_read_invalid_kernelLaunch_data_expect_falseand_empty_
     ASSERT_EQ(result.size(), 0);
 }
 
-TEST(MemoryCompareTest, do_get_kernel_memory_diff_expect_correct_data)
+TEST_F(MemoryCompareTest, do_get_kernel_memory_diff_expect_correct_data)
 {
     Config config;
     ORIGINAL_FILE_DATA data;
@@ -165,7 +179,7 @@ TEST(MemoryCompareTest, do_get_kernel_memory_diff_expect_correct_data)
     ASSERT_EQ(result, 0);
 }
 
-TEST(MemoryCompareTest, do_write_compare_data_to_csv_expect_true)
+TEST_F(MemoryCompareTest, do_write_compare_data_to_csv_expect_true)
 {
     Config config;
     MemoryCompare memCompare{config};
@@ -179,7 +193,7 @@ TEST(MemoryCompareTest, do_write_compare_data_to_csv_expect_true)
     remove("test_leaks.csv");
 }
 
-TEST(MemoryCompareTest, do_empty_compare_data_to_csv_expect_false)
+TEST_F(MemoryCompareTest, do_empty_compare_data_to_csv_expect_false)
 {
     Config config;
     Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
@@ -190,7 +204,7 @@ TEST(MemoryCompareTest, do_empty_compare_data_to_csv_expect_false)
     remove("test_leaks.csv");
 }
 
-TEST(MemoryCompareTest, do_save_compare_kernel_memory_expect_correct_data)
+TEST_F(MemoryCompareTest, do_save_compare_kernel_memory_expect_correct_data)
 {
     Config config;
     ORIGINAL_FILE_DATA data;
@@ -212,7 +226,7 @@ TEST(MemoryCompareTest, do_save_compare_kernel_memory_expect_correct_data)
     ASSERT_EQ(memCompare.result_[0][1], temp);
 }
 
-TEST(MemoryCompareTest, do_build_path_expect_coorrect_data)
+TEST_F(MemoryCompareTest, do_build_path_expect_coorrect_data)
 {
     NAME_WITH_INDEX kernelIndexMap {};
     kernelIndexMap.emplace_back(std::make_tuple("matmul_v1", "KERNEL_LAUNCH", 1));
@@ -242,7 +256,7 @@ TEST(MemoryCompareTest, do_build_path_expect_coorrect_data)
     ASSERT_EQ(pathNode->j, pathNode1->j);
 }
 
-TEST(MemoryCompareTest, do_empty_path_build_diff_expect_empty_data)
+TEST_F(MemoryCompareTest, do_empty_path_build_diff_expect_empty_data)
 {
     Config config;
     std::shared_ptr<PathNode> pathNode;
@@ -253,7 +267,7 @@ TEST(MemoryCompareTest, do_empty_path_build_diff_expect_empty_data)
     ASSERT_EQ(memCompare.result_.size(), 0);
 }
 
-TEST(MemoryCompareTest, do_build_diff_expect_correct_data)
+TEST_F(MemoryCompareTest, do_build_diff_expect_correct_data)
 {
     std::shared_ptr<PathNode> pathNode1 = std::make_shared<DiffNode>(0, 0, nullptr);
     std::shared_ptr<PathNode> pathNode2 = std::make_shared<DiffNode>(1, 0, pathNode1);
@@ -278,15 +292,7 @@ TEST(MemoryCompareTest, do_build_diff_expect_correct_data)
     ASSERT_EQ(memCompare.result_[0].size(), 3);
 }
 
-TEST(MemoryCompareTest, set_dir_path)
-{
-    Config config;
-    Utility::SetDirPath("/MyPath", std::string(OUTPUT_PATH));
-    MemoryCompare::GetInstance(config).SetDirPath();
-    EXPECT_EQ(MemoryCompare::GetInstance(config).dirPath_, "/MyPath/" + std::string(COMPARE_FILE));
-}
-
-TEST(MemoryCompareTest, do_myersdiff_input_kernelLaunch_data)
+TEST_F(MemoryCompareTest, do_myersdiff_input_kernelLaunch_data)
 {
     Config config;
     NAME_WITH_INDEX kernelIndexMap {};
@@ -309,7 +315,7 @@ TEST(MemoryCompareTest, do_myersdiff_input_kernelLaunch_data)
     ASSERT_EQ(memCompare.result_[0].size(), 3);
 }
 
-TEST(MemoryCompareTest, do_stepinter_compare_input_invalid_path_return_empty_data)
+TEST_F(MemoryCompareTest, do_stepinter_compare_input_invalid_path_return_empty_data)
 {
     Config config;
     std::vector<std::string> paths;
@@ -321,7 +327,7 @@ TEST(MemoryCompareTest, do_stepinter_compare_input_invalid_path_return_empty_dat
     ASSERT_EQ(memCompare.baseFileOriginData_.size(), 0);
 }
 
-TEST(MemoryCompareTest, do_kernel_launch_compare)
+TEST_F(MemoryCompareTest, do_kernel_launch_compare)
 {
     Config config;
     BitField<decltype(config.levelType)> levelBit;

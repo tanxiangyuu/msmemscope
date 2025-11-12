@@ -10,14 +10,15 @@
 #include <thread>
 #include <atomic>
 #include <unordered_set>
-#include "client_process.h"
 #include "kernel_hooks/runtime_hooks.h"
 #include "record_info.h"
 #include "config_info.h"
-#include "protocol.h"
 #include "kernel_hooks/acl_hooks.h"
 #include "kernel_hooks/kernel_event_trace.h"
 #include "trace_manager/event_trace_manager.h"
+
+#include "process.h"
+#include "dump.h"
 
 namespace Leaks {
 
@@ -53,8 +54,7 @@ public:
     bool ReportAclItf(RecordSubType subtype);
     bool ReportTraceStatus(const EventTraceStatus status);
     bool ReportMark(RecordBuffer &mstxRecordBuffer);
-    int ReportRecordEvent(const RecordBuffer& record);
-    Config GetInitConfig();
+    void ReportRecordEvent(const RecordBuffer& record);
     bool ReportMemPoolRecord(RecordBuffer &memPoolRecordBuffer);
     bool ReportAtbOpExecute(char* name, uint32_t nameLength, char* attr, uint32_t attrLength, RecordSubType type);
     bool ReportAtbKernel(char* name, uint32_t nameLength, char* attr, uint32_t attrLength, RecordSubType type);
@@ -83,7 +83,6 @@ private:
 
     Config initConfig_;
 
-    std::atomic<bool> isReceiveServerInfo_;
     std::unordered_set<uint64_t> halPtrs_;
     std::atomic<bool> destroyed_{false};
 };

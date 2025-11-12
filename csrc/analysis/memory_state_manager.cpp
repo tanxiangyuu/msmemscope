@@ -4,6 +4,7 @@
 
 #include "log.h"
 #include "utility/utils.h"
+#include "process.h"
 
 namespace Leaks {
 
@@ -139,6 +140,14 @@ std::vector<std::pair<PoolType, MemoryStateKey>> MemoryStateManager::GetAllState
         }
     }
     return result;
+}
+
+MemoryStateManager::~MemoryStateManager()
+{
+    for (auto& state : GetAllStateKeys()) {
+        std::shared_ptr<EventBase> event = std::make_shared<CleanUpEvent>(state.first, state.second.pid, state.second.addr);
+        EventHandler(event);
+    }
 }
 
 }

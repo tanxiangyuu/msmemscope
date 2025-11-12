@@ -6,17 +6,17 @@
 #include <sys/wait.h>
 #include <iostream>
 #include <memory>
-
 #include "path.h"
 #include "ustring.h"
 #include "log.h"
-#include "serializer.h"
 #include "analysis/mstx_analyzer.h"
 #include "analysis/hal_analyzer.h"
 #include "analysis/stepinner_analyzer.h"
 #include "analysis/event.h"
 #include "analysis/memory_state_manager.h"
 #include "analysis/event_dispatcher.h"
+#include "analysis/decompose_analyzer.h"
+#include "analysis/inefficient_analyzer.h"
 
 namespace Leaks {
 
@@ -56,18 +56,15 @@ char *const *ExecCmd::ExecArgv(void) const
     return argv_.data();
 }
 
+Process& Process::GetInstance(Config config)
+{
+    static Process process{config};
+    return process;
+}
+
 Process::Process(const Config &config)
 {
     config_ = config;
-    server_ = std::unique_ptr<ServerProcess>(new ServerProcess(LeaksCommType::SHARED_MEMORY));
-
-    server_->SetClientConnectHook([this, config](ClientId clientId) {
-            this->server_->Notify(clientId, Serialize<Config>(config));
-        });
-    auto func = std::bind(&Process::MsgHandle, this, std::placeholders::_1, std::placeholders::_2);
-
-    server_->SetMsgHandlerHook(func);
-    server_->Start();
 }
 
 std::shared_ptr<EventBase> Process::RecordToEvent(RecordBase* record)
@@ -120,128 +117,33 @@ std::shared_ptr<EventBase> Process::RecordToEvent(RecordBase* record)
     return it->second(record);
 }
 
-void Process::RecordHandler(const ClientId &clientId, const RecordBuffer& buffer)
+void Process::RecordHandler(const RecordBuffer& buffer)
 {
     RecordBase* record = buffer.Cast<RecordBase>();
     EventHandler(RecordToEvent(record));
 
     switch (record->type) {
         case RecordType::MEMORY_RECORD:
-            HalAnalyzer::GetInstance(config_).Record(clientId, *record);
+            HalAnalyzer::GetInstance(config_).Record(record->pid, *record);
             break;
         case RecordType::MSTX_MARK_RECORD:
-            MstxAnalyzer::Instance().RecordMstx(clientId, static_cast<const MstxRecord&>(*record));
+            MstxAnalyzer::Instance().RecordMstx(record->pid, static_cast<const MstxRecord&>(*record));
             break;
         case RecordType::PTA_CACHING_POOL_RECORD:
         case RecordType::ATB_MEMORY_POOL_RECORD:
         case RecordType::MINDSPORE_NPU_RECORD:
-            StepInnerAnalyzer::GetInstance(config_).Record(clientId, *record);
+            StepInnerAnalyzer::GetInstance(config_).Record(record->pid, *record);
             break;
         default:
             break;
     }
 }
 
-void Process::EventHandler(std::shared_ptr<EventBase> event)
-{
-    if (event == nullptr) {
-        return;
-    }
-
-    MemoryState* state = nullptr;
-    if (event->eventType == EventBaseType::MALLOC || event->eventType == EventBaseType::FREE
-        || event->eventType == EventBaseType::ACCESS) {
-        auto memEvent = std::dynamic_pointer_cast<MemoryEvent>(event);
-        if (memEvent && !MemoryStateManager::GetInstance().AddEvent(memEvent)) {
-            // 添加事件失败时，表明对应位置已存在事件，需先清空事件列表
-            std::shared_ptr<EventBase> cleanUpEvent = std::make_shared<CleanUpEvent>(
-                memEvent->poolType, memEvent->pid, memEvent->addr);
-            EventHandler(cleanUpEvent);                                 // 最大递归深度为2，因为这里传入事件的类型为CLEAN_UP
-            MemoryStateManager::GetInstance().AddEvent(memEvent);       // 再次尝试添加
-        }
-        if (memEvent) {
-            state = MemoryStateManager::GetInstance().GetState(memEvent);
-        }
-    } else if (event->eventType == EventBaseType::MEMORY_OWNER || event->eventType == EventBaseType::CLEAN_UP) {
-        state = MemoryStateManager::GetInstance().GetState(event);
-    } else if (event->eventSubType == EventSubType::TRACE_START || event->eventSubType == EventSubType::TRACE_STOP) {
-        for (auto& state : MemoryStateManager::GetInstance().GetAllStateKeys()) {
-            // 清空对应pid的所有事件
-            if (event->pid == state.second.pid) {
-                std::shared_ptr<EventBase> cleanUpEvent = std::make_shared<CleanUpEvent>(
-                    state.first, state.second.pid, state.second.addr);
-                EventHandler(cleanUpEvent);
-            }
-        }
-    }
-
-    EventDispatcher::GetInstance().DispatchEvent(event, state);
-
-    // 内存块生命周期结束，删除相关缓存数据
-    if (event->eventType == EventBaseType::FREE || event->eventType == EventBaseType::CLEAN_UP) {
-        MemoryStateManager::GetInstance().DeteleState(event->poolType, MemoryStateKey{event->pid, event->addr});
-    }
-}
-
-void Process::MsgHandle(size_t &clientId, std::string &msg)
-{
-    if (protocolList_.find(clientId) == protocolList_.end()) {
-        auto result = protocolList_.insert({clientId, Protocol{}});
-        if (!result.second) {
-            LOG_ERROR("Add elements to protocolList failed, clientId = %u", clientId);
-            return;
-        }
-    }
-
-    Protocol protocol = protocolList_[clientId];
-    protocol.Feed(msg);
-
-    PacketHead head;
-    while (true) {
-        if (!protocol.View(head)) {
-            return;
-        }
-        if (protocol.Size() < sizeof(head) + head.length) {
-            return;
-        }
-
-        switch (head.type) {
-            case PacketType::LOG: {
-                auto packet = protocol.GetPacket();
-                auto log = packet.GetPacketBody().log;
-                LOG_RECV("%s", std::string(log.buf, log.buf + log.len).c_str());
-                break;
-            }
-            case PacketType::RECORD: {
-                std::string data;
-                protocol.Read(head);
-                protocol.GetStringData(data, head.length);
-                RecordBuffer buffer(std::move(data));
-                RecordHandler(clientId, buffer);
-                break;
-            }
-            default:
-                return;
-        }
-    }
-    return;
-}
-
 void Process::Launch(const std::vector<std::string> &execParams)
 {
     ExecCmd cmd(execParams);
-    ::pid_t pid = ::fork();
-    if (pid == -1) {
-        std::cout << "fork fail" << std::endl;
-        return;
-    }
-
-    if (pid == 0) {
-        SetPreloadEnv();
-        DoLaunch(cmd);  // 执行被检测程序
-    } else {
-        PostProcess(cmd);  // 等待子进程结束，期间不断将client发回的数据转发给分析模块
-    }
+    SetPreloadEnv();
+    DoLaunch(cmd);  // 执行被检测程序
 
     return;
 }
@@ -253,7 +155,6 @@ void Process::SetPreloadEnv()
     if (preloadPath != nullptr && !string(preloadPath).empty()) {
         hookLibDir = preloadPath;
     }
-
     std::vector<string> hookLibNames{
         "libleaks_ascend_hal_hook.so",
         "libascend_mstx_hook.so",
@@ -306,28 +207,45 @@ void Process::DoLaunch(const ExecCmd &cmd)
     _exit(EXIT_FAILURE);
 }
 
-void Process::PostProcess(const ExecCmd &cmd)
+void EventHandler(std::shared_ptr<EventBase> event)
 {
-    auto status = int32_t{};
-    wait(&status);
+    if (event == nullptr) {
+        return;
+    }
 
-    if (WIFEXITED(status)) {
-        if (WEXITSTATUS(status) != EXIT_SUCCESS) {
-            std::cout << "[msleaks] user program " << cmd.ExecPath() << " exited abnormally" << std::endl;
+    MemoryState* state = nullptr;
+    if (event->eventType == EventBaseType::MALLOC || event->eventType == EventBaseType::FREE
+        || event->eventType == EventBaseType::ACCESS) {
+        auto memEvent = std::dynamic_pointer_cast<MemoryEvent>(event);
+        if (memEvent && !MemoryStateManager::GetInstance().AddEvent(memEvent)) {
+            // 添加事件失败时，表明对应位置已存在事件，需先清空事件列表
+            std::shared_ptr<EventBase> cleanUpEvent = std::make_shared<CleanUpEvent>(
+                memEvent->poolType, memEvent->pid, memEvent->addr);
+            EventHandler(cleanUpEvent);                                 // 最大递归深度为2，因为这里传入事件的类型为CLEAN_UP
+            MemoryStateManager::GetInstance().AddEvent(memEvent);       // 再次尝试添加
         }
-    } else if (WIFSIGNALED(status)) {
-        int sig = WTERMSIG(status);
-        std::cout << "[msleaks] user program exited by signal: " << sig << std::endl;
+        if (memEvent) {
+            state = MemoryStateManager::GetInstance().GetState(memEvent);
+        }
+    } else if (event->eventType == EventBaseType::MEMORY_OWNER || event->eventType == EventBaseType::CLEAN_UP) {
+        state = MemoryStateManager::GetInstance().GetState(event);
+    } else if (event->eventSubType == EventSubType::TRACE_START || event->eventSubType == EventSubType::TRACE_STOP) {
+        for (auto& state : MemoryStateManager::GetInstance().GetAllStateKeys()) {
+            // 清空对应pid的所有事件
+            if (event->pid == state.second.pid) {
+                std::shared_ptr<EventBase> cleanUpEvent = std::make_shared<CleanUpEvent>(
+                    state.first, state.second.pid, state.second.addr);
+                EventHandler(cleanUpEvent);
+            }
+        }
     }
 
-    return;
-}
+    EventDispatcher::GetInstance().DispatchEvent(event, state);
 
-Process::~Process()
-{
-    for (auto& state : MemoryStateManager::GetInstance().GetAllStateKeys()) {
-        std::shared_ptr<EventBase> event = std::make_shared<CleanUpEvent>(state.first, state.second.pid, state.second.addr);
-        EventHandler(event);
+    // 内存块生命周期结束，删除相关缓存数据
+    if (event->eventType == EventBaseType::FREE || event->eventType == EventBaseType::CLEAN_UP) {
+        MemoryStateManager::GetInstance().DeteleState(event->poolType, MemoryStateKey{event->pid, event->addr});
     }
 }
+
 }  // namespace Leaks

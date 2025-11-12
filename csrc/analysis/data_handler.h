@@ -13,8 +13,8 @@
 #include "record_info.h"
 #include "utils.h"
 #include "file.h"
-#include "utility/log.h"
-#include "utility/sqlite_loader.h"
+#include "log.h"
+#include "sqlite_loader.h"
 #include "constant.h"
 #include "python_trace_event.h"
 #include "event.h"
@@ -42,7 +42,7 @@ private:
 class CsvHandler : public DataHandler {
 public:
     ~CsvHandler() override;
-    explicit CsvHandler(const Config config, DataType dataType);
+    explicit CsvHandler(const Config config, DataType dataType, std::string devId);
     bool Init() override;
     bool Write(std::shared_ptr<DataBase> data) override;
 
@@ -54,7 +54,7 @@ private:
     std::string csvHeader_;
     std::string prefix_;
     DataType dataType_;
-    std::string dirPath_;
+    std::string devId_;
     std::mutex csvFileMutex_;
     std::mutex dumpFileMutex_;
     std::mutex traceFileMutex_;
@@ -62,7 +62,7 @@ private:
 
 class DbHandler : public DataHandler {
 public:
-    explicit DbHandler(const Config config, DataType dataType);
+    explicit DbHandler(const Config config, DataType dataType, std::string devId);
     ~DbHandler() override;
     bool Init() override;
     bool Write(std::shared_ptr<DataBase> data) override;
@@ -78,8 +78,8 @@ private:
     std::vector<std::string> traceColumns_;
     std::string dbHeader_;
     std::string tableName_;
-    std::string dirPath_;
     DataType dataType_;
+    std::string devId_;
     std::mutex dbFileMutex_;
 };
 
@@ -88,7 +88,7 @@ std::string BuildInsertStatement(const std::string& table, const std::vector<std
 std::string BuildCreateStatement(const std::string& table,
     const std::vector<std::pair<std::string, std::string>>& columns);
 
-std::unique_ptr<DataHandler> MakeDataHandler(Config config, DataType dataType);
+std::unique_ptr<DataHandler> MakeDataHandler(Config config, DataType data, std::string devId);
 std::string FixJson(const std::string& input);
 std::vector<std::string> ParserHeader(const std::vector<std::pair<std::string, std::string>>& header);
 }

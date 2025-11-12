@@ -17,7 +17,6 @@ Dump& Dump::GetInstance(Config config)
 Dump::Dump(Config config)
 {
     config_ = config;
-    handler_ = MakeDataHandler(config_, DataType::LEAKS_EVENT);
     auto func = std::bind(&Dump::EventHandle, this, std::placeholders::_1, std::placeholders::_2);
     std::vector<EventBaseType> eventList{
         EventBaseType::FREE,
@@ -146,10 +145,24 @@ void Dump::DumpSystemEvent(std::shared_ptr<SystemEvent>& event)
 
 void Dump::WriteToFile(const std::shared_ptr<EventBase>& event)
 {
-    if (!handler_) {
-        LOG_ERROR("Write into file failed.");
-        return;
+    if (event->device == "N/A") {
+        sharedEventLists_.push_back(event);
+        return ;
     }
-    handler_->Write(event);
+    auto it = handlerMap_.find(event->device);
+    if (it == handlerMap_.end()) {
+        handlerMap_.insert({event->device, MakeDataHandler(config_, DataType::LEAKS_EVENT, event->device)});
+    }
+    handlerMap_[event->device]->Write(event);
 }
+
+Dump::~Dump()
+{
+    for (auto& event : sharedEventLists_) {
+        for (auto& handler : handlerMap_) {
+            handler.second->Write(event);
+        }
+    }
+}
+
 }

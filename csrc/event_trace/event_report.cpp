@@ -6,8 +6,6 @@
 #include <unistd.h>
 #include <chrono>
 #include "log.h"
-#include "protocol.h"
-#include "serializer.h"
 #include "utils.h"
 #include "vallina_symbol.h"
 #include "ustring.h"
@@ -16,6 +14,10 @@
 #include "bit_field.h"
 #include "kernel_hooks/runtime_prof_api.h"
 #include "describe_trace.h"
+
+#include "decompose_analyzer.h"
+#include "inefficient_analyzer.h"
+#include "json_manager.h"
 
 namespace Leaks {
 bool g_isReportHostMem = false;
@@ -47,7 +49,7 @@ MemOpSpace GetMemOpSpace(unsigned long long flag)
             space = MemOpSpace::DVPP;
             break;
         default:
-            CLIENT_ERROR_LOG("No matching memType for " + std::to_string(memType));
+            LOG_ERROR("No matching memType for " + std::to_string(memType));
     }
     return space;
 }
@@ -70,7 +72,7 @@ bool GetDevice(int32_t *devId)
         vallina = VallinaSymbol<ACLImplLibLoader>::Instance().Get<AclrtGetDevice>(sym);
     }
     if (vallina == nullptr) {
-        CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__) + ", try to get it in legacy way.");
+        LOG_ERROR("vallina func get FAILED: " + std::string(__func__) + ", try to get it in legacy way.");
         
         // 添加老版本的GetDevice逻辑，用于兼容情况如开放态场景
         char const *l_sym = "rtGetDevice";
@@ -80,7 +82,7 @@ bool GetDevice(int32_t *devId)
             l_vallina = VallinaSymbol<RuntimeLibLoader>::Instance().Get<RtGetDevice>(l_sym);
         }
         if (l_vallina == nullptr) {
-            CLIENT_ERROR_LOG("vallina func get FAILED in legacy way: " + std::string(__func__));
+            LOG_ERROR("vallina func get FAILED in legacy way: " + std::string(__func__));
             return false;
         }
 
@@ -98,17 +100,9 @@ bool GetDevice(int32_t *devId)
     return true;
 }
 
-int EventReport::ReportRecordEvent(const RecordBuffer& record)
+void EventReport::ReportRecordEvent(const RecordBuffer& record)
 {
-    std::string head = Serialize<PacketHead>(PacketHead{PacketType::RECORD, record.Size()});
-    std::string buffer =  head + record.Get();
-    auto sendNums = ClientProcess::GetInstance(LeaksCommType::SHARED_MEMORY).Notify(buffer);
-    if (sendNums < 0) {
-        isReceiveServerInfo_.store(false);
-        std::cerr << "Process[" << Utility::GetPid() << "]: Client connection interrupted." << std::endl;
-    }
-
-    return sendNums;
+    Process::GetInstance(initConfig_).RecordHandler(record);
 }
 
 EventReport& EventReport::Instance(LeaksCommType type)
@@ -122,25 +116,22 @@ void EventReport::Init()
     recordIndex_.store(0);
     kernelLaunchRecordIndex_.store(0);
     aclItfRecordIndex_.store(0);
-    isReceiveServerInfo_.store(false);
-}
-
-Config EventReport::GetInitConfig()
-{
-    return initConfig_;
 }
 
 EventReport::EventReport(LeaksCommType type)
 {
     Init();
+    initConfig_ = GetConfig();
 
-    (void)ClientProcess::GetInstance(type); // 连接server
-    std::string msg;
-    uint32_t reTryTimes = 5; // 当前系统设置（setsockopt）的read超时时长是1s，默认至多尝试5次
-    isReceiveServerInfo_ = (ClientProcess::GetInstance(type).Wait(msg, reTryTimes) > 0) ? true : false;
-    Deserialize(msg, initConfig_);
-
-    ClientProcess::GetInstance(type).SetLogLevel(static_cast<LogLv>(initConfig_.logLevel));
+    // subscribe订阅
+    BitField<decltype(initConfig_.analysisType)> analysisType(initConfig_.analysisType);
+    if (analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
+        DecomposeAnalyzer::GetInstance();
+    }
+    if (analysisType.checkBit(static_cast<size_t>(AnalysisType::INEFFICIENCY_ANALYSIS))) {
+        InefficientAnalyzer::GetInstance();
+    }
+    Dump::GetInstance(initConfig_);
 
     RegisterRtProfileCallback();
 
@@ -174,17 +165,8 @@ bool EventReport::IsNeedSkip(int32_t devid)
     return true;
 }
 
-bool EventReport::IsConnectToServer()
-{
-    return isReceiveServerInfo_;
-}
-
 bool EventReport::ReportAddrInfo(RecordBuffer &infoBuffer)
 {
-    if (!IsConnectToServer()) {
-        return true;
-    }
-
     int32_t devId = GD_INVALID_NUM;
     GetDevice(&devId);
     if (IsNeedSkip(devId)) {
@@ -193,17 +175,14 @@ bool EventReport::ReportAddrInfo(RecordBuffer &infoBuffer)
 
     AddrInfo* info = infoBuffer.Cast<AddrInfo>();
     info->type = RecordType::ADDR_INFO_RECORD;
-    auto sendNums = ReportRecordEvent(infoBuffer);
-    return (sendNums >= 0);
+    ReportRecordEvent(infoBuffer);
+    return true;
 }
 
 bool EventReport::ReportMemPoolRecord(RecordBuffer &memPoolRecordBuffer)
 {
-    if (!EventTraceManager::Instance().IsNeedTrace(RecordType::MEMORY_POOL_RECORD)) {
-        return true;
-    }
-    
-    if (!IsConnectToServer()) {
+    if (!EventTraceManager::Instance().IsTracingEnabled() ||
+        !EventTraceManager::Instance().ShouldTraceType(RecordType::MEMORY_POOL_RECORD)) {
         return true;
     }
 
@@ -216,17 +195,13 @@ bool EventReport::ReportMemPoolRecord(RecordBuffer &memPoolRecordBuffer)
     record->kernelIndex = kernelLaunchRecordIndex_;
     record->devId = devId;
     record->recordIndex = ++recordIndex_;
-    auto sendNums = ReportRecordEvent(memPoolRecordBuffer);
+    ReportRecordEvent(memPoolRecordBuffer);
 
-    return (sendNums >= 0);
+    return true;
 }
 
 bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag, CallStackString& stack)
 {
-    if (!IsConnectToServer()) {
-        return true;
-    }
-
     // bit0~9 devId
     int32_t devId = (flag & 0x3FF);
     if (IsNeedSkip(devId)) {
@@ -263,17 +238,13 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
         }
     }
 
-    auto sendNums = ReportRecordEvent(buffer);
+    ReportRecordEvent(buffer);
 
-    return (sendNums >= 0);
+    return true;
 }
 
 bool EventReport::ReportFree(uint64_t addr, CallStackString& stack)
 {
-    if (!IsConnectToServer()) {
-        return true;
-    }
-
     if (IsNeedSkip(GD_INVALID_NUM)) {
         return true;
     }
@@ -306,9 +277,9 @@ bool EventReport::ReportFree(uint64_t addr, CallStackString& stack)
     record->recordIndex = ++recordIndex_;
     record->kernelIndex = kernelLaunchRecordIndex_;
 
-    auto sendNums = ReportRecordEvent(buffer);
+    ReportRecordEvent(buffer);
 
-    return (sendNums >= 0);
+    return true;
 }
 
 void EventReport::SetStepInfo(const MstxRecord &mstxRecord)
@@ -345,13 +316,9 @@ void EventReport::SetStepInfo(const MstxRecord &mstxRecord)
 
 bool EventReport::ReportMark(RecordBuffer &mstxRecordBuffer)
 {
-    if (!IsConnectToServer()) {
-        return true;
-    }
-
     int32_t devId = GD_INVALID_NUM;
     if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
-        CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+        LOG_ERROR("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
     MstxRecord* record = mstxRecordBuffer.Cast<MstxRecord>();
@@ -367,20 +334,16 @@ bool EventReport::ReportMark(RecordBuffer &mstxRecordBuffer)
         return true;
     }
 
-    auto sendNums = ReportRecordEvent(mstxRecordBuffer);
+    ReportRecordEvent(mstxRecordBuffer);
 
-    return (sendNums >= 0);
+    return true;
 }
 
 bool EventReport::ReportAtenLaunch(RecordBuffer &atenOpLaunchRecordBuffer)
 {
-    if (!IsConnectToServer()) {
-        return true;
-    }
-
     int32_t devId = GD_INVALID_NUM;
     if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
-        CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+        LOG_ERROR("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
     if (IsNeedSkip(devId)) {
@@ -392,20 +355,16 @@ bool EventReport::ReportAtenLaunch(RecordBuffer &atenOpLaunchRecordBuffer)
     record->devId = devId;
     record->recordIndex = ++recordIndex_;
 
-    auto sendNums = ReportRecordEvent(atenOpLaunchRecordBuffer);
+    ReportRecordEvent(atenOpLaunchRecordBuffer);
 
-    return (sendNums >= 0);
+    return true;
 }
 
 bool EventReport::ReportAtenAccess(RecordBuffer &memAccessRecordBuffer)
 {
-    if (!IsConnectToServer()) {
-        return true;
-    }
-
     int32_t devId = GD_INVALID_NUM;
     if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
-        CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+        LOG_ERROR("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
     if (IsNeedSkip(devId)) {
@@ -417,25 +376,22 @@ bool EventReport::ReportAtenAccess(RecordBuffer &memAccessRecordBuffer)
     record->devId = devId;
     record->recordIndex = ++recordIndex_;
 
-    auto sendNums = ReportRecordEvent(memAccessRecordBuffer);
+    ReportRecordEvent(memAccessRecordBuffer);
 
-    return (sendNums >= 0);
+    return true;
 }
 
 bool EventReport::ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
 {
-    if (!EventTraceManager::Instance().IsNeedTrace(RecordType::KERNEL_LAUNCH_RECORD)) {
-        return true;
-    }
-
-    if (!IsConnectToServer()) {
+    if (!EventTraceManager::Instance().IsTracingEnabled() ||
+        !EventTraceManager::Instance().ShouldTraceType(RecordType::KERNEL_LAUNCH_RECORD)) {
         return true;
     }
 
     int32_t devId = std::get<0>(kernelLaunchInfo.taskKey);
     if (devId < 0) {
         if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
-            CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+            LOG_ERROR("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
         }
     }
 
@@ -453,21 +409,16 @@ bool EventReport::ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
     record->kernelLaunchIndex = ++kernelLaunchRecordIndex_;
     record->recordIndex = ++recordIndex_;
     record->timestamp = kernelLaunchInfo.timestamp;
-    auto sendNums = ReportRecordEvent(buffer);
-    if (sendNums < 0) {
-        return false;
-    }
+
+    ReportRecordEvent(buffer);
 
     return true;
 }
 
 bool EventReport::ReportKernelExcute(const TaskKey &key, std::string &name, uint64_t time, RecordSubType type)
 {
-    if (!EventTraceManager::Instance().IsNeedTrace(RecordType::KERNEL_EXCUTE_RECORD)) {
-        return true;
-    }
-
-    if (!IsConnectToServer()) {
+    if (!EventTraceManager::Instance().IsTracingEnabled() ||
+        !EventTraceManager::Instance().ShouldTraceType(RecordType::KERNEL_EXCUTE_RECORD)) {
         return true;
     }
     
@@ -484,16 +435,13 @@ bool EventReport::ReportKernelExcute(const TaskKey &key, std::string &name, uint
     record->taskId = std::get<2>(key);
     record->recordIndex = ++recordIndex_;
     record->timestamp = time;
-    auto sendNums = ReportRecordEvent(buffer);
 
-    return (sendNums >= 0);
+    ReportRecordEvent(buffer);
+
+    return true;
 }
 bool EventReport::ReportAclItf(RecordSubType subtype)
 {
-    if (!IsConnectToServer()) {
-        return true;
-    }
-    
     if (IsNeedSkip(GD_INVALID_NUM)) {
         return true;
     }
@@ -511,17 +459,14 @@ bool EventReport::ReportAclItf(RecordSubType subtype)
     record->recordIndex = ++recordIndex_;
     record->aclItfRecordIndex = ++aclItfRecordIndex_;
     record->kernelIndex = kernelLaunchRecordIndex_;
-    auto sendNums = ReportRecordEvent(buffer);
 
-    return (sendNums >= 0);
+    ReportRecordEvent(buffer);
+
+    return true;
 }
 
 bool EventReport::ReportTraceStatus(const EventTraceStatus status)
 {
-    if (!IsConnectToServer()) {
-        return true;
-    }
-    
     if (IsNeedSkip(GD_INVALID_NUM)) {
         return true;
     }
@@ -532,21 +477,18 @@ bool EventReport::ReportTraceStatus(const EventTraceStatus status)
     record->devId = GD_INVALID_NUM;
     record->recordIndex = ++recordIndex_;
     record->status = static_cast<uint8_t>(status);
-    auto sendNums = ReportRecordEvent(buffer);
 
-    return (sendNums >= 0);
+    ReportRecordEvent(buffer);
+
+    return true;
 }
 
 bool EventReport::ReportAtbOpExecute(char* name, uint32_t nameLength,
     char* attr, uint32_t attrLength, RecordSubType type)
 {
-    if (!IsConnectToServer()) {
-        return true;
-    }
-
     int32_t devId = GD_INVALID_NUM;
     if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
-        CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+        LOG_ERROR("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
     if (IsNeedSkip(devId)) {
@@ -561,21 +503,17 @@ bool EventReport::ReportAtbOpExecute(char* name, uint32_t nameLength,
     record->devId = devId;
     record->recordIndex = ++recordIndex_;
 
-    auto sendNums = ReportRecordEvent(buffer);
+    ReportRecordEvent(buffer);
 
-    return (sendNums >= 0);
+    return true;
 }
 
 bool EventReport::ReportAtbKernel(char* name, uint32_t nameLength,
     char* attr, uint32_t attrLength, RecordSubType type)
 {
-    if (!IsConnectToServer()) {
-        return true;
-    }
-
     int32_t devId = GD_INVALID_NUM;
     if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
-        CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+        LOG_ERROR("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
     if (IsNeedSkip(devId)) {
@@ -590,20 +528,16 @@ bool EventReport::ReportAtbKernel(char* name, uint32_t nameLength,
     record->devId = devId;
     record->recordIndex = ++recordIndex_;
 
-    auto sendNums = ReportRecordEvent(buffer);
+    ReportRecordEvent(buffer);
 
-    return (sendNums >= 0);
+    return true;
 }
 
 bool EventReport::ReportAtbAccessMemory(char* name, char* attr, uint64_t addr, uint64_t size, AccessType type)
 {
-    if (!IsConnectToServer()) {
-        return true;
-    }
-
     int32_t devId = GD_INVALID_NUM;
     if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
-        CLIENT_ERROR_LOG("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+        LOG_ERROR("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
     if (IsNeedSkip(devId)) {
@@ -622,9 +556,9 @@ bool EventReport::ReportAtbAccessMemory(char* name, char* attr, uint64_t addr, u
     record->devId = devId;
     record->recordIndex = ++recordIndex_;
 
-    auto sendNums = ReportRecordEvent(buffer);
+    ReportRecordEvent(buffer);
 
-    return (sendNums >= 0);
+    return true;
 }
 
 }

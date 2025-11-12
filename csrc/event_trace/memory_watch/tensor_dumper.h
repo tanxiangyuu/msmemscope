@@ -54,7 +54,6 @@ private:
     std::unordered_map<uint64_t, int32_t> dumpNumsMap_;
     std::unordered_map<std::string, uint64_t> opNameCnt_;
     std::mutex opNameMutex_;
-    std::string fileName_;
 };
 
 void CleanFileName(std::string& fileName);

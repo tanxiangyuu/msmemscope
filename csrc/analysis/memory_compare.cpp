@@ -21,7 +21,6 @@ MemoryCompare& MemoryCompare::GetInstance(Config config)
 MemoryCompare::MemoryCompare(Config config)
 {
     config_ = config;
-    SetDirPath();
 }
 
 // 用此方式依次读取CSV的每一行，不会被单格数据的逗号干扰
@@ -248,7 +247,8 @@ bool MemoryCompare::WriteCompareDataToCsv()
         return false;
     }
 
-    if (!Utility::CreateCsvFile(&compareFile_, dirPath_, fileNamePrefix_, std::string(STEP_INTER_HEADERS))) {
+    if (!Utility::FileCreateManager::GetInstance(config_.outputDir).CreateCsvFile(&compareFile_,
+        EMPTY_DEVID, MEMORY_COMPARE_FILE_PREFIX, COMPARE_DIR, std::string(STEP_INTER_HEADERS))) {
         LOG_ERROR("Create comparison csv file failed!");
         return false;
     }
@@ -447,12 +447,6 @@ void MemoryCompare::RunComparison(const std::vector<std::string> &paths)
             "in a total time of %.6f(s)", (end_time-start_time) / MICROSEC);
     }
     return ;
-}
-
-void MemoryCompare::SetDirPath()
-{
-    std::lock_guard<std::mutex> lock(fileMutex_);
-    dirPath_ = Utility::DirPathManager::GetInstance().GetDirPath() + "/" + std::string(COMPARE_FILE);
 }
 
 MemoryCompare::~MemoryCompare()
