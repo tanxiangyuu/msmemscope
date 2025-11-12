@@ -171,7 +171,7 @@ void RuntimeKernelLinker::RuntimeTaskInfoLaunch(const TaskKey& key, uint64_t has
                             + vec.back().kernelName;
         currentNameMap_[iter->first] = name;
         bool isKernelLevel = BitPresent(GetConfig().levelType, static_cast<size_t>(LevelType::LEVEL_KERNEL));
-        if (GetConfig().watchConfig.isWatched && isKernelLevel) {
+        if ((GetConfig().watchConfig.isWatched || TensorMonitor::GetInstance().IsInMonitoring()) && isKernelLevel) {
             MemoryWatch::GetInstance().KernelExcuteBegin(nullptr, name);
         }
         KernelEventTrace::GetInstance().KernelLaunch(vec.back());

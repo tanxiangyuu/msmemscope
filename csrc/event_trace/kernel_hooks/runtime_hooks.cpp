@@ -36,7 +36,7 @@ static void StartKernelEventTrace()
 static void KernelWatchEnd()
 {
     bool isKernelLevel = BitPresent(GetConfig().levelType, static_cast<size_t>(LevelType::LEVEL_KERNEL));
-    if (!GetConfig().watchConfig.isWatched || !isKernelLevel) {
+    if ((!GetConfig().watchConfig.isWatched && !TensorMonitor::GetInstance().IsInMonitoring()) || !isKernelLevel) {
         return ;
     }
     auto kernelName = RuntimeKernelLinker::GetInstance().GetLastKernelName(Utility::GetTid());
