@@ -15,14 +15,7 @@ InefficientAnalyzer& InefficientAnalyzer::GetInstance()
  
 InefficientAnalyzer::InefficientAnalyzer()
 {
-    auto func = std::bind(&InefficientAnalyzer::EventHandle, this, std::placeholders::_1, std::placeholders::_2);
-    std::vector<EventBaseType> eventTypes{
-        EventBaseType::MALLOC,
-        EventBaseType::ACCESS,
-        EventBaseType::FREE,
-        EventBaseType::OP_LAUNCH};
-    EventDispatcher::GetInstance().Subscribe(
-        SubscriberId::INEFFICIENT_ANALYZER, eventTypes, EventDispatcher::Priority::High, func);
+    InefficientAnalyzer::Subscribe();
 }
 
 // op_Launch 开始和结束大概率state都会为空，因为free之后会清掉buffer
@@ -263,5 +256,23 @@ void InefficientAnalyzer::TemporaryIdleness(std::shared_ptr<MemoryEvent>& event,
         }
         state->inefficientType += "temporary_idleness";
     }
+}
+
+void InefficientAnalyzer::Subscribe()
+{
+    auto func = std::bind(&InefficientAnalyzer::EventHandle, this, std::placeholders::_1, std::placeholders::_2);
+    std::vector<EventBaseType> eventTypes{
+        EventBaseType::MALLOC,
+        EventBaseType::ACCESS,
+        EventBaseType::FREE,
+        EventBaseType::OP_LAUNCH};
+    EventDispatcher::GetInstance().Subscribe(
+        SubscriberId::INEFFICIENT_ANALYZER, eventTypes, EventDispatcher::Priority::High, func);
+}
+
+
+void InefficientAnalyzer::UnSubscribe()
+{
+    EventDispatcher::GetInstance().UnSubscribe(SubscriberId::INEFFICIENT_ANALYZER);
 }
 }
