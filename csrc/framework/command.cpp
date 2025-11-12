@@ -23,6 +23,8 @@ void Command::Exec() const
         return;
     }
 
+    Process::GetInstance(userCommand_.config).Launch(userCommand_.cmd);
+
     return;
 }
 

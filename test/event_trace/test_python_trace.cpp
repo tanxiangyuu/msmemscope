@@ -6,19 +6,33 @@
 
 using namespace Leaks;
 
-TEST(PythonTrace, RecordPyCallTest)
+class PythonTraceTest : public ::testing::Test {
+protected:
+    void SetUp() override
+    {
+        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("./testmsleaks");
+    }
+
+    void TearDown() override
+    {
+        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("");
+        rmdir("./testmsleaks");
+    }
+};
+
+TEST_F(PythonTraceTest, RecordPyCallTest)
 {
     PythonTrace::GetInstance().RecordPyCall("123", "123", 0);
     PythonTrace::GetInstance().RecordPyCall("123:__torch_dispatch__", "123", 0);
 }
 
-TEST(PythonTrace, RecordCCallTest)
+TEST_F(PythonTraceTest, RecordCCallTest)
 {
     PythonTrace::GetInstance().RecordCCall("123", "123");
     PythonTrace::GetInstance().RecordReturn("123:__torch_dispatch__", "123");
 }
 
-TEST(PythonTrace, RecordReturnTest)
+TEST_F(PythonTraceTest, RecordReturnTest)
 {
     PythonTrace::GetInstance().Start();
     PythonTrace::GetInstance().RecordReturn("123", "123");

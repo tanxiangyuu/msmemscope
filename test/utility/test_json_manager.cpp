@@ -19,11 +19,13 @@ class JsonManagerTest : public ::testing::Test {
 protected:
     void SetUp() override
     {
+        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("./testmsleaks");
         ResetJsonManager();
     }
 
     void TearDown() override
     {
+        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("");
         rmdir("./testmsleaks");
         ResetJsonManager();
     }
@@ -67,6 +69,7 @@ protected:
         config.collectAllNpu = true;
         config.npuSlots = 8;
         config.logLevel = 6;
+        config.isEffective = true;
         // 填充 stepList
         config.stepList.stepCount = 3;
         config.stepList.stepIdList[0] = 100;
@@ -185,6 +188,22 @@ TEST_F(JsonManagerTest, check_key_is_valid_exist_key_success)
     std::string value;
     jsonMgr.GetStringValue("parent.child", value);
     ASSERT_EQ(value, "nested_value"); // 获取到值，说明 CheckKeyIsValid 返回 true
+}
+
+// 测试 EnsureConfigPathConsistency：环境变量未设置，设置成功
+TEST_F(JsonManagerTest, ensure_config_path_consistency_env_not_set_success)
+{
+    auto& jsonConfig = JsonConfig::GetInstance();
+    std::string configOutputDir = "./testmsleaks";
+    
+    bool ret = jsonConfig.EnsureConfigPathConsistency(configOutputDir);
+    ASSERT_TRUE(ret);
+    
+    const char* envPath = getenv(MSLEAKS_CONFIG_ENV);
+    ASSERT_NE(envPath, nullptr);
+    
+    std::string projectDir = FileCreateManager::GetInstance(configOutputDir).GetProjectDir();
+    ASSERT_TRUE(Exist(projectDir));
 }
 
 // 测试 ReadJsonConfig：读取成功
