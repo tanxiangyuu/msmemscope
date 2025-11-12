@@ -24,6 +24,8 @@ public:
         uint64_t freeApiTmpId;
         bool isOpStart;
     };
+    void Subscribe();
+    void UnSubscribe();
 private:
     explicit InefficientAnalyzer();
     ~InefficientAnalyzer() override = default;
