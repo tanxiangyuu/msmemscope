@@ -24,6 +24,20 @@ constexpr uint64_t DATA_VALUE_5 = 12345600;
 constexpr uint64_t DATA_VALUE_6 = 65432100;
 aclrtStream stream = nullptr;
 
+class MemoryWatchTest : public ::testing::Test {
+protected:
+    void SetUp() override
+    {
+        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("./testmsleaks");
+    }
+
+    void TearDown() override
+    {
+        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("");
+        rmdir("./testmsleaks");
+    }
+};
+
 void OpExcuteWatchNormalCheckOpA()
 {
     auto &instance = MemoryWatch::GetInstance();
@@ -225,7 +239,7 @@ void OpExcuteWatchNormalCheckOpE()
 }
 
 // 分别执行ABCDE五个OP，其中B和D为start和end算子，校验整个过程中系统的状态是否符合预期
-TEST(MemoryWatch, OpExcuteWatchNormalCase)
+TEST_F(MemoryWatchTest, OpExcuteWatchNormalCase)
 {
     auto &instance = MemoryWatch::GetInstance();
     instance.firstWatchTarget_ = "first";
@@ -438,7 +452,7 @@ void KernelExcuteWatchNormalCheckOpE()
 }
 
 // 分别执行ABCDE五个kernel，其中B和D为start和end算子，校验整个过程中系统的状态是否符合预期
-TEST(MemoryWatch, KernelExcuteWatchNormalCase)
+TEST_F(MemoryWatchTest, KernelExcuteWatchNormalCase)
 {
     auto &instance = MemoryWatch::GetInstance();
     instance.firstWatchTarget_ = "first";
@@ -454,7 +468,7 @@ TEST(MemoryWatch, KernelExcuteWatchNormalCase)
 
 // 分别执行ABCDE五个算子（OP和kernel混合），其中B和D为start和end算子，且D和E为kernel，其余为OP
 // 校验整个过程中系统的状态是否符合预期
-TEST(MemoryWatch, OpKernelMixExcuteWatchNormalCase)
+TEST_F(MemoryWatchTest, OpKernelMixExcuteWatchNormalCase)
 {
     auto &instance = MemoryWatch::GetInstance();
     instance.firstWatchTarget_ = "first";
@@ -585,7 +599,7 @@ void OpExcuteWatchNormalCheckOpDWithOutputId()
 }
 
 // 分别执行ABCDE五个OP，其中B和D为start和end算子，校验整个过程中系统的状态是否符合预期（设置outputId）
-TEST(MemoryWatch, OpExcuteWatchSetOutputIdCase)
+TEST_F(MemoryWatchTest, OpExcuteWatchSetOutputIdCase)
 {
     auto &instance = MemoryWatch::GetInstance();
     instance.firstWatchTarget_ = "first";
@@ -599,7 +613,7 @@ TEST(MemoryWatch, OpExcuteWatchSetOutputIdCase)
     OpExcuteWatchNormalCheckOpE();
 }
 
-TEST(MemoryWatch, KernelExcuteWatchCheckAtbKernelExcuteFuc)
+TEST_F(MemoryWatchTest, KernelExcuteWatchCheckAtbKernelExcuteFuc)
 {
     auto &instance = MemoryWatch::GetInstance();
     instance.firstWatchTarget_ = "first";
@@ -622,7 +636,7 @@ TEST(MemoryWatch, KernelExcuteWatchCheckAtbKernelExcuteFuc)
     instance.ATBKernelExcute(stream, (char *)firstName.c_str(), tensors);
 }
 
-TEST(MemoryWatch, KernelExcuteWatchCheckAtbOpExcuteBeginFuc)
+TEST_F(MemoryWatchTest, KernelExcuteWatchCheckAtbOpExcuteBeginFuc)
 {
     auto &instance = MemoryWatch::GetInstance();
     instance.firstWatchTarget_ = "first";
@@ -646,7 +660,7 @@ TEST(MemoryWatch, KernelExcuteWatchCheckAtbOpExcuteBeginFuc)
     instance.OpExcuteEnd(stream, name, tensors);
 }
 
-TEST(MemoryWatch, WatchCheckCleanFileNameFunc)
+TEST_F(MemoryWatchTest, WatchCheckCleanFileNameFunc)
 {
     std::string fileName = "/123/123/";
     CleanFileName(fileName);
