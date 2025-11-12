@@ -14,6 +14,28 @@
 
 using namespace Leaks;
 
+Config stepInnerConfig;
+
+class StepInnerAnalyzerTest : public ::testing::Test {
+protected:
+    void SetUp() override
+    {
+        stepInnerConfig = Config{};
+        Utility::FileCreateManager::GetInstance("testmsleaks");
+    }
+ 
+    void TearDown() override
+    {
+        stepInnerConfig = Config{};
+        StepInnerAnalyzer::GetInstance(stepInnerConfig).config_ = Config{};
+        StepInnerAnalyzer::GetInstance(stepInnerConfig).skipSteps_ = 1;
+        StepInnerAnalyzer::GetInstance(stepInnerConfig).leakMemSums_.clear();
+        StepInnerAnalyzer::GetInstance(stepInnerConfig).mstxTables_.clear();
+        StepInnerAnalyzer::GetInstance(stepInnerConfig).npuMemUsages_.clear();
+        Utility::FileCreateManager::GetInstance("testmsleaks");
+    }
+};
+
 RecordBuffer CreateMstxBuffer(MarkType type, const char* message, uint64_t stepId, uint64_t rangeId, uint64_t streamId)
 {
     auto buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>(TLVBlockType::MARK_MESSAGE, message);

@@ -183,6 +183,35 @@ JsonConfig& JsonConfig::GetInstance()
     return jsonConfig;
 }
 
+bool JsonConfig::EnsureConfigPathConsistency(const std::string& configOutputDir)
+{
+    const char* envPath = std::getenv(MSLEAKS_CONFIG_ENV);
+    std::string currentEnvPath = envPath ? std::string(envPath) : "";
+ 
+    // 创建 FileCreateManager 实例并获取实际配置路径
+    auto& fileManager = FileCreateManager::GetInstance(configOutputDir);
+    std::string actualConfigPath = fileManager.GetConfigFilePath();
+ 
+    bool needUpdate = false;
+    if (currentEnvPath.empty() || currentEnvPath != actualConfigPath) {
+        needUpdate = true;
+    }
+ 
+    if (needUpdate) {
+        if (setenv(MSLEAKS_CONFIG_ENV, actualConfigPath.c_str(), 1) != 0) {
+            std::cout << "[msleaks] Error: Failed to set MSLEAKS_CONFIG_ENV to " << actualConfigPath << std::endl;
+            return false;
+        }
+    }
+ 
+    if (!fileManager.CreateDir()) {
+        std::cout << "[msleaks] Error: Failed to create directory: " << fileManager.GetProjectDir() << std::endl;
+        return false;
+    }
+ 
+    return true;
+}
+ 
 void JsonConfig::SaveConfigToJson(const Leaks::Config& config)
 {
     Utility::JsonManager::GetInstance().SetValue("enableCStack", config.enableCStack);
@@ -199,6 +228,7 @@ void JsonConfig::SaveConfigToJson(const Leaks::Config& config)
     Utility::JsonManager::GetInstance().SetValue("collectAllNpu", config.collectAllNpu);
     Utility::JsonManager::GetInstance().SetValue("npuSlots", config.npuSlots);
     Utility::JsonManager::GetInstance().SetValue("logLevel", config.logLevel);
+    Utility::JsonManager::GetInstance().SetValue("isEffective", config.isEffective);
 
     std::vector<uint32_t> stepIdList{config.stepList.stepIdList, config.stepList.stepIdList +
         Leaks::SELECTED_STEP_MAX_NUM};
@@ -209,6 +239,11 @@ void JsonConfig::SaveConfigToJson(const Leaks::Config& config)
     Utility::JsonManager::GetInstance().SetNestedValue("watchConfig.start", config.watchConfig.start);
     Utility::JsonManager::GetInstance().SetNestedValue("watchConfig.end", config.watchConfig.end);
     Utility::JsonManager::GetInstance().SetNestedValue("watchConfig.outputId", config.watchConfig.outputId);
+ 
+    if (!EnsureConfigPathConsistency(config.outputDir)) {
+        std::cout << "[msleaks] Error: Failed to ensure config path consistency." << std::endl;
+        return ;
+    }
 
     const char* path = std::getenv(MSLEAKS_CONFIG_ENV);
     if (!Utility::JsonManager::GetInstance().SaveToFile(std::string(path))) {
@@ -245,6 +280,7 @@ bool JsonConfig::ReadJsonConfig(Leaks::Config& config)
     Utility::JsonManager::GetInstance().GetBoolValue("enableCStack", config.enableCStack);
     Utility::JsonManager::GetInstance().GetBoolValue("enablePyStack", config.enablePyStack);
     Utility::JsonManager::GetInstance().GetBoolValue("enableCompare", config.enableCompare);
+    Utility::JsonManager::GetInstance().GetBoolValue("isEffective", config.isEffective);
 
     Utility::JsonManager::GetInstance().GetUint32ListsValue("SelectedStepList.stepIdList", config.stepList.stepIdList,
         sizeof(config.stepList.stepIdList));

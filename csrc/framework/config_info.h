@@ -105,7 +105,6 @@ struct Config {
     uint8_t collectMode;
     char outputDir[PATH_MAX];
     uint8_t dataFormat;
-    char dbFileName[PATH_MAX]; // 待删除
     bool collectAllNpu;
     /* 当前单机最多16卡，用32bits表示足够了，后续有需要再扩充 */
     uint32_t npuSlots;
