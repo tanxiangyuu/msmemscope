@@ -16,8 +16,8 @@ drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long fl
     if (ret != DRV_ERROR_NONE) {
         return ret;
     }
-
-    if (!EventTraceManager::Instance().IsNeedTrace(RecordType::MEMORY_RECORD)) {
+    if (!EventTraceManager::Instance().IsTracingEnabled() ||
+        !EventTraceManager::Instance().ShouldTraceType(RecordType::MEMORY_RECORD)) {
         return ret;
     }
 
@@ -28,7 +28,7 @@ drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long fl
     uintptr_t addr = reinterpret_cast<uintptr_t>(*pp);
     if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY)
              .ReportMalloc(reinterpret_cast<uint64_t>(addr), size, flag, stack)) {
-        CLIENT_ERROR_LOG("halMemAlloc report failed");
+        LOG_ERROR("halMemAlloc report failed");
     }
 
     return ret;
@@ -41,16 +41,17 @@ drvError_t halMemFree(void *pp)
         return ret;
     }
 
-    if (!EventTraceManager::Instance().IsNeedTrace(RecordType::MEMORY_RECORD)) {
+    if (!EventTraceManager::Instance().IsTracingEnabled() ||
+        !EventTraceManager::Instance().ShouldTraceType(RecordType::MEMORY_RECORD)) {
         return ret;
     }
-    
+
     CallStackString stack;
     Utility::GetCallstack(stack);
     
     uintptr_t addr = reinterpret_cast<uintptr_t>(pp);
     if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportFree(reinterpret_cast<uint64_t>(addr), stack)) {
-        CLIENT_ERROR_LOG("halMemFree report failed");
+        LOG_ERROR("halMemFree report failed");
     }
 
     return ret;

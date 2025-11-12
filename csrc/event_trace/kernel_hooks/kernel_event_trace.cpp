@@ -2,7 +2,6 @@
 
 #include "kernel_event_trace.h"
 #include "event_report.h"
-#include "client_process.h"
 #include "utils.h"
 #include "driver_prof_api.h"
 #include "stars_common.h"
@@ -15,7 +14,7 @@ namespace Leaks {
 void KernelEventTrace::KernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
 {
     if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportKernelLaunch(kernelLaunchInfo)) {
-        CLIENT_ERROR_LOG("KernelLaunch launch report failed");
+        LOG_ERROR("KernelLaunch launch report failed");
     }
     
     return;
@@ -27,7 +26,7 @@ void KernelEventTrace::KernelStartExcute(const TaskKey& key, uint64_t time)
     if (!kernelName.empty()) {
         if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportKernelExcute(key,
             kernelName, time, RecordSubType::KERNEL_START)) {
-            CLIENT_ERROR_LOG("Kernel excute start report failed");
+            LOG_ERROR("Kernel excute start report failed");
         }
     }
     return;
@@ -39,7 +38,7 @@ void KernelEventTrace::KernelEndExcute(const TaskKey& key, uint64_t time)
     if (!kernelName.empty()) {
         if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportKernelExcute(key,
             kernelName, time, RecordSubType::KERNEL_END)) {
-            CLIENT_ERROR_LOG("Kernel excute end report failed");
+            LOG_ERROR("Kernel excute end report failed");
         }
     }
     return;
@@ -99,7 +98,7 @@ void KernelEventTrace::CreateReadDataChannel(uint32_t devId)
         while (started_) {
             static auto vallina = reinterpret_cast<ReadFunc>(GetSymbol("prof_channel_read"));
             if (vallina == nullptr) {
-                CLIENT_ERROR_LOG("ReadFunc is null");
+                LOG_ERROR("ReadFunc is null");
                 return;
             }
             currLen = vallina(devId, PROF_CHANNEL_STARS_SOC_LOG, buf.data() + curPos, MAX_BUFFER_SIZE - curPos);
@@ -108,7 +107,7 @@ void KernelEventTrace::CreateReadDataChannel(uint32_t devId)
             }
             auto uintCurrLen = static_cast<size_t>(currLen);
             if (uintCurrLen >= (MAX_BUFFER_SIZE - curPos)) {
-                CLIENT_ERROR_LOG("Read invalid data len from driver");
+                LOG_ERROR("Read invalid data len from driver");
                 continue;
             }
             size_t lastPos = TransDataToActivityBuffer(buf.data(), curPos + uintCurrLen,
@@ -128,7 +127,7 @@ void KernelEventTrace::StartKernelEventTrace()
 {
     int32_t devId = GD_INVALID_NUM;
     if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
-        CLIENT_ERROR_LOG("get device id failed");
+        LOG_ERROR("get device id failed");
     }
 
     StartDriverKernelInfoTrace(devId);

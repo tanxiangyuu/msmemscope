@@ -132,7 +132,7 @@ namespace atb {
 
         if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbOpExecute(nameStr, sizeof(nameStr),
             attrStr, sizeof(attrStr), type)) {
-            CLIENT_ERROR_LOG("Report atb op start event failed.\n");
+            LOG_ERROR("Report atb op start event failed.\n");
         }
     }
 
@@ -150,7 +150,7 @@ namespace atb {
             "_ZNK3atb6Runner16GetSaveTensorDirB5cxx11Ev");
 #endif
         if (funcGetOperationName == nullptr || funcGetSaveTensorDir == nullptr) {
-            CLIENT_ERROR_LOG("Cannot find origin function of atb.\n");
+            LOG_ERROR("Cannot find origin function of atb.\n");
             return false;
         }
         name = funcGetOperationName(thisPtr);
@@ -164,7 +164,7 @@ namespace atb {
         static auto funcGetExecuteStream = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetExecuteStream>(
             "_ZNK3atb6Runner16GetExecuteStreamEPNS_7ContextE");
         if (funcGetExecuteStream == nullptr) {
-            CLIENT_ERROR_LOG("Cannot find origin function of atb.\n");
+            LOG_ERROR("Cannot find origin function of atb.\n");
             return false;
         }
         stream = funcGetExecuteStream(thisPtr, runnerVariantPack.context);
@@ -184,7 +184,7 @@ namespace atb {
             path = dirPath.substr(0, afterPos);
         } else {
             name = "INVALID";
-            CLIENT_ERROR_LOG("Cannot get kernel path.\n");
+            LOG_ERROR("Cannot get kernel path.\n");
             return;
         }
 
@@ -218,7 +218,7 @@ namespace atb {
 
         if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbKernel(nameStr, sizeof(nameStr),
             attrStr, sizeof(attrStr), type)) {
-            CLIENT_ERROR_LOG("Report atb run kernel event failed.\n");
+            LOG_ERROR("Report atb run kernel event failed.\n");
         }
         return true;
     }
@@ -230,10 +230,11 @@ extern "C" atb::Status _ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE(atb::Runn
     static auto funcExecute = VallinaSymbol<ATBLibLoader>::Instance().Get<atb::LeaksOriginalRunnerExecuteFunc>(
         "_ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE");
     if (funcExecute == nullptr) {
-        CLIENT_ERROR_LOG("Cannot find origin function of atb.\n");
+        LOG_ERROR("Cannot find origin function of atb.\n");
         return 0;
     }
-    if (!EventTraceManager::Instance().IsNeedTrace(RecordType::ATB_OP_EXECUTE_RECORD)) {
+    if (!EventTraceManager::Instance().IsTracingEnabled() ||
+        !EventTraceManager::Instance().ShouldTraceType(RecordType::ATB_OP_EXECUTE_RECORD)) {
         return funcExecute(thisPtr, runnerVariantPack);
     }
     std::string params;
@@ -244,18 +245,21 @@ extern "C" atb::Status _ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE(atb::Runn
         || !atb::LeaksGetAclrtStream(thisPtr, runnerVariantPack, stream)) {
         return 0;
     }
-    if (EventTraceManager::Instance().IsNeedTrace(RecordType::OP_LAUNCH_RECORD)) {
+    if (EventTraceManager::Instance().IsTracingEnabled() &&
+        EventTraceManager::Instance().ShouldTraceType(RecordType::OP_LAUNCH_RECORD)) {
         params = atb::LeaksGetOpParams(runnerVariantPack, dir);
         atb::LeaksReportOp(name, params, true);
     }
-    if (EventTraceManager::Instance().IsNeedTrace(RecordType::MEM_ACCESS_RECORD)) {
+
+    if (EventTraceManager::Instance().IsTracingEnabled() &&
+        EventTraceManager::Instance().ShouldTraceType(RecordType::MEM_ACCESS_RECORD)) {
         atb::LeaksReportTensors(runnerVariantPack, name);
     }
     char cDirPath[WATCH_OP_DIR_MAX_LENGTH];
     static Config config = GetConfig();
     if (config.watchConfig.isWatched) {
         if (strncpy_s(cDirPath, WATCH_OP_DIR_MAX_LENGTH, dir.c_str(), WATCH_OP_DIR_MAX_LENGTH - 1) != EOK) {
-            CLIENT_ERROR_LOG("strncpy_s FAILED");
+            LOG_ERROR("strncpy_s FAILED");
             cDirPath[0] = '\0';
         }
     }
@@ -273,10 +277,12 @@ extern "C" atb::Status _ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE(atb::Runn
         }
         OpExcuteEnd(stream, cDirPath, tensors, runnerVariantPack.outTensors.size());
     }
-    if (EventTraceManager::Instance().IsNeedTrace(RecordType::OP_LAUNCH_RECORD)) {
+    if (EventTraceManager::Instance().IsTracingEnabled() &&
+        EventTraceManager::Instance().ShouldTraceType(RecordType::OP_LAUNCH_RECORD)) {
         atb::LeaksReportOp(name, params, false);
     }
-    if (EventTraceManager::Instance().IsNeedTrace(RecordType::MEM_ACCESS_RECORD)) {
+    if (EventTraceManager::Instance().IsTracingEnabled() &&
+        EventTraceManager::Instance().ShouldTraceType(RecordType::MEM_ACCESS_RECORD)) {
         atb::LeaksReportTensors(runnerVariantPack, name);
     }
     return st;
@@ -290,23 +296,23 @@ extern "C" void _ZN3atb9StoreUtil15SaveLaunchParamEPvRKN3Mki11LaunchParamERKNSt7
 #endif
 (aclrtStream stream, const Mki::LaunchParam& launchParam, const std::string& dirPath)
 {
-    if (!EventTraceManager::Instance().IsNeedTrace(RecordType::ATB_KERNEL_RECORD)) {
+    if (!EventTraceManager::Instance().IsTracingEnabled() ||
+        !EventTraceManager::Instance().ShouldTraceType(RecordType::ATB_KERNEL_RECORD)) {
         return;
     }
-
     static auto getInTensors = VallinaSymbol<ATBLibLoader>::Instance().Get<Mki::LeaksOriginalGetInTensors>(
         "_ZN3Mki11LaunchParam12GetInTensorsEv");
     static auto getOutTensors = VallinaSymbol<ATBLibLoader>::Instance().Get<Mki::LeaksOriginalGetOutTensors>(
         "_ZN3Mki11LaunchParam13GetOutTensorsEv");
     if (getInTensors == nullptr || getOutTensors == nullptr) {
-        CLIENT_ERROR_LOG("Cannot find origin function of atb.\n");
+        LOG_ERROR("Cannot find origin function of atb.\n");
         return;
     }
     
     if (GetConfig().watchConfig.isWatched) {
         char cDirPath[WATCH_OP_DIR_MAX_LENGTH];
         if (strncpy_s(cDirPath, WATCH_OP_DIR_MAX_LENGTH, dirPath.c_str(), WATCH_OP_DIR_MAX_LENGTH - 1) != EOK) {
-            CLIENT_ERROR_LOG("strncpy_s FAILED");
+            LOG_ERROR("strncpy_s FAILED");
             cDirPath[0] = '\0';
         }
         ATBKernelExcute(stream, cDirPath, getOutTensors(const_cast<Mki::LaunchParam*>(&launchParam)));
@@ -315,13 +321,15 @@ extern "C" void _ZN3atb9StoreUtil15SaveLaunchParamEPvRKN3Mki11LaunchParamERKNSt7
     bool isBeforeLaunch;
     atb::LeaksParseKernelPath(isBeforeLaunch, name, dirPath);
 
-    if (EventTraceManager::Instance().IsNeedTrace(RecordType::KERNEL_LAUNCH_RECORD)) {
+    if (EventTraceManager::Instance().IsTracingEnabled() ||
+        EventTraceManager::Instance().ShouldTraceType(RecordType::KERNEL_LAUNCH_RECORD)) {
         if (!atb::LeaksReportAtbKernel(name, dirPath, isBeforeLaunch)) {
             return;
         }
     }
 
-    if (EventTraceManager::Instance().IsNeedTrace(RecordType::MEM_ACCESS_RECORD)) {
+    if (EventTraceManager::Instance().IsTracingEnabled() ||
+        EventTraceManager::Instance().ShouldTraceType(RecordType::MEM_ACCESS_RECORD)) {
         atb::LeaksReportTensors(getInTensors, getOutTensors, launchParam, name);
     }
 }

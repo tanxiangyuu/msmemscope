@@ -22,6 +22,7 @@ set(leaks_header ../csrc
                  ../platform/securec/include)
 set(CMAKE_CXX_FLAGS "-fprofile-arcs -ftest-coverage -lgcov")
 set(gtest_header ../opensource/googletest/googletest/include/)
+set(json_header ../opensource/json/single_include)
 
 file(GLOB_RECURSE TEST_ORIGINAL_SOURCE ../csrc/framework/*.cpp
                                        ../csrc/analysis/*.cpp
@@ -36,7 +37,7 @@ list(SORT TEST_SOURCE)
 target_sources(leaks_test PRIVATE ${TEST_SOURCE})
 target_sources(leaks_test PRIVATE ${TEST_ORIGINAL_SOURCE})
 
-include_directories(leaks_test ${leaks_header} ${gtest_header} ${Python3_INCLUDE_DIRS})
+include_directories(leaks_test ${leaks_header} ${gtest_header} ${Python3_INCLUDE_DIRS} ${json_header})
 
 target_link_libraries(leaks_test gtest_main dl pthread stdc++fs ${Python3_LIBRARIES} rt)
  

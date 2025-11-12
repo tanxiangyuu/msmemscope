@@ -68,7 +68,7 @@ void AtenManager::ReportAtenLaunch(const char* msg, int32_t streamId, bool isAte
     ExtractTensorInfo(msg, "name=", name);
     int32_t devId = GD_INVALID_NUM;
     if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
-        CLIENT_ERROR_LOG("get device id failed.");
+        LOG_ERROR("get device id failed.");
     }
     uint64_t tid = Utility::GetTid();
 
@@ -88,6 +88,7 @@ void AtenManager::ReportAtenLaunch(const char* msg, int32_t streamId, bool isAte
     }
 
     if (!EventTraceManager::Instance().IsNeedTrace(RecordType::ATEN_OP_LAUNCH_RECORD)) {
+        LOG_WARN("no need aten op launch");
         return ;
     }
 
@@ -103,7 +104,7 @@ void AtenManager::ReportAtenLaunch(const char* msg, int32_t streamId, bool isAte
     record->subtype = isAtenBegin ? RecordSubType::ATEN_START : RecordSubType::ATEN_END;
 
     if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtenLaunch(buffer)) {
-        CLIENT_ERROR_LOG("Report Aten Launch FAILED");
+        LOG_ERROR("Report Aten Launch FAILED");
     }
     return;
 }
@@ -158,10 +159,10 @@ void AtenManager::ReportAtenAccess(const char* msg, int32_t streamId)
     record->memType = AccessMemType::ATEN;
  
     if (!Utility::StrToUint64(record->addr, atenInfo.addr)) {
-        CLIENT_ERROR_LOG("Aten Tensor's addr StrToUint64 failed");
+        LOG_ERROR("Aten Tensor's addr StrToUint64 failed");
     }
     if (!Utility::StrToUint64(record->memSize, atenInfo.size)) {
-        CLIENT_ERROR_LOG("Aten Tensor's memSize StrToUint64 failed");
+        LOG_ERROR("Aten Tensor's memSize StrToUint64 failed");
     }
 
     if (atenInfo.isOutput == "True" && isWatchEnable_ && IsFirstWatchedOp(atenInfo.name.c_str())
@@ -177,7 +178,7 @@ void AtenManager::ReportAtenAccess(const char* msg, int32_t streamId)
     }
     
     if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtenAccess(buffer)) {
-        CLIENT_ERROR_LOG("Report Aten Access FAILED");
+        LOG_ERROR("Report Aten Access FAILED");
     }
     return;
 }

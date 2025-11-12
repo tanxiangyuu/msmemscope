@@ -4,6 +4,7 @@
 #define RUNTIME_PROF_API_H
 
 #include "vallina_symbol.h"
+#include "log.h"
 
 namespace Leaks {
 // 和获取驱动上报信息接口配套使用

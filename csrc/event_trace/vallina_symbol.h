@@ -36,13 +36,13 @@ struct Sqlite3LibLoader {
         if (!sqlite3BinPath.empty()) {
             std::string libParentDir = FindLibParentDir(sqlite3BinPath);
             if (libParentDir.empty()) {
-                std::cout << "[msleaks] Could not find lib directory: sqlite3" << std::endl;
+                std::cout << "[msleaks] Error: Could not find lib directory: sqlite3" << std::endl;
                 return nullptr;
             }
             for (const auto& dirName : {"lib", "lib64"}) {
                 void* handle = FindAndLoadSqliteInDir(JoinPath(libParentDir, dirName));
                 if (handle) {
-                    std::cout << "[Warning] Loaded sqlite3 library from: " << libParentDir << std::endl;
+                    std::cout << "[msleaks] Warn: Loaded sqlite3 library from: " << libParentDir << std::endl;
                     return handle;
                 }
             }

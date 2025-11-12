@@ -9,8 +9,8 @@
  
 #include "data.h"
 #include "state_manager.h"
-#include "framework/record_info.h"
-#include "utility/ustring.h"
+#include "record_info.h"
+#include "ustring.h"
 #include "utils.h"
 #include "log.h"
 #include "trace_manager/event_trace_manager.h"

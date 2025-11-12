@@ -1,0 +1,73 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+
+#ifndef JSON_MANAGER_H
+#define JSON_MANAGER_H
+
+#include "log.h"
+#include "config_info.h"
+#include "nlohmann/json.hpp"
+#include "ustring.h"
+
+namespace Utility {
+
+constexpr uint8_t JSON_INDENT = 4;  // 缩进4个空格
+constexpr const char *MSLEAKS_CONFIG_ENV = "MSLEAKS_CONFIG_PATH";
+constexpr const char *MSLEAKS_CONFIG_PATH = "config.json";
+
+class JsonManager {
+public:
+    static JsonManager& GetInstance();
+    bool SaveToFile(std::string filePath);
+    bool LoadFromFile(std::string filePath);
+
+    // 设置基础类型
+    template<typename T>
+    void SetValue(const std::string& key, const T& value)
+    {
+        jsonConfig_[key] = value;
+    }
+
+    // 设置嵌套类型
+    template<typename T>
+    void SetNestedValue(const std::string& key, const T& value)
+    {
+        std::vector<std::string> parts;
+        Split(key, std::back_inserter(parts), ".");
+
+        nlohmann::json* curr = &jsonConfig_;
+
+        // 遍历路径，创建中间节点
+        for (size_t i = 0; i < parts.size() - 1; ++i) {
+            if (curr->find(parts[i]) == curr->end()) {
+                (*curr)[parts[i]] = nlohmann::json::object();
+            }
+            curr = &(*curr)[parts[i]];
+        }
+        (*curr)[parts.back()] = value;
+    }
+
+    void GetStringValue(const std::string& key, std::string& value);
+    void GetCharListValue(const std::string& key, char* buffer, size_t bufferSize);
+    void GetUint8Value(const std::string& key, uint8_t& value);
+    void GetUint32Value(const std::string& key, uint32_t& value);
+    void GetBoolValue(const std::string& key, bool& value);
+    void GetVectorIntValue(const std::string& key, std::vector<int>& value);
+    void GetUint32ListsValue(const std::string& key, uint32_t* lists, size_t length);
+private:
+    bool CheckKeyIsValid(const std::string& key, nlohmann::json& current);
+private:
+    nlohmann::json jsonConfig_;
+    std::string jsonFilePath_;
+};
+
+class JsonConfig {
+public:
+    static JsonConfig& GetInstance();
+    void SaveConfigToJson(const Leaks::Config& config);
+    bool ReadJsonConfig(Leaks::Config& config);
+    bool EnsureConfigPathConsistency(const std::string& configOutputDir);
+};
+
+}
+
+#endif

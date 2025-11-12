@@ -1,7 +1,6 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 
 #include "driver_prof_api.h"
-#include "client_process.h"
 #include "securec.h"
 #include "event_report.h"
 #include "runtime_prof_api.h"
@@ -15,7 +14,7 @@ static tagDrvError HalGetDeviceInfo(uint32_t deviceId, int32_t moduleType, int32
     using HalGetDeviceInfoFunc = tagDrvError(*)(uint32_t, int32_t, int32_t, int64_t*);
     static auto vallina = reinterpret_cast<HalGetDeviceInfoFunc>(GetSymbol("halGetDeviceInfo"));
     if (vallina == nullptr) {
-        CLIENT_ERROR_LOG("halGetDeviceInfo api get failed");
+        LOG_ERROR("halGetDeviceInfo api get failed");
         return DRV_ERROR_NOT_SUPPORT;
     }
 
@@ -34,12 +33,12 @@ static PlatformType GetChipTypeImpl(uint32_t deviceId)
 {
     int64_t versionInfo = GetDrvVersion(deviceId);
     if (versionInfo < 0) {
-        CLIENT_ERROR_LOG("Call GetDrvVersion failed");
+        LOG_ERROR("Call GetDrvVersion failed");
         return PlatformType::END_TYPE;
     }
     uint32_t chipId = ((static_cast<uint64_t>(versionInfo) >> 8) & 0xff);
     if (chipId >= static_cast<uint32_t>(PlatformType::END_TYPE)) {
-        CLIENT_ERROR_LOG("Get Chip Type failed");
+        LOG_ERROR("Get Chip Type failed");
         return PlatformType::END_TYPE;
     }
     return static_cast<PlatformType>(chipId);
@@ -98,7 +97,7 @@ static void InitDevTimeInfo(uint32_t deviceId)
 uint64_t GetRealTimeFromSysCnt(uint32_t deviceId, uint64_t sysCnt)
 {
     if (g_devTimeInfo.freq == 0) {
-        CLIENT_ERROR_LOG("g_devTimeInfo.freq is 0, please check!");
+        LOG_ERROR("g_devTimeInfo.freq is 0, please check!");
         return 0;
     }
     uint64_t realTime = MSTONS * (sysCnt - g_devTimeInfo.startSysCnt) / g_devTimeInfo.freq +
@@ -112,7 +111,7 @@ void StartDriverKernelInfoTrace(int32_t devId)
     SetProfCommand(devId);
     StarsSocLogConfigT configP;
     if (memset_s(&configP, sizeof(StarsSocLogConfigT), 0, sizeof(StarsSocLogConfigT)) != EOK) {
-        CLIENT_ERROR_LOG("memset StarsSocLogConfigT failed");
+        LOG_ERROR("memset StarsSocLogConfigT failed");
         return;
     }
     configP.acsq_task = TS_PROFILE_COMMAND_TYPE_PROFILING_ENABLE;
@@ -128,12 +127,12 @@ void StartDriverKernelInfoTrace(int32_t devId)
     using DriverProfStartFunc = int(*)(unsigned int, unsigned int, struct ProfStartPara*);
     static auto vallina = reinterpret_cast<DriverProfStartFunc>(GetSymbol("prof_drv_start"));
     if (vallina == nullptr) {
-        CLIENT_ERROR_LOG("DriverProfStartFunc is nullptr");
+        LOG_ERROR("DriverProfStartFunc is nullptr");
         return;
     }
     int ret = vallina(static_cast<uint32_t>(devId), PROF_CHANNEL_STARS_SOC_LOG, &profStartPara);
     if (ret != 0) {
-        CLIENT_ERROR_LOG("driver prof start failed.");
+        LOG_ERROR("driver prof start failed.");
     }
     RuntimeKernelLinker::GetInstance();
     atexit(EndDriverKernelInfoTrace);
@@ -144,18 +143,18 @@ void EndDriverKernelInfoTrace()
 {
     int32_t devId = Leaks::GD_INVALID_NUM;
     if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
-        CLIENT_ERROR_LOG("get device id failed");
+        LOG_ERROR("get device id failed");
     }
     using DriverProfEndFunc = int(*)(unsigned int, unsigned int);
     static auto vallina = reinterpret_cast<DriverProfEndFunc>(GetSymbol("prof_stop"));
     if (vallina == nullptr) {
-        CLIENT_ERROR_LOG("EndDriverKernelInfoTrace is nullptr");
+        LOG_ERROR("EndDriverKernelInfoTrace is nullptr");
         return;
     }
 
     int ret = vallina(static_cast<uint32_t>(devId), PROF_CHANNEL_STARS_SOC_LOG);
     if (ret != 0) {
-        CLIENT_ERROR_LOG("driver prof end failed.");
+        LOG_ERROR("driver prof end failed.");
     }
     return;
 }

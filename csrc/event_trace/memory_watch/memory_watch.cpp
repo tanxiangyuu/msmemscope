@@ -1,7 +1,6 @@
 // Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 
 #include "memory_watch.h"
-#include "client_process.h"
 
 namespace Leaks {
 
@@ -160,7 +159,7 @@ void MemoryWatch::ATBKernelExcute(aclrtStream stream, std::string rawKernel, con
     } else if (afterPos != std::string::npos) {
         KernelExcuteEnd(stream, rawKernel.substr(0, afterPos), true, tensors);
     } else {
-        CLIENT_ERROR_LOG("Invalid kernel info.\n");
+        LOG_ERROR("Invalid kernel info.\n");
         return;
     }
 }
