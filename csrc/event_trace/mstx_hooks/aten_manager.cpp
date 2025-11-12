@@ -19,7 +19,7 @@ AtenManager& AtenManager::GetInstance()
 
 AtenManager::AtenManager()
 {
-    if (GetConfig().watchConfig.isWatched) {
+    if (GetConfig().watchConfig.isWatched || TensorMonitor::GetInstance().IsInMonitoring()) {
         isWatchEnable_ = true;
     }
     firstWatchOp_ = std::string(GetConfig().watchConfig.start);
@@ -64,6 +64,9 @@ void AtenManager::ProcessMsg(const char* msg, int32_t streamId)
 
 void AtenManager::ReportAtenLaunch(const char* msg, int32_t streamId, bool isAtenBegin)
 {
+    if (GetConfig().watchConfig.isWatched || TensorMonitor::GetInstance().IsInMonitoring()) {
+        isWatchEnable_ = true;
+    }
     std::string name;
     ExtractTensorInfo(msg, "name=", name);
     int32_t devId = GD_INVALID_NUM;
@@ -133,6 +136,9 @@ void AtenManager::ExtractTensorFields(const char* msg, AtenAccessTensorInfo& inf
 
 void AtenManager::ReportAtenAccess(const char* msg, int32_t streamId)
 {
+    if (GetConfig().watchConfig.isWatched || TensorMonitor::GetInstance().IsInMonitoring()) {
+        isWatchEnable_ = true;
+    }
     AtenAccessTensorInfo atenInfo;
     ExtractTensorFields(msg, atenInfo);
 
