@@ -13,7 +13,6 @@
 #include "cpython.h"
 #include "event_report.h"
 #include "vallina_symbol.h"
-#include "serializer.h"
 #include "log.h"
 #include "record_info.h"
 #include "bit_field.h"
@@ -26,13 +25,13 @@ ACL_FUNC_VISIBILITY aclError aclInit(const char *configPath)
     using AclInit = decltype(&aclInit);
     auto vallina = VallinaSymbol<AclLibLoader>::Instance().Get<AclInit>("aclInit");
     if (vallina == nullptr) {
-        CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
+        LOG_ERROR("vallina func get FAILED: " + std::string(__func__));
         return ACL_ERROR_INTERNAL_ERROR;
     }
 
     aclError ret = vallina(configPath);
     if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAclItf(RecordSubType::INIT)) {
-        CLIENT_ERROR_LOG("aclInit report FAILED");
+        LOG_ERROR("aclInit report FAILED");
     }
 
     EventTraceManager::Instance().SetAclInitStatus(true);
@@ -49,13 +48,13 @@ ACL_FUNC_VISIBILITY aclError aclFinalize()
     using AclFinalize = decltype(&aclFinalize);
     auto vallina = VallinaSymbol<AclLibLoader>::Instance().Get<AclFinalize>("aclFinalize");
     if (vallina == nullptr) {
-        CLIENT_ERROR_LOG("vallina func get FAILED: " + std::string(__func__));
+        LOG_ERROR("vallina func get FAILED: " + std::string(__func__));
         return ACL_ERROR_INTERNAL_ERROR;
     }
 
     aclError ret = vallina();
     if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAclItf(RecordSubType::FINALIZE)) {
-        CLIENT_ERROR_LOG("aclInit report FAILED");
+        LOG_ERROR("aclInit report FAILED");
     }
 
     if (BitPresent(GetConfig().analysisType, static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {

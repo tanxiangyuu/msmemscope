@@ -81,7 +81,7 @@ void PTACachingPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegionsRe
         record->type = RecordType::PTA_CACHING_POOL_RECORD;
         record->memoryUsage = memUsageMp_[devId];
         if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
-            CLIENT_ERROR_LOG("Report PTA Caching Data Failed");
+            LOG_ERROR("Report PTA Caching Data Failed");
         }
     }
 }
@@ -116,7 +116,7 @@ void PTACachingPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnreg
         record->type = RecordType::PTA_CACHING_POOL_RECORD;
         record->memoryUsage = memUsageMp_[rangeDesc.deviceId];
         if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
-            CLIENT_ERROR_LOG("Report PTA Caching Data Failed");
+            LOG_ERROR("Report PTA Caching Data Failed");
         }
     }
 }

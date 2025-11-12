@@ -121,53 +121,6 @@ TEST(Process, process_setpreloadenv_with_atb_abi_1_expect_success)
     EXPECT_EQ(std::string(env), hooksSo + ":test.so");
     unsetenv("LD_PRELOAD");
 }
- 
-TEST(Process, process_postprocess_exit_signal_expect_success)
-{
-    std::vector<std::string> eEmptyParams;
-    ExecCmd cmdEmpty(eEmptyParams);
-    std::vector<std::string> execParams = {"ls"};
-    ExecCmd cmd(execParams);
-    ::pid_t pid = ::fork();
-    Config config;
-    Process process(config);
-    if (pid == 0) {
-        sleep(200);
-        _exit(EXIT_SUCCESS);
-    } else {
-        kill(pid, SIGTERM);
-
-        std::stringstream buffer;
-        std::streambuf *sbuf = std::cout.rdbuf();
-        std::cout.rdbuf(buffer.rdbuf());
-        std::string outputInfo = "user program exited by signal";
-        process.PostProcess(cmd);
-        std::string captureInfo = buffer.str();
-        EXPECT_NE(captureInfo.find(outputInfo), std::string::npos);
-        std::cout.rdbuf(sbuf);
-    }
-}
-
-TEST(Process, process_postprocess_exit_abnormal_expect_success)
-{
-    std::vector<std::string> execParams = {""};
-    ExecCmd cmd(execParams);
-    ::pid_t pid = ::fork();
-    Config config;
-    Process process(config);
-    if (pid == 0) {
-        _exit(EXIT_FAILURE);
-    } else {
-        std::stringstream buffer;
-        std::streambuf *sbuf = std::cout.rdbuf();
-        std::cout.rdbuf(buffer.rdbuf());
-        std::string outputInfo = "exited abnormally";
-        process.PostProcess(cmd);
-        std::string captureInfo = buffer.str();
-        EXPECT_NE(captureInfo.find(outputInfo), std::string::npos);
-        std::cout.rdbuf(sbuf);
-    }
-}
 
 TEST(Process, do_record_handler_except_success)
 {

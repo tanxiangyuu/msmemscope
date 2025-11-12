@@ -63,7 +63,7 @@ static PyObject* PyLeaksReportTensor(PyObject *self,  PyObject *arg)
         info->subtype = RecordSubType::PTA_OPTIMIZER_STEP;
         info->addr = addr;
         if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAddrInfo(buffer)) {
-            CLIENT_ERROR_LOG("Report optimizer step hook info failed.\n");
+            LOG_ERROR("Report optimizer step hook info failed.\n");
         }
     }
 

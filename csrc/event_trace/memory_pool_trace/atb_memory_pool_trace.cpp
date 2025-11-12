@@ -96,7 +96,7 @@ void ATBMemoryPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegionsReg
         record->type = RecordType::ATB_MEMORY_POOL_RECORD;
         record->memoryUsage = memUsageMp_[devId];
         if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
-            CLIENT_ERROR_LOG("Report ATB Data Failed");
+            LOG_ERROR("Report ATB Data Failed");
         }
     }
 }
@@ -134,7 +134,7 @@ void ATBMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregi
         delete handle;
         handle = nullptr;
         if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
-            CLIENT_ERROR_LOG("Report ATB Data Failed");
+            LOG_ERROR("Report ATB Data Failed");
         }
     }
 }

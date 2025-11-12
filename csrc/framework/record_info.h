@@ -216,7 +216,7 @@ private:
         data += sizeof(uint32_t);
         /* 此处data buffer长度为blockLength，减去T和L后长度为 value.length() + 1；使用memcpy而非strcpy是为了拷贝效率更高 */
         if (memcpy_s(data, value.length() + 1, value.c_str(), value.length()) != EOK) {
-            std::cout << "[ERROR] make record buffer memcpy failed!" << std::endl;
+            std::cout << "[msleaks] Error: make record buffer memcpy failed!" << std::endl;
         }
         data[value.length()] = '\0';
     }

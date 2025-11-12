@@ -3,7 +3,6 @@
 #include <Python.h>
 #include <frameobject.h>
 #include "utils.h"
-#include "client_process.h"
 #include "cpython.h"
 
 extern "C" {
@@ -858,7 +857,7 @@ PythonDictObject::PythonDictObject(PyObject* o)
 void LeaksPythonCall(const std::string& module, const std::string& function)
 {
     if (!Utility::IsPyInterpRepeInited()) {
-        CLIENT_ERROR_LOG("Python Interpreter initialization FAILED");
+        LOG_ERROR("Python Interpreter initialization FAILED");
         return;
     }
 
@@ -869,13 +868,13 @@ void LeaksPythonCall(const std::string& module, const std::string& function)
     if (!torch.IsBad()) {
         Utility::PythonObject pythonModule = Utility::PythonObject::Import(module, false);
         if (pythonModule.IsBad()) {
-            CLIENT_ERROR_LOG("import " + module + " FAILED");
+            LOG_ERROR("import " + module + " FAILED");
             return;
         }
  
         Utility::PythonObject pythonFunction = pythonModule.Get(function);
         if (pythonFunction.IsBad()) {
-            CLIENT_ERROR_LOG("cannot get function " + function);
+            LOG_ERROR("cannot get function " + function);
             return;
         }
         pythonFunction.Call();

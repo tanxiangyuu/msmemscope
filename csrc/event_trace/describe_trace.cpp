@@ -49,11 +49,11 @@ void DescribeTrace::AddDescribe(std::string owner)
     auto tid = Utility::GetTid();
     Utility::ToSafeString(owner);
     if (IsRepeat(tid, owner)) {
-        CLIENT_ERROR_LOG("Cannot add duplicate tags " + owner);
+        LOG_ERROR("Cannot add duplicate tags " + owner);
         return;
     }
     if (describe_[tid].size() >= maxSize) {
-        CLIENT_ERROR_LOG("The current thread label exceeds " + std::to_string(maxSize));
+        LOG_ERROR("The current thread label exceeds " + std::to_string(maxSize));
         return;
     }
     describe_[tid].emplace_back(owner);
@@ -72,7 +72,7 @@ void DescribeTrace::EraseDescribe(std::string owner)
         }
     }
     if (i == siz) {
-        CLIENT_ERROR_LOG("Tag " + owner + " not found");
+        LOG_ERROR("Tag " + owner + " not found");
     }
 }
 

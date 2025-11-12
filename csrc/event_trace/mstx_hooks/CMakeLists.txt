@@ -10,7 +10,6 @@ target_sources(ascend_mstx_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/memory_watch/memory_watch.cpp
   ${EVENT_TRACE_INC_DIR}/memory_watch/tensor_dumper.cpp
   ${EVENT_TRACE_INC_DIR}/memory_watch/tensor_monitor.cpp
-  ${FRAMEWORK_INC_DIR}/client_process.cpp
   ${UTILITY_INC_DIR}/log.cpp
   ${UTILITY_INC_DIR}/call_stack.cpp
   ${UTILITY_INC_DIR}/cpython.cpp
@@ -23,6 +22,8 @@ target_include_directories(ascend_mstx_hook PUBLIC
   ${UTILITY_INC_DIR}
   ${SECUREC_INC_DIR}
   ${Python3_INCLUDE_DIRS}
+  ${ANALYSIS_DIR}
+  ${JSON_DIR}
 )
 
 target_link_options(ascend_mstx_hook PRIVATE "-Wl,--disable-new-dtags")
