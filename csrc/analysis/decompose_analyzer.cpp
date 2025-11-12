@@ -26,13 +26,7 @@ DecomposeAnalyzer& DecomposeAnalyzer::GetInstance()
 
 DecomposeAnalyzer::DecomposeAnalyzer()
 {
-    auto func = std::bind(&DecomposeAnalyzer::EventHandle, this, std::placeholders::_1, std::placeholders::_2);
-    std::vector<EventBaseType> eventList{
-        EventBaseType::MALLOC,
-        EventBaseType::ACCESS,
-        EventBaseType::MEMORY_OWNER};
-    EventDispatcher::GetInstance().Subscribe(
-        SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func);
+    DecomposeAnalyzer::Subscribe();
 }
 
 void DecomposeAnalyzer::EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state)
@@ -127,5 +121,21 @@ void DecomposeAnalyzer::UpdateOwner(std::shared_ptr<MemoryOwnerEvent>& event, Me
             state->leaksDefinedOwner = ptaStr + event->owner;
         }
     }
+}
+
+void DecomposeAnalyzer::Subscribe()
+{
+    auto func = std::bind(&DecomposeAnalyzer::EventHandle, this, std::placeholders::_1, std::placeholders::_2);
+    std::vector<EventBaseType> eventList{
+        EventBaseType::MALLOC,
+        EventBaseType::ACCESS,
+        EventBaseType::MEMORY_OWNER};
+    EventDispatcher::GetInstance().Subscribe(
+        SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func);
+}
+
+void DecomposeAnalyzer::UnSubscribe()
+{
+    EventDispatcher::GetInstance().UnSubscribe(SubscriberId::DECOMPOSE_ANALYZER);
 }
 }

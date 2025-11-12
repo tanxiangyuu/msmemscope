@@ -11,7 +11,8 @@ class DecomposeAnalyzer : public AnalyzerBase {
 public:
     static DecomposeAnalyzer& GetInstance();
     void EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state) override;
-
+    void Subscribe();
+    void UnSubscribe();
 private:
     explicit DecomposeAnalyzer();
     ~DecomposeAnalyzer() override = default;

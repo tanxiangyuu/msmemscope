@@ -138,6 +138,25 @@ EventReport::EventReport(LeaksCommType type)
     return;
 }
 
+void EventReport::UpdateAnalysisType()
+{
+    initConfig_ = GetConfig();
+    BitField<decltype(initConfig_.analysisType)> analysisType(initConfig_.analysisType);
+
+    // 根据config确认是否订阅或者取消订阅
+    if (analysisType.checkBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
+        DecomposeAnalyzer::GetInstance().Subscribe();
+    } else {
+        DecomposeAnalyzer::GetInstance().UnSubscribe();
+    }
+
+    if (analysisType.checkBit(static_cast<size_t>(AnalysisType::INEFFICIENCY_ANALYSIS))) {
+        InefficientAnalyzer::GetInstance().Subscribe();
+    } else {
+        InefficientAnalyzer::GetInstance().UnSubscribe();
+    }
+}
+
 EventReport::~EventReport()
 {
     destroyed_.store(true);
