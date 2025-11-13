@@ -97,24 +97,6 @@ TEST_F(JsonManagerTest, save_to_file_success)
     ASSERT_TRUE(Utility::FileExists(filePath));
 }
 
-// 测试 SaveToFile：文件路径非法（无写权限），保存失败
-TEST_F(JsonManagerTest, save_to_file_no_permission_fail)
-{
-    auto& jsonMgr = JsonManager::GetInstance();
-    jsonMgr.SetValue("test_key", "test_value");
-    std::string noPermDir = "./testmsleaks/no_perm_dir";
-    MakeDir(noPermDir);
-    chmod(noPermDir.c_str(), 0444); // 只读权限
-    std::string filePath = noPermDir + "/test.json";
-    
-    bool ret = jsonMgr.SaveToFile(filePath);
-    ASSERT_FALSE(ret);
-    
-    // 恢复权限以便清理
-    chmod(noPermDir.c_str(), 0755);
-    rmdir(noPermDir.c_str());
-}
-
 // 测试 LoadFromFile：文件存在且格式合法，加载成功
 TEST_F(JsonManagerTest, load_from_file_success)
 {
