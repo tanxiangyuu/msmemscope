@@ -11,9 +11,9 @@ BLUE='\033[0;34m'
 NC='\033[0m' # 无颜色
 
 # 工具基本信息配置
-TOOL_NAME="msmemscope"
+TOOL_NAME="memscope"
 ARCH=$(uname -m)  # 获取系统架构
-RUN_FILE="${TOOL_NAME}_linux-${ARCH}.run"  # 根据架构生成文件名
+RUN_FILE="MindStudio_${TOOL_NAME}_linux-${ARCH}.run"  # 根据架构生成文件名
 BUILD_DIR="$(cd "$(dirname "$0")" && pwd)"  # 获取脚本所在绝对路径
 TEMP_DIR="/tmp/${TOOL_NAME}_build_$$"      # 使用进程ID确保临时目录唯一性
 
@@ -267,33 +267,71 @@ create_set_env_script() {
 # Get the directory where this script is located
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
-# Add python directory to PYTHONPATH
+echo "Setting up msmemscope environment..."
+
+# FORCE msmemscope paths to be at the front
+
+# For PYTHONPATH: remove any existing instances and add to front
 if [ -d "$SCRIPT_DIR/python" ]; then
-    if [ -z "$PYTHONPATH" ]; then
+    # Remove all occurrences of msmemscope python paths
+    local new_pythonpath=""
+    if [ -n "$PYTHONPATH" ]; then
+        # Split by colon and filter out msmemscope paths
+        IFS=':' read -ra paths <<< "$PYTHONPATH"
+        for path in "${paths[@]}"; do
+            if [[ "$path" != *"msmemscope"* ]]; then
+                if [ -z "$new_pythonpath" ]; then
+                    new_pythonpath="$path"
+                else
+                    new_pythonpath="$new_pythonpath:$path"
+                fi
+            fi
+        done
+    fi
+    
+    # Add msmemscope python path at the very beginning
+    if [ -z "$new_pythonpath" ]; then
         export PYTHONPATH="$SCRIPT_DIR/python"
     else
-        # Check if already in PYTHONPATH to avoid duplicates
-        if [[ ":$PYTHONPATH:" != *":$SCRIPT_DIR/python:"* ]]; then
-            export PYTHONPATH="$SCRIPT_DIR/python:$PYTHONPATH"
-        fi
+        export PYTHONPATH="$SCRIPT_DIR/python:$new_pythonpath"
     fi
-    echo "Added to PYTHONPATH: $SCRIPT_DIR/python"
+    echo "✓ Added to PYTHONPATH (forced to front): $SCRIPT_DIR/python"
 fi
 
-# Add bin directory to PATH
+# For PATH: remove any existing instances and add to front
 if [ -d "$SCRIPT_DIR/bin" ]; then
-    if [ -z "$PATH" ]; then
+    # Remove all occurrences of msmemscope bin paths
+    local new_path=""
+    if [ -n "$PATH" ]; then
+        # Split by colon and filter out msmemscope paths
+        IFS=':' read -ra paths <<< "$PATH"
+        for path in "${paths[@]}"; do
+            if [[ "$path" != *"msmemscope"* ]]; then
+                if [ -z "$new_path" ]; then
+                    new_path="$path"
+                else
+                    new_path="$new_path:$path"
+                fi
+            fi
+        done
+    fi
+    
+    # Add msmemscope bin path at the very beginning
+    if [ -z "$new_path" ]; then
         export PATH="$SCRIPT_DIR/bin"
     else
-        # Check if already in PATH to avoid duplicates
-        if [[ ":$PATH:" != *":$SCRIPT_DIR/bin:"* ]]; then
-            export PATH="$SCRIPT_DIR/bin:$PATH"
-        fi
+        export PATH="$SCRIPT_DIR/bin:$new_path"
     fi
-    echo "Added to PATH: $SCRIPT_DIR/bin"
+    echo "✓ Added to PATH (forced to front): $SCRIPT_DIR/bin"
 fi
 
 echo "msmemscope environment setup completed"
+
+# Verification
+echo ""
+echo "Environment verification:"
+echo "PYTHONPATH starts with: $(echo $PYTHONPATH | cut -d: -f1)"
+echo "PATH starts with: $(echo $PATH | cut -d: -f1)"
 SETENV_EOF
 
     # 设置环境脚本为可执行
@@ -371,8 +409,15 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# 获取安装目录（卸载脚本所在目录）
-INSTALL_DIR="$(cd "$(dirname "$0")" && pwd)"
+# 获取安装目录
+if [ -n "${BASH_SOURCE[0]}" ]; then
+    # 使用 BASH_SOURCE 更可靠
+    SCRIPT_PATH="${BASH_SOURCE[0]}"
+else
+    # 回退到 $0
+    SCRIPT_PATH="$0"
+fi
+INSTALL_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 
 # 检查安装完整性，确保是有效的安装
 check_installation_integrity() {
@@ -447,43 +492,53 @@ check_running_processes() {
     return 0
 }
 
-# 添加环境变量清理函数
 cleanup_environment_variables() {
     local install_dir="$INSTALL_DIR"
     
     # 清理 PYTHONPATH
     if [ -n "$PYTHONPATH" ]; then
-        # 移除包含安装目录的路径
-        export PYTHONPATH=$(echo "$PYTHONPATH" | \
-            sed "s|:$install_dir/python/msleaks||g" | \
-            sed "s|$install_dir/python/msleaks:||g" | \
-            sed "s|$install_dir/python/msleaks||g")
+        local new_pythonpath=""
+        IFS=':' read -ra paths <<< "$PYTHONPATH"
+        for path in "${paths[@]}"; do
+            # 排除所有包含安装目录的路径
+            if [[ "$path" != *"$install_dir"* ]]; then
+                if [ -z "$new_pythonpath" ]; then
+                    new_pythonpath="$path"
+                else
+                    new_pythonpath="$new_pythonpath:$path"
+                fi
+            fi
+        done
         
-        # 如果 PYTHONPATH 为空，则取消设置
-        if [ -z "$PYTHONPATH" ]; then
+        if [ -z "$new_pythonpath" ]; then
             unset PYTHONPATH
+            log_info "PYTHONPATH unset"
+        else
+            export PYTHONPATH="$new_pythonpath"
+            log_info "PYTHONPATH cleaned"
         fi
-        
-        log_info "Cleaned PYTHONPATH"
     fi
     
     # 清理 PATH
     if [ -n "$PATH" ]; then
-        # 移除包含安装目录 bin 的路径
-        export PATH=$(echo "$PATH" | \
-            sed "s|:$install_dir/bin||g" | \
-            sed "s|$install_dir/bin:||g" | \
-            sed "s|$install_dir/bin||g")
+        local new_path=""
+        IFS=':' read -ra paths <<< "$PATH"
+        for path in "${paths[@]}"; do
+            # 排除所有包含安装目录的路径
+            if [[ "$path" != *"$install_dir"* ]]; then
+                if [ -z "$new_path" ]; then
+                    new_path="$path"
+                else
+                    new_path="$new_path:$path"
+                fi
+            fi
+        done
         
-        log_info "Cleaned PATH"
+        export PATH="$new_path"
+        log_info "PATH cleaned"
     fi
     
-    # 也清理当前 shell 的环境变量（可选）
-    log_info "Environment variables cleaned up"
-    
-    # 显示清理后的状态
-    echo "PYTHONPATH after cleanup: ${PYTHONPATH:-<not set>}"
-    echo "PATH after cleanup: $PATH"
+    log_info "Environment variables cleanup completed"
 }
 
 # 执行卸载操作
@@ -602,10 +657,12 @@ install_main() {
     # 设置默认安装路径时，如果是相对路径就转换为绝对路径
     if [ -z "$install_path" ]; then
         install_path="$DEFAULT_INSTALL_PATH"
-        # 将相对路径转换为绝对路径
+        # 将相对路径转换为绝对路径，并去除末尾的斜杠
         if [[ "$install_path" != /* ]]; then
             install_path="$(pwd)/$install_path"
         fi
+        # 规范化路径，移除多余的 ./ 和 ../
+        install_path=$(cd "$install_path" && pwd)
         log_info "Using installation path: $install_path"
     fi
     
