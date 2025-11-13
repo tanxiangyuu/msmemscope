@@ -30,6 +30,11 @@ ACL_FUNC_VISIBILITY aclError aclInit(const char *configPath)
     }
 
     aclError ret = vallina(configPath);
+
+    if (!EventTraceManager::Instance().IsTracingEnabled()) {
+        return ret;
+    }
+
     if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAclItf(RecordSubType::INIT)) {
         LOG_ERROR("aclInit report FAILED");
     }
@@ -53,6 +58,11 @@ ACL_FUNC_VISIBILITY aclError aclFinalize()
     }
 
     aclError ret = vallina();
+
+    if (!EventTraceManager::Instance().IsTracingEnabled()) {
+        return ret;
+    }
+
     if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAclItf(RecordSubType::FINALIZE)) {
         LOG_ERROR("aclInit report FAILED");
     }
