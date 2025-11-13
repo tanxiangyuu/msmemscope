@@ -254,10 +254,10 @@ void EventTraceManager::InitTraceStatus()
 
 void EventTraceManager::SetTraceStatus(const EventTraceStatus status)
 {
-    LOG_INFO("Set trace status to " + std::to_string(static_cast<uint8_t>(status)) + " .");
+    std::cout << "[msleaks] Info: Set trace status to " << std::to_string(static_cast<uint8_t>(status)) << " ." << std::endl;
 
     if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportTraceStatus(status)) {
-        LOG_ERROR("Report trace status failed.\n");
+        std::cout << "[msleaks] Error: Report trace status failed.\n";
     }
 
     std::lock_guard<std::mutex> lock(mutex_);
