@@ -84,7 +84,7 @@ bool IsPythonThread()
     char name[THREAD_NAME_LEN] = {0};
     pthread_getname_np(pthread_self(), name, sizeof(name));
     std::string threadName = std::string(name);
-    if (threadName.find("python") != std::string::npos) {
+    if (threadName.find("python") != std::string::npos || threadName.find("VLLM") != std::string::npos) {
         return true;
     }
     return false;
