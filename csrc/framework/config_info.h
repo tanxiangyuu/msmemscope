@@ -25,6 +25,7 @@ constexpr const char *TRACE_FILE = "trace";
 constexpr const char *DUMP_DIR = "dump";
 constexpr const char *WATCH_DUMP_DIR = "watch_dump";
 constexpr const char *LOG_DIR = "msleaks_logs";
+constexpr const char *CONFIG_FILE = "config";
 constexpr const char *COMPARE_DIR = "compare";
 constexpr uint16_t WATCH_OP_DIR_MAX_LENGTH = 255;
 constexpr const char *CSV_FILE_PREFIX = "leaks_dump_";
