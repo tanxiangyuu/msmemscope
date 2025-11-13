@@ -17,7 +17,7 @@ constexpr const char *MSLEAKS_CONFIG_PATH = "config.json";
 class JsonManager {
 public:
     static JsonManager& GetInstance();
-    bool SaveToFile(std::string filePath);
+    bool SaveToFile(const std::string& configOutputDir);
     bool LoadFromFile(std::string filePath);
 
     // 设置基础类型
@@ -58,6 +58,7 @@ private:
 private:
     nlohmann::json jsonConfig_;
     std::string jsonFilePath_;
+    FILE *fp_{nullptr};
 };
 
 class JsonConfig {

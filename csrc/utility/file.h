@@ -21,6 +21,7 @@ namespace Utility {
     constexpr uint32_t DEFAULT_UMASK_FOR_DB_FILE = 0177;
     constexpr uint32_t DEFAULT_UMASK_FOR_BIN_FILE = 0177;
     constexpr uint32_t DEFAULT_UMASK_FOR_LOG_FILE = 0177;
+    constexpr uint32_t DEFAULT_UMASK_FOR_CONFIG_FILE = 0137;
     constexpr uint64_t MAX_INPUT_FILE_SIZE = 1UL << 33; // 8GB
 
     class FileCreateManager {
@@ -35,6 +36,7 @@ namespace Utility {
         bool CreateDbFile(sqlite3 **filefp, std::string devId, std::string filePrefix, std::string taskDir,
             std::string tableName, std::string tableCreateSql);
         bool CreateLogFile(FILE **filefp, std::string taskDir, std::string& logFilePath);
+        bool CreateConfigFile(FILE **filefp, std::string fileName, std::string& configFilePath);
 
         /// 创建文件
         FILE* CreateFileWithUmask(const std::string &path, const std::string &mode, mode_t mask);
@@ -43,7 +45,6 @@ namespace Utility {
         bool CreateDir();
         
         std::string GetProjectDir();
-        std::string GetConfigFilePath() const;
         void SetProjectDir(std::string dirPath);
     private:
         std::string projectDir_;

@@ -86,11 +86,6 @@ namespace Utility {
         projectDir_ = outputDir + "/" + "msleaks_" + std::to_string(GetPid()) + "_" + GetDateStr() + "_ascend";
     }
 
-    std::string FileCreateManager::GetConfigFilePath() const
-    {
-        return projectDir_ + "/config.json";
-    }
-
     FILE* FileCreateManager::CreateFileWithUmask(const std::string &path, const std::string &mode, mode_t mask)
     {
         if (path.empty()) {
@@ -205,6 +200,23 @@ namespace Utility {
                 return false;
             } else {
                 std::cout << "[msleaks] Info: logging into file " << logFilePath << std::endl;
+                *filefp = fp;
+            }
+        }
+        return true;
+    }
+
+    bool FileCreateManager::CreateConfigFile(FILE **filefp, std::string fileName, std::string& configFilePath)
+    {
+        if (*filefp == nullptr) {
+            std::string realName = fileName + ".json";
+            configFilePath = projectDir_ + "/" + realName;
+            FILE* fp = CreateFile(projectDir_, realName, DEFAULT_UMASK_FOR_CONFIG_FILE);
+            if (fp == nullptr) {
+                std::cout << "[msleaks] Error: Create config file failed: " << configFilePath << std::endl;
+                return false;
+            } else {
+                std::cout << "[msleaks] Info: Config into file " << configFilePath << std::endl;
                 *filefp = fp;
             }
         }

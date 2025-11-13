@@ -14,11 +14,14 @@ JsonManager& JsonManager::GetInstance()
     return jsonManager;
 }
 
-bool JsonManager::SaveToFile(std::string filePath)
+bool JsonManager::SaveToFile(const std::string& configOutputDir)
 {
-    std::ofstream ofs(filePath);
+    if (!FileCreateManager::GetInstance(configOutputDir).CreateConfigFile(&fp_, Leaks::CONFIG_FILE, jsonFilePath_)) {
+        return false;
+    }
+    std::ofstream ofs(jsonFilePath_);
     if (!ofs.is_open()) {
-        std::cout << "[msleaks] Error: Failed to save json file: " << filePath << std::endl;
+        std::cout << "[msleaks] Error: Failed to save json file: " << jsonFilePath_ << std::endl;
         return false;
     } else {
         try {
@@ -190,7 +193,7 @@ bool JsonConfig::EnsureConfigPathConsistency(const std::string& configOutputDir)
  
     // 创建 FileCreateManager 实例并获取实际配置路径
     auto& fileManager = FileCreateManager::GetInstance(configOutputDir);
-    std::string actualConfigPath = fileManager.GetConfigFilePath();
+    std::string actualConfigPath = fileManager.GetProjectDir() + '/' + Leaks::CONFIG_FILE + ".json";
  
     bool needUpdate = false;
     if (currentEnvPath.empty() || currentEnvPath != actualConfigPath) {
@@ -202,11 +205,6 @@ bool JsonConfig::EnsureConfigPathConsistency(const std::string& configOutputDir)
             std::cout << "[msleaks] Error: Failed to set MSLEAKS_CONFIG_ENV to " << actualConfigPath << std::endl;
             return false;
         }
-    }
- 
-    if (!fileManager.CreateDir()) {
-        std::cout << "[msleaks] Error: Failed to create directory: " << fileManager.GetProjectDir() << std::endl;
-        return false;
     }
  
     return true;
@@ -245,8 +243,7 @@ void JsonConfig::SaveConfigToJson(const Leaks::Config& config)
         return ;
     }
 
-    const char* path = std::getenv(MSLEAKS_CONFIG_ENV);
-    if (!Utility::JsonManager::GetInstance().SaveToFile(std::string(path))) {
+    if (!Utility::JsonManager::GetInstance().SaveToFile(config.outputDir)) {
         std::cout << "[msleaks] Error: Save Json config to file failed!" << std::endl;
         return ;
     }
