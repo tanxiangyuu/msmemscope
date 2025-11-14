@@ -129,6 +129,7 @@ bool ConfigManager::SetConfig(const std::unordered_map<std::string, std::string>
     Utility::SetLogLevel(static_cast<LogLv>(config_.logLevel));
     Utility::JsonConfig::GetInstance().SaveConfigToJson(config_);
     EventTraceManager::Instance().HandleWithATenCollect();
+    EventTraceManager::Instance().InitJudgeFuncTable();
     // 更新analysis参数
     EventReport::Instance(LeaksCommType::SHARED_MEMORY).UpdateAnalysisType();
 
