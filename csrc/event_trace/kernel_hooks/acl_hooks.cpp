@@ -31,6 +31,8 @@ ACL_FUNC_VISIBILITY aclError aclInit(const char *configPath)
 
     aclError ret = vallina(configPath);
 
+    EventTraceManager::Instance().SetAclInitStatus(true);
+
     if (!EventTraceManager::Instance().IsTracingEnabled()) {
         return ret;
     }
@@ -38,9 +40,6 @@ ACL_FUNC_VISIBILITY aclError aclInit(const char *configPath)
     if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAclItf(RecordSubType::INIT)) {
         LOG_ERROR("aclInit report FAILED");
     }
-
-    EventTraceManager::Instance().SetAclInitStatus(true);
-    
     if (BitPresent(GetConfig().analysisType, static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
         Utility::LeaksPythonCall("msleaks.optimizer_step_hook", "enable_optimizer_step_hook");
     }

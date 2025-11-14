@@ -67,7 +67,7 @@ public:
     bool ShouldTraceType(const RecordType type = RecordType::INVALID_RECORD);
     bool IsTracingEnabled();
     void SetTraceStatus(const EventTraceStatus status); // 通过python接口在运行时动态修改
-
+    void InitJudgeFuncTable();
     void SetAclInitStatus(bool isInit);
     void HandleWithATenCollect();
 private:
@@ -82,7 +82,6 @@ private:
     }
 
     void InitTraceStatus(); // 命令行拉起时有一个初始化状态
-    void InitJudgeFuncTable();
 
     std::mutex mutex_;
     EventTraceStatus status_ = EventTraceStatus::NOT_IN_TRACING;
