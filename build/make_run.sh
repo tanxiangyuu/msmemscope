@@ -251,6 +251,43 @@ validate_install_path() {
     return 0
 }
 
+# 设置文件权限
+set_file_permissions() {
+    local install_dir="$1/msmemscope"
+    
+    # 设置最外层msmemscope文件夹权限为drwxr-x--- (750) - 所有者需要写权限以便删除
+    chmod 750 "$install_dir"
+    
+    # 设置所有子目录权限为drwxr-x--- (750) - 所有者需要写权限以便删除子目录
+    find "$install_dir" -mindepth 1 -type d -exec chmod 750 {} \;
+    
+    # 设置bin目录下所有文件权限为-rwxr-x--- (750) - 二进制和shell脚本需要执行权限
+    if [ -d "$install_dir/bin" ]; then
+        find "$install_dir/bin" -type f -exec chmod 750 {} \;
+    fi
+    
+    # 设置lib64目录下so文件权限为-rw-r----- (640) - 只需要读权限，所有者需要写权限以便删除
+    if [ -d "$install_dir/lib64" ]; then
+        find "$install_dir/lib64" -name "*.so" -type f -exec chmod 640 {} \;
+    fi
+    
+    # 设置python/msleaks目录下python文件权限为-rw-r----- (640) - python文件只需要读权限
+    if [ -d "$install_dir/python/msleaks" ]; then
+        find "$install_dir/python/msleaks" -name "*.py" -type f -exec chmod 640 {} \;
+    fi
+    
+    local set_env_script="$install_dir/set_env.sh"
+    local uninstall_script="$install_dir/uninstall.sh"
+    local version_file="$install_dir/version.txt"
+    
+    # set_env.sh和uninstall.sh权限为-rwxr-x--- (750) - 需要执行权限
+    [ -f "$set_env_script" ] && chmod 750 "$set_env_script"
+    [ -f "$uninstall_script" ] && chmod 750 "$uninstall_script"
+    
+    # version.txt权限为640 - 只需要读权限
+    [ -f "$version_file" ] && chmod 640 "$version_file"
+}
+
 # 创建环境变量设置脚本
 create_set_env_script() {
     local install_path="$1"
@@ -334,8 +371,6 @@ echo "PYTHONPATH starts with: $(echo $PYTHONPATH | cut -d: -f1)"
 echo "PATH starts with: $(echo $PATH | cut -d: -f1)"
 SETENV_EOF
 
-    # 设置环境脚本为可执行
-    chmod +x "$set_env_script"
     log_info "Environment setup script created: $set_env_script"
 }
 
@@ -363,16 +398,8 @@ perform_installation() {
         exit 1
     fi
     
-    # 设置文件权限，确保可执行文件有执行权限
-    if [ -d "$install_path/msmemscope/bin" ]; then
-        chmod -R 755 "$install_path/msmemscope/bin"
-        log_info "Set execute permissions for bin directory"
-    fi
-    
-    if [ -d "$install_path/msmemscope/python" ]; then
-        chmod -R 755 "$install_path/msmemscope/python"
-        log_info "Set execute permissions for python directory"
-    fi
+    # 设置文件权限
+    set_file_permissions "$install_path"
     
     # 创建环境变量设置脚本
     create_set_env_script "$install_path"
@@ -594,8 +621,6 @@ main() {
 main "$@"
 UNINSTALL_EOF
 
-    # 设置卸载脚本为可执行
-    chmod +x "$install_path/msmemscope/uninstall.sh"
     log_info "Uninstall script created: $install_path/msmemscope/uninstall.sh"
 }
 
@@ -836,8 +861,7 @@ create_run_file() {
     tar -cz . >> "$BUILD_DIR/$RUN_FILE"  # 使用.而不是*避免隐藏文件被忽略
     cd - > /dev/null
     
-    # 设置run文件为可执行
-    chmod +x "$BUILD_DIR/$RUN_FILE"
+    chmod 740 "$BUILD_DIR/$RUN_FILE"
     
     # 验证run文件是否创建成功
     if [ -f "$BUILD_DIR/$RUN_FILE" ] && [ -x "$BUILD_DIR/$RUN_FILE" ]; then
