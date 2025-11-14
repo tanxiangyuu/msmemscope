@@ -13,6 +13,9 @@ namespace Leaks {
 
 void KernelEventTrace::KernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
 {
+    if (!EventTraceManager::Instance().IsTracingEnabled()) {
+        return;
+    }
     if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportKernelLaunch(kernelLaunchInfo)) {
         LOG_ERROR("KernelLaunch launch report failed");
     }
@@ -24,6 +27,9 @@ void KernelEventTrace::KernelStartExcute(const TaskKey& key, uint64_t time)
 {
     auto kernelName = RuntimeKernelLinker::GetInstance().GetKernelName(key, RecordSubType::KERNEL_START);
     if (!kernelName.empty()) {
+        if (!EventTraceManager::Instance().IsTracingEnabled()) {
+            return;
+        }
         if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportKernelExcute(key,
             kernelName, time, RecordSubType::KERNEL_START)) {
             LOG_ERROR("Kernel excute start report failed");
@@ -36,6 +42,9 @@ void KernelEventTrace::KernelEndExcute(const TaskKey& key, uint64_t time)
 {
     auto kernelName = RuntimeKernelLinker::GetInstance().GetKernelName(key, RecordSubType::KERNEL_END);
     if (!kernelName.empty()) {
+        if (!EventTraceManager::Instance().IsTracingEnabled()) {
+            return;
+        }
         if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportKernelExcute(key,
             kernelName, time, RecordSubType::KERNEL_END)) {
             LOG_ERROR("Kernel excute end report failed");

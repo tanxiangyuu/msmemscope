@@ -248,7 +248,7 @@ void EventTraceManager::InitTraceStatus()
     auto status = (GetConfig().collectMode == static_cast<uint8_t>(CollectMode::IMMEDIATE)) &&
         GetConfig().isEffective ?
         EventTraceStatus::IN_TRACING : EventTraceStatus::NOT_IN_TRACING;
-    SetTraceStatus(status);
+    status_ = status;
     return;
 }
 
