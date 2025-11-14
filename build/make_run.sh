@@ -861,8 +861,8 @@ create_run_file() {
     tar -cz . >> "$BUILD_DIR/$RUN_FILE"  # 使用.而不是*避免隐藏文件被忽略
     cd - > /dev/null
     
-    # 设置run文件为最小权限：744 (rwxr--r--)
-    chmod 744 "$BUILD_DIR/$RUN_FILE"
+    # 设置run文件为最小权限：740 (rwxr-----)
+    chmod 740 "$BUILD_DIR/$RUN_FILE"
     
     # 验证run文件是否创建成功
     if [ -f "$BUILD_DIR/$RUN_FILE" ] && [ -x "$BUILD_DIR/$RUN_FILE" ]; then
