@@ -2,7 +2,7 @@
 
 #include "memory_pool_trace_manager.h"
 
-namespace Leaks {
+namespace MemScope {
 
 mstxMemHeapHandle_t MemoryPoolTraceManager::Allocate(mstxDomainHandle_t domain, mstxMemHeapDesc_t const *desc)
 {

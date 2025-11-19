@@ -9,7 +9,7 @@
 using namespace Utility;
 
 constexpr uint8_t PYTHON_CALL_STACK_DEPTH = 10;
-void TestCallStack(const std::string&, const std::string&, Leaks::PyTraceType type, uint64_t)
+void TestCallStack(const std::string&, const std::string&, MemScope::PyTraceType type, uint64_t)
 {
     std::string stack;
     GetPythonCallstack(0, stack);

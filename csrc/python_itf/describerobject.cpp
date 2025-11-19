@@ -5,12 +5,12 @@
 #include "cpython.h"
 #include "utils.h"
 
-namespace Leaks {
+namespace MemScope {
 
 const size_t MAX_DESCRIBE_OWNER_LENGTH = 64;
 
 /* 单例类，自定义new函数，避免重复构造 */
-static PyObject* PyLeaksNewDescriber(PyTypeObject *type, PyObject *args, PyObject *kwds)
+static PyObject* PyMemScopeNewDescriber(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     if (type == nullptr || type->tp_alloc == nullptr) {
         return nullptr;
@@ -28,7 +28,7 @@ static PyObject* PyLeaksNewDescriber(PyTypeObject *type, PyObject *args, PyObjec
 
 PyDoc_STRVAR(DescribeDoc,
 "describe($self, owner)\n--\n\nEnable debug.");
-static PyObject* PyLeaksDescribe(PyObject *self,  PyObject *arg)
+static PyObject* PyMemScopeDescribe(PyObject *self,  PyObject *arg)
 {
     if (!PyUnicode_Check(arg)) {
         PyErr_SetString(PyExc_TypeError, "Expected a string argument");
@@ -45,7 +45,7 @@ static PyObject* PyLeaksDescribe(PyObject *self,  PyObject *arg)
 
 PyDoc_STRVAR(UnDescribeDoc,
 "undescribe($self, owner)\n--\n\nEnable debug.");
-static PyObject* PyLeaksUnDescribe(PyObject *self,  PyObject *arg)
+static PyObject* PyMemScopeUnDescribe(PyObject *self,  PyObject *arg)
 {
     if (!PyUnicode_Check(arg)) {
         PyErr_SetString(PyExc_TypeError, "Expected a string argument");
@@ -62,7 +62,7 @@ static PyObject* PyLeaksUnDescribe(PyObject *self,  PyObject *arg)
 
 PyDoc_STRVAR(DescribeAddrDoc,
 "describe_addr($self, addr, owner)\n--\n\nEnable debug.");
-static PyObject* PyLeaksDescribeAddr(PyObject *self,  PyObject *args)
+static PyObject* PyMemScopeDescribeAddr(PyObject *self,  PyObject *args)
 {
     PyObject *addrObj = nullptr;
     const char* str = nullptr;
@@ -85,17 +85,17 @@ static PyObject* PyLeaksDescribeAddr(PyObject *self,  PyObject *args)
     Py_RETURN_NONE;
 }
 
-static PyMethodDef PyLeaksDescriberMethods[] = {
-    {"describe_addr", reinterpret_cast<PyCFunction>(PyLeaksDescribeAddr), METH_VARARGS, DescribeAddrDoc},
-    {"describe", reinterpret_cast<PyCFunction>(PyLeaksDescribe), METH_O, DescribeDoc},
-    {"undescribe", reinterpret_cast<PyCFunction>(PyLeaksUnDescribe), METH_O, UnDescribeDoc},
+static PyMethodDef PyMemScopeDescriberMethods[] = {
+    {"describe_addr", reinterpret_cast<PyCFunction>(PyMemScopeDescribeAddr), METH_VARARGS, DescribeAddrDoc},
+    {"describe", reinterpret_cast<PyCFunction>(PyMemScopeDescribe), METH_O, DescribeDoc},
+    {"undescribe", reinterpret_cast<PyCFunction>(PyMemScopeUnDescribe), METH_O, UnDescribeDoc},
     {nullptr, nullptr, 0, nullptr}
 };
 
 
-static PyTypeObject PyLeaksDescriberType = {
+static PyTypeObject PyMemScopeDescriberType = {
     PyVarObject_HEAD_INIT(&PyType_Type, 0)
-    "_msleaks._describer",                            /* tp_name */
+    "_msmemscope._describer",                            /* tp_name */
     0,                                                /* tp_basicsize */
     0,                                                /* tp_itemsize */
     /* methods */
@@ -122,7 +122,7 @@ static PyTypeObject PyLeaksDescriberType = {
     0,                                                /* tp_weaklistoffset */
     nullptr,                                          /* tp_iter */
     nullptr,                                          /* tp_iternext */
-    PyLeaksDescriberMethods,                          /* tp_methods */
+    PyMemScopeDescriberMethods,                          /* tp_methods */
     nullptr,                                          /* tp_members */
     nullptr,                                          /* tp_getset */
     &PyBaseObject_Type,                               /* tp_base */
@@ -132,16 +132,16 @@ static PyTypeObject PyLeaksDescriberType = {
     0,                                                /* tp_dictoffset */
     nullptr,                                          /* tp_init */
     nullptr,                                          /* tp_alloc */
-    PyLeaksNewDescriber,                              /* tp_new */
+    PyMemScopeNewDescriber,                              /* tp_new */
     PyObject_Del,                                     /* tp_free */
 };
 
-PyObject* PyLeaks_GetDescriber()
+PyObject* PyMemScope_GetDescriber()
 {
-    if (PyType_Ready(&PyLeaksDescriberType) < 0) {
+    if (PyType_Ready(&PyMemScopeDescriberType) < 0) {
         return nullptr;
     }
 
-    return PyObject_New(PyObject, &PyLeaksDescriberType);
+    return PyObject_New(PyObject, &PyMemScopeDescriberType);
 }
 }

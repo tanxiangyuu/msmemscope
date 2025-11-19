@@ -11,7 +11,7 @@
 #undef private
 #include <gtest/gtest.h>
 
-using namespace Leaks;
+using namespace MemScope;
 
 TEST(MemPoolTraceTest, MemPoolTraceTestATBHeapRegisterAndRegionRegister)
 {
@@ -279,7 +279,7 @@ TEST(MemPoolTraceTest, PTACachingPoolTraceReleaseRegionHandleMpNull)
 
 TEST(MemPoolTraceTest, PTACachingPoolTraceCreateDomainReturnNull)
 {
-    EXPECT_EQ(PTACachingPoolTrace::GetInstance().CreateDomain("msleaks"), nullptr);
+    EXPECT_EQ(PTACachingPoolTrace::GetInstance().CreateDomain("msmemscope"), nullptr);
 }
 
 TEST(MemPoolTraceTest, PTAWorkspacePoolTraceTestPtaHeapRegisterAndRegionRegister)
@@ -335,5 +335,5 @@ TEST(MemPoolTraceTest, PTAWorkspacePoolTraceReleaseRegionHandleMpNull)
 
 TEST(MemPoolTraceTest, PTAWorkspacePoolTraceCreateDomainReturnNull)
 {
-    EXPECT_EQ(PTAWorkspacePoolTrace::GetInstance().CreateDomain("msleaks"), nullptr);
+    EXPECT_EQ(PTAWorkspacePoolTrace::GetInstance().CreateDomain("msmemscope"), nullptr);
 }

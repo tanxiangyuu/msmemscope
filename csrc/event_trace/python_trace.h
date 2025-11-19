@@ -16,7 +16,7 @@
 #include "event_report.h"
 #include "../csrc/analysis/data_handler.h"
 
-namespace Leaks {
+namespace MemScope {
 
 class PythonTrace {
 public:

@@ -7,7 +7,7 @@
 #include "event_dispatcher.h"
 #include "constant.h"
 
-namespace Leaks {
+namespace MemScope {
 
 const std::string DecomposeAnalyzer::cannStr = "CANN";
 const std::string DecomposeAnalyzer::ptaStr = "PTA";
@@ -55,30 +55,30 @@ void DecomposeAnalyzer::InitOwner(std::shared_ptr<MemoryEvent>& event, MemorySta
         case EventSubType::HAL: {
             auto it = MODULE_HASH_TABLE.find(event->moduleId);
             if (it != MODULE_HASH_TABLE.end()) {
-                state->leaksDefinedOwner = cannStr + "@" + it->second;
+                state->memscopeDefinedOwner = cannStr + "@" + it->second;
             } else {
-                state->leaksDefinedOwner = cannStr + "@UNKNOWN";
+                state->memscopeDefinedOwner = cannStr + "@UNKNOWN";
             }
             state->userDefinedOwner = event->describeOwner;
             break;
         }
         case EventSubType::PTA_CACHING: {
-            state->leaksDefinedOwner = ptaStr;
+            state->memscopeDefinedOwner = ptaStr;
             state->userDefinedOwner = event->describeOwner;
             break;
         }
         case EventSubType::PTA_WORKSPACE: {
-            state->leaksDefinedOwner = ptaWorkspaceStr;
+            state->memscopeDefinedOwner = ptaWorkspaceStr;
             state->userDefinedOwner = event->describeOwner;
             break;
         }
         case EventSubType::MINDSPORE: {
-            state->leaksDefinedOwner = mindsporeStr;
+            state->memscopeDefinedOwner = mindsporeStr;
             state->userDefinedOwner = event->describeOwner;
             break;
         }
         case EventSubType::ATB: {
-            state->leaksDefinedOwner = atbStr;
+            state->memscopeDefinedOwner = atbStr;
             state->userDefinedOwner = event->describeOwner;
             break;
         }
@@ -95,12 +95,12 @@ void DecomposeAnalyzer::UpdateOwnerByAtenAccess(std::shared_ptr<MemoryEvent>& ev
         return;
     }
 
-    if (state->leaksDefinedOwner.rfind(ptaStr, 0) != 0) {
+    if (state->memscopeDefinedOwner.rfind(ptaStr, 0) != 0) {
         return;
     }
 
-    if (state->leaksDefinedOwner.length() == ptaStrLen) {
-        state->leaksDefinedOwner += atenStr;
+    if (state->memscopeDefinedOwner.length() == ptaStrLen) {
+        state->memscopeDefinedOwner += atenStr;
     }
 }
 
@@ -109,16 +109,16 @@ void DecomposeAnalyzer::UpdateOwner(std::shared_ptr<MemoryOwnerEvent>& event, Me
     if (event->eventSubType == EventSubType::DESCRIBE_OWNER && !(event->owner).empty()) {
         state->userDefinedOwner += event->owner;
     } else if (event->eventSubType == EventSubType::TORCH_OPTIMIZER_STEP_OWNER && !(event->owner).empty()) {
-        if (state->leaksDefinedOwner.rfind(ptaStr, 0) != 0) {
+        if (state->memscopeDefinedOwner.rfind(ptaStr, 0) != 0) {
             return;
         }
 
-        if (state->leaksDefinedOwner.length() == ptaStrLen) {
-            state->leaksDefinedOwner += event->owner;
+        if (state->memscopeDefinedOwner.length() == ptaStrLen) {
+            state->memscopeDefinedOwner += event->owner;
         } else if (event->owner != atenStr) {
             // 部分内存有可能先作为算子操作的内容，然后被识别为其他类型，如weight，
             // 则优先用weight覆盖aten，而aten不能覆盖其他类型
-            state->leaksDefinedOwner = ptaStr + event->owner;
+            state->memscopeDefinedOwner = ptaStr + event->owner;
         }
     }
 }

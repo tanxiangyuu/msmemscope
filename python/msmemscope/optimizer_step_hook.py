@@ -6,7 +6,7 @@ from typing import List, Tuple, Dict, Any
 import torch
 from torch.optim import Optimizer
 from torch.optim.optimizer import register_optimizer_step_post_hook
-from ._msleaks import _report_tensor
+from ._msmemscope import _report_tensor
 
 
 def append_tensor_info(
@@ -67,5 +67,5 @@ def disable_optimizer_step_hook():
     optimizer_step_hook.disable()
 
 
-logging.info(f"[msleaks] Enable optimizer step hook.")
+logging.info(f"[msmemscope] Enable optimizer step hook.")
 optimizer_step_hook = OptimizerStepHook()

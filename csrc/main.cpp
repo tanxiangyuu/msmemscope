@@ -6,7 +6,7 @@
 
 int32_t main(int32_t argc, char **argv)
 {
-    Leaks::ClientParser parser;
+    MemScope::ClientParser parser;
     parser.Interpretor(argc, argv);
     return 0;
 }

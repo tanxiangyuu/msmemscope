@@ -9,7 +9,7 @@
 #include <linux/limits.h>
 #include <unordered_map>
 
-namespace Leaks {
+namespace MemScope {
 
 constexpr uint8_t SELECTED_STEP_MAX_NUM = 5;  // 先设定最多指定5个step的信息采集
 constexpr uint8_t DEFAULT_CALL_STACK_DEPTH = 50;
@@ -20,15 +20,15 @@ constexpr const char *STEP_INTER_HEADERS = ",,,Base,Compare\nEvent,Name,Device I
         "Allocated Memory(byte),Diff Memory(byte)\n";
 constexpr const char *TRACE_HEADERS = "FuncInfo,StartTime(ns),EndTime(ns),Thread Id,Process Id\n";
 constexpr const char *WATCH_HASH_HEADERS = "Tensor info,Check data sum\n";
-constexpr const char *OUTPUT_PATH = "leaksDumpResults";
+constexpr const char *OUTPUT_PATH = "memscopeDumpResults";
 constexpr const char *TRACE_FILE = "trace";
 constexpr const char *DUMP_DIR = "dump";
 constexpr const char *WATCH_DUMP_DIR = "watch_dump";
-constexpr const char *LOG_DIR = "msleaks_logs";
+constexpr const char *LOG_DIR = "msmemscope_logs";
 constexpr const char *CONFIG_FILE = "config";
 constexpr const char *COMPARE_DIR = "compare";
 constexpr uint16_t WATCH_OP_DIR_MAX_LENGTH = 255;
-constexpr const char *CSV_FILE_PREFIX = "leaks_dump_";
+constexpr const char *CSV_FILE_PREFIX = "memscope_dump_";
 constexpr const char *PYTHON_TRACE_FILE_PREFIX = "python_trace_";
 constexpr const char *MEMORY_COMPARE_FILE_PREFIX = "memory_compare_";
 constexpr const char *WATCH_CSV_FILE_PREFIX = "watch_dump_data_check_sum_";

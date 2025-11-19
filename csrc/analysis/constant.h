@@ -8,7 +8,7 @@
 
 #include "event.h"
 
-namespace Leaks {
+namespace MemScope {
 
 const std::unordered_map<PoolType, std::string> PoolTypeMap = {
     {PoolType::PTA_CACHING, "PTA"},
@@ -162,7 +162,7 @@ const std::vector<std::pair<std::string, std::string>> PYTHON_TRACE_TABLE_SQL = 
     {"Process Id", "INTEGER"}
 };
 
-const std::string DUMP_RECORD_TABLE = "leaks_dump";
+const std::string DUMP_RECORD_TABLE = "memscope_dump";
 const std::string PYTHON_TRACE_TABLE = "python_trace";
 
 }

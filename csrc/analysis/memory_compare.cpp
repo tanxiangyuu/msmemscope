@@ -10,7 +10,7 @@
 #include "ustring.h"
 #include "bit_field.h"
 
-namespace Leaks {
+namespace MemScope {
 
 MemoryCompare& MemoryCompare::GetInstance(Config config)
 {
@@ -260,7 +260,7 @@ bool MemoryCompare::WriteCompareDataToCsv()
         for (const auto& str : result_[deviceId]) {
             int fpRes = fprintf(compareFile_, "%s\n", str.c_str());
             if (fpRes < 0) {
-                std::cout << "[msleaks] Error: Fail to write data to csv file, errno:" << fpRes << std::endl;
+                std::cout << "[msmemscope] Error: Fail to write data to csv file, errno:" << fpRes << std::endl;
                 return false;
             }
         }
@@ -420,7 +420,7 @@ void MemoryCompare::RunComparison(const std::vector<std::string> &paths)
     ReadFile(pathCompare, compareFileOriginData_);
 
     if (baseFileOriginData_.empty() || compareFileOriginData_.empty()) {
-        std::cout << "[msleaks] ERROR: Memory comparison failed!" << std::endl;
+        std::cout << "[msmemscope] ERROR: Memory comparison failed!" << std::endl;
         return ;
     }
 
@@ -440,7 +440,7 @@ void MemoryCompare::RunComparison(const std::vector<std::string> &paths)
     }
 
     if (!WriteCompareDataToCsv()) {
-        std::cout << "[msleaks] ERROR: Memory comparison failed!" << std::endl;
+        std::cout << "[msmemscope] ERROR: Memory comparison failed!" << std::endl;
     } else {
         auto end_time = Utility::GetTimeMicroseconds();
         LOG_INFO("The memory comparison has been completed "

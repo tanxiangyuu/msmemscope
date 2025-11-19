@@ -6,7 +6,7 @@
 #include "event_dispatcher.h"
 
 // 假设以下类和结构体已定义
-namespace Leaks {
+namespace MemScope {
 // 测试用例
 class InefficientAnalyzerTest : public ::testing::Test {
 protected:

@@ -8,7 +8,7 @@
 #include "memory_pool_trace_base.h"
 #include "record_info.h"
 
-namespace Leaks {
+namespace MemScope {
 
 class PTAWorkspacePoolTrace : public MemoryPoolTraceBase {
 public:

@@ -9,7 +9,7 @@
 #include "comm_def.h"
 #include "framework/record_info.h"
 
-namespace Leaks {
+namespace MemScope {
 /*
  * StepInnerAnalyzer类主要功能：
  * 1. 维护npu内存池的申请释放表，记录未释放的内存持续step时间

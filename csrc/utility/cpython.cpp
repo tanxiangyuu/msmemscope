@@ -388,12 +388,12 @@ int pyProfileFn(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg)
     switch (what) {
         case PyTrace_CALL: {
             GetPyFuncInfo(frame, info, hash);
-            callFunc(hash, info, Leaks::PyTraceType::PYCALL, 0);
+            callFunc(hash, info, MemScope::PyTraceType::PYCALL, 0);
             break;
         }
         case PyTrace_RETURN: {
             GetPyFuncInfo(frame, info, hash);
-            callFunc(hash, info, Leaks::PyTraceType::PYRETURN, 0);
+            callFunc(hash, info, MemScope::PyTraceType::PYRETURN, 0);
             break;
         }
         case PyTrace_C_CALL: {
@@ -404,8 +404,8 @@ int pyProfileFn(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg)
             if (IsIgnoreCFunc(pyHash)) {
                 break;
             }
-            callFunc(info, pyInfo, Leaks::PyTraceType::CCALL, 0);
-            callFunc(info, info, Leaks::PyTraceType::CCALL, 0);
+            callFunc(info, pyInfo, MemScope::PyTraceType::CCALL, 0);
+            callFunc(info, info, MemScope::PyTraceType::CCALL, 0);
             break;
         }
         case PyTrace_C_RETURN: {
@@ -413,8 +413,8 @@ int pyProfileFn(PyObject* obj, PyFrameObject* frame, int what, PyObject* arg)
             std::string pyInfo;
             GetPyFuncInfo(frame, pyInfo, pyHash);
             info = PythonObject(arg).Cast<std::string>();
-            callFunc(info, info, Leaks::PyTraceType::CRETURN, 0);
-            callFunc(info, pyInfo, Leaks::PyTraceType::CRETURN, 0);
+            callFunc(info, info, MemScope::PyTraceType::CRETURN, 0);
+            callFunc(info, pyInfo, MemScope::PyTraceType::CRETURN, 0);
             break;
         }
         default:
@@ -450,7 +450,7 @@ void GetTraceCallStack(std::string type, uint64_t time)
         std::string hash;
         GetPyFuncInfo(frame, info, hash);
         if (callFunc != nullptr) {
-            callFunc(hash, type + info, Leaks::PyTraceType::PYCALL, time);
+            callFunc(hash, type + info, MemScope::PyTraceType::PYCALL, time);
         }
         PyFrameObject *prevFrame = PyFrame_GetBack(frame);
         Py_DecRef(reinterpret_cast<PyObject *>(frame));
@@ -472,7 +472,7 @@ void RegisterTraceCb(TraceCbFunc call)
     PyThreadState* init = PyThreadState_Get();
     interpreter = PyInterpreterState_Get();
     if (!init) {
-        std::cout << "[msleaks] Error: Failed to get main thread state, PythonTracer will not start." << std::endl;
+        std::cout << "[msmemscope] Error: Failed to get main thread state, PythonTracer will not start." << std::endl;
         return;
     }
     std::vector<PyThreadState *> thread_states = getInterpreterThreads(interpreter);
@@ -854,7 +854,7 @@ PythonDictObject::PythonDictObject(PyObject* o)
     SetPtr(o);
 }
 
-void LeaksPythonCall(const std::string& module, const std::string& function)
+void MemScopePythonCall(const std::string& module, const std::string& function)
 {
     if (!Utility::IsPyInterpRepeInited()) {
         LOG_ERROR("Python Interpreter initialization FAILED");

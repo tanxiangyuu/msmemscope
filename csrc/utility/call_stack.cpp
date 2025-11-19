@@ -6,11 +6,11 @@
 #include "config_info.h"
 
 namespace Utility {
-    void GetCallstack(Leaks::CallStackString &stack)
+    void GetCallstack(MemScope::CallStackString &stack)
     {
-        auto config = Leaks::GetConfig();
+        auto config = MemScope::GetConfig();
         if (config.enableCStack) {
-            Utility::GetCCallstack(config.cStackDepth, stack.cStack, Leaks::SKIP_DEPTH);
+            Utility::GetCCallstack(config.cStackDepth, stack.cStack, MemScope::SKIP_DEPTH);
         }
         if (config.enablePyStack) {
             Utility::GetPythonCallstack(config.pyStackDepth, stack.pyStack);

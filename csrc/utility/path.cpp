@@ -112,7 +112,7 @@ Path Path::Absolute(void) &&
     if (getcwd(buf, sizeof(buf))) {
         cwd = buf;
     } else {
-        std::cout << "[msleaks] Error: Failed to get current working directory" << std::endl;
+        std::cout << "[msmemscope] Error: Failed to get current working directory" << std::endl;
         errorOccurred_ = true;
     }
     return Path(cwd) / std::move(*this);
@@ -205,24 +205,24 @@ bool Path::IsPermissionValid(void) const
 {
     struct stat st;
     if (stat(this->ToString().c_str(), &st) != 0) {
-        std::cout << "[msleaks] Error: Failed to stat path: " << this->ToString() << " ." << std::endl;
+        std::cout << "[msmemscope] Error: Failed to stat path: " << this->ToString() << " ." << std::endl;
         return false;
     }
 
     // 检查属主是否为 root 或当前用户
     uid_t currentUid = geteuid();
     if (st.st_uid != 0 && st.st_uid != currentUid) {
-        std::cout << "[msleaks] Error: File " << this->ToString() << " owner is not root or current user." << std::endl;
+        std::cout << "[msmemscope] Error: File " << this->ToString() << " owner is not root or current user." << std::endl;
         return false;
     }
     // root用户不强制要求权限，仅对风险权限进行告警
     if (currentUid == 0) {
-        std::cout << "[msleaks] Warn: Current user is root, skip permission check." << std::endl;
+        std::cout << "[msmemscope] Warn: Current user is root, skip permission check." << std::endl;
         return true;
     }
     // 检查 group 和 other 是否有写权限
     if ((st.st_mode & S_IWGRP) || (st.st_mode & S_IWOTH)) {
-        std::cout << "[msleaks] Error: Permission is not valid: Group or others have write permission." << std::endl;
+        std::cout << "[msmemscope] Error: Permission is not valid: Group or others have write permission." << std::endl;
         return false;
     }
 
@@ -233,7 +233,7 @@ bool Path::IsPermissionValid(void) const
 bool CheckIsValidInputPath(const std::string &path)
 {
     if (path.empty()) {
-        std::cout << "[msleaks] Error: The file path is empty." << std::endl;
+        std::cout << "[msmemscope] Error: The file path is empty." << std::endl;
         return false;
     }
 
@@ -245,27 +245,27 @@ bool CheckIsValidInputPath(const std::string &path)
     std::string temp = realPath.ToString();
 
     if (!realPath.Exists()) {
-        std::cout << "[msleaks] Error: The file path " << temp << " do not exist." << std::endl;
+        std::cout << "[msmemscope] Error: The file path " << temp << " do not exist." << std::endl;
         return false;
     }
     if (!realPath.IsReadable()) {
-        std::cout << "[msleaks] Error: The path " << temp << " is not readable." << std::endl;
+        std::cout << "[msmemscope] Error: The path " << temp << " is not readable." << std::endl;
         return false;
     }
     if (!realPath.IsValidLength()) {
-        std::cout << "[msleaks] Error: The length of path " << temp << " exceeds the maximum length." << std::endl;
+        std::cout << "[msmemscope] Error: The length of path " << temp << " exceeds the maximum length." << std::endl;
         return false;
     }
     if (!realPath.IsValidDepth()) {
-        std::cout << "[msleaks] Error: The depth of path " << temp << " exceeds the maximum depth." << std::endl;
+        std::cout << "[msmemscope] Error: The depth of path " << temp << " exceeds the maximum depth." << std::endl;
         return false;
     }
     if (realPath.IsSoftLink()) {
-        std::cout << "[msleaks] Error: The path " << temp << " is invalid: soft link is not allowed." << std::endl;
+        std::cout << "[msmemscope] Error: The path " << temp << " is invalid: soft link is not allowed." << std::endl;
         return false;
     }
     if (!realPath.IsPermissionValid()) {
-        std::cout << "[msleaks] Error: The path " << temp << " is invalid: permission is not valid." << std::endl;
+        std::cout << "[msmemscope] Error: The path " << temp << " is invalid: permission is not valid." << std::endl;
         return false;
     }
     return true;
@@ -277,7 +277,7 @@ bool CheckIsValidInputPath(const std::string &path)
 bool CheckIsValidOutputPath(const std::string &path)
 {
     if (path.empty()) {
-        std::cout << "[msleaks] Error: The file path is empty." << std::endl;
+        std::cout << "[msmemscope] Error: The file path is empty." << std::endl;
         return false;
     }
 
@@ -288,28 +288,28 @@ bool CheckIsValidOutputPath(const std::string &path)
     }
     std::string temp = realPath.ToString();
     if (CheckStrIsStartsWithInvalidChar(temp.c_str())) {
-        std::cout << "[msleaks] Error: The path " << temp << " is invalid." << std::endl;
+        std::cout << "[msmemscope] Error: The path " << temp << " is invalid." << std::endl;
         return false;
     }
     if (!realPath.IsValidLength()) {
-        std::cout << "[msleaks] Error: The length of path " << temp << " exceeds the maximum length." << std::endl;
+        std::cout << "[msmemscope] Error: The length of path " << temp << " exceeds the maximum length." << std::endl;
         return false;
     }
     if (!realPath.IsValidDepth()) {
-        std::cout << "[msleaks] Error: The depth of path " << temp << " exceeds the maximum depth." << std::endl;
+        std::cout << "[msmemscope] Error: The depth of path " << temp << " exceeds the maximum depth." << std::endl;
         return false;
     }
     if (realPath.IsSoftLink()) {
-        std::cout << "[msleaks] Error: The path " << temp << " is invalid: soft link is not allowed." << std::endl;
+        std::cout << "[msmemscope] Error: The path " << temp << " is invalid: soft link is not allowed." << std::endl;
         return false;
     }
     if (realPath.Exists()) {
         if (!realPath.IsReadable()) {
-            std::cout << "[msleaks] Error: The path " << temp << " is not readable." << std::endl;
+            std::cout << "[msmemscope] Error: The path " << temp << " is not readable." << std::endl;
             return false;
         }
         if (!realPath.IsPermissionValid()) {
-            std::cout << "[msleaks] Error: The path " << temp
+            std::cout << "[msmemscope] Error: The path " << temp
                       << " is invalid: permission is not valid." << std::endl;
             return false;
         }

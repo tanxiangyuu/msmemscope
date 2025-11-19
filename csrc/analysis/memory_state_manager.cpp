@@ -6,7 +6,7 @@
 #include "utility/utils.h"
 #include "process.h"
 
-namespace Leaks {
+namespace MemScope {
 
 uint64_t MemoryState::count = 0;
 std::mutex MemoryState::mtx;

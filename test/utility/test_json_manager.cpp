@@ -9,7 +9,7 @@
 #include "securec.h"
 
 using namespace Utility;
-using namespace Leaks;
+using namespace MemScope;
 
 // 假设 JsonManager 有公共 SetValue 接口（源码中 SaveConfigToJson 用到，必然存在）
 // 若 SetValue 未公开，需通过友元或提供测试接口，此处按常规设计假设其存在
@@ -19,21 +19,21 @@ class JsonManagerTest : public ::testing::Test {
 protected:
     void SetUp() override
     {
-        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("./testmsleaks");
+        Utility::FileCreateManager::GetInstance("./testmsmemscope").SetProjectDir("./testmsmemscope");
         ResetJsonManager();
     }
 
     void TearDown() override
     {
-        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("");
-        rmdir("./testmsleaks");
+        Utility::FileCreateManager::GetInstance("./testmsmemscope").SetProjectDir("");
+        rmdir("./testmsmemscope");
         ResetJsonManager();
     }
 
     // 辅助函数：重置 JsonManager（通过加载空 JSON 文件实现，不访问私有成员）
     void ResetJsonManager()
     {
-        std::string emptyJsonPath = "./testmsleaks/config.json";
+        std::string emptyJsonPath = "./testmsmemscope/config.json";
         CreateTestJsonFile(emptyJsonPath, "{}"); // 创建空 JSON 文件
         JsonManager::GetInstance().LoadFromFile(emptyJsonPath);
         remove(emptyJsonPath.c_str()); // 立即删除临时文件
@@ -52,9 +52,9 @@ protected:
     }
 
     // 辅助函数：构造测试用的 Config 对象
-    Leaks::Config BuildTestConfig()
+    MemScope::Config BuildTestConfig()
     {
-        Leaks::Config config;
+        MemScope::Config config;
         config.enableCStack = true;
         config.enablePyStack = false;
         config.enableCompare = true;
@@ -64,7 +64,7 @@ protected:
         config.eventType = 2;
         config.analysisType = 3;
         config.collectMode = 4;
-        strncpy_s(config.outputDir, sizeof(config.outputDir), "./testmsleaks", sizeof(config.outputDir)-1);
+        strncpy_s(config.outputDir, sizeof(config.outputDir), "./testmsmemscope", sizeof(config.outputDir)-1);
         config.dataFormat = 5;
         config.collectAllNpu = true;
         config.npuSlots = 8;
@@ -90,7 +90,7 @@ TEST_F(JsonManagerTest, save_to_file_success)
 {
     auto& jsonMgr = JsonManager::GetInstance();
     jsonMgr.SetValue("test_key", "test_value"); // 使用公共 SetValue 接口
-    std::string filePath = "./testmsleaks/config.json";
+    std::string filePath = "./testmsmemscope/config.json";
     
     bool ret = jsonMgr.SaveToFile(filePath);
     ASSERT_TRUE(ret);
@@ -101,7 +101,7 @@ TEST_F(JsonManagerTest, save_to_file_success)
 TEST_F(JsonManagerTest, load_from_file_success)
 {
     auto& jsonMgr = JsonManager::GetInstance();
-    std::string filePath = "./testmsleaks/config.json";
+    std::string filePath = "./testmsmemscope/config.json";
     std::string jsonContent = R"({"name":"test","age":20})";
     ASSERT_TRUE(CreateTestJsonFile(filePath, jsonContent));
     
@@ -122,7 +122,7 @@ TEST_F(JsonManagerTest, load_from_file_success)
 TEST_F(JsonManagerTest, load_from_file_not_exist_fail)
 {
     auto& jsonMgr = JsonManager::GetInstance();
-    std::string filePath = "./testmsleaks/not_exist.json";
+    std::string filePath = "./testmsmemscope/not_exist.json";
     
     bool ret = jsonMgr.LoadFromFile(filePath);
     ASSERT_FALSE(ret);
@@ -134,7 +134,7 @@ TEST_F(JsonManagerTest, check_key_is_valid_empty_key_fail)
     auto& jsonMgr = JsonManager::GetInstance();
     // 加载合法 JSON（仅为构造 current 参数，实际 CheckKeyIsValid 依赖 jsonConfig_）
     std::string jsonContent = R"({"exist_key":"value"})";
-    std::string filePath = "./testmsleaks/config.json";
+    std::string filePath = "./testmsmemscope/config.json";
     CreateTestJsonFile(filePath, jsonContent);
     jsonMgr.LoadFromFile(filePath);
     // 替代方案：不直接测试 CheckKeyIsValid（私有调用），通过 GetXXXValue 间接覆盖
@@ -149,7 +149,7 @@ TEST_F(JsonManagerTest, check_key_is_valid_single_key_not_exist_fail)
 {
     auto& jsonMgr = JsonManager::GetInstance();
     std::string jsonContent = R"({"exist_key":"value"})";
-    std::string filePath = "./testmsleaks/config.json";
+    std::string filePath = "./testmsmemscope/config.json";
     CreateTestJsonFile(filePath, jsonContent);
     jsonMgr.LoadFromFile(filePath);
     
@@ -163,7 +163,7 @@ TEST_F(JsonManagerTest, check_key_is_valid_exist_key_success)
 {
     auto& jsonMgr = JsonManager::GetInstance();
     std::string jsonContent = R"({"parent":{"child":"nested_value"}})";
-    std::string filePath = "./testmsleaks/config.json";
+    std::string filePath = "./testmsmemscope/config.json";
     CreateTestJsonFile(filePath, jsonContent);
     jsonMgr.LoadFromFile(filePath);
     
@@ -176,7 +176,7 @@ TEST_F(JsonManagerTest, check_key_is_valid_exist_key_success)
 TEST_F(JsonManagerTest, ensure_config_path_consistency_env_not_set_success)
 {
     auto& jsonConfig = JsonConfig::GetInstance();
-    std::string configOutputDir = "./testmsleaks";
+    std::string configOutputDir = "./testmsmemscope";
     
     bool ret = jsonConfig.EnsureConfigPathConsistency(configOutputDir);
     ASSERT_TRUE(ret);
@@ -192,12 +192,12 @@ TEST_F(JsonManagerTest, ensure_config_path_consistency_env_not_set_success)
 TEST_F(JsonManagerTest, read_json_config_success)
 {
     auto& jsonConfig = JsonConfig::GetInstance();
-    Leaks::Config saveConfig = BuildTestConfig();
-    std::string filePath = "./testmsleaks/config.json";
+    MemScope::Config saveConfig = BuildTestConfig();
+    std::string filePath = "./testmsmemscope/config.json";
     setenv(MSLEAKS_CONFIG_ENV, filePath.c_str(), 1);
     jsonConfig.SaveConfigToJson(saveConfig); // 先保存配置
     
-    Leaks::Config loadConfig = {};
+    MemScope::Config loadConfig = {};
     bool ret = jsonConfig.ReadJsonConfig(loadConfig);
     ASSERT_TRUE(ret);
 }
@@ -208,7 +208,7 @@ TEST_F(JsonManagerTest, read_json_config_no_env_fail)
     auto& jsonConfig = JsonConfig::GetInstance();
     unsetenv(MSLEAKS_CONFIG_ENV); // 确保环境变量为空
     
-    Leaks::Config config = {};
+    MemScope::Config config = {};
     bool ret = jsonConfig.ReadJsonConfig(config);
     ASSERT_FALSE(ret);
 }
@@ -217,10 +217,10 @@ TEST_F(JsonManagerTest, read_json_config_no_env_fail)
 TEST_F(JsonManagerTest, read_json_config_file_not_exist_fail)
 {
     auto& jsonConfig = JsonConfig::GetInstance();
-    std::string nonExistPath = "./testmsleaks/not_exist_config.json";
+    std::string nonExistPath = "./testmsmemscope/not_exist_config.json";
     setenv(MSLEAKS_CONFIG_ENV, nonExistPath.c_str(), 1);
     
-    Leaks::Config config = {};
+    MemScope::Config config = {};
     bool ret = jsonConfig.ReadJsonConfig(config);
     ASSERT_FALSE(ret);
 }

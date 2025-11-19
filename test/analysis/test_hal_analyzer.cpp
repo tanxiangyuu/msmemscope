@@ -7,9 +7,9 @@
 #include "config_info.h"
 #include "bit_field.h"
 
-using namespace Leaks;
+using namespace MemScope;
 
-TEST(HalAnalyzerTest, do_hal_record_except_leaks) {
+TEST(HalAnalyzerTest, do_hal_record_except_memscope) {
     Config analysisConfig;
     BitField<decltype(analysisConfig.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
@@ -51,7 +51,7 @@ TEST(HalAnalyzerTest, do_hal_record_except_leaks) {
     EXPECT_TRUE(HalAnalyzer::GetInstance(analysisConfig).Record(clientId, record4));
 }
 
-TEST(HalAnalyzerTest, do_record_except_no_leaks) {
+TEST(HalAnalyzerTest, do_record_except_no_memscope) {
     Config analysisConfig;
     BitField<decltype(analysisConfig.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));

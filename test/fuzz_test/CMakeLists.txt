@@ -1,13 +1,13 @@
-project(leaks_fuzz)
+project(memscope_fuzz)
 
-add_executable(leaks_fuzz)
+add_executable(memscope_fuzz)
 file(GLOB_RECURSE SOURCE "*.cpp")
 list(SORT SOURCE)
-target_sources(leaks_fuzz PRIVATE ${SOURCE})
+target_sources(memscope_fuzz PRIVATE ${SOURCE})
 
 get_filename_component(SRC_DIR ${ROOT_DIR}/csrc ABSOLUTE)
 
-set(leaks_header ${SRC_DIR}
+set(memscope_header ${SRC_DIR}
                  ${SRC_DIR}/analysis
                  ${SRC_DIR}/framework
                  ${SRC_DIR}/event_trace
@@ -23,7 +23,7 @@ file(GLOB_RECURSE SRC_SOURCE ${SRC_DIR}/framework/*.cpp
                                        ${ROOT_DIR}/platform/securec/src/*.c)
 list(FILTER SRC_SOURCE EXCLUDE REGEX ".*\/atb_hooks\/.*")
 list(SORT SRC_SOURCE)
-target_sources(leaks_fuzz PRIVATE ${SRC_SOURCE})
+target_sources(memscope_fuzz PRIVATE ${SRC_SOURCE})
 
 add_compile_options(
     -g
@@ -52,14 +52,14 @@ add_link_options(
     -fsanitize-coverage=trace-pc,trace-cmp
 )
 
-target_link_directories(leaks_fuzz PUBLIC
+target_link_directories(memscope_fuzz PUBLIC
     ${ROOT_DIR}/opensource/Secodefuzz/examples/out-bin-x64/)
 
 
-target_link_libraries(leaks_fuzz gtest gtest_main pthread c_sec Secodefuzz stdc++fs ${Python3_LIBRARIES} ${SQLite3_LIBRARIES})
-target_include_directories(leaks_fuzz PUBLIC
+target_link_libraries(memscope_fuzz gtest gtest_main pthread c_sec Secodefuzz stdc++fs ${Python3_LIBRARIES} ${SQLite3_LIBRARIES})
+target_include_directories(memscope_fuzz PUBLIC
     ${ROOT_DIR}/opensource/Secodefuzz/Secodefuzz
     ${gtest_header}
-    ${leaks_header}
+    ${memscope_header}
     ${Python3_INCLUDE_DIRS}
     ${SQLite3_INCLUDE_DIRS})

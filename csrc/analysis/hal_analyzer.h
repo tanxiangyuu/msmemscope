@@ -9,7 +9,7 @@
 #include "config_info.h"
 #include "comm_def.h"
 
-namespace Leaks {
+namespace MemScope {
 /*
  * HalAnalyzer类主要功能：
  * 1. 维护halmemalloc/halmemfree操作记录表

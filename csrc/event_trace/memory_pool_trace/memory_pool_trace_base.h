@@ -6,7 +6,7 @@
 #include <string>
 #include "mstx_hooks/mstx_info.h"
 
-namespace Leaks {
+namespace MemScope {
 
 // 通过MSTX监控device内存池抽象基类，不同内存池完成各自的泛化处理
 class MemoryPoolTraceBase {

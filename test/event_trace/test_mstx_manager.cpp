@@ -2,7 +2,7 @@
 #include "event_trace/mstx_hooks/mstx_manager.h"
 
 #include <gtest/gtest.h>
-using namespace Leaks;
+using namespace MemScope;
 
 TEST(MstxManagerTest, ReportMarkATest) {
     const char* msg = "Test Message A";

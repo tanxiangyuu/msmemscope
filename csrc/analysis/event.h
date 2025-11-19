@@ -15,7 +15,7 @@
 #include "log.h"
 #include "trace_manager/event_trace_manager.h"
  
-namespace Leaks {
+namespace MemScope {
  
 enum class EventBaseType : uint8_t {
     MALLOC = 0,
@@ -85,7 +85,7 @@ inline bool IsInvalidDevice(const std::string& device)
  
 class EventBase : public DataBase {
 public:
-    Leaks::PoolType poolType = PoolType::INVALID;
+    MemScope::PoolType poolType = PoolType::INVALID;
     EventBaseType eventType = EventBaseType::INVALID;
     EventSubType eventSubType = EventSubType::INVALID;
     uint64_t id = 0;

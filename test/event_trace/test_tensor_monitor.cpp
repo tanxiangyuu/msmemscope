@@ -5,7 +5,7 @@
 #include "event_trace/memory_watch/tensor_dumper.h"
 #include "event_trace/memory_watch/tensor_monitor.h"
 
-using namespace Leaks;
+using namespace MemScope;
 
 TEST(TensorMonitorTEST, add_watch_tensor_expect_success)
 {

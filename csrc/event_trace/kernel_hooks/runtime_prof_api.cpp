@@ -5,7 +5,7 @@
 #include "kernel_hooks/kernel_event_trace.h"
 
 #include <iostream>
-namespace Leaks {
+namespace MemScope {
 int32_t CompactInfoReporterCallbackImpl(uint32_t agingFlag, const void *data, uint32_t length)
 {
     if (data == nullptr || length != sizeof(struct MsprofCompactInfo)) {

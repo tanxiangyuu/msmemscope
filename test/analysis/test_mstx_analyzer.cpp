@@ -7,7 +7,7 @@
 #include "record_info.h"
 #include "config_info.h"
 
-using namespace Leaks;
+using namespace MemScope;
 
 TEST(MstxAnalyzerTest, do_mstx_record_expect_success) {
     ClientId clientId = 0;

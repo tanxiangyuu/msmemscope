@@ -15,7 +15,7 @@
 #include "event_dispatcher.h"
 #include "memory_state_manager.h"
  
-using namespace Leaks;
+using namespace MemScope;
 
 TEST(TestRecordToEvent, check_device_str_is_valid)
 {
@@ -93,7 +93,7 @@ TEST(TestRecordToEvent, transfer_pta_caching_malloc_free)
     EXPECT_EQ(event1->describeOwner, "");
 
     RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemPoolRecord>(
-        TLVBlockType::ADDR_OWNER, "leaks_mem",
+        TLVBlockType::ADDR_OWNER, "memscope_mem",
         TLVBlockType::CALL_STACK_C, "c_file: c_func()",
         TLVBlockType::CALL_STACK_PYTHON, "py_file: py_func1()\npy_file: py_func2()");
     auto& record2 = *(buffer.Cast<MemPoolRecord>());

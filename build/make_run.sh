@@ -108,13 +108,13 @@ copy_artifacts() {
         cp -r "$LIB64_DIR" "$TEMP_DIR/payload/msmemscope/"
     fi
 
-    # 复制 _msleaks.so 到 python/msleaks 目录
-    log_info "Copying _msleaks.so to python directory..."
-    if [ -f "$TEMP_DIR/payload/msmemscope/lib64/_msleaks.so" ]; then
-        cp "$TEMP_DIR/payload/msmemscope/lib64/_msleaks.so" "$TEMP_DIR/payload/msmemscope/python/msleaks/"
-        log_info "Copied _msleaks.so to python/msleaks/"
+    # 复制 _msmemscope.so 到 python/msmemscope 目录
+    log_info "Copying _msmemscope.so to python directory..."
+    if [ -f "$TEMP_DIR/payload/msmemscope/lib64/_msmemscope.so" ]; then
+        cp "$TEMP_DIR/payload/msmemscope/lib64/_msmemscope.so" "$TEMP_DIR/payload/msmemscope/python/msmemscope/"
+        log_info "Copied _msmemscope.so to python/msmemscope/"
     else
-        log_warn "_msleaks.so not found in lib64 directory"
+        log_warn "_msmemscope.so not found in lib64 directory"
     fi
 
     # 创建版本信息文件，放在msmemscope目录下
@@ -271,9 +271,9 @@ set_file_permissions() {
         find "$install_dir/lib64" -name "*.so" -type f -exec chmod 640 {} \;
     fi
     
-    # 设置python/msleaks目录下python文件权限为-rw-r----- (640) - python文件只需要读权限
-    if [ -d "$install_dir/python/msleaks" ]; then
-        find "$install_dir/python/msleaks" -name "*.py" -type f -exec chmod 640 {} \;
+    # 设置python/msmemscope目录下python文件权限为-rw-r----- (640) - python文件只需要读权限
+    if [ -d "$install_dir/python/msmemscope" ]; then
+        find "$install_dir/python/msmemscope" -name "*.py" -type f -exec chmod 640 {} \;
     fi
     
     local set_env_script="$install_dir/set_env.sh"

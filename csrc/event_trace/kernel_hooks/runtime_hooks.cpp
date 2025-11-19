@@ -23,7 +23,7 @@
 #include "memory_watch/memory_watch.h"
 #include "bit_field.h"
 
-using namespace Leaks;
+using namespace MemScope;
 
 static thread_local bool g_isInAclrtFunc = false;
 

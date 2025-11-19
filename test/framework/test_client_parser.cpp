@@ -10,12 +10,12 @@
 #include "log.h"
 #undef private
 
-using namespace Leaks;
+using namespace MemScope;
 
 void InvalidParamCheckHelpInfo(const char* invalidInput)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         invalidInput
     };
  
@@ -30,7 +30,7 @@ void InvalidParamCheckHelpInfo(const char* invalidInput)
 TEST(ClientParser, pass_help_parameter_expect_get_print_help_info)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--help"
     };
  
@@ -44,7 +44,7 @@ TEST(ClientParser, pass_help_parameter_expect_get_print_help_info)
 TEST(ClientParser, pass_help_parameter_expect_show_help_info)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--help"
     };
 
@@ -60,7 +60,7 @@ TEST(ClientParser, pass_help_parameter_expect_show_help_info)
 TEST(ClientParser, pass_valid_analysis_type_case_not_set)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
     };
  
     /// Reset getopt states
@@ -70,11 +70,11 @@ TEST(ClientParser, pass_valid_analysis_type_case_not_set)
     ASSERT_EQ(cmd.config.analysisType, 1);
 }
 
-TEST(ClientParser, pass_valid_analysis_type_case_leaks)
+TEST(ClientParser, pass_valid_analysis_type_case_memscope)
 {
     std::vector<const char*> argv = {
-        "msleaks",
-        "--analysis=leaks"
+        "msmemscope",
+        "--analysis=memscope"
     };
  
     /// Reset getopt states
@@ -87,7 +87,7 @@ TEST(ClientParser, pass_valid_analysis_type_case_leaks)
 TEST(ClientParser, pass_valid_analysis_type_case_decompose)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--analysis=decompose"
     };
  
@@ -101,8 +101,8 @@ TEST(ClientParser, pass_valid_analysis_type_case_decompose)
 TEST(ClientParser, pass_valid_analysis_type_case_all)
 {
     std::vector<const char*> argv = {
-        "msleaks",
-        "--analysis=leaks,decompose"
+        "msmemscope",
+        "--analysis=memscope,decompose"
     };
  
     /// Reset getopt states
@@ -115,7 +115,7 @@ TEST(ClientParser, pass_valid_analysis_type_case_all)
 TEST(ClientParser, pass_invalid_analysis_type_case)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--analysis=lekas"
     };
  
@@ -129,7 +129,7 @@ TEST(ClientParser, pass_invalid_analysis_type_case)
 TEST(ClientParser, pass_valid_level_value_expect_level0)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--level=0"
     };
  
@@ -143,7 +143,7 @@ TEST(ClientParser, pass_valid_level_value_expect_level0)
 TEST(ClientParser, pass_valid_level_value_expect_level1)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--level=1"
     };
  
@@ -157,7 +157,7 @@ TEST(ClientParser, pass_valid_level_value_expect_level1)
 TEST(ClientParser, pass_valid_level_value_expect_level_0_and_level_1)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--level=0,1"
     };
  
@@ -171,7 +171,7 @@ TEST(ClientParser, pass_valid_level_value_expect_level_0_and_level_1)
 TEST(ClientParser, pass_invalid_level_expect_show_help_info)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--level=3"
     };
  
@@ -185,7 +185,7 @@ TEST(ClientParser, pass_invalid_level_expect_show_help_info)
 TEST(ClientParser, pass_valid_event_type_case_not_set)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--level=3"
     };
  
@@ -199,7 +199,7 @@ TEST(ClientParser, pass_valid_event_type_case_not_set)
 TEST(ClientParser, pass_valid_event_type_case_alloc)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--events=alloc"
     };
  
@@ -213,7 +213,7 @@ TEST(ClientParser, pass_valid_event_type_case_alloc)
 TEST(ClientParser, pass_valid_event_type_case_free)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--events=free"
     };
  
@@ -227,7 +227,7 @@ TEST(ClientParser, pass_valid_event_type_case_free)
 TEST(ClientParser, pass_valid_event_type_case_launch)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--events=launch"
     };
  
@@ -241,7 +241,7 @@ TEST(ClientParser, pass_valid_event_type_case_launch)
 TEST(ClientParser, pass_valid_event_type_case_access)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--events=access"
     };
  
@@ -255,7 +255,7 @@ TEST(ClientParser, pass_valid_event_type_case_access)
 TEST(ClientParser, pass_valid_event_type_case_all)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--events=alloc,free,launch,access"
     };
  
@@ -269,7 +269,7 @@ TEST(ClientParser, pass_valid_event_type_case_all)
 TEST(ClientParser, pass_invalid_event_type_case)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--events=alloc,free,launhc"
     };
  
@@ -283,7 +283,7 @@ TEST(ClientParser, pass_invalid_event_type_case)
 TEST(ClientParser, pass_empty_prog_name_expect_get_empty_bin_cmd)
 {
     std::vector<const char*> argv = {
-        "msleaks"
+        "msmemscope"
     };
  
     /// Reset getopt states
@@ -296,7 +296,7 @@ TEST(ClientParser, pass_empty_prog_name_expect_get_empty_bin_cmd)
 TEST(ClientParser, pass_test_as_prog_expect_get_bin_cmd_test)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "test"
     };
  
@@ -311,7 +311,7 @@ TEST(ClientParser, pass_test_as_prog_expect_get_bin_cmd_test)
 TEST(ClientParser, invalid_single_dash_option_expect_one_error)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "-log-file=log.txt"
     };
  
@@ -329,7 +329,7 @@ TEST(ClientParser, invalid_single_dash_option_expect_one_error)
 TEST(ClientParser, test_parse_select_steps)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--steps=2,3,123"
     };
 
@@ -343,7 +343,7 @@ TEST(ClientParser, test_parse_select_steps)
     ASSERT_EQ(cmd.config.stepList.stepIdList[2], 123);
 
     argv = {
-        "msleaks",
+        "msmemscope",
         "--steps=2，3,234"
     };
 
@@ -354,7 +354,7 @@ TEST(ClientParser, test_parse_select_steps)
     ASSERT_EQ(cmd.config.stepList.stepIdList[2], 234);
 
     argv = {
-        "msleaks",
+        "msmemscope",
         "--steps=4294967295"
     };
 
@@ -366,7 +366,7 @@ TEST(ClientParser, test_parse_select_steps)
 TEST(ClientParser, test_invalid_select_steps)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--steps=-1,0,3"
     };
 
@@ -377,7 +377,7 @@ TEST(ClientParser, test_invalid_select_steps)
     ASSERT_TRUE(cmd.printHelpInfo);
 
     argv = {
-        "msleaks",
+        "msmemscope",
         "--steps=2:3.4"
     };
 
@@ -385,7 +385,7 @@ TEST(ClientParser, test_invalid_select_steps)
     ASSERT_TRUE(cmd.printHelpInfo);
 
     argv = {
-        "msleaks",
+        "msmemscope",
         "--steps=4294967296"
     };
 
@@ -393,7 +393,7 @@ TEST(ClientParser, test_invalid_select_steps)
     ASSERT_TRUE(cmd.printHelpInfo);
 
     argv = {
-        "msleaks",
+        "msmemscope",
         "--steps=429496729500"
     };
 
@@ -404,7 +404,7 @@ TEST(ClientParser, test_invalid_select_steps)
 TEST(ClientParser, test_exceed_five_steps_expect_print_help_info)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--steps=1,2,3,4,5,6"
     };
  
@@ -418,7 +418,7 @@ TEST(ClientParser, test_exceed_five_steps_expect_print_help_info)
 TEST(ClientParser, test_compare_dump_data)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--compare",
         "--input=path1,path2"
     };
@@ -431,7 +431,7 @@ TEST(ClientParser, test_compare_dump_data)
     ASSERT_FALSE(cmd.config.inputCorrectPaths);
 
     argv = {
-        "msleaks",
+        "msmemscope",
         "--compare",
         "--input=path1，path2"
     };
@@ -445,7 +445,7 @@ TEST(ClientParser, test_compare_dump_data)
 TEST(ClientParser, test_invalid_compare_dump_data)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--input=path1"
     };
 
@@ -457,7 +457,7 @@ TEST(ClientParser, test_invalid_compare_dump_data)
     ASSERT_FALSE(cmd.config.inputCorrectPaths);
 
     argv = {
-        "msleaks",
+        "msmemscope",
         "--compare"
     };
 
@@ -470,7 +470,7 @@ TEST(ClientParser, test_invalid_compare_dump_data)
 TEST(ClientParser, test_watch_config_set_all)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--watch=start:123,end,full-content"
     };
 
@@ -487,7 +487,7 @@ TEST(ClientParser, test_watch_config_set_all)
 TEST(ClientParser, test_watch_config_set_only_end)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--watch=,end,"
     };
 
@@ -504,7 +504,7 @@ TEST(ClientParser, test_watch_config_set_only_end)
 TEST(ClientParser, test_watch_config_set_only_start_and_end)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--watch=start,end,"
     };
 
@@ -521,7 +521,7 @@ TEST(ClientParser, test_watch_config_set_only_start_and_end)
 TEST(ClientParser, test_watch_config_set_only_start_with_id_and_end)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--watch=start:123,end,"
     };
 
@@ -538,7 +538,7 @@ TEST(ClientParser, test_watch_config_set_only_start_with_id_and_end)
 TEST(ClientParser, test_watch_config_unset)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--level=0"
     };
 
@@ -555,7 +555,7 @@ TEST(ClientParser, test_watch_config_unset)
 TEST(ClientParser, test_watch_config_null)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--watch="
     };
 
@@ -568,7 +568,7 @@ TEST(ClientParser, test_watch_config_null)
 TEST(ClientParser, test_watch_config_empty_end)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--watch=,"
     };
 
@@ -581,7 +581,7 @@ TEST(ClientParser, test_watch_config_empty_end)
 TEST(ClientParser, test_watch_config_error_outputid)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--watch=start:error,end"
     };
 
@@ -594,7 +594,7 @@ TEST(ClientParser, test_watch_config_error_outputid)
 TEST(ClientParser, test_watch_config_error_start_part)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--watch=:,end"
     };
 
@@ -607,7 +607,7 @@ TEST(ClientParser, test_watch_config_error_start_part)
 TEST(ClientParser, test_watch_config_error_full_content)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--watch=start:123,end,full-contents"
     };
 
@@ -620,7 +620,7 @@ TEST(ClientParser, test_watch_config_error_full_content)
 TEST(ClientParser, test_collect_mode_full)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--collect-mode=immediate"
     };
 
@@ -634,7 +634,7 @@ TEST(ClientParser, test_collect_mode_full)
 TEST(ClientParser, test_collect_mode_custom)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--collect-mode=deferred"
     };
 
@@ -648,7 +648,7 @@ TEST(ClientParser, test_collect_mode_custom)
 TEST(ClientParser, test_collect_mode_empty)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--collect-mode="
     };
 
@@ -662,7 +662,7 @@ TEST(ClientParser, test_collect_mode_empty)
 TEST(ClientParser, test_collect_mode_input_error)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--collect-mode=full2"
     };
 
@@ -676,7 +676,7 @@ TEST(ClientParser, test_collect_mode_input_error)
 TEST(ClientParser, test_print_version)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--version"
     };
  
@@ -690,7 +690,7 @@ TEST(ClientParser, test_print_version)
 TEST(ClientParser, print_version)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--version"
     };
  
@@ -706,7 +706,7 @@ TEST(ClientParser, print_version)
 TEST(ClientParser, test_not_set_output)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
     };
  
     /// Reset getopt states
@@ -719,7 +719,7 @@ TEST(ClientParser, test_not_set_output)
 TEST(ClientParser, test_set_invalid_output)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--output= "
     };
 
@@ -730,21 +730,21 @@ TEST(ClientParser, test_set_invalid_output)
     ASSERT_TRUE(cmd.outputPath.empty());
 
     argv = {
-        "msleaks",
+        "msmemscope",
         "--output=/MyPath1/MyPath2?"
     };
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_TRUE(cmd.outputPath.empty());
 
     argv = {
-        "msleaks",
+        "msmemscope",
         "--output=/MyPath1/MyPath2*/"
     };
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_TRUE(cmd.outputPath.empty());
 
     argv = {
-        "msleaks",
+        "msmemscope",
         "--output=MyPath|"
     };
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
@@ -753,7 +753,7 @@ TEST(ClientParser, test_set_invalid_output)
     std::string str(256, 'A');
     str = "--output=" + str;
     argv = {
-        "msleaks",
+        "msmemscope",
         str.c_str()
     };
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
@@ -763,7 +763,7 @@ TEST(ClientParser, test_set_invalid_output)
 TEST(ClientParser, test_input_valid_log_level_expect_valid_loglv)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--log-level=warn"
     };
  
@@ -774,7 +774,7 @@ TEST(ClientParser, test_input_valid_log_level_expect_valid_loglv)
     ASSERT_EQ(Utility::Log::GetLog().lv_, LogLv::WARN);
 
     argv = {
-        "msleaks",
+        "msmemscope",
         "--log-level=info"
     };
  
@@ -783,7 +783,7 @@ TEST(ClientParser, test_input_valid_log_level_expect_valid_loglv)
     ASSERT_EQ(Utility::Log::GetLog().lv_, LogLv::INFO);
 
     argv = {
-        "msleaks",
+        "msmemscope",
         "--log-level=error"
     };
  
@@ -795,7 +795,7 @@ TEST(ClientParser, test_input_valid_log_level_expect_valid_loglv)
 TEST(ClientParser, test_input_invalid_log_level_expect_invalid_loglv)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--log-level=test"
     };
  
@@ -805,7 +805,7 @@ TEST(ClientParser, test_input_invalid_log_level_expect_invalid_loglv)
     ASSERT_TRUE(cmd.printHelpInfo);
 
     argv = {
-        "msleaks",
+        "msmemscope",
         "--log-level="
     };
  
@@ -816,26 +816,26 @@ TEST(ClientParser, test_input_invalid_log_level_expect_invalid_loglv)
 TEST(ClientParser, test_parse_call_stack_expect_true)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--call-stack=c:10,python:10"
     };
     /// Reset getopt states
     ClientParser cliParser;
     UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     argv = {
-        "msleaks",
+        "msmemscope",
         "--call-stack=c:00"
     };
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_TRUE(cmd.printHelpInfo);
     argv = {
-        "msleaks",
+        "msmemscope",
         "--call-stack="
     };
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_FALSE(cmd.printHelpInfo);
     argv = {
-        "msleaks",
+        "msmemscope",
         "--call-stack=c:10,c:15"
     };
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
@@ -843,7 +843,7 @@ TEST(ClientParser, test_parse_call_stack_expect_true)
     ASSERT_EQ(cmd.config.enableCStack, true);
     ASSERT_EQ(cmd.config.cStackDepth, 15);
     argv = {
-        "msleaks",
+        "msmemscope",
         "--call-stack=c:13,python:10,python:12"
     };
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
@@ -857,9 +857,9 @@ TEST(ClientParser, test_parse_call_stack_expect_true)
 TEST(ClientParser, pass_data_format_case_db)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--data-format=db",
-        "--output=./testmsleaks"
+        "--output=./testmsmemscope"
     };
     optind = 1;
     ClientParser cliParser;
@@ -870,7 +870,7 @@ TEST(ClientParser, pass_data_format_case_db)
 TEST(ClientParser, usercommand_precheck_false)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--compare"
     };
     optind = 1;
@@ -881,7 +881,7 @@ TEST(ClientParser, usercommand_precheck_false)
     ASSERT_NE(capture.find("Usage"), std::string::npos);
 
     argv = {
-        "msleaks",
+        "msmemscope",
         "--output="
     };
     testing::internal::CaptureStdout();
@@ -893,7 +893,7 @@ TEST(ClientParser, usercommand_precheck_false)
 TEST(ClientParser, test_invalid_device_case)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
         "--device="
     };
  
@@ -904,7 +904,7 @@ TEST(ClientParser, test_invalid_device_case)
     ASSERT_TRUE(cmd.printHelpInfo);
 
     argv = {
-        "msleaks",
+        "msmemscope",
         "--device=test"
     };
  
@@ -914,7 +914,7 @@ TEST(ClientParser, test_invalid_device_case)
     ASSERT_TRUE(cmd.printHelpInfo);
 
     argv = {
-        "msleaks",
+        "msmemscope",
         "--device=npu:100"
     };
  
@@ -924,7 +924,7 @@ TEST(ClientParser, test_invalid_device_case)
     ASSERT_TRUE(cmd.printHelpInfo);
 
     argv = {
-        "msleaks",
+        "msmemscope",
         "--device=npu:xx"
     };
  
@@ -938,7 +938,7 @@ TEST(ClientParser, test_invalid_device_case)
 TEST(ClientParser, test_valid_device_case)
 {
     std::vector<const char*> argv = {
-        "msleaks",
+        "msmemscope",
     };
  
     /// Reset getopt states
@@ -948,7 +948,7 @@ TEST(ClientParser, test_valid_device_case)
     ASSERT_TRUE(cmd.config.collectAllNpu);
 
     argv = {
-        "msleaks",
+        "msmemscope",
         "--device=npu"
     };
  
@@ -958,7 +958,7 @@ TEST(ClientParser, test_valid_device_case)
     ASSERT_TRUE(cmd.config.collectAllNpu);
 
     argv = {
-        "msleaks",
+        "msmemscope",
         "--device=npu:0,npu:2"
     };
  

@@ -6,8 +6,8 @@
 
 TEST(HalHooksTest, GetMallocMemTypeTest) {
     unsigned long long flag = 2377900603261207558;
-    Leaks::MemOpSpace result = Leaks::GetMemOpSpace(flag);
-    EXPECT_EQ(result, Leaks::MemOpSpace::DEVICE);
+    MemScope::MemOpSpace result = MemScope::GetMemOpSpace(flag);
+    EXPECT_EQ(result, MemScope::MemOpSpace::DEVICE);
 }
 
 

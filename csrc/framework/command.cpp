@@ -12,11 +12,11 @@
 #include "analysis/decompose_analyzer.h"
 #include "analysis/inefficient_analyzer.h"
 
-namespace Leaks {
+namespace MemScope {
 
 void Command::Exec() const
 {
-    LOG_INFO("Msleaks starts executing commands");
+    LOG_INFO("Msmemscope starts executing commands");
     
     if (userCommand_.config.enableCompare) {
         MemoryCompare::GetInstance(userCommand_.config).RunComparison(userCommand_.inputPaths);

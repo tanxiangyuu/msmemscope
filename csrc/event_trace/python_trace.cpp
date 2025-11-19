@@ -6,7 +6,7 @@
 #include "kernel_hooks/runtime_hooks.h"
 #include "event_report.h"
 
-namespace Leaks {
+namespace MemScope {
 
 bool PythonTrace::IsIgnore(std::string funcName)
 {
@@ -105,14 +105,14 @@ void callback(const std::string& hash, const std::string& info, PyTraceType what
 void PythonTrace::Start()
 {
     if (Utility::GetPyVersion() < Utility::Version("3.9")) {
-        std::cout << "[msleaks] Warn: The current Python version is below 3.9, python trace cannot be enabled."
+        std::cout << "[msmemscope] Warn: The current Python version is below 3.9, python trace cannot be enabled."
                   << std::endl;
         return;
     }
     bool expected{false};
     bool active = active_.compare_exchange_strong(expected, true);
     if (!active) {
-        std::cout << "[msleaks] Warn: There is already an active PythonTracer. Refusing to register profile functions."
+        std::cout << "[msmemscope] Warn: There is already an active PythonTracer. Refusing to register profile functions."
                   << std::endl;
         return;
     }
@@ -126,7 +126,7 @@ void PythonTrace::Start()
 void PythonTrace::Stop()
 {
     if (!active_) {
-        std::cout << "[msleaks] Warn: The tracer is not start." << std::endl;
+        std::cout << "[msmemscope] Warn: The tracer is not start." << std::endl;
         return;
     }
     if (!Utility::IsPyInterpRepeInited()) {

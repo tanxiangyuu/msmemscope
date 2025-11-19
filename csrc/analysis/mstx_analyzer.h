@@ -9,7 +9,7 @@
 #include "record_info.h"
 #include "comm_def.h"
 
-namespace Leaks {
+namespace MemScope {
 /*
  * MstxAnalyzer类主要功能：
  * 1. 注册观察者，提醒观察者
