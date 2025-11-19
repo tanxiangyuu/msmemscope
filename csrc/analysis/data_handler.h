@@ -19,7 +19,7 @@
 #include "python_trace_event.h"
 #include "event.h"
 
-namespace Leaks {
+namespace MemScope {
 
 // DumpHandler类主要用于将analyzer分析的数据dump至csv或者db文件
 class DataHandler {

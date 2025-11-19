@@ -2,7 +2,7 @@
 
 #include "tensor_monitor.h"
 
-namespace Leaks {
+namespace MemScope {
 
 void TensorMonitor::AddWatchTensor(MonitoredTensor& tensorInfo)
 {

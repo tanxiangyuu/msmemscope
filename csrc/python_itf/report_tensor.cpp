@@ -11,9 +11,9 @@
 #include "record_info.h"
 #include "securec.h"
 
-namespace Leaks {
+namespace MemScope {
 
-static PyObject* PyLeaksNewReportTensor(PyTypeObject *type, PyObject *args, PyObject *kwds)
+static PyObject* PyMemScopeNewReportTensor(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     if (type == nullptr || type->tp_alloc == nullptr) {
         return nullptr;
@@ -30,7 +30,7 @@ static PyObject* PyLeaksNewReportTensor(PyTypeObject *type, PyObject *args, PyOb
 
 PyDoc_STRVAR(ReportTensorDoc,
 "report_tensor($self, input_list)\n--\n\nEnable debug.");
-static PyObject* PyLeaksReportTensor(PyObject *self,  PyObject *arg)
+static PyObject* PyMemScopeReportTensor(PyObject *self,  PyObject *arg)
 {
     static int tupleSize = 2;
     PyObject* input_list;
@@ -62,7 +62,7 @@ static PyObject* PyLeaksReportTensor(PyObject *self,  PyObject *arg)
         AddrInfo* info = buffer.Cast<AddrInfo>();
         info->subtype = RecordSubType::PTA_OPTIMIZER_STEP;
         info->addr = addr;
-        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAddrInfo(buffer)) {
+        if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportAddrInfo(buffer)) {
             LOG_ERROR("Report optimizer step hook info failed.\n");
         }
     }
@@ -70,15 +70,15 @@ static PyObject* PyLeaksReportTensor(PyObject *self,  PyObject *arg)
     Py_RETURN_NONE;
 }
 
-static PyMethodDef PyLeaksReportTensorMethods[] = {
-    {"report_tensor", reinterpret_cast<PyCFunction>(PyLeaksReportTensor), METH_O, ReportTensorDoc},
+static PyMethodDef PyMemScopeReportTensorMethods[] = {
+    {"report_tensor", reinterpret_cast<PyCFunction>(PyMemScopeReportTensor), METH_O, ReportTensorDoc},
     {nullptr, nullptr, 0, nullptr}
 };
 
 
-static PyTypeObject PyLeaksReportTensorType = {
+static PyTypeObject PyMemScopeReportTensorType = {
     PyVarObject_HEAD_INIT(&PyType_Type, 0)
-    "_msleaks._report_tensor",                        /* tp_name */
+    "_msmemscope._report_tensor",                        /* tp_name */
     0,                                                /* tp_basicsize */
     0,                                                /* tp_itemsize */
     /* methods */
@@ -105,7 +105,7 @@ static PyTypeObject PyLeaksReportTensorType = {
     0,                                                /* tp_weaklistoffset */
     nullptr,                                          /* tp_iter */
     nullptr,                                          /* tp_iternext */
-    PyLeaksReportTensorMethods,                       /* tp_methods */
+    PyMemScopeReportTensorMethods,                       /* tp_methods */
     nullptr,                                          /* tp_members */
     nullptr,                                          /* tp_getset */
     &PyBaseObject_Type,                               /* tp_base */
@@ -115,16 +115,16 @@ static PyTypeObject PyLeaksReportTensorType = {
     0,                                                /* tp_dictoffset */
     nullptr,                                          /* tp_init */
     nullptr,                                          /* tp_alloc */
-    PyLeaksNewReportTensor,                           /* tp_new */
+    PyMemScopeNewReportTensor,                           /* tp_new */
     PyObject_Del,                                     /* tp_free */
 };
 
-PyObject* PyLeaks_GetReportTensor()
+PyObject* PyMemScope_GetReportTensor()
 {
-    if (PyType_Ready(&PyLeaksReportTensorType) < 0) {
+    if (PyType_Ready(&PyMemScopeReportTensorType) < 0) {
         return nullptr;
     }
 
-    return PyObject_New(PyObject, &PyLeaksReportTensorType);
+    return PyObject_New(PyObject, &PyMemScopeReportTensorType);
 }
 }

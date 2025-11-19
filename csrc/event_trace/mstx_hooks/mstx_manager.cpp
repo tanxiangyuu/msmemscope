@@ -14,10 +14,10 @@
 #include "memory_pool_trace/pta_caching_pool_trace.h"
 #include "memory_pool_trace/pta_workspace_pool_trace.h"
 
-namespace Leaks {
+namespace MemScope {
 
 // 组装普通打点信息
-void MstxManager::ReportMarkA(const char* msg, int32_t streamId, LeaksCommType type)
+void MstxManager::ReportMarkA(const char* msg, int32_t streamId, MemScopeCommType type)
 {
     // 处理aten算子上报信息
     if (msg && strncmp(msg, ATEN_MSG, strlen(ATEN_MSG)) == 0) {
@@ -52,7 +52,7 @@ uint64_t MstxManager::ReportRangeStart(const char* msg, int32_t streamId)
     record->rangeId = GetRangeId();
     const TLVBlock* msgTlv = GetTlvBlock(*record, TLVBlockType::MARK_MESSAGE);
     std::string mstxMsgString = msgTlv == nullptr ? "N/A" : msgTlv->data;
-    if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMark(buffer)) {
+    if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportMark(buffer)) {
         LOG_ERROR("Report Mark FAILED");
     }
     return record->rangeId;
@@ -68,7 +68,7 @@ void MstxManager::ReportRangeEnd(uint64_t id)
     record->streamId = -1;
     record->rangeId = id;
 
-    if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMark(buffer)) {
+    if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportMark(buffer)) {
         LOG_ERROR("Report Mark FAILED");
     }
 }

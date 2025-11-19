@@ -10,7 +10,7 @@
 #include "record_info.h"
 #include "kernel_hooks/acl_hooks.h"
 
-namespace Leaks {
+namespace MemScope {
 
 class TensorDumper {
 public:

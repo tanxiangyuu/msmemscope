@@ -20,10 +20,10 @@
 #include "process.h"
 #include "dump.h"
 
-namespace Leaks {
+namespace MemScope {
 
 constexpr mode_t REGULAR_MODE_MASK = 0177;
-constexpr char ATEN_MSG[] = "leaks-aten-";
+constexpr char ATEN_MSG[] = "memscope-aten-";
 constexpr char ATEN_BEGIN_MSG[] = "b:";
 constexpr char ATEN_END_MSG[] = "e:";
 constexpr char ACCESS_MSG[] = "ac:";
@@ -44,7 +44,7 @@ struct MstxStepInfo {
 */
 class EventReport {
 public:
-    static EventReport& Instance(LeaksCommType type);
+    static EventReport& Instance(MemScopeCommType type);
     bool ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag, CallStackString& stack);
     bool ReportFree(uint64_t addr, CallStackString& stack);
     bool ReportHostMalloc(uint64_t addr, uint64_t size, CallStackString& stack);
@@ -65,7 +65,7 @@ public:
     void UpdateAnalysisType();
 private:
     void Init();
-    explicit EventReport(LeaksCommType type);
+    explicit EventReport(MemScopeCommType type);
     ~EventReport();
 
     bool IsNeedSkip(int32_t devid);
@@ -91,5 +91,5 @@ private:
 MemOpSpace GetMemOpSpace(unsigned long long flag);
 bool GetDevice(int32_t *devId);
 
-} // namespace Leaks
+} // namespace MemScope
 #endif

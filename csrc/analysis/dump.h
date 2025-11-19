@@ -10,7 +10,7 @@
 #include "config_info.h"
 #include "data_handler.h"
 
-namespace Leaks {
+namespace MemScope {
 
 class Dump : public AnalyzerBase {
 public:

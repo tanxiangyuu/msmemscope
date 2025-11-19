@@ -3,9 +3,9 @@
 
 #include <Python.h>
 
-namespace Leaks {
+namespace MemScope {
 
-PyObject* PyLeaks_GetReportTensor();
+PyObject* PyMemScope_GetReportTensor();
 
 }
 

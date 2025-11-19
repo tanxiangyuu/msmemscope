@@ -9,19 +9,19 @@
 #include "memory_compare.h"
 #undef private
 
-using namespace Leaks;
+using namespace MemScope;
 
 class MemoryCompareTest : public ::testing::Test {
 protected:
     void SetUp() override
     {
-        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("./testmsleaks");
+        Utility::FileCreateManager::GetInstance("./testmsmemscope").SetProjectDir("./testmsmemscope");
     }
 
     void TearDown() override
     {
-        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("");
-        rmdir("./testmsleaks");
+        Utility::FileCreateManager::GetInstance("./testmsmemscope").SetProjectDir("");
+        rmdir("./testmsmemscope");
     }
 };
 
@@ -54,7 +54,7 @@ void CreateCsvData(ORIGINAL_FILE_DATA &data)
 TEST_F(MemoryCompareTest, do_read_csv_file_expect_read_correct_data)
 {
     Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
-    FILE *fp = fopen("test_leaks.csv", "w");
+    FILE *fp = fopen("test_memscope.csv", "w");
     std::string testHeader = std::string(LEAKS_HEADERS);
     fprintf(fp, testHeader.c_str());
 
@@ -80,41 +80,41 @@ TEST_F(MemoryCompareTest, do_read_csv_file_expect_read_correct_data)
     config.enablePyStack = false;
     MemoryCompare memCompare{config};
     std::unordered_map<DEVICEID, ORIGINAL_FILE_DATA> data;
-    std::string str = "test_leaks.csv";
+    std::string str = "test_memscope.csv";
     memCompare.ReadCsvFile(str, data);
     ASSERT_EQ(data.size(), 2);
     ASSERT_EQ(data[0].size(), 15);
     ASSERT_EQ(data[2].size(), 10);
-    remove("test_leaks.csv");
+    remove("test_memscope.csv");
 }
 
 TEST_F(MemoryCompareTest, do_read_invalid_csv_file_expect_empty_data)
 {
     Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
     Config config;
-    FILE *fp = fopen("test_leaks.csv", "w");
+    FILE *fp = fopen("test_memscope.csv", "w");
     std::string headers = "testheader1,testheader2\n";
     fprintf(fp, headers.c_str());
 
     fclose(fp);
     MemoryCompare memCompare{config};
     std::unordered_map<DEVICEID, ORIGINAL_FILE_DATA> data;
-    std::string str = "test_leaks.csv";
+    std::string str = "test_memscope.csv";
     memCompare.ReadCsvFile(str, data);
     ASSERT_EQ(data.size(), 0);
-    remove("test_leaks.csv");
+    remove("test_memscope.csv");
     str = "test.csv";
     memCompare.ReadCsvFile(str, data);
     ASSERT_EQ(data.size(), 0);
 
-    fp = fopen("test_leaks.csv", "w");
+    fp = fopen("test_memscope.csv", "w");
     std::string testHeader = std::string(LEAKS_HEADERS);
     fprintf(fp, testHeader.c_str());
     fprintf(fp, "1,0,pytorch,malloc,123,234,0,0,N/A,N/A,0\n");
     fclose(fp);
     memCompare.ReadCsvFile(str, data);
     ASSERT_EQ(data.size(), 0);
-    remove("test_leaks.csv");
+    remove("test_memscope.csv");
 }
 
 TEST_F(MemoryCompareTest, do_read_kernelLaunch_data_expect_return_true_and_correct_data)
@@ -187,10 +187,10 @@ TEST_F(MemoryCompareTest, do_write_compare_data_to_csv_expect_true)
     temp = "matmul,0,10,0,11,20,0,21,10,0,10\n";
     memCompare.result_[0].emplace_back(temp);
     Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
-    FILE *fp = fopen("test_leaks.csv", "w");
+    FILE *fp = fopen("test_memscope.csv", "w");
     memCompare.compareFile_ = fp;
     ASSERT_TRUE(memCompare.WriteCompareDataToCsv());
-    remove("test_leaks.csv");
+    remove("test_memscope.csv");
 }
 
 TEST_F(MemoryCompareTest, do_empty_compare_data_to_csv_expect_false)
@@ -198,10 +198,10 @@ TEST_F(MemoryCompareTest, do_empty_compare_data_to_csv_expect_false)
     Config config;
     Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
     MemoryCompare memCompare{config};
-    FILE *fp = fopen("test_leaks.csv", "w");
+    FILE *fp = fopen("test_memscope.csv", "w");
     memCompare.compareFile_ = fp;
     ASSERT_FALSE(memCompare.WriteCompareDataToCsv());
-    remove("test_leaks.csv");
+    remove("test_memscope.csv");
 }
 
 TEST_F(MemoryCompareTest, do_save_compare_kernel_memory_expect_correct_data)
@@ -336,7 +336,7 @@ TEST_F(MemoryCompareTest, do_kernel_launch_compare)
     config.enableCStack = false;
     config.enablePyStack = false;
     Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
-    FILE *fp = fopen("test_leaks.csv", "w");
+    FILE *fp = fopen("test_memscope.csv", "w");
     std::string testHeader = std::string(LEAKS_HEADERS);
     fprintf(fp, testHeader.c_str());
 
@@ -360,11 +360,11 @@ TEST_F(MemoryCompareTest, do_kernel_launch_compare)
 
     fclose(fp);
     std::vector<std::string> paths;
-    paths.emplace_back("test_leaks.csv");
-    paths.emplace_back("test_leaks.csv");
+    paths.emplace_back("test_memscope.csv");
+    paths.emplace_back("test_memscope.csv");
 
     MemoryCompare memCompare{config};
     memCompare.RunComparison(paths);
     ASSERT_EQ(memCompare.result_.size(), 2);
-    remove("test_leaks.csv");
+    remove("test_memscope.csv");
 }

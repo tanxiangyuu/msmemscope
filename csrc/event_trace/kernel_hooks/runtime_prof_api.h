@@ -6,12 +6,12 @@
 #include "vallina_symbol.h"
 #include "log.h"
 
-namespace Leaks {
+namespace MemScope {
 // 和获取驱动上报信息接口配套使用
 struct RtProfApiLoader {
     static void *Load(void)
     {
-        return Leaks::LibLoad("libprofapi.so");
+        return MemScope::LibLoad("libprofapi.so");
     }
 };
 

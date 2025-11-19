@@ -10,7 +10,7 @@
 #include "config_info.h"
 #include "record_info.h"
 
-namespace Leaks {
+namespace MemScope {
 
 class ConfigManager {
 public:

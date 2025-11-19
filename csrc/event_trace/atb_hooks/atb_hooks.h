@@ -8,21 +8,21 @@
 #include "kernel_hooks/acl_hooks.h"
 
 namespace atb {
-using LeaksOriginalRunnerExecuteFunc = atb::Status (*)(atb::Runner*, atb::RunnerVariantPack&);
-using LeaksOriginalGetOperationName = std::string (*)(atb::Runner*);
-using LeaksOriginalGetSaveTensorDir = std::string (*)(atb::Runner*);
-using LeaksOriginalGetExecuteStream = aclrtStream (*)(atb::Runner*, atb::Context *context);
+using MemScopeOriginalRunnerExecuteFunc = atb::Status (*)(atb::Runner*, atb::RunnerVariantPack&);
+using MemScopeOriginalGetOperationName = std::string (*)(atb::Runner*);
+using MemScopeOriginalGetSaveTensorDir = std::string (*)(atb::Runner*);
+using MemScopeOriginalGetExecuteStream = aclrtStream (*)(atb::Runner*, atb::Context *context);
 constexpr uint16_t LEAKS_STRING_MAX_LENGTH = 255;
 }
 
-namespace Leaks {
+namespace MemScope {
 struct ATBLibLoader {
     static void *Load(void)
     {
         std::string libName = "libatb.so";
         const char *pathEnv = std::getenv("ATB_HOME_PATH");
         if (!pathEnv || std::string(pathEnv).empty()) {
-            std::cout << "[msleaks] Error: Failed to acquire ATB_HOME_PATH environment variable while loading "
+            std::cout << "[msmemscope] Error: Failed to acquire ATB_HOME_PATH environment variable while loading "
                 << libName << "." << std::endl;
             return nullptr;
         }

@@ -1,12 +1,12 @@
-# leaks
+# memscope
 
 基于AI全栈的事件监控能力，实现CANN的专用内存分析工具
 
-该工具使用：```msleaks <option(s)> prog-and-args```
+该工具使用：```msmemscope <option(s)> prog-and-args```
  
 针对该软件仓，整体目录设计思路如下：
 ```
-leaks
+memscope
 |-- build
    |-- build.py
 |-- csrc
@@ -16,7 +16,7 @@ leaks
    |-- main.cpp
 |-- output
    |-- bin
-      |-- msleaks // 可执行文件
+      |-- msmemscope // 可执行文件
 |-- test
 ```
  

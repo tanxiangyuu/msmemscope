@@ -11,7 +11,7 @@ using MstxFuncPointer = void (*)(void);
 using MstxFuncTable = MstxFuncPointer**;
 using MstxGetModuleFuncTableFunc = int (*)(mstxFuncModule module, MstxFuncTable *outTable, unsigned int *outSize);
 
-namespace Leaks {
+namespace MemScope {
 
 constexpr int MSTX_SUCCESS = 0;
 constexpr int MSTX_FAIL = 1;

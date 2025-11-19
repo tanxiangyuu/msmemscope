@@ -9,7 +9,7 @@
 #include "analysis/mstx_analyzer.h"
 #include "client_parser.h"
 #include "bit_field.h"
-using namespace Leaks;
+using namespace MemScope;
 
 // 大部分单例config在此初始化，config相关修改请修改此处。
 void setConfig(Config &config)
@@ -32,7 +32,7 @@ void setConfig(Config &config)
     config.stepList.stepCount = 0;
     config.dataFormat = 0;
     config.collectMode = static_cast<uint8_t>(CollectMode::IMMEDIATE);
-    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsmemscope", sizeof(config.outputDir) - 1);
 }
 
 TEST(Process, process_setpreloadenv_without_atb_expect_success)
@@ -40,7 +40,7 @@ TEST(Process, process_setpreloadenv_without_atb_expect_success)
     unsetenv("ATB_HOME_PATH");
     setenv("LD_PRELOAD_PATH", "/lib64/", 1);
     Config config;
-    Utility::FileCreateManager::GetInstance("testmsleaks");
+    Utility::FileCreateManager::GetInstance("testmsmemscope");
     Process process(config);
     process.SetPreloadEnv();
     char *env = getenv("LD_PRELOAD");
@@ -59,7 +59,7 @@ TEST(Process, process_setpreloadenv_with_atb_abi_0_expect_success)
     setenv("ATB_HOME_PATH", "/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_0", 1);
     setenv("LD_PRELOAD_PATH", "/lib64/", 1);
     Config config;
-    Utility::FileCreateManager::GetInstance("testmsleaks");
+    Utility::FileCreateManager::GetInstance("testmsmemscope");
     Process process(config);
     process.SetPreloadEnv();
     char *env = getenv("LD_PRELOAD");
@@ -78,7 +78,7 @@ TEST(Process, process_setpreloadenv_with_atb_abi_1_expect_success)
     setenv("ATB_HOME_PATH", "/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1", 1);
     setenv("LD_PRELOAD_PATH", "/lib64/", 1);
     Config config;
-    Utility::FileCreateManager::GetInstance("testmsleaks");
+    Utility::FileCreateManager::GetInstance("testmsmemscope");
     Process process(config);
     process.SetPreloadEnv();
     char *env = getenv("LD_PRELOAD");

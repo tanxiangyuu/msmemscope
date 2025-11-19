@@ -16,7 +16,7 @@
 
 namespace Utility {
 
-using TraceCbFunc = std::function<void(std::string, std::string, Leaks::PyTraceType, uint64_t)>;
+using TraceCbFunc = std::function<void(std::string, std::string, MemScope::PyTraceType, uint64_t)>;
 void RegisterTraceCb(TraceCbFunc call);
 void UnRegisterTraceCb();
 bool IsPyInterpRepeInited();
@@ -164,7 +164,7 @@ private:
     PyGILState_STATE gstate;
 };
 
-void LeaksPythonCall(const std::string& module, const std::string& function);
+void MemScopePythonCall(const std::string& module, const std::string& function);
 
 }
 

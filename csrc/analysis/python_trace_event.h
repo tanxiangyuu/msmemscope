@@ -8,7 +8,7 @@
 
 #include "data.h"
 
-namespace Leaks {
+namespace MemScope {
 
 class TraceEvent : public DataBase {
 public:

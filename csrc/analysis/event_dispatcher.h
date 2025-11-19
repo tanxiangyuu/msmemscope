@@ -9,7 +9,7 @@
 #include "event.h"
 #include "memory_state_manager.h"
 
-namespace Leaks {
+namespace MemScope {
 
 enum class SubscriberId : uint8_t {
     DECOMPOSE_ANALYZER = 0,
@@ -21,7 +21,7 @@ enum class SubscriberId : uint8_t {
 class EventDispatcher {
 public:
     enum class Priority : uint8_t {
-        High = 3,           // decompose, inefficient, leaks
+        High = 3,           // decompose, inefficient, memscope
         Medium = 2,
         Low = 1,
         Lowest = 0,         // dump

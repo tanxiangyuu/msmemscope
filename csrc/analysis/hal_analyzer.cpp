@@ -4,7 +4,7 @@
 #include "utility/log.h"
 #include "bit_field.h"
 
-namespace Leaks {
+namespace MemScope {
 
 HalAnalyzer& HalAnalyzer::GetInstance(Config config)
 {

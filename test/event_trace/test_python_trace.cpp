@@ -4,19 +4,19 @@
 #include <unordered_map>
 #include "python_trace.h"
 
-using namespace Leaks;
+using namespace MemScope;
 
 class PythonTraceTest : public ::testing::Test {
 protected:
     void SetUp() override
     {
-        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("./testmsleaks");
+        Utility::FileCreateManager::GetInstance("./testmsmemscope").SetProjectDir("./testmsmemscope");
     }
 
     void TearDown() override
     {
-        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("");
-        rmdir("./testmsleaks");
+        Utility::FileCreateManager::GetInstance("./testmsmemscope").SetProjectDir("");
+        rmdir("./testmsmemscope");
     }
 };
 

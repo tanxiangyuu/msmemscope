@@ -3,11 +3,11 @@
 #ifndef COMM_DEF_H
 #define COMM_DEF_H
 
-namespace Leaks {
+namespace MemScope {
 
 using ClientId = std::size_t;
 
-enum class LeaksCommType {
+enum class MemScopeCommType {
     SHARED_MEMORY,
     MEMORY_DEBUG
 };

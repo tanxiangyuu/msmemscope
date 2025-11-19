@@ -64,8 +64,8 @@ private:
 class JsonConfig {
 public:
     static JsonConfig& GetInstance();
-    void SaveConfigToJson(const Leaks::Config& config);
-    bool ReadJsonConfig(Leaks::Config& config);
+    void SaveConfigToJson(const MemScope::Config& config);
+    bool ReadJsonConfig(MemScope::Config& config);
     bool EnsureConfigPathConsistency(const std::string& configOutputDir);
 };
 

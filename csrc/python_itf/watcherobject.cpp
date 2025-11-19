@@ -4,12 +4,12 @@
 #include "event_trace/memory_watch/tensor_monitor.h"
 #include "event_trace/memory_watch/tensor_dumper.h"
 
-namespace Leaks {
+namespace MemScope {
 
 const size_t MAX_WATCH_NAME_LENGTH = 64;
 
 /* 单例类，自定义new函数，避免重复构造 */
-static PyObject* PyLeaksNewWatcher(PyTypeObject *type, PyObject *args, PyObject *kwds)
+static PyObject* PyMemScopeNewWatcher(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     if (type == nullptr || type->tp_alloc == nullptr) {
         return nullptr;
@@ -130,7 +130,7 @@ bool ParseInputArgs(PyObject *args, MonitoredTensor& tensorInfo, PyObject *lengt
 
 PyDoc_STRVAR(WatchDoc,
 "watch($self, tensor or addr+size)\n--\n\nAdd Monitor.");
-static PyObject* PyLeaksWatcherWatch(PyObject *self,  PyObject *args, PyObject* kwds)
+static PyObject* PyMemScopeWatcherWatch(PyObject *self,  PyObject *args, PyObject* kwds)
 {
     const char* name = nullptr;
     int32_t dumpNums = -1;
@@ -178,7 +178,7 @@ static PyObject* PyLeaksWatcherWatch(PyObject *self,  PyObject *args, PyObject* 
 
 PyDoc_STRVAR(RemoveDoc,
 "remove($self, tensor or addr+size)\n--\n\nRemove Monitor.");
-static PyObject* PyLeaksWatcherRemove(PyObject *self,  PyObject *args, PyObject* kwds)
+static PyObject* PyMemScopeWatcherRemove(PyObject *self,  PyObject *args, PyObject* kwds)
 {
     uint64_t length = 0;
     PyObject* lengthObj = nullptr;
@@ -197,16 +197,16 @@ static PyObject* PyLeaksWatcherRemove(PyObject *self,  PyObject *args, PyObject*
     Py_RETURN_NONE;
 }
 
-static PyMethodDef PyLeaksWatcherMethods[] = {
-    {"watch", reinterpret_cast<PyCFunction>(PyLeaksWatcherWatch), METH_VARARGS | METH_KEYWORDS, WatchDoc},
-    {"remove", reinterpret_cast<PyCFunction>(PyLeaksWatcherRemove), METH_VARARGS | METH_KEYWORDS, RemoveDoc},
+static PyMethodDef PyMemScopeWatcherMethods[] = {
+    {"watch", reinterpret_cast<PyCFunction>(PyMemScopeWatcherWatch), METH_VARARGS | METH_KEYWORDS, WatchDoc},
+    {"remove", reinterpret_cast<PyCFunction>(PyMemScopeWatcherRemove), METH_VARARGS | METH_KEYWORDS, RemoveDoc},
     {nullptr, nullptr, 0, nullptr}
 };
 
 
-static PyTypeObject PyLeaksWatcherType = {
+static PyTypeObject PyMemScopeWatcherType = {
     PyVarObject_HEAD_INIT(&PyType_Type, 0)
-    "_msleaks._watcher",                              /* tp_name */
+    "_msmemscope._watcher",                              /* tp_name */
     0,                                                /* tp_basicsize */
     0,                                                /* tp_itemsize */
     /* methods */
@@ -233,7 +233,7 @@ static PyTypeObject PyLeaksWatcherType = {
     0,                                                /* tp_weaklistoffset */
     nullptr,                                          /* tp_iter */
     nullptr,                                          /* tp_iternext */
-    PyLeaksWatcherMethods,                            /* tp_methods */
+    PyMemScopeWatcherMethods,                            /* tp_methods */
     nullptr,                                          /* tp_members */
     nullptr,                                          /* tp_getset */
     &PyBaseObject_Type,                               /* tp_base */
@@ -243,16 +243,16 @@ static PyTypeObject PyLeaksWatcherType = {
     0,                                                /* tp_dictoffset */
     nullptr,                                          /* tp_init */
     nullptr,                                          /* tp_alloc */
-    PyLeaksNewWatcher,                                /* tp_new */
+    PyMemScopeNewWatcher,                                /* tp_new */
     PyObject_Del,                                     /* tp_free */
 };
 
-PyObject* PyLeaks_GetWatcher()
+PyObject* PyMemScope_GetWatcher()
 {
-    if (PyType_Ready(&PyLeaksWatcherType) < 0) {
+    if (PyType_Ready(&PyMemScopeWatcherType) < 0) {
         return nullptr;
     }
 
-    return PyObject_New(PyObject, &PyLeaksWatcherType);
+    return PyObject_New(PyObject, &PyMemScopeWatcherType);
 }
 }

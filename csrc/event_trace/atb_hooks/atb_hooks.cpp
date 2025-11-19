@@ -14,14 +14,14 @@
 #include "memory_watch/memory_watch.h"
 #include "trace_manager/event_trace_manager.h"
 
-using namespace Leaks;
+using namespace MemScope;
 
 namespace atb {
-    static std::string LeaksGetTensorInfo(const atb::Tensor& tensor)
+    static std::string MemScopeGetTensorInfo(const atb::Tensor& tensor)
     {
         std::ostringstream oss;
-        oss << "dtype:" << LeaksEnumToString(tensor.desc.dtype)
-            << ",format:" << LeaksEnumToString(tensor.desc.format)
+        oss << "dtype:" << MemScopeEnumToString(tensor.desc.dtype)
+            << ",format:" << MemScopeEnumToString(tensor.desc.format)
             << ",shape:[";
         for (size_t i = 0; i < tensor.desc.shape.dimNum; i++) {
             oss << tensor.desc.shape.dims[i] << ",";
@@ -30,11 +30,11 @@ namespace atb {
         return oss.str();
     }
 
-    static std::string LeaksGetTensorInfo(const Mki::Tensor& tensor)
+    static std::string MemScopeGetTensorInfo(const Mki::Tensor& tensor)
     {
         std::ostringstream oss;
-        oss << "dtype:" << LeaksEnumToString(tensor.desc.dtype)
-            << ",format:" << LeaksEnumToString(tensor.desc.format)
+        oss << "dtype:" << MemScopeEnumToString(tensor.desc.dtype)
+            << ",format:" << MemScopeEnumToString(tensor.desc.format)
             << ",shape:[";
         for (auto& dim : tensor.desc.dims) {
             oss << dim << ",";
@@ -43,7 +43,7 @@ namespace atb {
         return oss.str();
     }
 
-    static std::string LeaksGetOpParams(const atb::RunnerVariantPack& runnerVariantPack, const std::string& path)
+    static std::string MemScopeGetOpParams(const atb::RunnerVariantPack& runnerVariantPack, const std::string& path)
     {
         std::ostringstream oss;
         oss << "path:" << path << ",workspace_ptr:"
@@ -52,7 +52,7 @@ namespace atb {
         return oss.str();
     }
 
-    static void LeaksReportTensors(const atb::RunnerVariantPack& runnerVariantPack, const std::string& name)
+    static void MemScopeReportTensors(const atb::RunnerVariantPack& runnerVariantPack, const std::string& name)
     {
         for (auto& tensor : runnerVariantPack.inTensors) {
             char nameStr[LEAKS_STRING_MAX_LENGTH];
@@ -60,10 +60,10 @@ namespace atb {
             if (strncpy_s(nameStr, LEAKS_STRING_MAX_LENGTH, name.c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
                 nameStr[0] = '\0';
             }
-            if (strncpy_s(attrStr, LEAKS_STRING_MAX_LENGTH, LeaksGetTensorInfo(tensor).c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+            if (strncpy_s(attrStr, LEAKS_STRING_MAX_LENGTH, MemScopeGetTensorInfo(tensor).c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
                 attrStr[0] = '\0';
             }
-            EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbAccessMemory(
+            EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportAtbAccessMemory(
                 nameStr, attrStr,
                 static_cast<uint64_t>((std::uintptr_t)tensor.deviceData),
                 tensor.dataSize, AccessType::UNKNOWN);
@@ -74,18 +74,18 @@ namespace atb {
             if (strncpy_s(nameStr, LEAKS_STRING_MAX_LENGTH, name.c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
                 nameStr[0] = '\0';
             }
-            if (strncpy_s(attrStr, LEAKS_STRING_MAX_LENGTH, LeaksGetTensorInfo(tensor).c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+            if (strncpy_s(attrStr, LEAKS_STRING_MAX_LENGTH, MemScopeGetTensorInfo(tensor).c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
                 attrStr[0] = '\0';
             }
-            EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbAccessMemory(
+            EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportAtbAccessMemory(
                 nameStr, attrStr,
                 static_cast<uint64_t>((std::uintptr_t)tensor.deviceData),
                 tensor.dataSize, AccessType::WRITE);
         }
     }
 
-    static void LeaksReportTensors(Mki::LeaksOriginalGetInTensors &getInTensors,
-        Mki::LeaksOriginalGetOutTensors &getOutTensors,
+    static void MemScopeReportTensors(Mki::MemScopeOriginalGetInTensors &getInTensors,
+        Mki::MemScopeOriginalGetOutTensors &getOutTensors,
         const Mki::LaunchParam &launchParam, const std::string& name)
     {
         for (auto& tensor : getInTensors(const_cast<Mki::LaunchParam*>(&launchParam))) {
@@ -94,10 +94,10 @@ namespace atb {
             if (strncpy_s(nameStr, LEAKS_STRING_MAX_LENGTH, name.c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
                 nameStr[0] = '\0';
             }
-            if (strncpy_s(attrStr, LEAKS_STRING_MAX_LENGTH, LeaksGetTensorInfo(tensor).c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+            if (strncpy_s(attrStr, LEAKS_STRING_MAX_LENGTH, MemScopeGetTensorInfo(tensor).c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
                 attrStr[0] = '\0';
             }
-            EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbAccessMemory(
+            EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportAtbAccessMemory(
                 nameStr, attrStr,
                 static_cast<uint64_t>((std::uintptr_t)tensor.data),
                 tensor.dataSize, AccessType::UNKNOWN);
@@ -108,17 +108,17 @@ namespace atb {
             if (strncpy_s(nameStr, LEAKS_STRING_MAX_LENGTH, name.c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
                 nameStr[0] = '\0';
             }
-            if (strncpy_s(attrStr, LEAKS_STRING_MAX_LENGTH, LeaksGetTensorInfo(tensor).c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+            if (strncpy_s(attrStr, LEAKS_STRING_MAX_LENGTH, MemScopeGetTensorInfo(tensor).c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
                 attrStr[0] = '\0';
             }
-            EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbAccessMemory(
+            EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportAtbAccessMemory(
                 nameStr, attrStr,
                 static_cast<uint64_t>((std::uintptr_t)tensor.data),
                 tensor.dataSize, AccessType::WRITE);
         }
     }
 
-    static void LeaksReportOp(const std::string& name, const std::string& params, bool isStart)
+    static void MemScopeReportOp(const std::string& name, const std::string& params, bool isStart)
     {
         char nameStr[LEAKS_STRING_MAX_LENGTH];
         char attrStr[LEAKS_STRING_MAX_LENGTH];
@@ -130,23 +130,23 @@ namespace atb {
         }
         RecordSubType type = isStart ? RecordSubType::ATB_START : RecordSubType::ATB_END;
 
-        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbOpExecute(nameStr, sizeof(nameStr),
+        if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportAtbOpExecute(nameStr, sizeof(nameStr),
             attrStr, sizeof(attrStr), type)) {
             LOG_ERROR("Report atb op start event failed.\n");
         }
     }
 
-    static bool LeaksGetOpNameAndDir(atb::Runner* thisPtr, std::string& name, std::string& dir)
+    static bool MemScopeGetOpNameAndDir(atb::Runner* thisPtr, std::string& name, std::string& dir)
     {
 #if defined(_GLIBCXX_USE_CXX11_ABI) && (_GLIBCXX_USE_CXX11_ABI == 0)
-        static auto funcGetOperationName = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetOperationName>(
+        static auto funcGetOperationName = VallinaSymbol<ATBLibLoader>::Instance().Get<MemScopeOriginalGetOperationName>(
             "_ZNK3atb6Runner16GetOperationNameEv");
-        static auto funcGetSaveTensorDir = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetSaveTensorDir>(
+        static auto funcGetSaveTensorDir = VallinaSymbol<ATBLibLoader>::Instance().Get<MemScopeOriginalGetSaveTensorDir>(
             "_ZNK3atb6Runner16GetSaveTensorDirEv");
 #else
-        static auto funcGetOperationName = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetOperationName>(
+        static auto funcGetOperationName = VallinaSymbol<ATBLibLoader>::Instance().Get<MemScopeOriginalGetOperationName>(
             "_ZNK3atb6Runner16GetOperationNameB5cxx11Ev");
-        static auto funcGetSaveTensorDir = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetSaveTensorDir>(
+        static auto funcGetSaveTensorDir = VallinaSymbol<ATBLibLoader>::Instance().Get<MemScopeOriginalGetSaveTensorDir>(
             "_ZNK3atb6Runner16GetSaveTensorDirB5cxx11Ev");
 #endif
         if (funcGetOperationName == nullptr || funcGetSaveTensorDir == nullptr) {
@@ -158,10 +158,10 @@ namespace atb {
         return true;
     }
 
-    static bool LeaksGetAclrtStream(atb::Runner* thisPtr, const atb::RunnerVariantPack& runnerVariantPack,
+    static bool MemScopeGetAclrtStream(atb::Runner* thisPtr, const atb::RunnerVariantPack& runnerVariantPack,
         aclrtStream &stream)
     {
-        static auto funcGetExecuteStream = VallinaSymbol<ATBLibLoader>::Instance().Get<LeaksOriginalGetExecuteStream>(
+        static auto funcGetExecuteStream = VallinaSymbol<ATBLibLoader>::Instance().Get<MemScopeOriginalGetExecuteStream>(
             "_ZNK3atb6Runner16GetExecuteStreamEPNS_7ContextE");
         if (funcGetExecuteStream == nullptr) {
             LOG_ERROR("Cannot find origin function of atb.\n");
@@ -171,7 +171,7 @@ namespace atb {
         return true;
     }
 
-    static void LeaksParseKernelPath(bool& isBeforeLaunch, std::string& name, const std::string& dirPath)
+    static void MemScopeParseKernelPath(bool& isBeforeLaunch, std::string& name, const std::string& dirPath)
     {
         auto beforePos = dirPath.find("/before");
         auto afterPos = dirPath.find("/after");
@@ -195,7 +195,7 @@ namespace atb {
         }
     }
 
-    static bool LeaksReportAtbKernel(const std::string& name, const std::string& dirPath, const bool& isBeforeLaunch)
+    static bool MemScopeReportAtbKernel(const std::string& name, const std::string& dirPath, const bool& isBeforeLaunch)
     {
         if (name == "INVALID") {
             return false;
@@ -216,7 +216,7 @@ namespace atb {
 
         RecordSubType type = isBeforeLaunch ? RecordSubType::KERNEL_START : RecordSubType::KERNEL_END;
 
-        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtbKernel(nameStr, sizeof(nameStr),
+        if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportAtbKernel(nameStr, sizeof(nameStr),
             attrStr, sizeof(attrStr), type)) {
             LOG_ERROR("Report atb run kernel event failed.\n");
         }
@@ -227,7 +227,7 @@ namespace atb {
 extern "C" atb::Status _ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE(atb::Runner* thisPtr,
     atb::RunnerVariantPack& runnerVariantPack)
 {
-    static auto funcExecute = VallinaSymbol<ATBLibLoader>::Instance().Get<atb::LeaksOriginalRunnerExecuteFunc>(
+    static auto funcExecute = VallinaSymbol<ATBLibLoader>::Instance().Get<atb::MemScopeOriginalRunnerExecuteFunc>(
         "_ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE");
     if (funcExecute == nullptr) {
         LOG_ERROR("Cannot find origin function of atb.\n");
@@ -241,19 +241,19 @@ extern "C" atb::Status _ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE(atb::Runn
     std::string name;
     std::string dir;
     aclrtStream stream;
-    if (!atb::LeaksGetOpNameAndDir(thisPtr, name, dir)
-        || !atb::LeaksGetAclrtStream(thisPtr, runnerVariantPack, stream)) {
+    if (!atb::MemScopeGetOpNameAndDir(thisPtr, name, dir)
+        || !atb::MemScopeGetAclrtStream(thisPtr, runnerVariantPack, stream)) {
         return 0;
     }
     if (EventTraceManager::Instance().IsTracingEnabled() &&
         EventTraceManager::Instance().ShouldTraceType(RecordType::OP_LAUNCH_RECORD)) {
-        params = atb::LeaksGetOpParams(runnerVariantPack, dir);
-        atb::LeaksReportOp(name, params, true);
+        params = atb::MemScopeGetOpParams(runnerVariantPack, dir);
+        atb::MemScopeReportOp(name, params, true);
     }
 
     if (EventTraceManager::Instance().IsTracingEnabled() &&
         EventTraceManager::Instance().ShouldTraceType(RecordType::MEM_ACCESS_RECORD)) {
-        atb::LeaksReportTensors(runnerVariantPack, name);
+        atb::MemScopeReportTensors(runnerVariantPack, name);
     }
     char cDirPath[WATCH_OP_DIR_MAX_LENGTH];
     static Config config = GetConfig();
@@ -279,16 +279,16 @@ extern "C" atb::Status _ZN3atb6Runner7ExecuteERNS_17RunnerVariantPackE(atb::Runn
     }
     if (EventTraceManager::Instance().IsTracingEnabled() &&
         EventTraceManager::Instance().ShouldTraceType(RecordType::OP_LAUNCH_RECORD)) {
-        atb::LeaksReportOp(name, params, false);
+        atb::MemScopeReportOp(name, params, false);
     }
     if (EventTraceManager::Instance().IsTracingEnabled() &&
         EventTraceManager::Instance().ShouldTraceType(RecordType::MEM_ACCESS_RECORD)) {
-        atb::LeaksReportTensors(runnerVariantPack, name);
+        atb::MemScopeReportTensors(runnerVariantPack, name);
     }
     return st;
 }
 
-// 不调用原函数，原函数功能不与msleaks兼容
+// 不调用原函数，原函数功能不与msmemscope兼容
 #if defined(_GLIBCXX_USE_CXX11_ABI) && (_GLIBCXX_USE_CXX11_ABI == 0)
 extern "C" void _ZN3atb9StoreUtil15SaveLaunchParamEPvRKN3Mki11LaunchParamERKSs
 #else
@@ -300,9 +300,9 @@ extern "C" void _ZN3atb9StoreUtil15SaveLaunchParamEPvRKN3Mki11LaunchParamERKNSt7
         !EventTraceManager::Instance().ShouldTraceType(RecordType::ATB_KERNEL_RECORD)) {
         return;
     }
-    static auto getInTensors = VallinaSymbol<ATBLibLoader>::Instance().Get<Mki::LeaksOriginalGetInTensors>(
+    static auto getInTensors = VallinaSymbol<ATBLibLoader>::Instance().Get<Mki::MemScopeOriginalGetInTensors>(
         "_ZN3Mki11LaunchParam12GetInTensorsEv");
-    static auto getOutTensors = VallinaSymbol<ATBLibLoader>::Instance().Get<Mki::LeaksOriginalGetOutTensors>(
+    static auto getOutTensors = VallinaSymbol<ATBLibLoader>::Instance().Get<Mki::MemScopeOriginalGetOutTensors>(
         "_ZN3Mki11LaunchParam13GetOutTensorsEv");
     if (getInTensors == nullptr || getOutTensors == nullptr) {
         LOG_ERROR("Cannot find origin function of atb.\n");
@@ -319,18 +319,18 @@ extern "C" void _ZN3atb9StoreUtil15SaveLaunchParamEPvRKN3Mki11LaunchParamERKNSt7
     }
     std::string name;
     bool isBeforeLaunch;
-    atb::LeaksParseKernelPath(isBeforeLaunch, name, dirPath);
+    atb::MemScopeParseKernelPath(isBeforeLaunch, name, dirPath);
 
     if (EventTraceManager::Instance().IsTracingEnabled() ||
         EventTraceManager::Instance().ShouldTraceType(RecordType::KERNEL_LAUNCH_RECORD)) {
-        if (!atb::LeaksReportAtbKernel(name, dirPath, isBeforeLaunch)) {
+        if (!atb::MemScopeReportAtbKernel(name, dirPath, isBeforeLaunch)) {
             return;
         }
     }
 
     if (EventTraceManager::Instance().IsTracingEnabled() ||
         EventTraceManager::Instance().ShouldTraceType(RecordType::MEM_ACCESS_RECORD)) {
-        atb::LeaksReportTensors(getInTensors, getOutTensors, launchParam, name);
+        atb::MemScopeReportTensors(getInTensors, getOutTensors, launchParam, name);
     }
 }
 

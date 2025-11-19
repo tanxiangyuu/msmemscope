@@ -5,7 +5,7 @@
 
 #include "analyzer_base.h"
 
-namespace Leaks {
+namespace MemScope {
 
 class DecomposeAnalyzer : public AnalyzerBase {
 public:

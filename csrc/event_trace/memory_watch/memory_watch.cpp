@@ -2,7 +2,7 @@
 
 #include "memory_watch.h"
 
-namespace Leaks {
+namespace MemScope {
 
 uint64_t MemoryWatch::CountOpName(const std::string& name)
 {
@@ -56,7 +56,7 @@ void MemoryWatch::EndExcute(aclrtStream stream, const std::string &excuteItem, c
 void OpExcuteBegin(aclrtStream stream, char *rawOp)
 {
     std::string str(rawOp);
-    return Leaks::MemoryWatch::GetInstance().OpExcuteBegin(stream, str);
+    return MemScope::MemoryWatch::GetInstance().OpExcuteBegin(stream, str);
 }
 
 void OpExcuteEnd(aclrtStream stream, char *rawOp, MonitoredTensor* tensorsInput, size_t size)
@@ -69,7 +69,7 @@ void OpExcuteEnd(aclrtStream stream, char *rawOp, MonitoredTensor* tensorsInput,
         tensors.push_back(tensorsInput[i]);
     }
     std::string str(rawOp);
-    return Leaks::MemoryWatch::GetInstance().OpExcuteEnd(stream, str, tensors);
+    return MemScope::MemoryWatch::GetInstance().OpExcuteEnd(stream, str, tensors);
 }
 
 void MemoryWatch::OpExcuteBegin(aclrtStream stream, const std::string &rawOp)
@@ -147,7 +147,7 @@ void MemoryWatch::KernelExcuteEnd(aclrtStream stream, const std::string &rawKern
 void ATBKernelExcute(aclrtStream stream, char* rawKernel, const Mki::SVector<Mki::Tensor>& tensors)
 {
     std::string str(rawKernel);
-    Leaks::MemoryWatch::GetInstance().ATBKernelExcute(stream, str, tensors);
+    MemScope::MemoryWatch::GetInstance().ATBKernelExcute(stream, str, tensors);
 }
 
 void MemoryWatch::ATBKernelExcute(aclrtStream stream, std::string rawKernel, const Mki::SVector<Mki::Tensor>& tensors)

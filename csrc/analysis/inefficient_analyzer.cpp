@@ -5,7 +5,7 @@
 #include <string>
  
 #include "event_dispatcher.h"
-namespace Leaks {
+namespace MemScope {
 
 InefficientAnalyzer& InefficientAnalyzer::GetInstance()
 {

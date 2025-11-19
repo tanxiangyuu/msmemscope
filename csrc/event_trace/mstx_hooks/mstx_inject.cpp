@@ -5,7 +5,7 @@
 #include "mstx_manager.h"
 #include "event_report.h"
 
-namespace Leaks {
+namespace MemScope {
 
 aclError GetStreamID(aclrtStream stream, int32_t *streamId)
 {
@@ -170,7 +170,7 @@ void MstxMemRegionsUnregisterFunc(mstxDomainHandle_t domain, mstxMemRegionsUnreg
 
 }
 
-using namespace Leaks;
+using namespace MemScope;
 
 extern "C" int __attribute__((visibility("default"))) InitInjectionMstx(MstxGetModuleFuncTableFunc getFuncTable)
 {

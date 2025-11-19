@@ -14,7 +14,7 @@
 #include "data_handler.h"
 #include "utility/sqlite_loader.h"
 
-using namespace Leaks;
+using namespace MemScope;
 extern bool g_isDlsymNullptr;
 std::string devId = "0";
 
@@ -22,13 +22,13 @@ class DataHandlerTest : public ::testing::Test {
 protected:
     void SetUp() override
     {
-        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("./testmsleaks");
+        Utility::FileCreateManager::GetInstance("./testmsmemscope").SetProjectDir("./testmsmemscope");
     }
 
     void TearDown() override
     {
-        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("");
-        rmdir("./testmsleaks");
+        Utility::FileCreateManager::GetInstance("./testmsmemscope").SetProjectDir("");
+        rmdir("./testmsmemscope");
     }
 };
 
@@ -38,7 +38,7 @@ TEST_F(DataHandlerTest, CsvHandler_Write_LeakRecord)
     config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
     config.enableCStack = false;
     config.enablePyStack = false;
-    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsmemscope", sizeof(config.outputDir) - 1);
 
     CsvHandler handler(config, DataType::LEAKS_EVENT, devId);
     handler.Init();
@@ -78,7 +78,7 @@ TEST_F(DataHandlerTest, Sqlite3_open)
 {
     g_isDlsymNullptr = false;
     sqlite3* db = nullptr;
-    std::string path = "./testmsleaks/test.db";
+    std::string path = "./testmsmemscope/test.db";
     int rc = Sqlite3Open(path.c_str(), &db);
     EXPECT_EQ(rc, 0);
     Sqlite3Errmsg(db);
@@ -91,7 +91,7 @@ TEST_F(DataHandlerTest, DbHandler_Write_LeakRecord)
     config.dataFormat = static_cast<uint8_t>(DataFormat::DB);
     config.enableCStack = true;
     config.enablePyStack = true;
-    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsmemscope", sizeof(config.outputDir) - 1);
 
     std::unique_ptr<DataHandler> handler = MakeDataHandler(config, DataType::LEAKS_EVENT, devId);
     handler->Init();
@@ -128,7 +128,7 @@ TEST_F(DataHandlerTest, CsvHandler_InitSetParm_Default)
 {
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
-    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsmemscope", sizeof(config.outputDir) - 1);
     CsvHandler handler(config, static_cast<DataType>(999), devId);
     EXPECT_TRUE(true);
 }
@@ -137,7 +137,7 @@ TEST_F(DataHandlerTest, CsvHandler_Write_NullData)
 {
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
-    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsmemscope", sizeof(config.outputDir) - 1);
     CsvHandler handler(config, DataType::LEAKS_EVENT, devId);
     handler.Init();
     ASSERT_FALSE(handler.Write(nullptr));
@@ -147,7 +147,7 @@ TEST_F(DataHandlerTest, DbHandler_InitSetParm_Default)
 {
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::DB);
-    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsmemscope", sizeof(config.outputDir) - 1);
     DbHandler handler(config, static_cast<DataType>(999), devId);
 }
 
@@ -158,7 +158,7 @@ TEST_F(DataHandlerTest, DbHandler_Write_NullData)
     config.dataFormat = static_cast<uint8_t>(DataFormat::DB);
     config.enableCStack = false;
     config.enablePyStack = false;
-    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsmemscope", sizeof(config.outputDir) - 1);
     DbHandler handler(config, DataType::LEAKS_EVENT, devId);
     handler.Init();
     ASSERT_FALSE(handler.Write(nullptr));
@@ -168,7 +168,7 @@ TEST_F(DataHandlerTest, MakeDataHandler_FALSE)
 {
     Config config;
     config.dataFormat = 2;
-    auto handler = Leaks::MakeDataHandler(config, static_cast<DataType>(999), devId);
+    auto handler = MemScope::MakeDataHandler(config, static_cast<DataType>(999), devId);
     EXPECT_EQ(handler, nullptr);
 }
 
@@ -178,7 +178,7 @@ TEST_F(DataHandlerTest, DataHandler_Write_Type_False)
     std::shared_ptr<DataBase> data = std::make_shared<DataBase>(static_cast<DataType>(999));
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::DB);
-    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsleaks", sizeof(config.outputDir) - 1);
+    strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsmemscope", sizeof(config.outputDir) - 1);
     DbHandler handler(config, DataType::LEAKS_EVENT, devId);
     EXPECT_FALSE(handler.Write(data));
     config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);

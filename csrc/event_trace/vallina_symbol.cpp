@@ -7,11 +7,11 @@
 #include <cstring>
 #include "vallina_symbol.h"
 
-namespace Leaks {
+namespace MemScope {
     void *LibLoad(std::string libName)
     {
         if (libName.empty()) {
-            std::cout << "[msleaks] Error: Null library name." << std::endl;
+            std::cout << "[msmemscope] Error: Null library name." << std::endl;
             return nullptr;
         }
         std::string libPath = libName;
@@ -22,7 +22,7 @@ namespace Leaks {
             return dlopen(libPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
         }
         // 找不到Ascend Path
-        std::cout << "[msleaks] Error: Failed to acquire ASCEND_HOME_PATH environment variable while loading "
+        std::cout << "[msmemscope] Error: Failed to acquire ASCEND_HOME_PATH environment variable while loading "
             << libName << ". Try to load lib directly."
             << std::endl;
         return dlopen(libPath.c_str(), RTLD_NOW | RTLD_GLOBAL);
@@ -39,7 +39,7 @@ namespace Leaks {
         std::string result;
         FILE* pipe = popen(cmd, "r");
         if (!pipe) {
-            std::cout << "[msleaks] Error: popen() failed!" << std::endl;
+            std::cout << "[msmemscope] Error: popen() failed!" << std::endl;
             return result;
         }
         int bufferSize = 128;
@@ -104,7 +104,7 @@ namespace Leaks {
         struct stat st;
         int ret = stat(path.c_str(), &st);
         if (ret != 0) {
-            std::cout << "[msleaks] Error: getting file status: " << path << std::endl;
+            std::cout << "[msmemscope] Error: getting file status: " << path << std::endl;
             return false;
         }
 
@@ -118,12 +118,12 @@ namespace Leaks {
         if (st.st_uid == currentUid) {
             // 检查是否存在组或其他用户的写权限
             if ((st.st_mode & (S_IWGRP | S_IWOTH)) != 0) {
-                std::cout << "[msleaks] Security risk: Library " << path << " is writable by group/others" << std::endl;
+                std::cout << "[msmemscope] Security risk: Library " << path << " is writable by group/others" << std::endl;
                 return false;
             }
             return true;
         }
-        std::cout << "[msleaks] Security violation: Library " << path
+        std::cout << "[msmemscope] Security violation: Library " << path
                 << " is not owned by root or current user" << std::endl;
         return false;
     }
@@ -147,7 +147,7 @@ namespace Leaks {
                 if (handle) {
                     return handle;
                 }
-                std::cout << "[msleaks] Error: Failed to load " << candidatePath << ": " << dlerror() << std::endl;
+                std::cout << "[msmemscope] Error: Failed to load " << candidatePath << ": " << dlerror() << std::endl;
             }
         }
         DIR* dir = opendir(dirPath.c_str());

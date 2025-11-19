@@ -34,14 +34,14 @@ add_subdirectory(event_trace)
 add_subdirectory(analysis)
 add_subdirectory(python_itf)
 
-add_executable(msleaks ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
+add_executable(msmemscope ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp)
 
-target_link_libraries(msleaks ascend_leaks)
+target_link_libraries(msmemscope ascend_leaks)
 
-set_target_properties(msleaks PROPERTIES
-    OUTPUT_NAME "msleaks.bin"
+set_target_properties(msmemscope PROPERTIES
+    OUTPUT_NAME "msmemscope.bin"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_INSTALL_PREFIX}/bin"
 )
-set_target_properties(leaks_ascend_hal_hook ascend_mstx_hook ascend_kernel_hook atb_abi_0_hook atb_abi_1_hook ascend_leaks _msleaks PROPERTIES 
+set_target_properties(leaks_ascend_hal_hook ascend_mstx_hook ascend_kernel_hook atb_abi_0_hook atb_abi_1_hook ascend_leaks _msmemscope PROPERTIES 
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_INSTALL_PREFIX}/lib64"
 )

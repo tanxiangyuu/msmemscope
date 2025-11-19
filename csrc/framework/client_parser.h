@@ -6,7 +6,7 @@
 #include <cstdint>
 #include "config_info.h"
 
-namespace Leaks {
+namespace MemScope {
 constexpr uint32_t PATHSIZE = 2;
 constexpr uint32_t DEPTHCOUNT = 2;
 

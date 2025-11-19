@@ -10,7 +10,7 @@
 #include <mutex>
 #include "record_info.h"
 
-namespace Leaks {
+namespace MemScope {
 
 using TaskKey = std::tuple<int16_t, int16_t, int16_t>; // <deviceId, streamId, taskId> 唯一标识一个算子任务
 using ThreadId = uint64_t;

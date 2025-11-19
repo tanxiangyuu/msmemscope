@@ -6,7 +6,7 @@
 #include <atomic>
 #include "analyzer_base.h"
  
-namespace Leaks {
+namespace MemScope {
 
 constexpr uint64_t THREHOLD = 3000;
 constexpr uint64_t MAX_UNIT64 = std::numeric_limits<uint64_t>::max();

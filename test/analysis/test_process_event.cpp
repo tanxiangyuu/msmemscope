@@ -22,7 +22,7 @@
 #include "event.h"
 #include "event_dispatcher.h"
  
-using namespace Leaks;
+using namespace MemScope;
  
 std::unordered_map<std::string, std::shared_ptr<EventBase>> eventMap;
 std::string testdDevId = "0";
@@ -89,8 +89,8 @@ protected:
     void SetUp() override
     {
         config = Config{};
-        RemoveDir("./testmsleaks");
-        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("./testmsleaks");
+        RemoveDir("./testmsmemscope");
+        Utility::FileCreateManager::GetInstance("./testmsmemscope").SetProjectDir("./testmsmemscope");
         MemoryStateManager::GetInstance().poolsMap_.clear();
         // 初始化单例类的参数
         ResetSingleton();
@@ -126,9 +126,9 @@ protected:
         Dump::GetInstance(config).handlerMap_.clear();
         Dump::GetInstance(config).sharedEventLists_.clear();
         std::unordered_map<std::string, std::shared_ptr<EventBase>>().swap(eventMap);
-        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("");
+        Utility::FileCreateManager::GetInstance("./testmsmemscope").SetProjectDir("");
         MemoryStateManager::GetInstance().poolsMap_.clear();
-        RemoveDir("./testmsleaks");
+        RemoveDir("./testmsmemscope");
     }
  
 private:
@@ -387,7 +387,7 @@ private:
         event1->name = "N/A";
         event1->eventType = EventBaseType::MEMORY_OWNER;
         event1->eventSubType = EventSubType::DESCRIBE_OWNER;
-        event1->owner = "@leaks";
+        event1->owner = "@memscope";
         eventMap["DescribeOwnerEvent"] = event1;
  
         auto event2 = std::make_shared<MemoryOwnerEvent>();
@@ -620,7 +620,7 @@ private:
  
 static bool ReadFile(std::string filePath, std::string &content)
 {
-    filePath = Utility::FileCreateManager::GetInstance(filePath).GetProjectDir() + "/device_" + testdDevId + "/" + Leaks::DUMP_DIR;
+    filePath = Utility::FileCreateManager::GetInstance(filePath).GetProjectDir() + "/device_" + testdDevId + "/" + MemScope::DUMP_DIR;
     DIR* dir = opendir(filePath.c_str());
     if (!dir) {
         return false;
@@ -678,7 +678,7 @@ TEST_F(TestProcess, process_hal_device_memory_event)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -703,7 +703,7 @@ TEST_F(TestProcess, process_pta_caching_memory_event)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -733,7 +733,7 @@ TEST_F(TestProcess, process_pta_workspace_memory_event)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -758,7 +758,7 @@ TEST_F(TestProcess, process_atb_memory_event)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -790,7 +790,7 @@ TEST_F(TestProcess, process_mindspore_memory_event)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -815,7 +815,7 @@ TEST_F(TestProcess, process_aten_op_event)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -840,7 +840,7 @@ TEST_F(TestProcess, process_atb_op_event)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -865,7 +865,7 @@ TEST_F(TestProcess, process_kernel_event)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -897,7 +897,7 @@ TEST_F(TestProcess, process_mstx_event)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -924,7 +924,7 @@ TEST_F(TestProcess, process_system_event)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -951,7 +951,7 @@ TEST_F(TestProcess, process_clean_up_event)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -978,7 +978,7 @@ TEST_F(TestProcess, dump_event_before_malloc)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -1004,7 +1004,7 @@ TEST_F(TestProcess, dump_two_malloc_event)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -1032,7 +1032,7 @@ TEST_F(TestProcess, clean_up_event_failed)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -1054,7 +1054,7 @@ TEST_F(TestProcess, process_memory_owner_event)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -1075,7 +1075,7 @@ TEST_F(TestProcess, process_memory_owner_event)
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
 "3,MALLOC,PTA,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,total:10,used:10,"
-"owner:PTA@model@gradient@leaks}\",,\n"
+"owner:PTA@model@gradient@memscope}\",,\n"
 "13,ACCESS,UNKNOWN,aten.add,13,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,type:PTA,"
 "dtype:torch.float16,shape:torch.Size([1,5])}\",,\n"
 "54,FREE,PTA,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,total:0,used:0}\",,\n";
@@ -1091,7 +1091,7 @@ TEST_F(TestProcess, process_memory_owner_event_in_torch_step)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -1124,7 +1124,7 @@ TEST_F(TestProcess, process_memory_owner_event_without_malloc)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -1158,7 +1158,7 @@ TEST_F(TestProcess, init_memory_owner)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -1206,7 +1206,7 @@ TEST_F(TestProcess, updata_owner_by_access_event)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -1240,7 +1240,7 @@ TEST_F(TestProcess, updata_owner_failed_by_atb_access_event)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -1274,7 +1274,7 @@ TEST_F(TestProcess, get_different_allocation_id_with_trace_start_and_stop_event)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -1308,7 +1308,7 @@ TEST_F(TestProcess, get_the_same_allocation_id_with_trace_start_and_stop_event)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
@@ -1342,7 +1342,7 @@ TEST_F(TestProcess, add_memory_event_into_state)
     config.enableCStack = false;
     config.enablePyStack = false;
     config.dataFormat = 0;
-    std::string path = "./testmsleaks";
+    std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
     Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
