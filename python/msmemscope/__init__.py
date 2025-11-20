@@ -18,7 +18,7 @@ if LEAKS_LIB_PATH:
 
 from ._msmemscope import _watcher
 from ._msmemscope import _tracer
-from ._msmemscope import start, stop, config
+from ._msmemscope import start, stop, step, config
 
 tracer = _tracer
 watcher = _watcher

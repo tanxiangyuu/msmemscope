@@ -4,6 +4,7 @@
 #define STEPINNER_ANALYZER_H
 
 #include <unordered_map>
+#include <atomic>
 
 #include "config_info.h"
 #include "comm_def.h"
@@ -13,7 +14,7 @@ namespace MemScope {
 /*
  * StepInnerAnalyzer类主要功能：
  * 1. 维护npu内存池的申请释放表，记录未释放的内存持续step时间
-   2. 维护观察mstx的mstx-npu表，用于分析step内的内存泄漏
+   2. 维护观察mstx和python_step的StepInfo表，用于分析step内的内存泄漏
 */
 
 using DeviceId = int32_t;
@@ -27,12 +28,19 @@ const std::unordered_map<RecordType, std::string> RecordTypeToString = {
     {RecordType::MINDSPORE_NPU_RECORD, "Mindspore memory pool"}
 };
 
-struct StepInfo {
-    std::unordered_map<RecordType, int64_t> stepAllocTable;
-    uint64_t rangeId = 0;  // rangeId唯一标识，用于判断是否为固化信息的打点信息
+// step信息的俩个来源mstx和msleaks.step()不能同时存在，第一个接收的会被用作信息来源，后续其他来源将被无视
+enum class StepSource {
+    None,
+    MSTX_SOURCE,
+    PY_STEP_SOURCE
 };
 
-using MstxRecordTable = std::unordered_map<StepId, StepInfo>;
+struct StepInfo {
+    std::unordered_map<RecordType, int64_t> stepAllocTable;
+    uint64_t rangeId = 0;  // rangeId唯一标识，用于判断mstx方式中是否为固化信息的打点信息，在接口方式中该项无效
+};
+
+using StepInfoTable = std::unordered_map<StepId, StepInfo>;
 
 enum class MemActionType : uint8_t {
     MALLOC = 0,
@@ -65,7 +73,7 @@ struct NpuMemInfo {
     int64_t memSize;
     uint64_t timestamp;
     uint64_t duration;      // 目前经历的duration
-    uint64_t stepId;        // 来自哪个mstx的stepId
+    uint64_t stepId;        // 来自哪个的step
     uint64_t kernelIndex;   // 处于哪个event中
 };
 
@@ -100,7 +108,7 @@ struct NpuMemKeyHash {
 struct NpuMemUsage {
     std::unordered_map<NpuMemKey, NpuMemInfo, NpuMemKeyHash> poolOpTable; // 维护内存池具体操作的表
     std::unordered_map<RecordType, MemoryPoolStatus> poolStatusTable;      // 维护内存池占用状态的表
-    uint64_t mstxStep = 0; // 用于更新当前到哪一个step，并将其应用于表中的stepId属性。
+    uint64_t duringStep = 0; // 用于更新当前到哪一个step，并将其应用于表中的stepId属性。
 };
 
 class StepInnerAnalyzer {
@@ -116,14 +124,17 @@ private:
     StepInnerAnalyzer& operator=(StepInnerAnalyzer&& other) = delete;
     
     const std::string& GetMemoryPoolName(const RecordType &poolType);
-    void UpdateMstxTable(const MstxRecord &mstxRecord, const RecordType &poolType, const int64_t &startAllocated);
+    void UpdateStepInfoTable(const DeviceId &deviceId, const uint64_t &stepId, const RecordType &poolType,
+        const int64_t &startAllocated);
     void ReceiveMstxMsg(const MstxRecord &mstxRecord);
+    void ReceiveStepMsg(const PyStepRecord &pyStepRecord);
+    void HandleStepMsg(const DeviceId &deviceId, const uint64_t &stepId);
     void UpdateAllocated(const DeviceId &deviceId, const RecordType &poolType, const int64_t &totalAllocated);
     void AddDuration(const DeviceId &deviceId);
     void SetStepId(const DeviceId &deviceId, const uint64_t &stepId);
     void CheckGap(const DeviceId &deviceId);
     void CheckNpuLeak(const DeviceId &deviceId, const uint64_t stepId);
-    bool CreateMstxTables(const DeviceId &deviceId);
+    bool CreateStepInfoTables(const DeviceId &deviceId);
     bool CreateTables(const DeviceId &deviceId);
     bool CreateLeakSumTables(const DeviceId &deviceId);
     void RecordNpuMalloc(const ClientId &clientId, const DeviceId &deviceId, const MemPoolRecord &memPoolRecord);
@@ -133,8 +144,9 @@ private:
     void ReportGap(const DeviceId &deviceId);
     bool IsStepInnerAnalysisEnable();
     std::unordered_map<DeviceId, NpuMemUsage> npuMemUsages_{};
-    std::unordered_map<DeviceId, MstxRecordTable> mstxTables_{};
+    std::unordered_map<DeviceId, StepInfoTable> stepInfoTables_{};
     std::unordered_map<DeviceId, LeakSumsTable> leakMemSums_{};
+    std::atomic<StepSource> crtStepSource_{StepSource::None};
     uint64_t durationThreshold_ = 1;  // 设置警告阈值, 可由用户更改
     uint64_t skipSteps_ = 1;
     Config config_;

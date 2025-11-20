@@ -43,6 +43,7 @@ enum class RecordType {
     MEM_ACCESS_RECORD,
     ADDR_INFO_RECORD,
     TRACE_STATUS_RECORD,
+    PY_STEP_RECORD,
     INVALID_RECORD,
 };
 
@@ -262,6 +263,11 @@ struct AddrInfo : public RecordBase {
     /* TLVBlockType::ADDR_OWNER */
 };
 
+struct PyStepRecord : public RecordBase {
+    uint64_t stepId;          // 从0开始标识step信息
+    /* TLVBlockType::ADDR_OWNER */
+};
+
 enum class MemOpSpace : uint8_t {
     SVM = 0U,
     DEVICE,
@@ -383,6 +389,7 @@ struct EventRecord {
         AtbKernelRecord atbKernelRecord;
         AtenOpLaunchRecord atenOpLaunchRecord;
         MemAccessRecord memAccessRecord;
+        PyStepRecord pyStepRecord;
         AddrInfo addrInfo;
     } record;
     uint64_t pyStackLen;

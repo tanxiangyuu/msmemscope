@@ -10,6 +10,7 @@
 #include "ustring.h"
 #include "log.h"
 #include "analysis/mstx_analyzer.h"
+#include "analysis/py_step_manager.h"
 #include "analysis/hal_analyzer.h"
 #include "analysis/stepinner_analyzer.h"
 #include "analysis/event.h"
@@ -104,6 +105,8 @@ std::shared_ptr<EventBase> Process::RecordToEvent(RecordBase* record)
             return std::make_shared<SystemEvent>(*(static_cast<AclItfRecord*>(r))); }},
         {RecordType::TRACE_STATUS_RECORD, [](RecordBase* r) {
             return std::make_shared<SystemEvent>(*(static_cast<TraceStatusRecord*>(r))); }},
+        {RecordType::PY_STEP_RECORD, [](RecordBase* r) {
+            return std::make_shared<SystemEvent>(*(static_cast<PyStepRecord*>(r))); }},
     };
 
     if (record == nullptr) {
@@ -128,6 +131,9 @@ void Process::RecordHandler(const RecordBuffer& buffer)
             break;
         case RecordType::MSTX_MARK_RECORD:
             MstxAnalyzer::Instance().RecordMstx(record->pid, static_cast<const MstxRecord&>(*record));
+            break;
+        case RecordType::PY_STEP_RECORD:
+            PyStepManager::Instance().RecordPyStep(record->pid, static_cast<const PyStepRecord&>(*record));
             break;
         case RecordType::PTA_CACHING_POOL_RECORD:
         case RecordType::ATB_MEMORY_POOL_RECORD:

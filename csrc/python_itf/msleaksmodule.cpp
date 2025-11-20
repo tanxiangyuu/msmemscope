@@ -8,6 +8,7 @@
 #include "tracerobject.h"
 #include "describerobject.h"
 #include "report_tensor.h"
+#include "event_report.h"
 #include "trace_manager/event_trace_manager.h"
 
 namespace MemScope {
@@ -19,7 +20,7 @@ PyDoc_STRVAR(MsmemscopeCModuleDoc,
 
 PyDoc_STRVAR(StartDoc,
 "start()\n--\n\nstart trace data.");
-static PyObject* MsmemscopeStart()
+static PyObject* MsmemscopeStart(PyObject* self, PyObject* args)
 {
     ConfigManager::Instance().InitStartConfig();
     Py_RETURN_NONE;
@@ -27,9 +28,19 @@ static PyObject* MsmemscopeStart()
 
 PyDoc_STRVAR(StopDoc,
 "stop()\n--\n\nstop trace data.");
-static PyObject* MsmemscopeStop()
+static PyObject* MsmemscopeStop(PyObject* self, PyObject* args)
 {
     EventTraceManager::Instance().SetTraceStatus(EventTraceStatus::NOT_IN_TRACING);
+    Py_RETURN_NONE;
+}
+
+PyDoc_STRVAR(StepDoc,
+"step()\n--\n\nmark step info.");
+static PyObject* MsmemscopeStep(PyObject* self, PyObject* args)
+{
+    if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportPyStepRecord()) {
+        PyErr_SetString(PyExc_TypeError, "Report Step Record Failed");
+    }
     Py_RETURN_NONE;
 }
 
@@ -94,6 +105,7 @@ static PyObject* MsmemscopeConfig(PyObject* self, PyObject* args, PyObject* kwar
 static PyMethodDef g_MsmemscopeMethods[] = {
     {"start", reinterpret_cast<PyCFunction>(MsmemscopeStart), METH_NOARGS, StartDoc},
     {"stop", reinterpret_cast<PyCFunction>(MsmemscopeStop), METH_NOARGS, StopDoc},
+    {"step", reinterpret_cast<PyCFunction>(MsmemscopeStep), METH_NOARGS, StepDoc},
     {"config", reinterpret_cast<PyCFunction>(MsmemscopeConfig), METH_VARARGS | METH_KEYWORDS, ConfigDoc},
     {nullptr, nullptr, 0, nullptr}
 };

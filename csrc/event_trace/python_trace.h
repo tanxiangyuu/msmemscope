@@ -32,6 +32,7 @@ public:
     void RecordReturn(std::string funcHash, std::string funcInfo);
     void Start();
     void Stop();
+    bool IsTraceActive();
 private:
     bool DumpTraceEvent(std::shared_ptr<TraceEvent>& event);
     bool IsIgnore(std::string funcName);
