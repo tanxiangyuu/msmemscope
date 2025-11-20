@@ -11,7 +11,7 @@
 #include "state_manager.h"
 #include "event.h"
 
-namespace Leaks {
+namespace MemScope {
 
 class MemoryStateKey : StateKey {
 public:
@@ -42,7 +42,7 @@ public:
     std::vector<uint64_t> apiId;
     uint64_t size = 0;
     uint64_t allocationId = 0;
-    std::string leaksDefinedOwner;
+    std::string memscopeDefinedOwner;
     std::string userDefinedOwner;
     std::string inefficientType;
 
@@ -52,7 +52,7 @@ public:
     {
         events.push_back(event);
         size = static_cast<uint64_t>(event->size);
-        leaksDefinedOwner = "";
+        memscopeDefinedOwner = "";
         userDefinedOwner = event->describeOwner;
         inefficientType = "";
         std::lock_guard<std::mutex> lock(mtx);

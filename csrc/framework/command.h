@@ -8,7 +8,7 @@
 #include <memory>
 #include "config_info.h"
 
-namespace Leaks {
+namespace MemScope {
 
 // Command类主要针对解析后的命令进行处理，是串接流程的主要类
 class Command {

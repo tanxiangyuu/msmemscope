@@ -4,7 +4,7 @@
 #include <unordered_map>
 #include "describe_trace.h"
 
-using namespace Leaks;
+using namespace MemScope;
 
 TEST(DescribeTrace, AddDescribeTest)
 {

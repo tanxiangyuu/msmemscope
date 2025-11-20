@@ -9,10 +9,10 @@
 #include "mki_stub.h"
 
 namespace atb {
-const std::string& LeaksEnumToString(aclDataType value);
-const std::string& LeaksEnumToString(aclFormat value);
-const std::string& LeaksEnumToString(Mki::TensorDType value);
-const std::string& LeaksEnumToString(Mki::TensorFormat value);
+const std::string& MemScopeEnumToString(aclDataType value);
+const std::string& MemScopeEnumToString(aclFormat value);
+const std::string& MemScopeEnumToString(Mki::TensorDType value);
+const std::string& MemScopeEnumToString(Mki::TensorFormat value);
 }
 
 #endif

@@ -1,6 +1,6 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 from functools import wraps
-from ._msleaks import _describer
+from ._msmemscope import _describer
 
 
 class Describe:

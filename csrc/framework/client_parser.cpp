@@ -19,7 +19,7 @@
 #include "sqlite_loader.h"
 #include "string_validator.h"
 #include "event_trace/trace_manager/event_trace_manager.h"
-namespace Leaks {
+namespace MemScope {
 
 enum class OptVal : int32_t {
     SELECT_STEPS = 0,
@@ -41,14 +41,14 @@ constexpr uint16_t INPUT_STR_MAX_LEN = 4096;
 void ShowDescription()
 {
     std::cout <<
-        "msleaks(MindStudio Leaks) is part of MindStudio Memory analysis Tools." << std::endl;
+        "msmemscope(MindStudio MemScope) is part of MindStudio Memory analysis Tools." << std::endl;
 }
 
 void ShowHelpInfo()
 {
     ShowDescription();
     std::cout << std::endl
-        << "Usage: msleaks <option(s)> prog-and-args" << std::endl << std::endl
+        << "Usage: msmemscope <option(s)> prog-and-args" << std::endl << std::endl
         << "  basic user options, with default in [ ]:" << std::endl
         << "    -h --help                                Show this message." << std::endl
         << "    -v --version                             Show version." << std::endl
@@ -75,7 +75,7 @@ void ShowHelpInfo()
         << "    --analysis                               Specify the analysis method to enable (optional)."
         << std::endl
         << "                                             Available options:" << std::endl
-        << "                                               - leaks : Enables memory leak detection (default)"
+        << "                                               - memscope : Enables memory leak detection (default)"
         << std::endl
         << "                                               - decompose : Enables memory categorization" << std::endl
         << "                                               - inefficient : Enables inefficient memory recognition"
@@ -101,7 +101,7 @@ void ShowVersion()
 {
     ShowDescription();
     std::cout <<
-        std::endl << "msleaks version " << "1.0" << "-" << __MSLEAKS_COMMIT_ID__ << std::endl;
+        std::endl << "msmemscope version " << "1.0" << "-" << __MSLEAKS_COMMIT_ID__ << std::endl;
 }
 
 bool UserCommandPrecheck(const UserCommand &userCommand)
@@ -243,7 +243,7 @@ void ParseSelectSteps(const std::string &param, Config &config, bool &printHelpI
     verRule.minValue = 1;
 
     auto parseFailed = [&printHelpInfo](void) {
-        std::cout << "[msleaks] Error: invalid steps input." << std::endl;
+        std::cout << "[msmemscope] Error: invalid steps input." << std::endl;
         printHelpInfo = true;
     };
 
@@ -278,14 +278,14 @@ void ParseAnalysis(const std::string &param, Config &config, bool &printHelpInfo
     auto end = tokens.end();
 
     auto parseFailed = [&printHelpInfo](void) {
-        std::cout << "[msleaks] Error: invalid analysis type input." << std::endl;
+        std::cout << "[msmemscope] Error: invalid analysis type input." << std::endl;
         printHelpInfo = true;
     };
 
     BitField<decltype(config.analysisType)> analysisTypeBit;
 
     std::unordered_map<std::string, AnalysisType> analysisMp = {
-        {"leaks", AnalysisType::LEAKS_ANALYSIS},
+        {"memscope", AnalysisType::LEAKS_ANALYSIS},
         {"decompose", AnalysisType::DECOMPOSE_ANALYSIS},
         {"inefficient", AnalysisType::INEFFICIENCY_ANALYSIS},
     };
@@ -349,7 +349,7 @@ void ParseCallstack(const std::string &param, Config &config, bool &printHelpInf
     auto end = tokens.end();
 
     auto parseFailed = [&printHelpInfo](void) {
-        std::cout << "[msleaks] Error: invalid call-stack depth input." << std::endl;
+        std::cout << "[msmemscope] Error: invalid call-stack depth input." << std::endl;
         printHelpInfo = true;
     };
 
@@ -366,7 +366,7 @@ void ParseCallstack(const std::string &param, Config &config, bool &printHelpInf
 static void ParseInputPaths(const std::string param, UserCommand &userCommand)
 {
     if (param.length() > INPUT_STR_MAX_LEN) {
-        std::cout << "[msleaks] Error: Parameter --input length exceeds the maximum length:"
+        std::cout << "[msmemscope] Error: Parameter --input length exceeds the maximum length:"
                   << INPUT_STR_MAX_LEN << "." << std::endl;
         return;
     }
@@ -385,7 +385,7 @@ static void ParseInputPaths(const std::string param, UserCommand &userCommand)
     }
 
     if (userCommand.inputPaths.size() != PATHSIZE) {
-        std::cout << "[msleaks] Error: invalid paths input." << std::endl;
+        std::cout << "[msmemscope] Error: invalid paths input." << std::endl;
         userCommand.printHelpInfo = true;
     } else {
         userCommand.config.inputCorrectPaths = true;
@@ -395,18 +395,18 @@ static void ParseInputPaths(const std::string param, UserCommand &userCommand)
 void ParseOutputPath(const std::string param, Config &config, bool &printHelpInfo)
 {
     if (param.length() > PATH_MAX) {
-        std::cout << "[msleaks] Error: Parameter --output length exceeds the maximum length:"
-                  << PATH_MAX << " output path will be set to default(./leaksDumpResults)." << std::endl;
+        std::cout << "[msmemscope] Error: Parameter --output length exceeds the maximum length:"
+                  << PATH_MAX << " output path will be set to default(./memscopeDumpResults)." << std::endl;
         return;
     }
     if (Utility::Strip(param).length() == 0) {
         config.outputCorrectPaths = false;
-        std::cout << "[msleaks] Warn: empty output path." << std::endl;
+        std::cout << "[msmemscope] Warn: empty output path." << std::endl;
         return;
     }
 
     auto parseFailed = [&printHelpInfo](void) {
-        std::cout << "[msleaks] Error: invalid output path." << std::endl;
+        std::cout << "[msmemscope] Error: invalid output path." << std::endl;
         std::cout << "Please use correct output path!" << std::endl;
         printHelpInfo = true;
     };
@@ -422,7 +422,7 @@ void ParseOutputPath(const std::string param, Config &config, bool &printHelpInf
 
     if (strncpy_s(config.outputDir, sizeof(config.outputDir),
         pathStr.c_str(), sizeof(config.outputDir) - 1) != EOK) {
-        std::cout << "[msleaks] Error: strncpy dirpath FAILED" << std::endl;
+        std::cout << "[msmemscope] Error: strncpy dirpath FAILED" << std::endl;
         return;
     }
 
@@ -440,7 +440,7 @@ void ParseDataLevel(const std::string param, Config &config, bool &printHelpInfo
     std::string pattern = "^(0|1|op|kernel)$";
 
     auto parseFailed = [&printHelpInfo](void) {
-        std::cout << "[msleaks] Error: invalid data trace level input." << std::endl;
+        std::cout << "[msmemscope] Error: invalid data trace level input." << std::endl;
         printHelpInfo = true;
     };
 
@@ -473,7 +473,7 @@ void ParseEventTraceType(const std::string param, Config &config, bool &printHel
     auto end = tokens.end();
 
     auto parseFailed = [&printHelpInfo](void) {
-        std::cout << "[msleaks] Error: invalid event trace type input." << std::endl;
+        std::cout << "[msmemscope] Error: invalid event trace type input." << std::endl;
         printHelpInfo = true;
     };
 
@@ -575,7 +575,7 @@ void ParseWatchConfig(const std::string param, Config &config, bool &printHelpIn
     size_t len = param.length();
 
     auto parseFailed = [&printHelpInfo](void) {
-        std::cout << "[msleaks] Error: invalid watch config." << std::endl;
+        std::cout << "[msmemscope] Error: invalid watch config." << std::endl;
         printHelpInfo = true;
     };
 
@@ -609,7 +609,7 @@ static void ParseLogLv(const std::string &param, UserCommand &userCommand)
     };
     auto it = logLevelMap.find(param);
     if (it == logLevelMap.end()) {
-        std::cout << "[msleaks] Error: --log-level param is invalid. "
+        std::cout << "[msmemscope] Error: --log-level param is invalid. "
                   << "LOG_LEVEL can only be set info,warn,error." << std::endl;
         userCommand.printHelpInfo = true;
     } else {
@@ -625,7 +625,7 @@ void ParseDataFormat(const std::string &param, Config &config, bool &printHelpIn
         {"db", DataFormat::DB},
     };
     auto parseFailedFormat = [&printHelpInfo](void) {
-        std::cout << "[msleaks] Error: --data-format param is invalid. "
+        std::cout << "[msmemscope] Error: --data-format param is invalid. "
                   << "DATA_FORMAT can only be set csv,db." << std::endl;
         printHelpInfo = true;
     };
@@ -638,7 +638,7 @@ void ParseDataFormat(const std::string &param, Config &config, bool &printHelpIn
     }
 
     auto parseFailedSqlite = [&printHelpInfo](void) {
-        std::cout << "[msleaks] Error: SQLite library not installed." << std::endl;
+        std::cout << "[msmemscope] Error: SQLite library not installed." << std::endl;
         printHelpInfo = true;
     };
     if (config.dataFormat == static_cast<uint8_t>(DataFormat::DB)) {
@@ -659,7 +659,7 @@ void ParseDevice(const std::string &param, Config &config, bool &printHelpInfo)
     auto end = tokens.end();
 
     auto parseFailed = [&printHelpInfo](void) {
-        std::cout << "[msleaks] Error: invalid device." << std::endl;
+        std::cout << "[msmemscope] Error: invalid device." << std::endl;
         printHelpInfo = true;
     };
 
@@ -696,7 +696,7 @@ void ParseDevice(const std::string &param, Config &config, bool &printHelpInfo)
 void ParseCollectMode(const std::string &param, Config &config, bool &printHelpInfo)
 {
     auto parseFailed = [&printHelpInfo](void) {
-        std::cout << "[msleaks] Error: --collect-mode param is invalid. "
+        std::cout << "[msmemscope] Error: --collect-mode param is invalid. "
                   << "Collect mode can only be set to immediate,deferred." << std::endl;
         printHelpInfo = true;
     };
@@ -715,7 +715,7 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
 {
     switch (opt) {
         case '?':
-            std::cout << "[msleaks] Error: unrecognized command " << std::endl;
+            std::cout << "[msmemscope] Error: unrecognized command " << std::endl;
             userCommand.printHelpInfo = true;
             break;
         case 'h': // for --help
@@ -775,7 +775,7 @@ void SetDefaultOutputDir(Config &config)
         Utility::SetDirPath(pathStr, std::string(OUTPUT_PATH));
         if (strncpy_s(config.outputDir, sizeof(config.outputDir),
             pathStr.c_str(), sizeof(config.outputDir) - 1) != EOK) {
-            std::cout << "[msleaks] Error: strncpy dirpath FAILED" << std::endl;
+            std::cout << "[msmemscope] Error: strncpy dirpath FAILED" << std::endl;
             return;
         }
 

@@ -18,7 +18,7 @@
 #include "bit_field.h"
 #include "trace_manager/event_trace_manager.h"
 
-using namespace Leaks;
+using namespace MemScope;
  
 ACL_FUNC_VISIBILITY aclError aclInit(const char *configPath)
 {
@@ -37,11 +37,11 @@ ACL_FUNC_VISIBILITY aclError aclInit(const char *configPath)
         return ret;
     }
 
-    if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAclItf(RecordSubType::INIT)) {
+    if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportAclItf(RecordSubType::INIT)) {
         LOG_ERROR("aclInit report FAILED");
     }
     if (BitPresent(GetConfig().analysisType, static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
-        Utility::LeaksPythonCall("msleaks.optimizer_step_hook", "enable_optimizer_step_hook");
+        Utility::MemScopePythonCall("msmemscope.optimizer_step_hook", "enable_optimizer_step_hook");
     }
 
     return ret;
@@ -62,12 +62,12 @@ ACL_FUNC_VISIBILITY aclError aclFinalize()
         return ret;
     }
 
-    if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAclItf(RecordSubType::FINALIZE)) {
+    if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportAclItf(RecordSubType::FINALIZE)) {
         LOG_ERROR("aclInit report FAILED");
     }
 
     if (BitPresent(GetConfig().analysisType, static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
-        Utility::LeaksPythonCall("msleaks.optimizer_step_hook", "disable_optimizer_step_hook");
+        Utility::MemScopePythonCall("msmemscope.optimizer_step_hook", "disable_optimizer_step_hook");
     }
 
     return ret;

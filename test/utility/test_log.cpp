@@ -35,7 +35,7 @@ TEST(Log, log_warn_expect_output_warn_log)
     Log &logger = Log::GetLog();
     logger.fp_ = fopen("output.txt", "w");
     std::string testLog = "test log warn";
-    Utility::SetLogLevel(Leaks::LogLv::WARN);
+    Utility::SetLogLevel(MemScope::LogLv::WARN);
     LOG_WARN(testLog);
     logger.fp_ = nullptr;
     EXPECT_TRUE(FindStr("output.txt", testLog));
@@ -47,7 +47,7 @@ TEST(Log, log_error_expect_output_erro_log)
     Log &logger = Log::GetLog();
     logger.fp_ = fopen("output.txt", "w");
     std::string testLog = "test log error";
-    Utility::SetLogLevel(Leaks::LogLv::ERROR);
+    Utility::SetLogLevel(MemScope::LogLv::ERROR);
     LOG_ERROR(testLog);
     logger.fp_ = nullptr;
     EXPECT_TRUE(FindStr("output.txt", testLog));
@@ -59,7 +59,7 @@ TEST(Log, log_info_expect_output_info_log)
     Log &logger = Log::GetLog();
     logger.fp_ = fopen("output.txt", "w");
     std::string testLog = "test log info";
-    Utility::SetLogLevel(Leaks::LogLv::INFO);
+    Utility::SetLogLevel(MemScope::LogLv::INFO);
     LOG_INFO(testLog);
     logger.fp_ = nullptr;
     EXPECT_TRUE(FindStr("output.txt", testLog));
@@ -71,7 +71,7 @@ TEST(Log, log_nullptr_expect_no_output)
     Log &logger = Log::GetLog();
     logger.fp_ = nullptr;
 
-    logger.Printf("Test message", Leaks::LogLv::INFO, "test.cpp", 74);
+    logger.Printf("Test message", MemScope::LogLv::INFO, "test.cpp", 74);
     EXPECT_FALSE(FindStr("output.txt", "message"));
 }
 
@@ -79,12 +79,12 @@ TEST(Log, log_level_different_threashold_expect_success)
 {
     Log &logger = Log::GetLog();
     logger.fp_ = fopen("output.txt", "w");
-    logger.SetLogLevel(Leaks::LogLv::INFO);
+    logger.SetLogLevel(MemScope::LogLv::INFO);
 
-    logger.Printf("Debug message", Leaks::LogLv::DEBUG, "test.cpp", 84);
-    logger.Printf("Info message", Leaks::LogLv::INFO, "test.cpp", 85);
-    logger.Printf("Warning message", Leaks::LogLv::WARN, "test.cpp", 86);
-    logger.Printf("Error message", Leaks::LogLv::ERROR, "test.cpp", 87);
+    logger.Printf("Debug message", MemScope::LogLv::DEBUG, "test.cpp", 84);
+    logger.Printf("Info message", MemScope::LogLv::INFO, "test.cpp", 85);
+    logger.Printf("Warning message", MemScope::LogLv::WARN, "test.cpp", 86);
+    logger.Printf("Error message", MemScope::LogLv::ERROR, "test.cpp", 87);
     logger.fp_ = nullptr;
     EXPECT_TRUE(FindStr("output.txt", "message"));
 }
@@ -151,7 +151,7 @@ TEST(Log, log_with_params_expect_formatted_output)
 {
     Log &logger = Log::GetLog();
     logger.fp_ = fopen("output.txt", "w");
-    Utility::SetLogLevel(Leaks::LogLv::INFO);
+    Utility::SetLogLevel(MemScope::LogLv::INFO);
     
     // 带多种类型参数的日志
     int intParam = 123;
@@ -191,7 +191,7 @@ TEST(Log, log_level_debug_expect_all_log_output)
 {
     Log &logger = Log::GetLog();
     logger.fp_ = fopen("output.txt", "w");
-    Utility::SetLogLevel(Leaks::LogLv::DEBUG);
+    Utility::SetLogLevel(MemScope::LogLv::DEBUG);
     
     LOG_DEBUG("debug log");
     LOG_INFO("info log");
@@ -211,7 +211,7 @@ TEST(Log, log_level_error_expect_only_error_output)
 {
     Log &logger = Log::GetLog();
     logger.fp_ = fopen("output.txt", "w");
-    Utility::SetLogLevel(Leaks::LogLv::ERROR);
+    Utility::SetLogLevel(MemScope::LogLv::ERROR);
     
     LOG_DEBUG("debug log");
     LOG_INFO("info log");
@@ -231,7 +231,7 @@ TEST(Log, multi_thread_log_expect_no_crash)
 {
     Log &logger = Log::GetLog();
     logger.fp_ = fopen("multi_thread_log.txt", "w");
-    Utility::SetLogLevel(Leaks::LogLv::INFO);
+    Utility::SetLogLevel(MemScope::LogLv::INFO);
     
     // 10个线程并发写入日志
     auto logFunc = []() {
@@ -266,14 +266,14 @@ TEST(Log, add_prefix_info_expect_correct_format)
     uint32_t line = 123;
     
     // 测试WARN级别前缀
-    std::string warnPrefix = logger.AddPrefixInfo(format, Leaks::LogLv::WARN, fileName, line);
+    std::string warnPrefix = logger.AddPrefixInfo(format, MemScope::LogLv::WARN, fileName, line);
     EXPECT_NE(warnPrefix.find("[WARN]"), std::string::npos);
     EXPECT_NE(warnPrefix.find(fileName), std::string::npos);
     EXPECT_NE(warnPrefix.find(std::to_string(line)), std::string::npos);
     EXPECT_NE(warnPrefix.find(format), std::string::npos);
     
     // 测试ERROR级别前缀
-    std::string errorPrefix = logger.AddPrefixInfo(format, Leaks::LogLv::ERROR, fileName, line);
+    std::string errorPrefix = logger.AddPrefixInfo(format, MemScope::LogLv::ERROR, fileName, line);
     EXPECT_NE(errorPrefix.find("[ERROR]"), std::string::npos);
 }
 
@@ -282,7 +282,7 @@ TEST(Log, log_empty_file_expect_success)
 {
     Log &logger = Log::GetLog();
     logger.fp_ = fopen("empty_file_log.txt", "w");
-    Utility::SetLogLevel(Leaks::LogLv::DEBUG);
+    Utility::SetLogLevel(MemScope::LogLv::DEBUG);
     
     LOG_DEBUG("empty file first log");
     

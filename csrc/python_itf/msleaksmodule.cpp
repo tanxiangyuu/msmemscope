@@ -10,16 +10,16 @@
 #include "report_tensor.h"
 #include "trace_manager/event_trace_manager.h"
 
-namespace Leaks {
+namespace MemScope {
 
-PyDoc_STRVAR(MsleaksCModuleDoc,
-"The part of the module msleaks that is implemented in CXX.\n\
+PyDoc_STRVAR(MsmemscopeCModuleDoc,
+"The part of the module msmemscope that is implemented in CXX.\n\
  \n\
 ...");
 
 PyDoc_STRVAR(StartDoc,
 "start()\n--\n\nstart trace data.");
-static PyObject* MsleaksStart()
+static PyObject* MsmemscopeStart()
 {
     ConfigManager::Instance().InitStartConfig();
     Py_RETURN_NONE;
@@ -27,7 +27,7 @@ static PyObject* MsleaksStart()
 
 PyDoc_STRVAR(StopDoc,
 "stop()\n--\n\nstop trace data.");
-static PyObject* MsleaksStop()
+static PyObject* MsmemscopeStop()
 {
     EventTraceManager::Instance().SetTraceStatus(EventTraceStatus::NOT_IN_TRACING);
     Py_RETURN_NONE;
@@ -35,12 +35,12 @@ static PyObject* MsleaksStop()
 
 PyDoc_STRVAR(ConfigDoc,
 "config(**kwargs)\n--\n\n"
-"Configure msleaks module parameters.\n\n"
+"Configure msmemscope module parameters.\n\n"
 "Args:\n"
 "    **kwargs: Configuration parameters as keyword arguments\n\n"
 "Examples:\n"
-"    msleaks.config(call_stack=\"c:10,python:5\", level='0,1')");
-static PyObject* MsleaksConfig(PyObject* self, PyObject* args, PyObject* kwargs)
+"    msmemscope.config(call_stack=\"c:10,python:5\", level='0,1')");
+static PyObject* MsmemscopeConfig(PyObject* self, PyObject* args, PyObject* kwargs)
 {
     if (PyTuple_Size(args) > 0) {
         PyErr_SetString(PyExc_TypeError, "config() takes no positional arguments");
@@ -85,42 +85,42 @@ static PyObject* MsleaksConfig(PyObject* self, PyObject* args, PyObject* kwargs)
 
     bool ret = ConfigManager::Instance().SetConfig(cpp_config);
     if (!ret) {
-        PyErr_SetString(PyExc_ValueError, "Set msleaks trace config failed!");
+        PyErr_SetString(PyExc_ValueError, "Set msmemscope trace config failed!");
         return nullptr;
     }
     Py_RETURN_NONE;
 }
 
-static PyMethodDef g_MsleaksMethods[] = {
-    {"start", reinterpret_cast<PyCFunction>(MsleaksStart), METH_NOARGS, StartDoc},
-    {"stop", reinterpret_cast<PyCFunction>(MsleaksStop), METH_NOARGS, StopDoc},
-    {"config", reinterpret_cast<PyCFunction>(MsleaksConfig), METH_VARARGS | METH_KEYWORDS, ConfigDoc},
+static PyMethodDef g_MsmemscopeMethods[] = {
+    {"start", reinterpret_cast<PyCFunction>(MsmemscopeStart), METH_NOARGS, StartDoc},
+    {"stop", reinterpret_cast<PyCFunction>(MsmemscopeStop), METH_NOARGS, StopDoc},
+    {"config", reinterpret_cast<PyCFunction>(MsmemscopeConfig), METH_VARARGS | METH_KEYWORDS, ConfigDoc},
     {nullptr, nullptr, 0, nullptr}
 };
 
-static struct PyModuleDef g_MsleaksCModule = {
+static struct PyModuleDef g_MsmemscopeCModule = {
     PyModuleDef_HEAD_INIT,
-    "_msleaks",                   /* m_name */
-    MsleaksCModuleDoc,            /* m_doc */
+    "_msmemscope",                   /* m_name */
+    MsmemscopeCModuleDoc,            /* m_doc */
     -1,                           /* m_size */
-    g_MsleaksMethods,             /* m_methods */
+    g_MsmemscopeMethods,             /* m_methods */
 };
 
 }
 
-PyMODINIT_FUNC PyInit__msleaks(void)
+PyMODINIT_FUNC PyInit__msmemscope(void)
 {
-    PyObject* m = PyModule_Create(&Leaks::g_MsleaksCModule);
+    PyObject* m = PyModule_Create(&MemScope::g_MsmemscopeCModule);
     if (m == nullptr) {
         return nullptr;
     }
 
     size_t functionNum = 4;
     std::vector<PyObject*> functions{
-        Leaks::PyLeaks_GetWatcher(),
-        Leaks::PyLeaks_GetTracer(),
-        Leaks::PyLeaks_GetDescriber(),
-        Leaks::PyLeaks_GetReportTensor(),
+        MemScope::PyMemScope_GetWatcher(),
+        MemScope::PyMemScope_GetTracer(),
+        MemScope::PyMemScope_GetDescriber(),
+        MemScope::PyMemScope_GetReportTensor(),
     };
     std::vector<std::string> functionNames{
         "_watcher",

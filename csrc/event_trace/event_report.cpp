@@ -19,7 +19,7 @@
 #include "inefficient_analyzer.h"
 #include "json_manager.h"
 
-namespace Leaks {
+namespace MemScope {
 bool g_isReportHostMem = false;
 
 constexpr uint64_t MEM_MODULE_ID_BIT = 56;
@@ -105,7 +105,7 @@ void EventReport::ReportRecordEvent(const RecordBuffer& record)
     Process::GetInstance(initConfig_).RecordHandler(record);
 }
 
-EventReport& EventReport::Instance(LeaksCommType type)
+EventReport& EventReport::Instance(MemScopeCommType type)
 {
     static EventReport instance(type);
     return instance;
@@ -118,7 +118,7 @@ void EventReport::Init()
     aclItfRecordIndex_.store(0);
 }
 
-EventReport::EventReport(LeaksCommType type)
+EventReport::EventReport(MemScopeCommType type)
 {
     Init();
     initConfig_ = GetConfig();

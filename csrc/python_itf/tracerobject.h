@@ -3,8 +3,8 @@
 
 #include <Python.h>
 
-namespace Leaks {
+namespace MemScope {
 
-PyObject* PyLeaks_GetTracer();
+PyObject* PyMemScope_GetTracer();
 }
 

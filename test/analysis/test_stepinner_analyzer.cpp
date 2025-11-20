@@ -12,7 +12,7 @@
 #include "record_info.h"
 #include "config_info.h"
 
-using namespace Leaks;
+using namespace MemScope;
 
 Config stepInnerConfig;
 
@@ -21,7 +21,7 @@ protected:
     void SetUp() override
     {
         stepInnerConfig = Config{};
-        Utility::FileCreateManager::GetInstance("testmsleaks");
+        Utility::FileCreateManager::GetInstance("testmsmemscope");
     }
  
     void TearDown() override
@@ -32,7 +32,7 @@ protected:
         StepInnerAnalyzer::GetInstance(stepInnerConfig).leakMemSums_.clear();
         StepInnerAnalyzer::GetInstance(stepInnerConfig).mstxTables_.clear();
         StepInnerAnalyzer::GetInstance(stepInnerConfig).npuMemUsages_.clear();
-        Utility::FileCreateManager::GetInstance("testmsleaks");
+        Utility::FileCreateManager::GetInstance("testmsmemscope");
     }
 };
 
@@ -86,7 +86,7 @@ TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_sucess) {
     EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, record2));
 }
 
-TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_leaks_warning)
+TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_memscope_warning)
 {
     ClientId clientId = 0;
     auto mstxRecordStartBuf1 = RecordBuffer::CreateRecordBuffer<MstxRecord>(TLVBlockType::MARK_MESSAGE, "step start");
@@ -243,9 +243,9 @@ TEST(StepInnerAnalyzerTest, do_npu_free_record_expect_free_error) {
     EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, *record));
 }
 
-TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_torch_leaks) {
+TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_torch_memscope) {
     ClientId clientId = 0;
-    Leaks::DeviceId deviceId = 0;
+    MemScope::DeviceId deviceId = 0;
     // 先初始化注册
     Config analysisConfig;
     BitField<decltype(analysisConfig.eventType)> eventBit;
@@ -298,9 +298,9 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_torch_leaks) {
 }
 
 
-TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_mindspore_leaks) {
+TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_mindspore_memscope) {
     ClientId clientId = 0;
-    Leaks::DeviceId deviceId = 0;
+    MemScope::DeviceId deviceId = 0;
     // 先初始化注册
     Config analysisConfig;
     BitField<decltype(analysisConfig.eventType)> eventBit;
@@ -344,9 +344,9 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_mindspore_leaks) {
     StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordEndFourthBuffer.Cast<MstxRecord>());
 }
 
-TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_atb_leaks) {
+TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_atb_memscope) {
     ClientId clientId = 0;
-    Leaks::DeviceId deviceId = 0;
+    MemScope::DeviceId deviceId = 0;
     Config analysisConfig;
     BitField<decltype(analysisConfig.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
@@ -451,8 +451,8 @@ TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateLeakSumTables_return_t
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
     config.eventType = eventBit.getValue();
     StepInnerAnalyzer stepInner{config};
-    LeakSumsTable leaksumstable{};
-    stepInner.leakMemSums_.insert({1, leaksumstable});
+    LeakSumsTable memscopeumstable{};
+    stepInner.leakMemSums_.insert({1, memscopeumstable});
     auto ret = stepInner.CreateLeakSumTables(1);
     ASSERT_TRUE(ret);
 }
@@ -608,7 +608,7 @@ TEST(StepInnerAnalyzerTest, do_checkgap_minmaxallocratio_expect_true_allocated)
 
 TEST(StepInnerAnalyzerRecordFuncTest, Recordtest)
 {
-    Leaks::Config config;
+    MemScope::Config config;
     BitField<decltype(config.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
@@ -618,13 +618,13 @@ TEST(StepInnerAnalyzerRecordFuncTest, Recordtest)
     config.outputCorrectPaths = false;
     config.stepList.stepCount = 0;
     ClientId clientId = 1;
-    Leaks::RecordBase record;
-    EXPECT_TRUE(Leaks::StepInnerAnalyzer::GetInstance(config).Record(clientId, record));
+    MemScope::RecordBase record;
+    EXPECT_TRUE(MemScope::StepInnerAnalyzer::GetInstance(config).Record(clientId, record));
 }
 
 TEST(StepInnerAnalyzerRecordFuncTest, recordMallocSuccess) {
     // 先初始化注册
-    Leaks::Config config;
+    MemScope::Config config;
     BitField<decltype(config.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
@@ -651,7 +651,7 @@ TEST(StepInnerAnalyzerRecordFuncTest, recordMallocSuccess) {
 
 TEST(StepInnerAnalyzerRecordFuncTest, recordFreeSuccess) {
     // 先初始化注册
-    Leaks::Config config;
+    MemScope::Config config;
     BitField<decltype(config.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
@@ -679,7 +679,7 @@ TEST(StepInnerAnalyzerRecordFuncTest, recordFreeSuccess) {
 
 TEST(StepInnerAnalyzerReceiveMstxMsgFuncTest, ReceiveMstxMsgIfRangeStartA) {
     // 先初始化注册
-    Leaks::Config config;
+    MemScope::Config config;
     BitField<decltype(config.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
@@ -702,7 +702,7 @@ TEST(StepInnerAnalyzerReceiveMstxMsgFuncTest, ReceiveMstxMsgIfRangeStartA) {
 
 TEST(StepInnerAnalyzerReceiveMstxMsgFuncTest, ReceiveMstxMsgIfRangeEnd) {
     // 先初始化注册
-    Leaks::Config config;
+    MemScope::Config config;
     BitField<decltype(config.eventType)> eventBit;
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
@@ -715,7 +715,7 @@ TEST(StepInnerAnalyzerReceiveMstxMsgFuncTest, ReceiveMstxMsgIfRangeEnd) {
 
     auto buffer = RecordBuffer::CreateRecordBuffer<MstxRecord>(TLVBlockType::MARK_MESSAGE, "step end");
     MstxRecord* mstxRecordStart1 = buffer.Cast<MstxRecord>();
-    mstxRecordStart1->markType = Leaks::MarkType::RANGE_END;
+    mstxRecordStart1->markType = MemScope::MarkType::RANGE_END;
     mstxRecordStart1->devId = 0;
     mstxRecordStart1->stepId = 1;
     mstxRecordStart1->streamId = 123;
@@ -803,12 +803,12 @@ TEST(StepInnerAnalyzerAddDurationTest, AddDurationTest)
     NpuMemUsage npumemusage;
     npumemusage.mstxStep = 0;
 
-    Leaks::NpuMemInfo memInfo;
+    MemScope::NpuMemInfo memInfo;
     memInfo.duration = 1;
-    npumemusage.poolOpTable.insert({Leaks::NpuMemKey(0, RecordType::PTA_CACHING_POOL_RECORD), memInfo});
+    npumemusage.poolOpTable.insert({MemScope::NpuMemKey(0, RecordType::PTA_CACHING_POOL_RECORD), memInfo});
     stepInner.npuMemUsages_.insert({0, npumemusage});
     stepInner.AddDuration(0);
-    ASSERT_EQ(stepInner.npuMemUsages_[0].poolOpTable[Leaks::NpuMemKey(0, RecordType::PTA_CACHING_POOL_RECORD)].duration, 2);
+    ASSERT_EQ(stepInner.npuMemUsages_[0].poolOpTable[MemScope::NpuMemKey(0, RecordType::PTA_CACHING_POOL_RECORD)].duration, 2);
 }
 
 TEST(StepInnerAnalyzerAddDurationTest, AddDurationReturnTest)
@@ -823,12 +823,12 @@ TEST(StepInnerAnalyzerAddDurationTest, AddDurationReturnTest)
     NpuMemUsage npumemusage;
     npumemusage.mstxStep = 0;
 
-    Leaks::NpuMemInfo memInfo;
+    MemScope::NpuMemInfo memInfo;
     memInfo.duration = 1;
-    npumemusage.poolOpTable.insert({Leaks::NpuMemKey(0, RecordType::PTA_CACHING_POOL_RECORD), memInfo});
+    npumemusage.poolOpTable.insert({MemScope::NpuMemKey(0, RecordType::PTA_CACHING_POOL_RECORD), memInfo});
     stepInner.npuMemUsages_.insert({1, npumemusage});
     stepInner.AddDuration(0); // 不存在的deviceID，提前返回
-    ASSERT_EQ(stepInner.npuMemUsages_[1].poolOpTable[Leaks::NpuMemKey(0, RecordType::PTA_CACHING_POOL_RECORD)].duration, 1);
+    ASSERT_EQ(stepInner.npuMemUsages_[1].poolOpTable[MemScope::NpuMemKey(0, RecordType::PTA_CACHING_POOL_RECORD)].duration, 1);
 }
 
 TEST(StepInnerAnalyzerSetStepIdFuncTest, SetStepIdTest)

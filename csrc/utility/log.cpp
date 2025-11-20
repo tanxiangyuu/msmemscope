@@ -10,12 +10,12 @@
 
 namespace Utility {
 
-inline std::string ToString(Leaks::LogLv lv)
+inline std::string ToString(MemScope::LogLv lv)
 {
-    using underlying = typename std::underlying_type<Leaks::LogLv>::type;
-    constexpr char const *lvString[static_cast<underlying>(Leaks::LogLv::COUNT)] = {
+    using underlying = typename std::underlying_type<MemScope::LogLv>::type;
+    constexpr char const *lvString[static_cast<underlying>(MemScope::LogLv::COUNT)] = {
         "[DEBUG]", "[INFO] ", "[WARN] ", "[ERROR]"};
-    return lv < Leaks::LogLv::COUNT ? lvString[static_cast<underlying>(lv)] : "N";
+    return lv < MemScope::LogLv::COUNT ? lvString[static_cast<underlying>(lv)] : "N";
 }
 
 Log &Log::GetLog(void)
@@ -26,8 +26,8 @@ Log &Log::GetLog(void)
 
 Log::Log(void)
 {
-    Leaks::Config config;
-    config = Leaks::GetConfig();
+    MemScope::Config config;
+    config = MemScope::GetConfig();
     outputDir_ = config.outputDir;
 }
 
@@ -38,7 +38,7 @@ Log::~Log()
         fp_ = nullptr;
     }
 }
-std::string Log::AddPrefixInfo(std::string const &format, Leaks::LogLv lv, const std::string fileName,
+std::string Log::AddPrefixInfo(std::string const &format, MemScope::LogLv lv, const std::string fileName,
     const uint32_t line) const
 {
     char buf[LOG_BUF_SIZE];
@@ -49,7 +49,7 @@ std::string Log::AddPrefixInfo(std::string const &format, Leaks::LogLv lv, const
     std::string codePosition = "[" + fileName + ":" + std::to_string(line) + "] ";
     return std::string(buf) + " " + ToString(lv) + " " + codePosition + format;
 }
-void Log::SetLogLevel(const Leaks::LogLv &logLevel)
+void Log::SetLogLevel(const MemScope::LogLv &logLevel)
 {
     lv_ = logLevel;
 }

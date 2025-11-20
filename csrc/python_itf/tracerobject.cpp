@@ -3,10 +3,10 @@
 #include "tracerobject.h"
 #include "python_trace.h"
 
-namespace Leaks {
+namespace MemScope {
 
 /* 单例类，自定义new函数，避免重复构造 */
-static PyObject* PyLeaksNewTracer(PyTypeObject *type, PyObject *args, PyObject *kwds)
+static PyObject* PyMemScopeNewTracer(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     if (type == nullptr || type->tp_alloc == nullptr) {
         return nullptr;
@@ -24,7 +24,7 @@ static PyObject* PyLeaksNewTracer(PyTypeObject *type, PyObject *args, PyObject *
 
 PyDoc_STRVAR(TraceStartDoc,
 "start()\n--\n\nstart trace.");
-static PyObject* PyLeaksTracerStart()
+static PyObject* PyMemScopeTracerStart()
 {
     PythonTrace::GetInstance().Start();
     Py_RETURN_NONE;
@@ -32,22 +32,22 @@ static PyObject* PyLeaksTracerStart()
 
 PyDoc_STRVAR(TraceStopDoc,
 "stop()\n--\n\nstop trace.");
-static PyObject* PyLeaksTracerStop()
+static PyObject* PyMemScopeTracerStop()
 {
     PythonTrace::GetInstance().Stop();
     Py_RETURN_NONE;
 }
 
-static PyMethodDef PyLeaksTracerMethods[] = {
-    {"start", reinterpret_cast<PyCFunction>(PyLeaksTracerStart), METH_NOARGS, TraceStartDoc},
-    {"stop", reinterpret_cast<PyCFunction>(PyLeaksTracerStop), METH_NOARGS, TraceStopDoc},
+static PyMethodDef PyMemScopeTracerMethods[] = {
+    {"start", reinterpret_cast<PyCFunction>(PyMemScopeTracerStart), METH_NOARGS, TraceStartDoc},
+    {"stop", reinterpret_cast<PyCFunction>(PyMemScopeTracerStop), METH_NOARGS, TraceStopDoc},
     {nullptr, nullptr, 0, nullptr}
 };
 
 
-static PyTypeObject PyLeaksTracerType = {
+static PyTypeObject PyMemScopeTracerType = {
     PyVarObject_HEAD_INIT(&PyType_Type, 0)
-    "_msleaks._tracer",                               /* tp_name */
+    "_msmemscope._tracer",                               /* tp_name */
     0,                                                /* tp_basicsize */
     0,                                                /* tp_itemsize */
     /* methods */
@@ -74,7 +74,7 @@ static PyTypeObject PyLeaksTracerType = {
     0,                                                /* tp_weaklistoffset */
     nullptr,                                          /* tp_iter */
     nullptr,                                          /* tp_iternext */
-    PyLeaksTracerMethods,                             /* tp_methods */
+    PyMemScopeTracerMethods,                             /* tp_methods */
     nullptr,                                          /* tp_members */
     nullptr,                                          /* tp_getset */
     &PyBaseObject_Type,                               /* tp_base */
@@ -84,16 +84,16 @@ static PyTypeObject PyLeaksTracerType = {
     0,                                                /* tp_dictoffset */
     nullptr,                                          /* tp_init */
     nullptr,                                          /* tp_alloc */
-    PyLeaksNewTracer,                                 /* tp_new */
+    PyMemScopeNewTracer,                                 /* tp_new */
     PyObject_Del,                                     /* tp_free */
 };
 
-PyObject* PyLeaks_GetTracer()
+PyObject* PyMemScope_GetTracer()
 {
-    if (PyType_Ready(&PyLeaksTracerType) < 0) {
+    if (PyType_Ready(&PyMemScopeTracerType) < 0) {
         return nullptr;
     }
 
-    return PyObject_New(PyObject, &PyLeaksTracerType);
+    return PyObject_New(PyObject, &PyMemScopeTracerType);
 }
 }

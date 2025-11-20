@@ -7,7 +7,7 @@
 #include "client_parser.h"
 #include "json_manager.h"
 
-namespace Leaks {
+namespace MemScope {
 
 const std::unordered_map<std::string, std::function<void(const std::string&, Config&, bool&)>> parserConfigTable = {
     {"call_stack", ParseCallstack},
@@ -59,7 +59,7 @@ void ConfigManager::GetConfigAfterInit(Config &config)
 
     if (strncpy_s(config.outputDir, sizeof(config.outputDir),
         config_.outputDir, sizeof(config.outputDir) - 1) != EOK) {
-        std::cout << "[msleaks] Error: strncpy dirpath FAILED" << std::endl;
+        std::cout << "[msmemscope] Error: strncpy dirpath FAILED" << std::endl;
         return;
     }
     config.outputDir[sizeof(config.outputDir) - 1] = '\0';
@@ -115,7 +115,7 @@ bool ConfigManager::SetConfig(const std::unordered_map<std::string, std::string>
 
         auto policyItr = std::find(configPolicyTable.begin(), configPolicyTable.end(), key);
         if (policyItr != configPolicyTable.end() && config.isEffective) {
-            std::cout << "[msleaks] Warn: Config:\"output\",\"data_format\",\"watch\" cannot be set twice." << std::endl;
+            std::cout << "[msmemscope] Warn: Config:\"output\",\"data_format\",\"watch\" cannot be set twice." << std::endl;
             continue;
         }
         bool parseFail = false;
@@ -131,7 +131,7 @@ bool ConfigManager::SetConfig(const std::unordered_map<std::string, std::string>
     EventTraceManager::Instance().HandleWithATenCollect();
     EventTraceManager::Instance().InitJudgeFuncTable();
     // 更新analysis参数
-    EventReport::Instance(LeaksCommType::SHARED_MEMORY).UpdateAnalysisType();
+    EventReport::Instance(MemScopeCommType::SHARED_MEMORY).UpdateAnalysisType();
 
     return true;
 }
@@ -255,10 +255,10 @@ void EventTraceManager::InitTraceStatus()
 
 void EventTraceManager::SetTraceStatus(const EventTraceStatus status)
 {
-    std::cout << "[msleaks] Info: Set trace status to " << std::to_string(static_cast<uint8_t>(status)) << " ." << std::endl;
+    std::cout << "[msmemscope] Info: Set trace status to " << std::to_string(static_cast<uint8_t>(status)) << " ." << std::endl;
 
-    if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportTraceStatus(status)) {
-        std::cout << "[msleaks] Error: Report trace status failed.\n";
+    if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportTraceStatus(status)) {
+        std::cout << "[msmemscope] Error: Report trace status failed.\n";
     }
 
     std::lock_guard<std::mutex> lock(mutex_);
@@ -272,11 +272,11 @@ void EventTraceManager::SetTraceStatus(const EventTraceStatus status)
 void EventTraceManager::HandleWithATenCollect()
 {
     if ((status_ == EventTraceStatus::IN_TRACING) && IsNeedTraceOp() && aclInit_) {
-        Utility::LeaksPythonCall("msleaks.aten_collection", "enable_aten_collector");
+        Utility::MemScopePythonCall("msmemscope.aten_collection", "enable_aten_collector");
         return;
     }
 
-    Utility::LeaksPythonCall("msleaks.aten_collection", "disable_aten_collector");
+    Utility::MemScopePythonCall("msmemscope.aten_collection", "disable_aten_collector");
 
     return;
 }

@@ -9,7 +9,7 @@
 #include <iostream>
 
 
-namespace Leaks {
+namespace MemScope {
     
 AtenManager& AtenManager::GetInstance()
 {
@@ -106,7 +106,7 @@ void AtenManager::ReportAtenLaunch(const char* msg, int32_t streamId, bool isAte
     AtenOpLaunchRecord* record = buffer.Cast<AtenOpLaunchRecord>();
     record->subtype = isAtenBegin ? RecordSubType::ATEN_START : RecordSubType::ATEN_END;
 
-    if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtenLaunch(buffer)) {
+    if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportAtenLaunch(buffer)) {
         LOG_ERROR("Report Aten Launch FAILED");
     }
     return;
@@ -183,7 +183,7 @@ void AtenManager::ReportAtenAccess(const char* msg, int32_t streamId)
         return ;
     }
     
-    if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportAtenAccess(buffer)) {
+    if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportAtenAccess(buffer)) {
         LOG_ERROR("Report Aten Access FAILED");
     }
     return;

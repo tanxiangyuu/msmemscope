@@ -11,7 +11,7 @@
 #include "config_info.h"
 #include "bit_field.h"
 
-namespace Leaks {
+namespace MemScope {
 
 StepInnerAnalyzer &StepInnerAnalyzer::GetInstance(Config config)
 {

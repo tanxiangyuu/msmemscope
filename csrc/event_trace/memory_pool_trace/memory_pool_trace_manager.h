@@ -9,7 +9,7 @@
 #include <string>
 #include "memory_pool_trace_base.h"
 
-namespace Leaks {
+namespace MemScope {
 
 class MemoryPoolTraceManager {
 public:

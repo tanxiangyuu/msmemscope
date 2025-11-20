@@ -14,13 +14,13 @@ class FileTest : public ::testing::Test {
 protected:
     void SetUp() override
     {
-        Utility::FileCreateManager::GetInstance("./testmsleaks");
+        Utility::FileCreateManager::GetInstance("./testmsmemscope");
     }
  
     void TearDown() override
     {
-        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("");
-        rmdir("./testmsleaks");
+        Utility::FileCreateManager::GetInstance("./testmsmemscope").SetProjectDir("");
+        rmdir("./testmsmemscope");
     }
 };
 
@@ -76,9 +76,9 @@ TEST_F(FileTest, exist_path_expect_return_false)
 TEST_F(FileTest, create_new_csv_file_expect_true)
 {
     FILE *fp = nullptr;
-    FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("./testmsleaks");
-    auto ret = FileCreateManager::GetInstance("./testmsleaks").CreateCsvFile(&fp, "0", "test",
-        Leaks::DUMP_DIR, "test_headers\n");
+    FileCreateManager::GetInstance("./testmsmemscope").SetProjectDir("./testmsmemscope");
+    auto ret = FileCreateManager::GetInstance("./testmsmemscope").CreateCsvFile(&fp, "0", "test",
+        MemScope::DUMP_DIR, "test_headers\n");
     ASSERT_TRUE(ret);
     fclose(fp);
 }
@@ -94,14 +94,14 @@ TEST_F(FileTest, create_file_with_umask_failed)
 
 TEST_F(FileTest, check_file_before_create_path_not_exist_expect_false)
 {
-    std::string invalidPath = "./testmsleaks/non_existent_dir/test.txt";
+    std::string invalidPath = "./testmsmemscope/non_existent_dir/test.txt";
     auto ret = Utility::CheckFileBeforeCreate(invalidPath);
     ASSERT_FALSE(ret);
 }
 
 TEST_F(FileTest, check_file_before_create_path_unreadable_expect_false)
 {
-    std::string unreadableDir = "./testmsleaks/unreadable_dir";
+    std::string unreadableDir = "./testmsmemscope/unreadable_dir";
     MakeDir(unreadableDir);
     chmod(unreadableDir.c_str(), 0000); // 移除所有权限
     auto ret = Utility::CheckFileBeforeCreate(unreadableDir);
@@ -112,7 +112,7 @@ TEST_F(FileTest, check_file_before_create_path_unreadable_expect_false)
 
 TEST_F(FileTest, check_file_before_create_path_over_depth_expect_false)
 {
-    std::string deepPath = "./testmsleaks";
+    std::string deepPath = "./testmsmemscope";
     std::string currentPath = deepPath;
     for (int i = 2; i <= 32; ++i) {
         currentPath += "/a" + std::to_string(i);
@@ -187,7 +187,7 @@ TEST_F(FileTest, create_file_dir_unreadable_expect_nullptr)
     std::string unreadableDir = "./unreadable_dir2";
     MakeDir(unreadableDir);
     chmod(unreadableDir.c_str(), 0000); // 移除权限
-    auto& manager = Utility::FileCreateManager::GetInstance("./testmsleaks");
+    auto& manager = Utility::FileCreateManager::GetInstance("./testmsmemscope");
     FILE* fp = manager.CreateFile(unreadableDir, "test.txt", 0644);
     ASSERT_EQ(fp, nullptr);
     chmod(unreadableDir.c_str(), 0755);

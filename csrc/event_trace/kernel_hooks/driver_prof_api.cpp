@@ -7,7 +7,7 @@
 #include "kernel_event_trace.h"
 #include "ascend_hal.h"
 
-namespace Leaks {
+namespace MemScope {
 
 static tagDrvError HalGetDeviceInfo(uint32_t deviceId, int32_t moduleType, int32_t infoType, int64_t* value)
 {
@@ -141,7 +141,7 @@ void StartDriverKernelInfoTrace(int32_t devId)
 
 void EndDriverKernelInfoTrace()
 {
-    int32_t devId = Leaks::GD_INVALID_NUM;
+    int32_t devId = MemScope::GD_INVALID_NUM;
     if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
         LOG_ERROR("get device id failed");
     }

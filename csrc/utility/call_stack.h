@@ -15,6 +15,6 @@ namespace Utility {
     void GetPythonCallstack(uint32_t pyDepth, std::string& pyStack);
     void GetCCallstack(uint32_t cDepth, std::string& cStack, uint32_t skip = 0);
 
-    void GetCallstack(Leaks::CallStackString &stack);
+    void GetCallstack(MemScope::CallStackString &stack);
 }
 #endif

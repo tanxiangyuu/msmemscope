@@ -8,11 +8,11 @@
 #include "event_trace/memory_watch/tensor_monitor.h"
 #include "file.h"
 
-using namespace Leaks;
+using namespace MemScope;
 
 TEST(TesnorDumperTest, dump_tensor_binary_expect_success)
 {
-    TensorDumper::GetInstance().dumpDir_ = "./testmsleaks/watch_dump";
+    TensorDumper::GetInstance().dumpDir_ = "./testmsmemscope/watch_dump";
     Utility::MakeDir(TensorDumper::GetInstance().dumpDir_);
     std::string fileName = "test";
     std::vector<uint8_t> hostData(fileName.begin(), fileName.end());

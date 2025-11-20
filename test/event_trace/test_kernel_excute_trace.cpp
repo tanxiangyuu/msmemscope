@@ -5,7 +5,7 @@
 #include "event_trace/kernel_hooks/runtime_prof_api.h"
 #include "event_trace/kernel_hooks/stars_common.h"
 
-using namespace Leaks;
+using namespace MemScope;
 
 TEST(TestKernelExcuteTrace, TestKernelExcuteTraceNormal)
 {

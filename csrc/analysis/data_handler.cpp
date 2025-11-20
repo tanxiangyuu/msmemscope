@@ -5,7 +5,7 @@
 #include "utils.h"
 #include "data_handler.h"
 
-namespace Leaks {
+namespace MemScope {
 
 DataHandler::DataHandler(const Config config)
 {
@@ -249,7 +249,7 @@ bool DbHandler::WriteDumpRecord(std::shared_ptr<EventBase>& event)
     Sqlite3BusyTimeout(dataFileDb_, SQLITE_TIME_OUT);
     int rc = Sqlite3Step(insertLeakStmt_);
     if (rc != SQLITE_DONE) {
-        LOG_ERROR("Sqlite insert error in leaks dump: %s  %d", Sqlite3Errmsg(dataFileDb_), getpid());
+        LOG_ERROR("Sqlite insert error in memscope dump: %s  %d", Sqlite3Errmsg(dataFileDb_), getpid());
         Sqlite3Reset(insertLeakStmt_);
         return false;
     }

@@ -3,7 +3,7 @@
 #ifndef STATE_BASE_H
 #define STATE_BASE_H
 
-namespace Leaks {
+namespace MemScope {
 
 class StateBase {};
 

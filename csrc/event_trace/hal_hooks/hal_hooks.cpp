@@ -8,7 +8,7 @@
 #include "log.h"
 #include "trace_manager/event_trace_manager.h"
 
-using namespace Leaks;
+using namespace MemScope;
 
 drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long flag)
 {
@@ -24,9 +24,9 @@ drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long fl
     CallStackString stack;
     Utility::GetCallstack(stack);
 
-    // report to leaks here
+    // report to memscope here
     uintptr_t addr = reinterpret_cast<uintptr_t>(*pp);
-    if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY)
+    if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY)
              .ReportMalloc(reinterpret_cast<uint64_t>(addr), size, flag, stack)) {
         LOG_ERROR("halMemAlloc report failed");
     }
@@ -50,7 +50,7 @@ drvError_t halMemFree(void *pp)
     Utility::GetCallstack(stack);
     
     uintptr_t addr = reinterpret_cast<uintptr_t>(pp);
-    if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportFree(reinterpret_cast<uint64_t>(addr), stack)) {
+    if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportFree(reinterpret_cast<uint64_t>(addr), stack)) {
         LOG_ERROR("halMemFree report failed");
     }
 

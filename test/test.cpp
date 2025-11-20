@@ -9,4 +9,4 @@
 #include "analysis/hal_analyzer.h"
 #include "event_trace/event_report.h"
 
-using namespace Leaks;
+using namespace MemScope;

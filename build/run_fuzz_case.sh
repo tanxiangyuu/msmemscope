@@ -24,6 +24,6 @@ cmake .. -Dprotobuf_BUILD_TESTS=OFF -DBUILD_TESTS=ON -DFUZZ_TESTS=ON
 make -j8
 cd ..
 
-./build/test/fuzz_test/leaks_fuzz
+./build/test/fuzz_test/memscope_fuzz
 
 echo "**************** FUZZCODE  END ******************"

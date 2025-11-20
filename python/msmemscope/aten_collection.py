@@ -13,7 +13,7 @@ for package in check_packages:
     try:
         importlib.import_module(package)
     except ImportError:
-        logging.warning(f"[msleaks]: Import {package} failed when enable aten collection! Please check it.")
+        logging.warning(f"[msmemscope]: Import {package} failed when enable aten collection! Please check it.")
 
 import functools
 import re
@@ -99,7 +99,7 @@ class ArgumentHandler:
             # 计算tensor大小
             tensor_size = calculate_tensor_size(value)
 
-            mstx.mark(f"leaks-aten-ac:ptr={data_ptr};is_write={is_write};is_read={is_read};is_output={is_output};"\
+            mstx.mark(f"memscope-aten-ac:ptr={data_ptr};is_write={is_write};is_read={is_read};is_output={is_output};"\
                     f"name={func.__module__}.{func.__name__};shape={value.shape};"\
                     f"dtype={value.dtype};tensor_size={tensor_size};device={value.device}", None)
         
@@ -171,7 +171,7 @@ class MemoryDispatchMode(TorchDispatchMode):
         # 匹配工厂函数
         is_factory = func._schema.name.startswith("new_") or func._schema.name.endswith("_like")
         # 获取aten算子执行开始事件
-        mstx.mark(f"leaks-aten-b: name={func.__module__}.{func.__name__}", None)
+        mstx.mark(f"memscope-aten-b: name={func.__module__}.{func.__name__}", None)
 
         argument_handler = ArgumentHandler()
         argument_handler.parse_inputs(func, args, kwargs, is_factory=is_factory)
@@ -180,7 +180,7 @@ class MemoryDispatchMode(TorchDispatchMode):
         
         argument_handler.parse_outputs(func, outputs, is_factory=is_factory)
         # 获取aten算子执行结束事件
-        mstx.mark(f"leaks-aten-e: name={func.__module__}.{func.__name__}", None)
+        mstx.mark(f"memscope-aten-e: name={func.__module__}.{func.__name__}", None)
 
         return outputs
 
@@ -219,8 +219,8 @@ current_pytorch_version = torch.__version__
 TARGET_VERSION = "2.3"
 
 if version.parse(current_pytorch_version) < version.parse(TARGET_VERSION):
-    logging.warning(f"[msleaks]: Current Pytorch's version {current_pytorch_version} < 2.3, which doesn't support " \
+    logging.warning(f"[msmemscope]: Current Pytorch's version {current_pytorch_version} < 2.3, which doesn't support " \
      "aten collection.")
 else:
-    logging.info(f"[msleaks]: Current Pytorch's version is {current_pytorch_version}, enable aten collection.")
+    logging.info(f"[msmemscope]: Current Pytorch's version is {current_pytorch_version}, enable aten collection.")
     aten_collector = AtenCollector()

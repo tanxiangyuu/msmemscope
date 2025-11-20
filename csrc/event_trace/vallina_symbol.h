@@ -8,7 +8,7 @@
 #include <iostream>
 #include <dlfcn.h>
 
-namespace Leaks {
+namespace MemScope {
 
 void *LibLoad(std::string libName);
 
@@ -36,13 +36,13 @@ struct Sqlite3LibLoader {
         if (!sqlite3BinPath.empty()) {
             std::string libParentDir = FindLibParentDir(sqlite3BinPath);
             if (libParentDir.empty()) {
-                std::cout << "[msleaks] Error: Could not find lib directory: sqlite3" << std::endl;
+                std::cout << "[msmemscope] Error: Could not find lib directory: sqlite3" << std::endl;
                 return nullptr;
             }
             for (const auto& dirName : {"lib", "lib64"}) {
                 void* handle = FindAndLoadSqliteInDir(JoinPath(libParentDir, dirName));
                 if (handle) {
-                    std::cout << "[msleaks] Warn: Loaded sqlite3 library from: " << libParentDir << std::endl;
+                    std::cout << "[msmemscope] Warn: Loaded sqlite3 library from: " << libParentDir << std::endl;
                     return handle;
                 }
             }
@@ -72,7 +72,7 @@ public:
     inline void *Get(char const *symbol) const
     {
         if (handle_ == nullptr) {
-            std::cout << "[msleaks] lib handle is NULL" << std::endl;
+            std::cout << "[msmemscope] lib handle is NULL" << std::endl;
             return nullptr;
         }
         return dlsym(handle_, symbol);

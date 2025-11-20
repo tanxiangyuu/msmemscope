@@ -6,7 +6,7 @@
 #include "event.h"
 #include "memory_state_manager.h"
  
-namespace Leaks {
+namespace MemScope {
  
 class AnalyzerBase {
 public:

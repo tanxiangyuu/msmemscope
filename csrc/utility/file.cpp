@@ -15,34 +15,34 @@ namespace Utility {
         std::string users;
 
         if (!curPath.Exists()) {
-            std::cout << "[msleaks] Error: The path " << curPathStr << " do not exist." << std::endl;
+            std::cout << "[msmemscope] Error: The path " << curPathStr << " do not exist." << std::endl;
             return false;
         }
         if (CheckStrIsStartsWithInvalidChar(curPathStr.c_str())) {
-            std::cout << "[msleaks] Error: The path " << curPathStr << " is invalid." << std::endl;
+            std::cout << "[msmemscope] Error: The path " << curPathStr << " is invalid." << std::endl;
             return false;
         }
         if (!curPath.IsReadable()) {
-            std::cout << "[msleaks] Error: The file path " << curPathStr << " is not readable." << std::endl;
+            std::cout << "[msmemscope] Error: The file path " << curPathStr << " is not readable." << std::endl;
             return false;
         }
         if (!curPath.IsValidLength()) {
-            std::cout << "[msleaks] Error: The length of file path " << curPathStr
+            std::cout << "[msmemscope] Error: The length of file path " << curPathStr
                       << " exceeds the maximum length." << std::endl;
             return false;
         }
         if (!curPath.IsValidDepth()) {
-            std::cout << "[msleaks] Error: The depth of file path " << curPathStr
+            std::cout << "[msmemscope] Error: The depth of file path " << curPathStr
                       << " exceeds the maximum depth." << std::endl;
             return false;
         }
         if (curPath.IsSoftLink()) {
-            std::cout << "[msleaks] Error: The file path " << curPathStr
+            std::cout << "[msmemscope] Error: The file path " << curPathStr
                       << " is invalid: soft link is not allowed." << std::endl;
             return false;
         }
         if (!curPath.IsPermissionValid()) {
-            std::cout << "[msleaks] Error: The file path " << curPathStr
+            std::cout << "[msmemscope] Error: The file path " << curPathStr
                       << " is invalid: permission is not valid." << std::endl;
             return false;
         }
@@ -68,7 +68,7 @@ namespace Utility {
             Sqlite3Finalize(stmt);
             return false;
         }
-        Sqlite3BusyTimeout(filefp, Leaks::SQLITE_TIME_OUT);
+        Sqlite3BusyTimeout(filefp, MemScope::SQLITE_TIME_OUT);
         rc = Sqlite3Step(stmt);
         bool exists = (rc == SQLITE_ROW);
         Sqlite3Finalize(stmt);
@@ -83,7 +83,7 @@ namespace Utility {
 
     FileCreateManager::FileCreateManager(const std::string outputDir)
     {
-        projectDir_ = outputDir + "/" + "msleaks_" + std::to_string(GetPid()) + "_" + GetDateStr() + "_ascend";
+        projectDir_ = outputDir + "/" + "msmemscope_" + std::to_string(GetPid()) + "_" + GetDateStr() + "_ascend";
     }
 
     FILE* FileCreateManager::CreateFileWithUmask(const std::string &path, const std::string &mode, mode_t mask)
@@ -111,7 +111,7 @@ namespace Utility {
     bool FileCreateManager::CreateDir()
     {
         if (!MakeDir(projectDir_)) {
-            std::cerr << "[msleaks] Error: Failed to create directory: " << projectDir_ << std::endl;
+            std::cerr << "[msmemscope] Error: Failed to create directory: " << projectDir_ << std::endl;
             return false;
         }
         if (!CheckFileBeforeCreate(projectDir_)) {
@@ -134,11 +134,11 @@ namespace Utility {
             std::string filePath = dirPath + "/" + fileName;
             FILE* fp = CreateFile(dirPath, fileName, DEFAULT_UMASK_FOR_CSV_FILE);
             if (fp != nullptr) {
-                std::cout << "[msleaks] Info: create file " << filePath << "." << std::endl;
+                std::cout << "[msmemscope] Info: create file " << filePath << "." << std::endl;
                 fprintf(fp, "%s", headers.c_str());
                 *filefp = fp;
             } else {
-                std::cout << "[msleaks] Error: open file " << filePath << " failed." << std::endl;
+                std::cout << "[msmemscope] Error: open file " << filePath << " failed." << std::endl;
                 return false;
             }
         }
@@ -160,15 +160,15 @@ namespace Utility {
             // 在sqlite3_open前先创建好db文件
             FILE* fp = CreateFile(dirPath, fileName, DEFAULT_UMASK_FOR_DB_FILE);
             if (fp == nullptr) {
-                std::cout << "[msleaks] Error: open file " << filePath << " failed." << std::endl;
+                std::cout << "[msmemscope] Error: open file " << filePath << " failed." << std::endl;
                 return false;
             } else {
-                std::cout << "[msleaks] Info: create dbfile " << filePath << "." << std::endl;
+                std::cout << "[msmemscope] Info: create dbfile " << filePath << "." << std::endl;
             }
             sqlite3* db = nullptr;
             int rc = Sqlite3Open(filePath.c_str(), &db);
             if (rc != SQLITE_OK) {
-                std::cout << "[msleaks] Error: Cannot open database: " << Sqlite3Errmsg(db) << std::endl;
+                std::cout << "[msmemscope] Error: Cannot open database: " << Sqlite3Errmsg(db) << std::endl;
                 if (db != nullptr) {
                     Sqlite3Close(db);
                 }
@@ -176,7 +176,7 @@ namespace Utility {
             }
             Sqlite3Exec(db, "PRAGMA journal_mode=WAL;", nullptr, nullptr, nullptr);
             if (CreateDbTable(db, tableCreateSql)) {
-                std::cout << "[msleaks] Info: create dbtable " << tableName << " in " << filePath << "." << std::endl;
+                std::cout << "[msmemscope] Info: create dbtable " << tableName << " in " << filePath << "." << std::endl;
                 *filefp = db;
             } else {
                 Sqlite3Close(db);
@@ -191,15 +191,15 @@ namespace Utility {
     bool FileCreateManager::CreateLogFile(FILE **filefp, std::string taskDir, std::string& logFilePath)
     {
         if (*filefp == nullptr) {
-            std::string fileName = "msleaks_" + GetDateStr() + ".log";
+            std::string fileName = "msmemscope_" + GetDateStr() + ".log";
             std::string dirPath = projectDir_ + "/" + taskDir;
             logFilePath = dirPath + "/" + fileName;
             FILE* fp = CreateFile(dirPath, fileName, DEFAULT_UMASK_FOR_LOG_FILE);
             if (fp == nullptr) {
-                std::cout << "[msleaks] Error: Create log file failed: " << logFilePath << std::endl;
+                std::cout << "[msmemscope] Error: Create log file failed: " << logFilePath << std::endl;
                 return false;
             } else {
-                std::cout << "[msleaks] Info: logging into file " << logFilePath << std::endl;
+                std::cout << "[msmemscope] Info: logging into file " << logFilePath << std::endl;
                 *filefp = fp;
             }
         }
@@ -213,10 +213,10 @@ namespace Utility {
             configFilePath = projectDir_ + "/" + realName;
             FILE* fp = CreateFile(projectDir_, realName, DEFAULT_UMASK_FOR_CONFIG_FILE);
             if (fp == nullptr) {
-                std::cout << "[msleaks] Error: Create config file failed: " << configFilePath << std::endl;
+                std::cout << "[msmemscope] Error: Create config file failed: " << configFilePath << std::endl;
                 return false;
             } else {
-                std::cout << "[msleaks] Info: Config into file " << configFilePath << std::endl;
+                std::cout << "[msmemscope] Info: Config into file " << configFilePath << std::endl;
                 *filefp = fp;
             }
         }
@@ -225,10 +225,10 @@ namespace Utility {
     
     bool FileCreateManager::CreateDbTable(sqlite3 *filefp, std::string tableCreateSql)
     {
-        Sqlite3BusyTimeout(filefp, Leaks::SQLITE_TIME_OUT);
+        Sqlite3BusyTimeout(filefp, MemScope::SQLITE_TIME_OUT);
         int rc = Sqlite3Exec(filefp, tableCreateSql.c_str(), nullptr, nullptr, nullptr);
         if (rc != SQLITE_OK) {
-            std::cout << "[msleaks] Error: Create SQLTable error: " << Sqlite3Errmsg(filefp) << std::endl;
+            std::cout << "[msmemscope] Error: Create SQLTable error: " << Sqlite3Errmsg(filefp) << std::endl;
             return false;
         }
         return true;
