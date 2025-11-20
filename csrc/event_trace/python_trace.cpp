@@ -5,6 +5,7 @@
 #include <vector>
 #include "kernel_hooks/runtime_hooks.h"
 #include "event_report.h"
+#include "trace_manager/event_trace_manager.h"
 
 namespace MemScope {
 
@@ -80,6 +81,9 @@ void PythonTrace::RecordReturn(std::string funcHash, std::string funcInfo)
 
 void callback(const std::string& hash, const std::string& info, PyTraceType what, uint64_t timestamp)
 {
+    if (!EventTraceManager::Instance().IsTracingEnabled()) {
+        return;
+    }
     switch (what) {
         case PyTraceType::PYCALL: {
             PythonTrace::GetInstance().RecordPyCall(hash, info, timestamp);
@@ -141,6 +145,11 @@ void PythonTrace::Stop()
         }
     }
     active_ = false;
+}
+
+bool PythonTrace::IsTraceActive()
+{
+    return active_;
 }
 
 }

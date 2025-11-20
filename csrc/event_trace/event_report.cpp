@@ -116,6 +116,7 @@ void EventReport::Init()
     recordIndex_.store(0);
     kernelLaunchRecordIndex_.store(0);
     aclItfRecordIndex_.store(0);
+    pyStepId_.store(0);
 }
 
 EventReport::EventReport(MemScopeCommType type)
@@ -164,12 +165,16 @@ EventReport::~EventReport()
 
 bool EventReport::IsNeedSkip(int32_t devid)
 {
+    // 是否为指定卡
     if (!GetConfig().collectAllNpu) {
         BitField<decltype(GetConfig().npuSlots)> npuSlots(GetConfig().npuSlots);
         if (devid != GD_INVALID_NUM && !npuSlots.checkBit(static_cast<size_t>(devid))) {
             return true;
         }
     }
+
+    // 目前仅命令行支持选择--steps，因此当存在stepList时代表启用了命令行，我们不推荐同时使用命令行和python接口。这里不考虑
+    // msleaks.step()接口所带来的的step信息。
     auto stepList = GetConfig().stepList;
     if (stepList.stepCount == 0) {
         return false;
@@ -198,6 +203,24 @@ bool EventReport::ReportAddrInfo(RecordBuffer &infoBuffer)
     return true;
 }
 
+bool EventReport::ReportPyStepRecord()
+{
+    int32_t devId = GD_INVALID_NUM;
+    GetDevice(&devId);
+    if (IsNeedSkip(devId)) {
+        return true;
+    }
+ 
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<PyStepRecord>();
+    PyStepRecord* info = buffer.Cast<PyStepRecord>();
+    info->type = RecordType::PY_STEP_RECORD;
+    info->recordIndex = ++recordIndex_;
+    info->stepId = ++pyStepId_;
+    info->devId = devId;
+    ReportRecordEvent(buffer);
+    return true;
+}
+ 
 bool EventReport::ReportMemPoolRecord(RecordBuffer &memPoolRecordBuffer)
 {
     if (!EventTraceManager::Instance().IsTracingEnabled() ||

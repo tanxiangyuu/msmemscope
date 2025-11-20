@@ -72,6 +72,8 @@ enum class EventSubType : uint8_t {
  
     CLEAN_UP,
  
+    STEP,
+
     INVALID,
 };
  
@@ -384,6 +386,18 @@ public:
 
         eventSubType = (record.status == static_cast<uint8_t>(EventTraceStatus::IN_TRACING)) ?
             EventSubType::TRACE_START : EventSubType::TRACE_STOP;
+    }
+
+    explicit SystemEvent(PyStepRecord& record)
+    {
+        id = record.recordIndex;
+        timestamp = record.timestamp;
+        pid = record.pid;
+        tid = record.tid;
+        device = (record.devId == GD_INVALID_NUM) ? "N/A" : std::to_string(record.devId);
+        name = "N/A";
+        eventType = EventBaseType::SYSTEM;
+        eventSubType = EventSubType::STEP;
     }
 };
  
