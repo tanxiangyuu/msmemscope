@@ -19,6 +19,8 @@
 #include "sqlite_loader.h"
 #include "string_validator.h"
 #include "event_trace/trace_manager/event_trace_manager.h"
+#include "event_trace/python_trace.h"
+
 namespace MemScope {
 
 enum class OptVal : int32_t {
@@ -468,6 +470,8 @@ void ParseDataLevel(const std::string param, Config &config, bool &printHelpInfo
 void ParseEventTraceType(const std::string param, Config &config, bool &printHelpInfo)
 {
     std::string dividePattern = "，,";
+    std::string traceConfig = "traceback";
+    bool setTraceBack = false;
     std::vector<std::string> tokens = Utility::SplitString(param, dividePattern);
     auto it = tokens.begin();
     auto end = tokens.end();
@@ -487,14 +491,27 @@ void ParseEventTraceType(const std::string param, Config &config, bool &printHel
     };
     while (it != end) {
         std::string event = *it;
-        if (!event.empty()) {
-            if (eventsMp.count(event)) {
-                eventsTypeBit.setBit(static_cast<size_t>(eventsMp[event]));
-            } else {
-                return parseFailed();
-            }
+        if (event.empty()) {
+            it++;
+            continue;
         }
+        
+        if (eventsMp.count(event)) {
+            eventsTypeBit.setBit(static_cast<size_t>(eventsMp[event]));
+        } else if (event == traceConfig) {
+            setTraceBack = true;
+            if (!PythonTrace::GetInstance().IsTraceActive()) {
+                PythonTrace::GetInstance().Start();
+            }
+        } else {
+            return parseFailed();
+        }
+
         it++;
+    }
+    // config中无traceback则判断目前是否在trace中，如在，则关闭。
+    if (PythonTrace::GetInstance().IsTraceActive() && !setTraceBack) {
+        PythonTrace::GetInstance().Stop();
     }
 
     config.eventType = eventsTypeBit.getValue();

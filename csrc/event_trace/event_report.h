@@ -62,6 +62,7 @@ public:
     bool ReportAtenLaunch(RecordBuffer& atenOpLaunchRecordBuffer);
     bool ReportAtenAccess(RecordBuffer &memAccessRecordBuffer);
     bool ReportAddrInfo(RecordBuffer &infoBuffer);
+    bool ReportPyStepRecord();
     void UpdateAnalysisType();
 private:
     void Init();
@@ -78,6 +79,8 @@ private:
     std::atomic<uint64_t> recordIndex_;
     std::atomic<uint64_t> kernelLaunchRecordIndex_;
     std::atomic<uint64_t> aclItfRecordIndex_;
+    // python接口标识step和mstx标识step两种方式不允许同时存在
+    std::atomic<uint64_t> pyStepId_;
 
     MstxStepInfo stepInfo_;
     std::mutex mutex_;
