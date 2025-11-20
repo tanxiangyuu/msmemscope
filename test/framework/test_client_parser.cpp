@@ -196,6 +196,19 @@ TEST(ClientParser, pass_valid_event_type_case_not_set)
     ASSERT_EQ(cmd.config.eventType, 7);
 }
 
+TEST(ClientParser, pass_valid_event_type_case_traceback)
+{
+    std::vector<const char*> argv = {
+        "msmemscope",
+        "--events=traceback"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+}
+
 TEST(ClientParser, pass_valid_event_type_case_alloc)
 {
     std::vector<const char*> argv = {

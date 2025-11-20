@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <iomanip>
 #include "mstx_analyzer.h"
+#include "py_step_manager.h"
 #include "utility/log.h"
 #include "utility/utils.h"
 #include "config_info.h"
@@ -23,8 +24,12 @@ StepInnerAnalyzer::StepInnerAnalyzer(Config config)
 {
     config_ = config;
 
-    auto func = std::bind(&StepInnerAnalyzer::ReceiveMstxMsg, this, std::placeholders::_1);
-    MstxAnalyzer::Instance().Subscribe(MstxEventSubscriber::STEP_INNER_ANALYZER, func);
+    // 注册mstx信息观察者
+    auto mstxFunc = std::bind(&StepInnerAnalyzer::ReceiveMstxMsg, this, std::placeholders::_1);
+    MstxAnalyzer::Instance().Subscribe(MstxEventSubscriber::STEP_INNER_ANALYZER, mstxFunc);
+    // 注册pyStep信息观察者
+    auto pyStepFunc = std::bind(&StepInnerAnalyzer::ReceiveStepMsg, this, std::placeholders::_1);
+    PyStepManager::Instance().Subscribe(PyStepEventSubscriber::STEP_INNER_ANALYZER, pyStepFunc);
 
     return;
 }
@@ -43,14 +48,14 @@ bool StepInnerAnalyzer::CreateTables(const DeviceId &deviceId)
     return false;
 }
 
-bool StepInnerAnalyzer::CreateMstxTables(const DeviceId &deviceId)
+bool StepInnerAnalyzer::CreateStepInfoTables(const DeviceId &deviceId)
 {
-    if (mstxTables_.find(deviceId) != mstxTables_.end()) {
+    if (stepInfoTables_.find(deviceId) != stepInfoTables_.end()) {
         return true;
     }
-    LOG_INFO("[device %ld]: Start Record mstx-npu info.", deviceId);
-    MstxRecordTable mstxrecordtable{};
-    auto result = mstxTables_.emplace(deviceId, mstxrecordtable);
+    LOG_INFO("[device %ld]: Start Record step info.", deviceId);
+    StepInfoTable stepInfoTable{};
+    auto result = stepInfoTables_.emplace(deviceId, stepInfoTable);
     if (result.second) {
         return true;
     }
@@ -115,7 +120,7 @@ bool NpuMemKey::operator==(const NpuMemKey& other) const
 
 void StepInnerAnalyzer::SetStepId(const DeviceId &deviceId, const uint64_t &stepId)
 {
-    npuMemUsages_[deviceId].mstxStep = stepId;
+    npuMemUsages_[deviceId].duringStep = stepId;
 }
 
 bool StepInnerAnalyzer::SkipCheck(const NpuMemInfo &npuMemInfo)
@@ -179,7 +184,7 @@ void StepInnerAnalyzer::UpdateAllocated(const DeviceId &deviceId, const RecordTy
         return;
     }
     // 当step为0和1时，allocated尚未稳定不进行更新
-    if (npuMemUsages_[deviceId].mstxStep <= skipSteps_) {
+    if (npuMemUsages_[deviceId].duringStep <= skipSteps_) {
         return;
     }
     // 初值为0，Step开始，第一次更新
@@ -200,7 +205,7 @@ void StepInnerAnalyzer::UpdateAllocated(const DeviceId &deviceId, const RecordTy
 void StepInnerAnalyzer::CheckGap(const DeviceId &deviceId)
 {
     // 当step为0和1时，allocated尚未稳定不进行更新
-    if (npuMemUsages_[deviceId].mstxStep <= skipSteps_) {
+    if (npuMemUsages_[deviceId].duringStep <= skipSteps_) {
         return;
     }
     for (auto &poolStatus : npuMemUsages_[deviceId].poolStatusTable) {
@@ -213,11 +218,11 @@ void StepInnerAnalyzer::CheckGap(const DeviceId &deviceId)
         poolStatus.second.stepMinAllocated / static_cast<double>(poolStatus.second.stepMaxAllocated);
         // 第一次计算
         if (poolStatus.second.maxGapInfo.minMaxAllocRatio == 0) {
-            poolStatus.second.maxGapInfo.gapStepId = npuMemUsages_[deviceId].mstxStep;
+            poolStatus.second.maxGapInfo.gapStepId = npuMemUsages_[deviceId].duringStep;
             poolStatus.second.maxGapInfo.minMaxAllocRatio = gap;
             poolStatus.second.maxGapInfo.minAllocMemory = poolStatus.second.stepMinAllocated;
 
-            poolStatus.second.minGapInfo.gapStepId = npuMemUsages_[deviceId].mstxStep;
+            poolStatus.second.minGapInfo.gapStepId = npuMemUsages_[deviceId].duringStep;
             poolStatus.second.minGapInfo.minMaxAllocRatio = gap;
             poolStatus.second.minGapInfo.minAllocMemory = poolStatus.second.stepMinAllocated;
 
@@ -231,7 +236,7 @@ void StepInnerAnalyzer::CheckGap(const DeviceId &deviceId)
             LOG_WARN(
                 "[npu %d]: %s Min/Max Allocated memory largest gap increases to %f, last is %f",
                 deviceId, poolName.c_str(), gap, poolStatus.second.maxGapInfo.minMaxAllocRatio);
-            poolStatus.second.maxGapInfo.gapStepId = npuMemUsages_[deviceId].mstxStep;
+            poolStatus.second.maxGapInfo.gapStepId = npuMemUsages_[deviceId].duringStep;
             poolStatus.second.maxGapInfo.minMaxAllocRatio = gap;
             poolStatus.second.maxGapInfo.minAllocMemory = poolStatus.second.stepMinAllocated;
         }
@@ -239,7 +244,7 @@ void StepInnerAnalyzer::CheckGap(const DeviceId &deviceId)
             LOG_WARN(
                 "[npu %d]: %s Min/Max Allocated memory smallest gap decreases to %f, last is %f",
                 deviceId, poolName.c_str(), gap, poolStatus.second.minGapInfo.minMaxAllocRatio);
-            poolStatus.second.minGapInfo.gapStepId = npuMemUsages_[deviceId].mstxStep;
+            poolStatus.second.minGapInfo.gapStepId = npuMemUsages_[deviceId].duringStep;
             poolStatus.second.minGapInfo.minMaxAllocRatio = gap;
             poolStatus.second.minGapInfo.minAllocMemory = poolStatus.second.stepMinAllocated;
         }
@@ -271,7 +276,7 @@ void StepInnerAnalyzer::RecordNpuMalloc(const ClientId &clientId, const DeviceId
     }
 
     NpuMemInfo npuMemInfo = {
-    memPoolRecord.type, memoryusage.allocSize, memPoolRecord.timestamp, 0, npuMemUsages_[deviceId].mstxStep,
+    memPoolRecord.type, memoryusage.allocSize, memPoolRecord.timestamp, 0, npuMemUsages_[deviceId].duringStep,
     memPoolRecord.kernelIndex};
     npuMemUsages_[deviceId].poolOpTable.emplace(NpuMemKey(npumemptr, memPoolRecord.type), npuMemInfo);
     UpdateAllocated(deviceId, memPoolRecord.type, memoryusage.totalAllocated);
@@ -342,23 +347,42 @@ bool StepInnerAnalyzer::Record(const ClientId &clientId, const RecordBase &recor
     return true;
 }
 
-void StepInnerAnalyzer::UpdateMstxTable(const MstxRecord &mstxRecord, const RecordType &poolType,
-    const int64_t &startAllocated)
+void StepInnerAnalyzer::UpdateStepInfoTable(const DeviceId &deviceId, const uint64_t &stepId,
+    const RecordType &poolType, const int64_t &startAllocated)
 {
-    auto deviceId = mstxRecord.devId;
-    auto stepId = mstxRecord.stepId;
-    if (mstxTables_[deviceId].find(stepId) == mstxTables_[deviceId].end()) {
+    if (stepInfoTables_[deviceId].find(stepId) == stepInfoTables_[deviceId].end()) {
         StepInfo stepInfo{};
-        mstxTables_[deviceId].emplace(stepId, stepInfo);
+        stepInfoTables_[deviceId].emplace(stepId, stepInfo);
     }
-    if (mstxTables_[deviceId][stepId].stepAllocTable.find(poolType) ==
-        mstxTables_[deviceId][stepId].stepAllocTable.end()) {
-        mstxTables_[deviceId][stepId].stepAllocTable.emplace(poolType, startAllocated);
+    if (stepInfoTables_[deviceId][stepId].stepAllocTable.find(poolType) ==
+        stepInfoTables_[deviceId][stepId].stepAllocTable.end()) {
+        stepInfoTables_[deviceId][stepId].stepAllocTable.emplace(poolType, startAllocated);
     } else {
-        mstxTables_[deviceId][stepId].stepAllocTable[poolType] = startAllocated;
+        stepInfoTables_[deviceId][stepId].stepAllocTable[poolType] = startAllocated;
     }
-    mstxTables_[deviceId][stepId].rangeId = mstxRecord.rangeId;
     return;
+}
+
+void StepInnerAnalyzer::HandleStepMsg(const DeviceId &deviceId, const uint64_t &stepId)
+{
+    for (auto &poolStatus : npuMemUsages_[deviceId].poolStatusTable) {
+        std::string poolName = GetMemoryPoolName(poolStatus.first);
+        int64_t endAllocated = poolStatus.second.totalAllocated;
+        LOG_INFO("[npu %ld][step %llu][end]: ------End totalAllocated (%s): %lld------",
+            deviceId, stepId, poolName.c_str(), endAllocated);
+        int64_t startAllocated = stepInfoTables_[deviceId][stepId].stepAllocTable[poolStatus.first];
+        // step1不考虑前后内存不一致
+        if (stepId == 1) {
+            return;
+        }
+        if (startAllocated == endAllocated) {
+            LOG_INFO("[npu %ld][step %llu][end]: ------No leaks (%s)------", deviceId, stepId, poolName.c_str());
+        } else {
+            LOG_INFO("[npu %ld][step %llu][end]: ------leaks (%s)------", deviceId, stepId, poolName.c_str());
+        }
+    }
+    CheckNpuLeak(deviceId, stepId);
+    CheckGap(deviceId);
 }
 
 void StepInnerAnalyzer::ReceiveMstxMsg(const MstxRecord &mstxRecord)
@@ -369,8 +393,8 @@ void StepInnerAnalyzer::ReceiveMstxMsg(const MstxRecord &mstxRecord)
         return;
     }
     MarkType markType = mstxRecord.markType;
-    if (!CreateMstxTables(deviceId) || !CreateTables(deviceId)) {
-        LOG_WARN("[device %ld]: Create mstx-npu table failed.", deviceId);
+    if (!CreateStepInfoTables(deviceId) || !CreateTables(deviceId)) {
+        LOG_WARN("[device %ld]: Create StepInfo table failed.", deviceId);
         return;
     }
     const TLVBlock* tlv = GetTlvBlock(mstxRecord, TLVBlockType::MARK_MESSAGE);
@@ -379,44 +403,73 @@ void StepInnerAnalyzer::ReceiveMstxMsg(const MstxRecord &mstxRecord)
         if (strcmp(markMessage.c_str(), "step start") != 0) {
             return;
         }
+        // 判断是否使用mstx信息源
+        StepSource crtSource = crtStepSource_.load(std::memory_order_acquire);
+        if (crtSource == StepSource::PY_STEP_SOURCE) {
+            LOG_ERROR("[device %ld]: 'Mstx' and 'msleaks.step()' cannot be used simultaneously to update the step.",
+                deviceId);
+            return;
+        }
+        crtStepSource_.store(StepSource::MSTX_SOURCE, std::memory_order_release);
         for (auto &poolStatus : npuMemUsages_[deviceId].poolStatusTable) {
             int64_t startAllocated = poolStatus.second.totalAllocated;
             LOG_INFO("[npu %ld][step %llu][start]: ------Start totalAllocated (%s): %lld------",
                 deviceId, stepId, GetMemoryPoolName(poolStatus.first).c_str(), startAllocated);
-            UpdateMstxTable(mstxRecord, poolStatus.first, startAllocated);
+            UpdateStepInfoTable(deviceId, stepId, poolStatus.first, startAllocated);
+            stepInfoTables_[deviceId][stepId].rangeId = mstxRecord.rangeId;
         }
         SetStepId(deviceId, stepId);
         AddDuration(deviceId);
     } else if (markType == MarkType::RANGE_END) {
         // 如果是end看stepid和rangeid是否在table中
-        if (mstxTables_[deviceId].find(stepId) == mstxTables_[deviceId].end() ||
-            mstxTables_[deviceId][stepId].rangeId != mstxRecord.rangeId) {
+        if (stepInfoTables_[deviceId].find(stepId) == stepInfoTables_[deviceId].end() ||
+            stepInfoTables_[deviceId][stepId].rangeId != mstxRecord.rangeId) {
             return;
         }
-        for (auto &poolStatus : npuMemUsages_[deviceId].poolStatusTable) {
-            std::string poolName = GetMemoryPoolName(poolStatus.first);
-            int64_t endAllocated = poolStatus.second.totalAllocated;
-            LOG_INFO("[npu %ld][step %llu][end]: ------End totalAllocated (%s): %lld------",
-                deviceId, stepId, poolName.c_str(), endAllocated);
-            int64_t startAllocated = mstxTables_[deviceId][stepId].stepAllocTable[poolStatus.first];
-            // step1不考虑前后内存不一致
-            if (stepId == 1) {
-                return;
-            }
-            if (startAllocated == endAllocated) {
-                LOG_INFO("[npu %ld][step %llu][end]: ------No leaks (%s)------", deviceId, stepId, poolName.c_str());
-            } else {
-                LOG_INFO("[npu %ld][step %llu][end]: ------leaks (%s)------", deviceId, stepId, poolName.c_str());
-            }
-        }
-        CheckNpuLeak(deviceId, stepId);
-        CheckGap(deviceId);
+        HandleStepMsg(deviceId, stepId);
     }
     return;
 }
 
- void StepInnerAnalyzer::ReportLeak(const DeviceId &deviceId)
- {
+void StepInnerAnalyzer::ReceiveStepMsg(const PyStepRecord &pyStepRecord)
+{
+    auto deviceId = pyStepRecord.devId;
+    auto stepId = pyStepRecord.stepId;
+    if (!IsStepInnerAnalysisEnable()) {
+        return;
+    }
+    if (!CreateStepInfoTables(deviceId) || !CreateTables(deviceId)) {
+        LOG_WARN("[device %ld]: Create StepInfo table failed.", deviceId);
+        return;
+    }
+    // 判断是否使用python信息源
+    StepSource crtSource = crtStepSource_.load(std::memory_order_acquire);
+    if (crtSource == StepSource::MSTX_SOURCE) {
+        LOG_ERROR("[device %ld]: 'msleaks.step()' and 'Mstx' cannot be used simultaneously to update the step.",
+            deviceId);
+        return;
+    }
+    crtStepSource_.store(StepSource::PY_STEP_SOURCE, std::memory_order_release);
+
+    // msleaks.step()同时标识了上一个step的结束和(step+1)的开始，这里先处理上一个step结束，检测泄漏与gap
+    // 如果是第一次msleaks.step()的调用，即step=1，表中此时没有不处理
+    HandleStepMsg(deviceId, stepId);
+
+    // 处理(step+1)的开始
+    for (auto &poolStatus : npuMemUsages_[deviceId].poolStatusTable) {
+        int64_t startAllocated = poolStatus.second.totalAllocated;
+        LOG_INFO("[npu %ld][step %llu][start]: ------Start totalAllocated (%s): %lld------",
+            deviceId, (stepId+1), GetMemoryPoolName(poolStatus.first).c_str(), startAllocated);
+        UpdateStepInfoTable(deviceId, (stepId+1), poolStatus.first, startAllocated);
+    }
+    SetStepId(deviceId, (stepId+1));
+    AddDuration(deviceId);
+
+    return;
+}
+
+void StepInnerAnalyzer::ReportLeak(const DeviceId &deviceId)
+{
     std::cout<< "====== ERROR: Detected memory leaks on device " <<
         deviceId << " ======" << std::endl;
 
@@ -485,6 +538,7 @@ void StepInnerAnalyzer::ReportGap(const DeviceId &deviceId)
 StepInnerAnalyzer::~StepInnerAnalyzer()
 {
     MstxAnalyzer::Instance().UnSubscribe(MstxEventSubscriber::STEP_INNER_ANALYZER);
+    PyStepManager::Instance().UnSubscribe(PyStepEventSubscriber::STEP_INNER_ANALYZER);
 
     if (!IsStepInnerAnalysisEnable()) {
         return;

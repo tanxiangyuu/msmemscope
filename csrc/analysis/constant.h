@@ -139,6 +139,7 @@ const std::unordered_map<EventSubType, std::string> EVENT_SUB_TYPE_MAP = {
     {EventSubType::MSTX_RANGE_START, "Range_start"},
     {EventSubType::MSTX_RANGE_END, "Range_end"},
     {EventSubType::CLEAN_UP, "CLEAN_UP"},
+    {EventSubType::STEP, "STEP"},
 };
 
 const std::vector<std::pair<std::string, std::string>> DUMP_RECORD_TABLE_SQL = {

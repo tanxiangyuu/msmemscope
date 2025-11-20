@@ -9,6 +9,7 @@
 #undef private
 #include "bit_field.h"
 #include "mstx_analyzer.h"
+#include "py_step_manager.h"
 #include "record_info.h"
 #include "config_info.h"
 
@@ -30,7 +31,7 @@ protected:
         StepInnerAnalyzer::GetInstance(stepInnerConfig).config_ = Config{};
         StepInnerAnalyzer::GetInstance(stepInnerConfig).skipSteps_ = 1;
         StepInnerAnalyzer::GetInstance(stepInnerConfig).leakMemSums_.clear();
-        StepInnerAnalyzer::GetInstance(stepInnerConfig).mstxTables_.clear();
+        StepInnerAnalyzer::GetInstance(stepInnerConfig).stepInfoTables_.clear();
         StepInnerAnalyzer::GetInstance(stepInnerConfig).npuMemUsages_.clear();
         Utility::FileCreateManager::GetInstance("testmsmemscope");
     }
@@ -138,6 +139,46 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_memscope_warning)
     StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStart2);
     StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordEnd);
 }
+
+TEST(StepInnerAnalyzerTest, do_reveive_stepmsg_expect_memscope_warning)
+{
+    ClientId clientId = 0;
+    auto firstPyStepRecord = PyStepRecord {};
+    firstPyStepRecord.stepId = 2;
+    firstPyStepRecord.devId = 0;
+
+    // 经过第二个step，但仍然未释放
+    auto SecondPyStepRecord = PyStepRecord {};
+    SecondPyStepRecord.stepId = 3;
+    SecondPyStepRecord.devId = 0;
+
+    // 经过两个step的内存
+    auto buffer1 = RecordBuffer::CreateRecordBuffer<MemPoolRecord>();
+    MemPoolRecord* record1 = buffer1.Cast<MemPoolRecord>();
+    record1->type = RecordType::PTA_CACHING_POOL_RECORD;
+    record1->recordIndex = 1;
+    auto memoryusage1 = MemoryUsage {};
+    memoryusage1.deviceIndex = 0;
+    memoryusage1.dataType = 0;
+    memoryusage1.ptr = 12345;
+    memoryusage1.allocSize = 512;
+    memoryusage1.totalAllocated = 512;
+    record1->memoryUsage = memoryusage1;
+
+    // 先初始化注册
+    Config analysisConfig;
+    BitField<decltype(analysisConfig.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    analysisConfig.eventType = eventBit.getValue();
+    analysisConfig.stepList.stepCount = 0;
+    StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
+    static StepInnerAnalyzer analyzer(analysisConfig);
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveStepMsg(firstPyStepRecord);
+    EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, *record1));
+    StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveStepMsg(SecondPyStepRecord);
+}
+
 
 TEST(StepInnerAnalyzerTest, do_npu_malloc_record_expect_sucess) {
     // 先初始化注册
@@ -417,7 +458,7 @@ TEST(StepInnerAnalyzerTest, do_input_not_exist_deviceid_CreateTables_return_true
     ASSERT_TRUE(ret);
 }
 
-TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateMstxTables_return_true)
+TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateStepInfoTables_return_true)
 {
     Config config;
     BitField<decltype(config.eventType)> eventBit;
@@ -425,13 +466,13 @@ TEST(StepInnerAnalyzerTest, do_input_exist_deviceid_CreateMstxTables_return_true
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
     config.eventType = eventBit.getValue();
     StepInnerAnalyzer stepInner{config};
-    MstxRecordTable mstxrecordtable{};
-    stepInner.mstxTables_.insert({1, mstxrecordtable});
-    auto ret = stepInner.CreateMstxTables(1);
+    StepInfoTable stepInfoTable{};
+    stepInner.stepInfoTables_.insert({1, stepInfoTable});
+    auto ret = stepInner.CreateStepInfoTables(1);
     ASSERT_TRUE(ret);
 }
 
-TEST(StepInnerAnalyzerTest, do_input_not_exist_deviceid_CreateMstxTables_return_true)
+TEST(StepInnerAnalyzerTest, do_input_not_exist_deviceid_CreateStepInfoTables_return_true)
 {
     Config config;
     BitField<decltype(config.eventType)> eventBit;
@@ -439,7 +480,7 @@ TEST(StepInnerAnalyzerTest, do_input_not_exist_deviceid_CreateMstxTables_return_
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
     config.eventType = eventBit.getValue();
     StepInnerAnalyzer stepInner{config};
-    auto ret = stepInner.CreateMstxTables(1);
+    auto ret = stepInner.CreateStepInfoTables(1);
     ASSERT_TRUE(ret);
 }
 
@@ -536,7 +577,7 @@ TEST(StepInnerAnalyzerTest, do_updateallocated_step_0_update_0)
     config.stepList.stepCount = 2;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
-    npumemusage.mstxStep = 0;
+    npumemusage.duringStep = 0;
     npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMaxAllocated = 0;
     npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMinAllocated = 0;
     stepInner.npuMemUsages_.insert({0, npumemusage});
@@ -555,7 +596,7 @@ TEST(StepInnerAnalyzerTest, do_updateallocated_step_2_update_allocated)
     config.stepList.stepCount = 2;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
-    npumemusage.mstxStep = 2;
+    npumemusage.duringStep = 2;
 
     npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMaxAllocated = 20;
     npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMinAllocated = 20;
@@ -575,7 +616,7 @@ TEST(StepInnerAnalyzerTest, do_checkgap_minmaxallocratio_equal_0_expect_reset_al
     config.stepList.stepCount = 2;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
-    npumemusage.mstxStep = 2;
+    npumemusage.duringStep = 2;
     npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMaxAllocated = 100;
     npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMinAllocated = 20;
     stepInner.npuMemUsages_.insert({0, npumemusage});
@@ -596,7 +637,7 @@ TEST(StepInnerAnalyzerTest, do_checkgap_minmaxallocratio_expect_true_allocated)
     NpuMemUsage npumemusage;
     GapInfo gapinfo;
     gapinfo.minMaxAllocRatio = 0.1;
-    npumemusage.mstxStep = 2;
+    npumemusage.duringStep = 2;
     npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMaxAllocated = 100;
     npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMinAllocated = 20;
     npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].maxGapInfo = gapinfo;
@@ -736,7 +777,7 @@ TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedUpdateMaxTest)
     config.eventType = eventBit.getValue();
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
-    npumemusage.mstxStep = 2;
+    npumemusage.duringStep = 2;
 
     npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMaxAllocated = 20;
     npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMinAllocated = 20;
@@ -759,7 +800,7 @@ TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedInitTest)
     config.stepList.stepCount = 0;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
-    npumemusage.mstxStep = 2;
+    npumemusage.duringStep = 2;
 
     npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMaxAllocated = 0;
     npumemusage.poolStatusTable[RecordType::PTA_CACHING_POOL_RECORD].stepMinAllocated = 0;
@@ -780,7 +821,7 @@ TEST(StepInnerAnalyzerUpdateAllocatedFuncTest, UpdateAllocatedreturnTest)
     config.stepList.stepCount = 0;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
-    npumemusage.mstxStep = 0;
+    npumemusage.duringStep = 0;
 
     npumemusage.poolStatusTable[RecordType::MINDSPORE_NPU_RECORD].stepMaxAllocated = 0;
     npumemusage.poolStatusTable[RecordType::MINDSPORE_NPU_RECORD].stepMinAllocated = 0;
@@ -801,7 +842,7 @@ TEST(StepInnerAnalyzerAddDurationTest, AddDurationTest)
     config.stepList.stepCount = 0;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
-    npumemusage.mstxStep = 0;
+    npumemusage.duringStep = 0;
 
     MemScope::NpuMemInfo memInfo;
     memInfo.duration = 1;
@@ -821,7 +862,7 @@ TEST(StepInnerAnalyzerAddDurationTest, AddDurationReturnTest)
     config.stepList.stepCount = 0;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
-    npumemusage.mstxStep = 0;
+    npumemusage.duringStep = 0;
 
     MemScope::NpuMemInfo memInfo;
     memInfo.duration = 1;
@@ -841,9 +882,9 @@ TEST(StepInnerAnalyzerSetStepIdFuncTest, SetStepIdTest)
     config.stepList.stepCount = 0;
     StepInnerAnalyzer stepInner{config};
     NpuMemUsage npumemusage;
-    npumemusage.mstxStep = 1;
+    npumemusage.duringStep = 1;
 
     stepInner.npuMemUsages_.insert({1, npumemusage});
     stepInner.SetStepId(1, 2);
-    ASSERT_EQ(stepInner.npuMemUsages_[1].mstxStep, 2);
+    ASSERT_EQ(stepInner.npuMemUsages_[1].duringStep, 2);
 }
