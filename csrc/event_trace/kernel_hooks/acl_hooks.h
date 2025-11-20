@@ -9,7 +9,7 @@
 #include "vallina_symbol.h"
 #include "atb_hooks/atb_stub.h"
 
-namespace Leaks {
+namespace MemScope {
 constexpr int ACL_SUCCESS = 0;
 constexpr int ACL_ERROR_INTERNAL_ERROR = 500000;
 const constexpr int ACL_ERROR_RT_FAILURE = 500003;

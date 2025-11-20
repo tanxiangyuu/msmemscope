@@ -8,7 +8,7 @@
 #include "event_trace/memory_watch/tensor_monitor.h"
 #include "securec.h"
 
-using namespace Leaks;
+using namespace MemScope;
 
 constexpr uint64_t DATA_SIZE_1 = 100;
 constexpr uint64_t DATA_SIZE_2 = 200;
@@ -28,13 +28,13 @@ class MemoryWatchTest : public ::testing::Test {
 protected:
     void SetUp() override
     {
-        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("./testmsleaks");
+        Utility::FileCreateManager::GetInstance("./testmsmemscope").SetProjectDir("./testmsmemscope");
     }
 
     void TearDown() override
     {
-        Utility::FileCreateManager::GetInstance("./testmsleaks").SetProjectDir("");
-        rmdir("./testmsleaks");
+        Utility::FileCreateManager::GetInstance("./testmsmemscope").SetProjectDir("");
+        rmdir("./testmsmemscope");
     }
 };
 

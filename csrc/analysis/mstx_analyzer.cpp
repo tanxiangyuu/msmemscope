@@ -4,7 +4,7 @@
 #include "utility/log.h"
 #include "utility/ustring.h"
 
-namespace Leaks {
+namespace MemScope {
 
 MstxAnalyzer& MstxAnalyzer::Instance()
 {

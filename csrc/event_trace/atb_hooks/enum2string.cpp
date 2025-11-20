@@ -5,7 +5,7 @@
 #include <unordered_map>
 
 namespace atb {
-    const std::string& LeaksEnumToString(aclDataType value)
+    const std::string& MemScopeEnumToString(aclDataType value)
     {
         static std::unordered_map<aclDataType, std::string> aclDataTypeMap = {
             {ACL_DT_UNDEFINED, "ACL_DT_UNDEFINED"},
@@ -38,7 +38,7 @@ namespace atb {
         }
     }
 
-    const std::string& LeaksEnumToString(aclFormat value)
+    const std::string& MemScopeEnumToString(aclFormat value)
     {
         static std::unordered_map<aclFormat, std::string> aclFormatMap = {
             {ACL_FORMAT_UNDEFINED, "ACL_FORMAT_UNDEFINED"},
@@ -66,7 +66,7 @@ namespace atb {
         }
     }
 
-    const std::string& LeaksEnumToString(Mki::TensorDType value)
+    const std::string& MemScopeEnumToString(Mki::TensorDType value)
     {
         static std::unordered_map<Mki::TensorDType, std::string> tensorDTypeMap = {
             {Mki::TENSOR_DTYPE_UNDEFINED, "TENSOR_DTYPE_UNDEFINED"},
@@ -96,7 +96,7 @@ namespace atb {
         }
     }
 
-    const std::string& LeaksEnumToString(Mki::TensorFormat value)
+    const std::string& MemScopeEnumToString(Mki::TensorFormat value)
     {
         static std::unordered_map<Mki::TensorFormat, std::string> tensorFormatMap = {
             {Mki::TENSOR_FORMAT_UNDEFINED, "TENSOR_FORMAT_UNDEFINED"},

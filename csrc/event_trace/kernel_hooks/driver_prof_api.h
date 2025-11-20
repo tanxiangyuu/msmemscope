@@ -4,7 +4,7 @@
 #define DRIVER_PROF_API_H
 
 #include "vallina_symbol.h"
-namespace Leaks {
+namespace MemScope {
 
 
 constexpr uint64_t MAX_BUFFER_SIZE = 1024 * 1024 * 2;

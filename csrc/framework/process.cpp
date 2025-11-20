@@ -18,7 +18,7 @@
 #include "analysis/decompose_analyzer.h"
 #include "analysis/inefficient_analyzer.h"
 
-namespace Leaks {
+namespace MemScope {
 
 using std::string;
 using namespace Utility;
@@ -248,4 +248,4 @@ void EventHandler(std::shared_ptr<EventBase> event)
     }
 }
 
-}  // namespace Leaks
+}  // namespace MemScope

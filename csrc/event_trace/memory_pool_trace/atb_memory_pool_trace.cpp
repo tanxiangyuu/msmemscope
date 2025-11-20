@@ -6,7 +6,7 @@
 #include "describe_trace.h"
 #include "atb_memory_pool_trace.h"
 
-namespace Leaks {
+namespace MemScope {
 ATBMemoryPoolTrace::ATBMemoryPoolTrace()
 {
     atbDomain_ = new mstxDomainRegistration_st { };
@@ -95,7 +95,7 @@ void ATBMemoryPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegionsReg
         MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
         record->type = RecordType::ATB_MEMORY_POOL_RECORD;
         record->memoryUsage = memUsageMp_[devId];
-        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
+        if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
             LOG_ERROR("Report ATB Data Failed");
         }
     }
@@ -133,7 +133,7 @@ void ATBMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnregi
         regionHandleMp_.erase(handle);
         delete handle;
         handle = nullptr;
-        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
+        if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
             LOG_ERROR("Report ATB Data Failed");
         }
     }

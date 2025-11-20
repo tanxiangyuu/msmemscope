@@ -8,7 +8,7 @@
 
 #include "state.h"
 
-namespace Leaks {
+namespace MemScope {
 
 enum class PoolType : uint8_t {
     HOST = 0,

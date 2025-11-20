@@ -4,9 +4,9 @@
 #include <Python.h>
 #include "cpython.h"
 
-namespace Leaks {
+namespace MemScope {
 
-PyObject* PyLeaks_GetWatcher();
+PyObject* PyMemScope_GetWatcher();
 
 }
 

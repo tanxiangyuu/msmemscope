@@ -9,14 +9,14 @@
 #include "bit_field.h"
 #include "memory_watch/memory_watch.h"
 
-namespace Leaks {
+namespace MemScope {
 
 void KernelEventTrace::KernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
 {
     if (!EventTraceManager::Instance().IsTracingEnabled()) {
         return;
     }
-    if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportKernelLaunch(kernelLaunchInfo)) {
+    if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportKernelLaunch(kernelLaunchInfo)) {
         LOG_ERROR("KernelLaunch launch report failed");
     }
     
@@ -30,7 +30,7 @@ void KernelEventTrace::KernelStartExcute(const TaskKey& key, uint64_t time)
         if (!EventTraceManager::Instance().IsTracingEnabled()) {
             return;
         }
-        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportKernelExcute(key,
+        if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportKernelExcute(key,
             kernelName, time, RecordSubType::KERNEL_START)) {
             LOG_ERROR("Kernel excute start report failed");
         }
@@ -45,7 +45,7 @@ void KernelEventTrace::KernelEndExcute(const TaskKey& key, uint64_t time)
         if (!EventTraceManager::Instance().IsTracingEnabled()) {
             return;
         }
-        if (!EventReport::Instance(LeaksCommType::SHARED_MEMORY).ReportKernelExcute(key,
+        if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportKernelExcute(key,
             kernelName, time, RecordSubType::KERNEL_END)) {
             LOG_ERROR("Kernel excute end report failed");
         }

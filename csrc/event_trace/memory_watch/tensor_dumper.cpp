@@ -11,7 +11,7 @@
 #include "tensor_monitor.h"
 #include "memory_watch.h"
 
-namespace Leaks {
+namespace MemScope {
 void CleanFileName(std::string& fileName)
 {
     for (size_t i = 0; i < fileName.size(); i++) {

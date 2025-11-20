@@ -7,7 +7,7 @@
 
 #include "utility/log.h"
 
-namespace Leaks {
+namespace MemScope {
 
 EventDispatcher& EventDispatcher::GetInstance()
 {

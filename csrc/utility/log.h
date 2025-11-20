@@ -16,9 +16,9 @@ namespace Utility {
 constexpr uint16_t LOG_BUF_SIZE = 32;
 constexpr int16_t DOUBLE = 2;
 
-inline bool operator<(Leaks::LogLv a, Leaks::LogLv b)
+inline bool operator<(MemScope::LogLv a, MemScope::LogLv b)
 {
-    using underlying = typename std::underlying_type<Leaks::LogLv>::type;
+    using underlying = typename std::underlying_type<MemScope::LogLv>::type;
     return static_cast<underlying>(a) < static_cast<underlying>(b);
 }
 
@@ -27,20 +27,20 @@ public:
     static Log &GetLog(void);
 
     template <typename... Args>
-    inline void Printf(const std::string &format, Leaks::LogLv lv, const std::string fileName, const uint32_t line,
+    inline void Printf(const std::string &format, MemScope::LogLv lv, const std::string fileName, const uint32_t line,
         const Args& ...args);
     template <typename... Args>
-    inline void Printtest(const std::string &format, Leaks::LogLv lv, const std::string fileName, const uint32_t line,
+    inline void Printtest(const std::string &format, MemScope::LogLv lv, const std::string fileName, const uint32_t line,
         const Args& ...args);
     template <typename... Args>
     inline void PrintClientLog(std::string const &format, const Args &...args);
-    void SetLogLevel(const Leaks::LogLv &logLevel);
+    void SetLogLevel(const MemScope::LogLv &logLevel);
 private:
     Log(void);
     ~Log(void);
     Log(Log const &) = delete;
     Log &operator=(Log const &) = delete;
-    std::string AddPrefixInfo(std::string const &format, Leaks::LogLv lv, const std::string fileName,
+    std::string AddPrefixInfo(std::string const &format, MemScope::LogLv lv, const std::string fileName,
         const uint32_t line) const;
     inline int64_t LogSize() const
     {
@@ -56,7 +56,7 @@ private:
     }
 
 private:
-    Leaks::LogLv lv_{Leaks::LogLv::WARN};
+    MemScope::LogLv lv_{MemScope::LogLv::WARN};
     FILE *fp_{nullptr};
     mutable std::mutex mtx_;
     int64_t maxLogSize_ = 100L * 1024L * 1024L; // 100M
@@ -65,11 +65,11 @@ private:
 };
 
 template <typename... Args>
-void Log::Printf(const std::string &format, Leaks::LogLv lv, const std::string fileName, const uint32_t line,
+void Log::Printf(const std::string &format, MemScope::LogLv lv, const std::string fileName, const uint32_t line,
     const Args& ...args)
 {
     std::lock_guard<std::mutex> lock(mtx_);
-    if (!Utility::FileCreateManager::GetInstance(outputDir_).CreateLogFile(&fp_, Leaks::LOG_DIR, logFilePath_)) {
+    if (!Utility::FileCreateManager::GetInstance(outputDir_).CreateLogFile(&fp_, MemScope::LOG_DIR, logFilePath_)) {
         return;
     }
     if (lv < lv_) {
@@ -77,14 +77,14 @@ void Log::Printf(const std::string &format, Leaks::LogLv lv, const std::string f
     }
     std::string f = AddPrefixInfo(format, lv, fileName, line).append("\n");
     if (LogSize() + static_cast<int64_t>(f.size()) > maxLogSize_) {
-        std::cout << "[msleaks] Warn: Log file size is too large, please check: " << logFilePath_ << std::endl;
+        std::cout << "[msmemscope] Warn: Log file size is too large, please check: " << logFilePath_ << std::endl;
         maxLogSize_ *= DOUBLE;
     }
     if (fp_ != nullptr) {
         fprintf(fp_, f.c_str(), args...);
         fflush(fp_);
     } else {
-        std::cout << "[msleaks] Error: open file " << logFilePath_ << " failed." << std::endl;
+        std::cout << "[msmemscope] Error: open file " << logFilePath_ << " failed." << std::endl;
     }
 }
 
@@ -95,29 +95,29 @@ inline std::string GetLogSourceFileName(const std::string &path)
 
 #define LOG_DEBUG(format, ...)                                                                                         \
     do {                                                                                                               \
-        Utility::Log::GetLog().Printf(format, Leaks::LogLv::DEBUG, Utility::GetLogSourceFileName(__FILE__),            \
+        Utility::Log::GetLog().Printf(format, MemScope::LogLv::DEBUG, Utility::GetLogSourceFileName(__FILE__),            \
         __LINE__, ##__VA_ARGS__);                                                                                      \
     } while (0)
 
 #define LOG_INFO(format, ...)                                                                                          \
     do {                                                                                                               \
-        Utility::Log::GetLog().Printf(format, Leaks::LogLv::INFO, Utility::GetLogSourceFileName(__FILE__),             \
+        Utility::Log::GetLog().Printf(format, MemScope::LogLv::INFO, Utility::GetLogSourceFileName(__FILE__),             \
         __LINE__, ##__VA_ARGS__);                                                                                      \
     } while (0)
 
 #define LOG_WARN(format, ...)                                                                                          \
     do {                                                                                                               \
-        Utility::Log::GetLog().Printf(format, Leaks::LogLv::WARN, Utility::GetLogSourceFileName(__FILE__),             \
+        Utility::Log::GetLog().Printf(format, MemScope::LogLv::WARN, Utility::GetLogSourceFileName(__FILE__),             \
         __LINE__, ##__VA_ARGS__);                                                                                      \
     } while (0)
 
 #define LOG_ERROR(format, ...)                                                                                         \
     do {                                                                                                               \
-        Utility::Log::GetLog().Printf(format, Leaks::LogLv::ERROR, Utility::GetLogSourceFileName(__FILE__),            \
+        Utility::Log::GetLog().Printf(format, MemScope::LogLv::ERROR, Utility::GetLogSourceFileName(__FILE__),            \
         __LINE__, ##__VA_ARGS__);                                                                                      \
     } while (0)
 
-inline void SetLogLevel(const Leaks::LogLv &logLevel)
+inline void SetLogLevel(const MemScope::LogLv &logLevel)
 {
     Log::GetLog().SetLogLevel(logLevel);
 }

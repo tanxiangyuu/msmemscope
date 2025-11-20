@@ -6,7 +6,7 @@
 #include "memory_state_manager.h"
 #include "constant.h"
 
-namespace Leaks {
+namespace MemScope {
 
 Dump& Dump::GetInstance(Config config)
 {
@@ -94,8 +94,8 @@ void Dump::DumpMemoryEvent(std::shared_ptr<MemoryEvent>& event, MemoryState* sta
         attr += event->attr + ",";
     }
     if (event->eventType == EventBaseType::MALLOC
-        && !(state->leaksDefinedOwner.empty() && state->userDefinedOwner.empty())) {
-        attr += "owner:" + state->leaksDefinedOwner + state->userDefinedOwner + ",";
+        && !(state->memscopeDefinedOwner.empty() && state->userDefinedOwner.empty())) {
+        attr += "owner:" + state->memscopeDefinedOwner + state->userDefinedOwner + ",";
     }
     if (event->eventType == EventBaseType::MALLOC && !state->inefficientType.empty()) {
         attr += "inefficient_type:" + state->inefficientType + ",";

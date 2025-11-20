@@ -3,7 +3,7 @@
 
 #include <gtest/gtest.h>
 
-using namespace Leaks;
+using namespace MemScope;
 
 TEST(MstxTest, MstxMarkAFuncTest) {
     const char* msg = "Test Message";
@@ -70,34 +70,34 @@ TEST(MstxTest, ReportDomainTest) {
 }
 
 TEST(MstxTest, ReportHeapRegisterTest) {
-    mstxDomainHandle_t msleaks = MstxDomainCreateAFunc("msleaks");
+    mstxDomainHandle_t msmemscope = MstxDomainCreateAFunc("msmemscope");
     mstxMemHeapDesc_t heapDesc;
     void const* ptr = reinterpret_cast<void const*>(123);
     mstxMemVirtualRangeDesc_t memRangeDesc{1, ptr, 1};
     heapDesc.typeSpecificDesc = reinterpret_cast<void const*>(&memRangeDesc);
-    MstxMemHeapRegisterFunc(msleaks, &heapDesc);
+    MstxMemHeapRegisterFunc(msmemscope, &heapDesc);
 }
 
 TEST(MstxTest, ReportHeapUnregisterTest) {
-    mstxDomainHandle_t msleaks = MstxDomainCreateAFunc("msleaks");
+    mstxDomainHandle_t msmemscope = MstxDomainCreateAFunc("msmemscope");
     mstxMemHeapHandle_t heap;
-    MstxMemHeapUnregisterFunc(msleaks, heap);
+    MstxMemHeapUnregisterFunc(msmemscope, heap);
     mstxMemHeapDesc_t heapDesc;
     void const* ptr = reinterpret_cast<void const*>(123);
     mstxMemVirtualRangeDesc_t memRangeDesc{1, ptr, 1};
     heapDesc.typeSpecificDesc = reinterpret_cast<void const*>(&memRangeDesc);
-    MstxMemHeapRegisterFunc(msleaks, &heapDesc);
-    MstxMemHeapUnregisterFunc(msleaks, reinterpret_cast<mstxMemHeapHandle_t>(const_cast<void*>(ptr)));
+    MstxMemHeapRegisterFunc(msmemscope, &heapDesc);
+    MstxMemHeapUnregisterFunc(msmemscope, reinterpret_cast<mstxMemHeapHandle_t>(const_cast<void*>(ptr)));
 }
 
 TEST(MstxTest, ReportRegionsHandleTest) {
-    mstxDomainHandle_t msleaks = MstxDomainCreateAFunc("msleaks");
+    mstxDomainHandle_t msmemscope = MstxDomainCreateAFunc("msmemscope");
     void const* ptr = reinterpret_cast<void const*>(123);
     mstxMemVirtualRangeDesc_t memRangeDesc{1, ptr, 1};
     mstxMemRegionsRegisterBatch_t desc;
     desc.regionCount = 1;
     desc.regionDescArray = reinterpret_cast<const void *>(&memRangeDesc);
-    MstxMemRegionsRegisterFunc(msleaks, &desc);
+    MstxMemRegionsRegisterFunc(msmemscope, &desc);
 
 
     mstxMemRegionsUnregisterBatch_t unregisterBatch;
@@ -107,5 +107,5 @@ TEST(MstxTest, ReportRegionsHandleTest) {
     regionRef[0].pointer = ptr;
     unregisterBatch.refArray = regionRef;
 
-    MstxMemRegionsUnregisterFunc(msleaks, &unregisterBatch);
+    MstxMemRegionsUnregisterFunc(msmemscope, &unregisterBatch);
 }

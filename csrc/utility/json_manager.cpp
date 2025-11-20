@@ -16,18 +16,18 @@ JsonManager& JsonManager::GetInstance()
 
 bool JsonManager::SaveToFile(const std::string& configOutputDir)
 {
-    if (!FileCreateManager::GetInstance(configOutputDir).CreateConfigFile(&fp_, Leaks::CONFIG_FILE, jsonFilePath_)) {
+    if (!FileCreateManager::GetInstance(configOutputDir).CreateConfigFile(&fp_, MemScope::CONFIG_FILE, jsonFilePath_)) {
         return false;
     }
     std::ofstream ofs(jsonFilePath_);
     if (!ofs.is_open()) {
-        std::cout << "[msleaks] Error: Failed to save json file: " << jsonFilePath_ << std::endl;
+        std::cout << "[msmemscope] Error: Failed to save json file: " << jsonFilePath_ << std::endl;
         return false;
     } else {
         try {
             ofs << jsonConfig_.dump(JSON_INDENT);
         } catch (const std::exception& e) {
-            std::cout << "[msleaks] Error: Exception during dump: " << e.what() << std::endl;
+            std::cout << "[msmemscope] Error: Exception during dump: " << e.what() << std::endl;
             ofs.close();
             return false;
         }
@@ -40,7 +40,7 @@ bool JsonManager::LoadFromFile(std::string filePath)
 {
     std::ifstream ifs(filePath);
     if (!ifs.is_open()) {
-        std::cout << "[msleaks] Error: Failed to open json file: " << filePath << std::endl;
+        std::cout << "[msmemscope] Error: Failed to open json file: " << filePath << std::endl;
         return false;
     } else {
         ifs >> jsonConfig_;
@@ -55,13 +55,13 @@ bool JsonManager::CheckKeyIsValid(const std::string& key, nlohmann::json& curren
     Split(key, std::back_inserter(parts), ".");
 
     if (parts.empty()) {
-        std::cout << "[msleaks] Error: Empty key path provided!" << std::endl;
+        std::cout << "[msmemscope] Error: Empty key path provided!" << std::endl;
         return false;
     }
 
     for (auto& part : parts) {
         if (!current.contains(part)) {
-            std::cout << "[msleaks] Error: Key path: " << part << "keyword not exist!" << std::endl;
+            std::cout << "[msmemscope] Error: Key path: " << part << "keyword not exist!" << std::endl;
             return false;
         }
 
@@ -80,7 +80,7 @@ void JsonManager::GetStringValue(const std::string& key, std::string& value)
     try {
         value = current.get<std::string>();
     } catch (const std::exception& e) {
-        std::cout << "[msleaks] Error: Exception while reading nested key " << key << ": " << e.what() << std::endl;
+        std::cout << "[msmemscope] Error: Exception while reading nested key " << key << ": " << e.what() << std::endl;
         return ;
     }
 }
@@ -88,7 +88,7 @@ void JsonManager::GetStringValue(const std::string& key, std::string& value)
 void JsonManager::GetCharListValue(const std::string& key, char* buffer, size_t bufferSize)
 {
     if (!buffer || bufferSize == 0) {
-        std::cout << "[msleaks] Error: Invalid buffer or buffer size!" << std::endl;
+        std::cout << "[msmemscope] Error: Invalid buffer or buffer size!" << std::endl;
         return ;
     }
     std::string str;
@@ -99,7 +99,7 @@ void JsonManager::GetCharListValue(const std::string& key, char* buffer, size_t 
     }
 
     if (strncpy_s(buffer, bufferSize, str.c_str(), bufferSize - 1) != EOK) {
-        std::cout << "[msleaks] Error: strncpy_s FAILED" << std::endl;
+        std::cout << "[msmemscope] Error: strncpy_s FAILED" << std::endl;
         return ;
     }
 }
@@ -114,7 +114,7 @@ void JsonManager::GetUint8Value(const std::string& key, uint8_t& value)
     try {
         value = current.get<uint8_t>();
     } catch (const std::exception& e) {
-        std::cout << "[msleaks] Error: Exception while reading nested key " << key << ": " << e.what() << std::endl;
+        std::cout << "[msmemscope] Error: Exception while reading nested key " << key << ": " << e.what() << std::endl;
         return ;
     }
 }
@@ -129,7 +129,7 @@ void JsonManager::GetUint32Value(const std::string& key, uint32_t& value)
     try {
         value = current.get<uint32_t>();
     } catch (const std::exception& e) {
-        std::cout << "[msleaks] Error: Exception while reading nested key " << key << ": " << e.what() << std::endl;
+        std::cout << "[msmemscope] Error: Exception while reading nested key " << key << ": " << e.what() << std::endl;
         return ;
     }
 }
@@ -144,7 +144,7 @@ void JsonManager::GetBoolValue(const std::string& key, bool& value)
     try {
         value = current.get<bool>();
     } catch (const std::exception& e) {
-        std::cout << "[msleaks] Error: Exception while reading nested key " << key << ": " << e.what() << std::endl;
+        std::cout << "[msmemscope] Error: Exception while reading nested key " << key << ": " << e.what() << std::endl;
         return ;
     }
 }
@@ -159,7 +159,7 @@ void JsonManager::GetVectorIntValue(const std::string& key, std::vector<int>& va
     try {
         value = current.get<std::vector<int>>();
     } catch (const std::exception& e) {
-        std::cout << "[msleaks] Error: Exception while reading nested key " << key << ": " << e.what() << std::endl;
+        std::cout << "[msmemscope] Error: Exception while reading nested key " << key << ": " << e.what() << std::endl;
         return ;
     }
 }
@@ -167,7 +167,7 @@ void JsonManager::GetVectorIntValue(const std::string& key, std::vector<int>& va
 void JsonManager::GetUint32ListsValue(const std::string& key, uint32_t* lists, size_t length)
 {
     if (!lists || length == 0) {
-        std::cout << "[msleaks] Error: Invalid lists or lists size!" << std::endl;
+        std::cout << "[msmemscope] Error: Invalid lists or lists size!" << std::endl;
         return ;
     }
 
@@ -193,7 +193,7 @@ bool JsonConfig::EnsureConfigPathConsistency(const std::string& configOutputDir)
  
     // 创建 FileCreateManager 实例并获取实际配置路径
     auto& fileManager = FileCreateManager::GetInstance(configOutputDir);
-    std::string actualConfigPath = fileManager.GetProjectDir() + '/' + Leaks::CONFIG_FILE + ".json";
+    std::string actualConfigPath = fileManager.GetProjectDir() + '/' + MemScope::CONFIG_FILE + ".json";
  
     bool needUpdate = false;
     if (currentEnvPath.empty() || currentEnvPath != actualConfigPath) {
@@ -202,7 +202,7 @@ bool JsonConfig::EnsureConfigPathConsistency(const std::string& configOutputDir)
  
     if (needUpdate) {
         if (setenv(MSLEAKS_CONFIG_ENV, actualConfigPath.c_str(), 1) != 0) {
-            std::cout << "[msleaks] Error: Failed to set MSLEAKS_CONFIG_ENV to " << actualConfigPath << std::endl;
+            std::cout << "[msmemscope] Error: Failed to set MSLEAKS_CONFIG_ENV to " << actualConfigPath << std::endl;
             return false;
         }
     }
@@ -210,7 +210,7 @@ bool JsonConfig::EnsureConfigPathConsistency(const std::string& configOutputDir)
     return true;
 }
  
-void JsonConfig::SaveConfigToJson(const Leaks::Config& config)
+void JsonConfig::SaveConfigToJson(const MemScope::Config& config)
 {
     Utility::JsonManager::GetInstance().SetValue("enableCStack", config.enableCStack);
     Utility::JsonManager::GetInstance().SetValue("enablePyStack", config.enablePyStack);
@@ -229,7 +229,7 @@ void JsonConfig::SaveConfigToJson(const Leaks::Config& config)
     Utility::JsonManager::GetInstance().SetValue("isEffective", config.isEffective);
 
     std::vector<uint32_t> stepIdList{config.stepList.stepIdList, config.stepList.stepIdList +
-        Leaks::SELECTED_STEP_MAX_NUM};
+        MemScope::SELECTED_STEP_MAX_NUM};
     Utility::JsonManager::GetInstance().SetNestedValue("SelectedStepList.stepIdList", stepIdList);
     Utility::JsonManager::GetInstance().SetNestedValue("SelectedStepList.stepCount", config.stepList.stepCount);
     Utility::JsonManager::GetInstance().SetNestedValue("watchConfig.isWatched", config.watchConfig.isWatched);
@@ -239,17 +239,17 @@ void JsonConfig::SaveConfigToJson(const Leaks::Config& config)
     Utility::JsonManager::GetInstance().SetNestedValue("watchConfig.outputId", config.watchConfig.outputId);
  
     if (!EnsureConfigPathConsistency(config.outputDir)) {
-        std::cout << "[msleaks] Error: Failed to ensure config path consistency." << std::endl;
+        std::cout << "[msmemscope] Error: Failed to ensure config path consistency." << std::endl;
         return ;
     }
 
     if (!Utility::JsonManager::GetInstance().SaveToFile(config.outputDir)) {
-        std::cout << "[msleaks] Error: Save Json config to file failed!" << std::endl;
+        std::cout << "[msmemscope] Error: Save Json config to file failed!" << std::endl;
         return ;
     }
 }
 
-bool JsonConfig::ReadJsonConfig(Leaks::Config& config)
+bool JsonConfig::ReadJsonConfig(MemScope::Config& config)
 {
     const char* path = std::getenv(MSLEAKS_CONFIG_ENV);
     if (!path) {
@@ -257,7 +257,7 @@ bool JsonConfig::ReadJsonConfig(Leaks::Config& config)
     }
 
     if (!Utility::JsonManager::GetInstance().LoadFromFile(path)) {
-        std::cout << "[msleaks] Error: Failed to load json config file: " << path << std::endl;
+        std::cout << "[msmemscope] Error: Failed to load json config file: " << path << std::endl;
         return false;
     }
 

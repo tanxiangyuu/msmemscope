@@ -6,7 +6,7 @@ import ctypes
 ASCEND_HOME_PATH = os.getenv('ASCEND_HOME_PATH')
 LEAKS_LIB_PATH = ""
 if ASCEND_HOME_PATH:
-    LEAKS_LIB_PATH = os.path.join(ASCEND_HOME_PATH, "tools", "msleaks", "lib64")
+    LEAKS_LIB_PATH = os.path.join(ASCEND_HOME_PATH, "tools", "msmemscope", "lib64")
 
 # 加载依赖
 if LEAKS_LIB_PATH:
@@ -16,9 +16,9 @@ if LEAKS_LIB_PATH:
     except OSError as e:
         print(f"[ERROR] {e}")
 
-from ._msleaks import _watcher
-from ._msleaks import _tracer
-from ._msleaks import start, stop, config
+from ._msmemscope import _watcher
+from ._msmemscope import _tracer
+from ._msmemscope import start, stop, config
 
 tracer = _tracer
 watcher = _watcher

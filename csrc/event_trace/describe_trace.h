@@ -9,7 +9,7 @@
 #include <iostream>
 #include <vector>
 
-namespace Leaks {
+namespace MemScope {
 
 class DescribeTrace {
 public:

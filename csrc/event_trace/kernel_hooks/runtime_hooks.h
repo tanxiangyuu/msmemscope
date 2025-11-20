@@ -13,7 +13,7 @@
 #include <dlfcn.h>
 #include "vallina_symbol.h"
 
-namespace Leaks {
+namespace MemScope {
 constexpr uint64_t MAX_BINARY_SIZE = 32ULL * 1024 * 1024 * 1024; // 32GB
 
 struct RuntimeLibLoader {

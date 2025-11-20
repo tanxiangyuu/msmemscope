@@ -11,7 +11,7 @@
 #include "event.h"
 #include "comm_def.h"
 
-namespace Leaks {
+namespace MemScope {
 struct ExecCmd {
     explicit ExecCmd(std::vector<std::string> const &args);
     std::string const &ExecPath(void) const;

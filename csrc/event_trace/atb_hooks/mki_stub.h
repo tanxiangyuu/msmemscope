@@ -106,8 +106,8 @@ struct Tensor {
     void *hostData = nullptr;
 };
 class LaunchParam {};
-using LeaksOriginalGetInTensors = const Mki::SVector<Mki::Tensor>& (*)(Mki::LaunchParam*);
-using LeaksOriginalGetOutTensors = const Mki::SVector<Mki::Tensor>& (*)(Mki::LaunchParam*);
+using MemScopeOriginalGetInTensors = const Mki::SVector<Mki::Tensor>& (*)(Mki::LaunchParam*);
+using MemScopeOriginalGetOutTensors = const Mki::SVector<Mki::Tensor>& (*)(Mki::LaunchParam*);
 } // namespace Mki
 
 #endif

@@ -13,7 +13,7 @@
 #include "tensor_dumper.h"
 #include "tensor_monitor.h"
 
-namespace Leaks {
+namespace MemScope {
 
 class MemoryWatch {
 public:

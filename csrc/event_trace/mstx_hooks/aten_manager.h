@@ -10,7 +10,7 @@
 #include "memory_watch/tensor_monitor.h"
 #include "memory_watch/memory_watch.h"
 
-namespace Leaks {
+namespace MemScope {
 
 struct AtenAccessTensorInfo {
     std::string addr;

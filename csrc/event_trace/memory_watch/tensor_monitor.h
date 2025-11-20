@@ -17,7 +17,7 @@ struct MonitoredTensor {
     uint64_t dataSize;
 };
 
-namespace Leaks {
+namespace MemScope {
 
 class TensorMonitor {
 public:

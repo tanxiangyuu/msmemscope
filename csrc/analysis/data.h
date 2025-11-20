@@ -5,7 +5,7 @@
 
 #include <cstdint>
 
-namespace Leaks {
+namespace MemScope {
 
 enum class DataType : uint8_t {
     LEAKS_EVENT = 0,

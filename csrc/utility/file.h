@@ -53,7 +53,7 @@ namespace Utility {
     inline void SetDirPath(std::string& dirPath, const std::string& defaultDirPath)
     {
         if (dirPath.length() > PATH_MAX) {
-            std::cout << "[msleaks] Error: Path " << dirPath << " length exceeds the maximum length:"
+            std::cout << "[msmemscope] Error: Path " << dirPath << " length exceeds the maximum length:"
                       << PATH_MAX << "." << std::endl;
             return;
         }
@@ -68,7 +68,7 @@ namespace Utility {
     inline bool MakeDir(const std::string& dirPath)
     {
         if (dirPath.empty()) {
-            std::cout << "[msleaks] Error: The directory path is empty." << std::endl;
+            std::cout << "[msmemscope] Error: The directory path is empty." << std::endl;
             return false;
         }
 
@@ -87,13 +87,13 @@ namespace Utility {
                 continue;
             }
             if (mkdir(partPath.c_str(), DIRMOD) != 0) {
-                std::cout << "[msleaks] Error: Cannot create dir " << partPath << " ." << std::endl;
+                std::cout << "[msmemscope] Error: Cannot create dir " << partPath << " ." << std::endl;
                 return false;
             }
         }
 
         if (mkdir(dirPath.c_str(), DIRMOD) != 0) {
-            std::cout << "[msleaks] Error: Cannot create dir " << dirPath << " ." << std::endl;
+            std::cout << "[msmemscope] Error: Cannot create dir " << dirPath << " ." << std::endl;
             return false;
         }
         return true;
@@ -102,7 +102,7 @@ namespace Utility {
     inline bool Exist(const std::string &path)
     {
         if (path.empty()) {
-            std::cout << "[msleaks] Error: The file path is empty." << std::endl;
+            std::cout << "[msmemscope] Error: The file path is empty." << std::endl;
             return false;
         }
         return access(path.c_str(), F_OK) == 0;
@@ -112,11 +112,11 @@ namespace Utility {
     inline bool Fprintf(FILE* fp, const std::string &format, const Args& ...args)
     {
         if (fp == nullptr) {
-            std::cout << "[msleaks] Error: Fail to write data to file, fp is NULL" << std::endl;
+            std::cout << "[msmemscope] Error: Fail to write data to file, fp is NULL" << std::endl;
             return false;
         }
         if (int fpRes = fprintf(fp, format.c_str(), args...) < 0) {
-            std::cout << "[msleaks] Error: Fail to write data to file, errno: " << fpRes << std::endl;
+            std::cout << "[msmemscope] Error: Fail to write data to file, errno: " << fpRes << std::endl;
             return false;
         }
         return true;
@@ -127,17 +127,17 @@ namespace Utility {
     {
         struct stat buffer;
         if (lstat(path.c_str(), &buffer) != 0) {
-            std::cout << "[msleaks] Error: Error getting file state for " << path << "." << std::endl;
+            std::cout << "[msmemscope] Error: Error getting file state for " << path << "." << std::endl;
             return false;
         }
 
         if (!S_ISREG(buffer.st_mode)) {
-            std::cout << "[msleaks] Error: File " << path << " is not a regular file." << std::endl;
+            std::cout << "[msmemscope] Error: File " << path << " is not a regular file." << std::endl;
             return false;
         }
 
         if (buffer.st_size > static_cast<int64_t>(MAX_INPUT_FILE_SIZE)) {
-            std::cout << "[msleaks] Error: File " << path << " exceeds maximum size ("
+            std::cout << "[msmemscope] Error: File " << path << " exceeds maximum size ("
                       << MAX_INPUT_FILE_SIZE << " bytes)." << std::endl;
             return false;
         }
