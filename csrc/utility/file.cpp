@@ -149,7 +149,10 @@ namespace Utility {
         std::string taskDir, std::string tableName, std::string tableCreateSql)
     {
         if (*filefp == nullptr) {
-            std::string fileName = filePrefix + GetDateStr() + ".db";
+            if (dbDateStr_ == "") {
+                dbDateStr_ = GetDateStr();
+            }
+            std::string fileName = filePrefix + dbDateStr_ + ".db";
             std::string dirPath;
             if (devId.empty()) {
                 dirPath = projectDir_ + "/" + taskDir;
