@@ -48,6 +48,7 @@ namespace Utility {
         void SetProjectDir(std::string dirPath);
     private:
         std::string projectDir_;
+        std::string dbDateStr_{""};
     };
 
     inline void SetDirPath(std::string& dirPath, const std::string& defaultDirPath)

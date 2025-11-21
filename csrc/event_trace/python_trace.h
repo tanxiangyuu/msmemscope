@@ -34,12 +34,9 @@ public:
     void Stop();
     bool IsTraceActive();
 private:
-    bool DumpTraceEvent(std::shared_ptr<TraceEvent>& event);
+    void DumpTraceEvent(std::shared_ptr<TraceEvent>& event);
     bool IsIgnore(std::string funcName);
-    PythonTrace()
-    {
-        handler_ = MakeDataHandler(GetConfig(), DataType::PYTHON_TRACE_EVENT, EMPTY_DEVID);
-    }
+    PythonTrace() = default;
     ~PythonTrace() = default;
     std::unordered_map<uint64_t, std::stack<std::shared_ptr<TraceEvent>>> frameStack_;
     std::atomic<bool> active_{false};
@@ -47,7 +44,8 @@ private:
     std::string prefix_;
     std::string dirPath_;
     std::vector<std::string> ignorePyFunc_ = {"__torch_dispatch__"};
-    std::unique_ptr<DataHandler> handler_;
+    std::unordered_map<std::string, std::unique_ptr<DataHandler>> handlerMap_;
+    std::vector<std::shared_ptr<TraceEvent>> sharedEventLists_;
 };
 void callback(const std::string& hash, const std::string& info, PyTraceType what, uint64_t timestamp);
 }
