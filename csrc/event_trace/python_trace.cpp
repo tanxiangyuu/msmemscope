@@ -25,12 +25,17 @@ void PythonTrace::RecordPyCall(const std::string& funcHash, const std::string& f
     if (throw_[tid]) {
         return;
     }
+    int32_t devId = GD_INVALID_NUM;
+    if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
+        LOG_ERROR("[trace] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+    }
     std::shared_ptr<TraceEvent> event = std::make_shared<TraceEvent>();
     event->startTs = timestamp ? timestamp : Utility::GetTimeNanoseconds();
     event->hash = funcHash;
     event->info = funcInfo;
     event->pid = Utility::GetPid();
     event->tid = tid;
+    event->device = std::to_string(devId);
     std::string funcName = funcHash.substr(funcHash.find(":") + 1);
     if (IsIgnore(funcName) && !throw_[tid]) {
         throw_[tid] = true;
@@ -38,12 +43,17 @@ void PythonTrace::RecordPyCall(const std::string& funcHash, const std::string& f
     frameStack_[tid].push(event);
 }
 
-bool PythonTrace::DumpTraceEvent(std::shared_ptr<TraceEvent>& event)
+void PythonTrace::DumpTraceEvent(std::shared_ptr<TraceEvent>& event)
 {
-    if (!handler_->Init()) {
-        return false;
+    if (event->device == "N/A") {
+        sharedEventLists_.push_back(event);
+        return ;
     }
-    return handler_->Write(event);
+    auto it = handlerMap_.find(event->device);
+    if (it == handlerMap_.end()) {
+        handlerMap_.insert({event->device, MakeDataHandler(GetConfig(), DataType::PYTHON_TRACE_EVENT, event->device)});
+    }
+    handlerMap_[event->device]->Write(event);
 }
 
 void PythonTrace::RecordCCall(std::string funcHash, std::string funcInfo)
@@ -52,12 +62,17 @@ void PythonTrace::RecordCCall(std::string funcHash, std::string funcInfo)
     if (throw_[tid]) {
         return;
     }
+    int32_t devId = GD_INVALID_NUM;
+    if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
+        LOG_ERROR("[trace] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+    }
     std::shared_ptr<TraceEvent> event = std::make_shared<TraceEvent>();
     event->startTs = Utility::GetTimeNanoseconds();
     event->hash = funcHash;
     event->info = funcInfo;
     event->pid = Utility::GetPid();
     event->tid = tid;
+    event->device = std::to_string(devId);
     frameStack_[tid].push(event);
 }
 
@@ -72,8 +87,12 @@ void PythonTrace::RecordReturn(std::string funcHash, std::string funcInfo)
             DumpTraceEvent(event);
             frameStack_[tid].pop();
         } else if (throw_[tid] == false) {
+            int32_t devId = GD_INVALID_NUM;
+            if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
+                LOG_ERROR("[trace] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+            }
             std::shared_ptr<TraceEvent> event = std::make_shared<TraceEvent>(
-                0, Utility::GetTimeNanoseconds(), tid, Utility::GetPid(), funcInfo, funcHash);
+                0, Utility::GetTimeNanoseconds(), tid, Utility::GetPid(), std::to_string(devId), funcInfo, funcHash);
             DumpTraceEvent(event);
         }
     }

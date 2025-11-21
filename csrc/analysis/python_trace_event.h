@@ -20,15 +20,17 @@ public:
         uint64_t endTs,
         uint64_t tid,
         uint64_t pid,
+        std::string device,
         const std::string& info,
         const std::string& hash
     ) : DataBase(DataType::PYTHON_TRACE_EVENT), startTs(startTs), endTs(endTs),
-        tid(tid), pid(pid), info(info), hash(hash) {}
+        tid(tid), pid(pid), device(device), info(info), hash(hash) {}
 
     uint64_t startTs = 0;
     uint64_t endTs = 0;
     uint64_t tid;
     uint64_t pid;
+    std::string device;
     std::string info;
     std::string hash;
 };
