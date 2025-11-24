@@ -14,7 +14,6 @@
 #include "bit_field.h"
 #include "kernel_hooks/runtime_prof_api.h"
 #include "describe_trace.h"
-
 #include "decompose_analyzer.h"
 #include "inefficient_analyzer.h"
 #include "json_manager.h"
@@ -133,7 +132,7 @@ EventReport::EventReport(MemScopeCommType type)
         InefficientAnalyzer::GetInstance();
     }
     Dump::GetInstance(initConfig_);
-
+    LOG_INFO("LOG INIT");
     RegisterRtProfileCallback();
 
     return;
