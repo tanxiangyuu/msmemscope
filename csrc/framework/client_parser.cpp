@@ -287,7 +287,7 @@ void ParseAnalysis(const std::string &param, Config &config, bool &printHelpInfo
     BitField<decltype(config.analysisType)> analysisTypeBit;
 
     std::unordered_map<std::string, AnalysisType> analysisMp = {
-        {"memscope", AnalysisType::LEAKS_ANALYSIS},
+        {"leaks", AnalysisType::LEAKS_ANALYSIS},
         {"decompose", AnalysisType::DECOMPOSE_ANALYSIS},
         {"inefficient", AnalysisType::INEFFICIENCY_ANALYSIS},
     };
