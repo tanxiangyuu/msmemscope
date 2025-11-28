@@ -77,7 +77,7 @@ void ShowHelpInfo()
         << "    --analysis                               Specify the analysis method to enable (optional)."
         << std::endl
         << "                                             Available options:" << std::endl
-        << "                                               - memscope : Enables memory leak detection (default)"
+        << "                                               - leaks : Enables memory leak detection (default)"
         << std::endl
         << "                                               - decompose : Enables memory categorization" << std::endl
         << "                                               - inefficient : Enables inefficient memory recognition"

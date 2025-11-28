@@ -255,8 +255,11 @@ void EventTraceManager::InitTraceStatus()
 
 void EventTraceManager::SetTraceStatus(const EventTraceStatus status)
 {
-    std::cout << "[msmemscope] Info: Set trace status to " << std::to_string(static_cast<uint8_t>(status)) << " ." << std::endl;
-
+    if (status == EventTraceStatus::IN_TRACING) {
+        std::cout << "[msmemscope] Info: Start tracing.\n";
+    } else if (status == EventTraceStatus::NOT_IN_TRACING) {
+        std::cout << "[msmemscope] Info: Stop tracing.\n";
+    }
     if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportTraceStatus(status)) {
         std::cout << "[msmemscope] Error: Report trace status failed.\n";
     }
