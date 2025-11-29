@@ -38,6 +38,9 @@ PyDoc_STRVAR(StepDoc,
 "step()\n--\n\nmark step info.");
 static PyObject* MsmemscopeStep(PyObject* self, PyObject* args)
 {
+    if (!EventTraceManager::Instance().IsTracingEnabled()) {
+        Py_RETURN_NONE;
+    }
     if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportPyStepRecord()) {
         PyErr_SetString(PyExc_TypeError, "Report Step Record Failed");
     }
