@@ -49,6 +49,10 @@ bool TensorDumper::DumpTensorBinary(const std::vector<uint8_t> &hostData, std::s
         LOG_ERROR("DumpTensorBinary get device id failed, " + std::to_string(devId));
     }
     std::string binOutDir = dumpDir_ + "/" + "device_" + std::to_string(devId) + "/" + WATCH_DUMP_DIR;
+    // 判断watch_dump的目录是否存在，如不存在则提示用户将要创建。
+    if (access(binOutDir.c_str(), F_OK) != 0) {
+        std::cout << "[msmemscope] Info: Created watch_dump directory at " << binOutDir << "." << std::endl;
+    }
     if (!Utility::MakeDir(binOutDir)) {
         LOG_ERROR("Make DumpTensorBinary dir failed.");
         return false;
