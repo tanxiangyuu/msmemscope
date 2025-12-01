@@ -123,7 +123,7 @@ class LeaksAnalyzer(BaseAnalyzer):
             if allocations:
                 self.leaks.append(f"====== ERROR: Detected memory leaks on device {device_id} ======")
                 for index, info in list(allocations.items()):
-                    self.leaks.append(f"Direct Hal memory leak of {info['size']} Mb(s) at {hex(safe_convert_int(info['addr']))}"
+                    self.leaks.append(f"Direct Hal memory leak of {info['size']} Mb(s) at {info['addr']}"
                      f" in Index {index}.")
             else:
                 self.leaks.append(f"No hal memory leaks detected on device {device_id}.")
