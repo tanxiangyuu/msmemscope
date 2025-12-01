@@ -99,6 +99,23 @@ bool GetDevice(int32_t *devId)
     return true;
 }
 
+bool GetDeviceMemInfo(size_t &free, size_t &total)
+{
+    using func = decltype(&aclrtGetMemInfo);
+    static auto vallina = VallinaSymbol<AclLibLoader>::Instance().Get<func>("aclrtGetMemInfo");
+    if (vallina == nullptr) {
+        LOG_ERROR("Get aclrtGetMemInfo func ptr failed");
+        return false;
+    }
+
+    int ret = vallina(ACL_HBM_MEM, &free, &total);
+    if (ret != ACL_SUCCESS) {
+        LOG_ERROR("Get device mem info failed, ret is" + std::to_string(ret));
+        return false;
+    }
+    return true;
+}
+
 void EventReport::ReportRecordEvent(const RecordBuffer& record)
 {
     Process::GetInstance(initConfig_).RecordHandler(record);

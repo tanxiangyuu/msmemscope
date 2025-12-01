@@ -5,6 +5,7 @@
 #include "event_dispatcher.h"
 #include "memory_state_manager.h"
 #include "constant.h"
+#include "event_trace/event_report.h"
 
 namespace MemScope {
 
@@ -140,6 +141,15 @@ void Dump::DumpKernelLaunchEvent(std::shared_ptr<KernelLaunchEvent>& event)
 
 void Dump::DumpSystemEvent(std::shared_ptr<SystemEvent>& event)
 {
+    // 在开始采集数据之前，落盘一次设备显存信息供可视化
+    if (event->eventSubType == EventSubType::TRACE_START) {
+        size_t free = 0;
+        size_t total = 0;
+        if (GetDeviceMemInfo(free, total)) {
+            std::string attr = "free:" + std::to_string(free) + ",total:" + std::to_string(total);
+            event->attr = "\"{" + attr + "}\"";
+        }
+    }
     WriteToFile(event);
 }
 
