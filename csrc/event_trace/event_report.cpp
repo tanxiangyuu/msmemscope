@@ -110,7 +110,7 @@ bool GetDeviceMemInfo(size_t &free, size_t &total)
 
     int ret = vallina(ACL_HBM_MEM, &free, &total);
     if (ret != ACL_SUCCESS) {
-        LOG_ERROR("Get device mem info failed, ret is" + std::to_string(ret));
+        LOG_ERROR("Get device mem info failed, ret is " + std::to_string(ret));
         return false;
     }
     return true;
