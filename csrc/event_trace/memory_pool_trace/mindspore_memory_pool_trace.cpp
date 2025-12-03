@@ -83,6 +83,7 @@ void MindsporeMemoryPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegi
         MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
         record->type = RecordType::MINDSPORE_NPU_RECORD;
         record->memoryUsage = memUsageMp_[devId];
+
         if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
             LOG_ERROR("Report Mindspore Data Failed");
         }
@@ -118,6 +119,7 @@ void MindsporeMemoryPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegions
         MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
         record->type = RecordType::MINDSPORE_NPU_RECORD;
         record->memoryUsage = memUsageMp_[rangeDesc.deviceId];
+
         if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
             LOG_ERROR("Report Mindspore Data Failed");
         }
