@@ -79,6 +79,7 @@ void PTAWorkspacePoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegions
         MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
         record->type = RecordType::PTA_WORKSPACE_POOL_RECORD;
         record->memoryUsage = memUsageMp_[devId];
+
         if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
             LOG_ERROR("Report PTA Workspace Data Failed");
         }
@@ -114,6 +115,7 @@ void PTAWorkspacePoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnr
         MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
         record->type = RecordType::PTA_WORKSPACE_POOL_RECORD;
         record->memoryUsage = memUsageMp_[rangeDesc.deviceId];
+
         if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
             LOG_ERROR("Report PTA Workspace Data Failed");
         }
