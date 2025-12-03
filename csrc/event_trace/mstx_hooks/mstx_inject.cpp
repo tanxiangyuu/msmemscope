@@ -130,6 +130,7 @@ bool MstxTableMemCoreInject(MstxGetModuleFuncTableFunc getFuncTable)
 
 mstxDomainHandle_t MstxDomainCreateAFunc(char const *domainName)
 {
+    // 总开关控制domain的创建和数据的上报
     if (!EventTraceManager::Instance().IsTracingEnabled()) {
         return nullptr;
     }
@@ -138,33 +139,21 @@ mstxDomainHandle_t MstxDomainCreateAFunc(char const *domainName)
 
 mstxMemHeapHandle_t MstxMemHeapRegisterFunc(mstxDomainHandle_t domain, mstxMemHeapDesc_t const *desc)
 {
-    if (!EventTraceManager::Instance().IsTracingEnabled()) {
-        return nullptr;
-    }
     return MstxManager::GetInstance().ReportHeapRegister(domain, desc);
 }
 
 void MstxMemHeapUnregisterFunc(mstxDomainHandle_t domain, mstxMemHeapHandle_t heap)
 {
-    if (!EventTraceManager::Instance().IsTracingEnabled()) {
-        return;
-    }
     MstxManager::GetInstance().ReportHeapUnregister(domain, heap);
 }
 
 void MstxMemRegionsRegisterFunc(mstxDomainHandle_t domain, mstxMemRegionsRegisterBatch_t const *desc)
 {
-    if (!EventTraceManager::Instance().IsTracingEnabled()) {
-        return;
-    }
     MstxManager::GetInstance().ReportRegionsRegister(domain, desc);
 }
 
 void MstxMemRegionsUnregisterFunc(mstxDomainHandle_t domain, mstxMemRegionsUnregisterBatch_t const *desc)
 {
-    if (!EventTraceManager::Instance().IsTracingEnabled()) {
-        return;
-    }
     MstxManager::GetInstance().ReportRegionsUnregister(domain, desc);
 }
 
