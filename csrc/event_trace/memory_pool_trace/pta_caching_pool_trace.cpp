@@ -80,6 +80,7 @@ void PTACachingPoolTrace::Reallocate(mstxDomainHandle_t domain, mstxMemRegionsRe
         MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
         record->type = RecordType::PTA_CACHING_POOL_RECORD;
         record->memoryUsage = memUsageMp_[devId];
+
         if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
             LOG_ERROR("Report PTA Caching Data Failed");
         }
@@ -115,6 +116,7 @@ void PTACachingPoolTrace::Release(mstxDomainHandle_t domain, mstxMemRegionsUnreg
         MemPoolRecord* record = buffer.Cast<MemPoolRecord>();
         record->type = RecordType::PTA_CACHING_POOL_RECORD;
         record->memoryUsage = memUsageMp_[rangeDesc.deviceId];
+
         if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportMemPoolRecord(buffer)) {
             LOG_ERROR("Report PTA Caching Data Failed");
         }
