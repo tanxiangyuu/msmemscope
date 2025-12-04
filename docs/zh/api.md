@@ -62,8 +62,8 @@ msMemScope工具提供快速分析接口和analyzer类分析两种方式，进�
     |--|--|
     |LeaksAnalyzer|内存泄漏分析类。|
     |LeaksConfig|内存泄漏分析参数。|
-    |InefficientConfig|低效显存分析参数。|
-    |InefficientAnalyzer|低效显存分析类。|
+    |InefficientConfig|低效内存分析参数。|
+    |InefficientAnalyzer|低效内存分析类。|
 
 
 
@@ -152,7 +152,7 @@ msMemScope工具提供的对外分析接口。支持内存泄漏分析和自定�
 
 - 自定义低效内存识别
 
-  支持输入自定义参数，对msMemScope生成的落盘csv文件或db文件进行离线低效内存识别。根据自定义参数规范，灵活设置低效内存识别的内存块阈值、关注的低效内存类型，以及临时闲置的API间隔时间，从而精准识别落盘的csv或db文件中的低效内存。
+  支持输入自定义参数，对msMemScope生成的落盘csv文件或db文件进行离线低效内存识别。根据自定义参数规范，灵活设置低效内存识别的内存块阈值、关注的低效内存类型，以及临时闲置的API间隔时间，从而准确识别落盘的csv或db文件中的低效内存。
 
   > [!NOTE] 说明  
   > 如果输入的csv文件或db文件已有低效内存识别的结果，使用自定义低效内存识别功能时，不会清除原有的低效内存识别结果，而是会在此基础上新增识别结果。如果需要多次执行自定义低效内存识别功能，建议备份原始文件。
@@ -198,7 +198,7 @@ msmemscope.analyze("inefficient",
 
 **功能说明**
 
-msMemScope工具对外提供的内存泄漏快速分析接口。
+msMemScope工具对外提供内存泄漏快速分析接口。
 
 **函数原型**
 
@@ -251,16 +251,16 @@ check_inefficient(input_path: str, mem_size: int = 0, inefficient_type: List[str
 |参数名|输入/输出|说明|
 |--|--|--|
 |input_path|输入|需要进行离线自定义低效内存识别处理的csv或者db文件路径。|
-|mem_size|输入|低效内存阈值，单位：Bytes，低于该阈值的显存块不会输出结果。|
-|inefficient_type|输入|低效类型分类，确定判断策略，仅输出用户关注的低效内存类型。当前支持的类型如下：过早申请：early_allocation过迟释放：late_deallocation临时闲置：temporary_idleness|
-|idle_threshold|输入|临时闲置阈值，决定临时闲置低效内存API阈值，可以灵活设置阈值大小。|
+|mem_size|输入|低效内存阈值，单位：Bytes，低于该阈值的内存块不会输出结果。|
+|inefficient_type|输入|低效类型分类，确定判断策略，仅输出用户关注的低效内存类型。当前支持的类型如下：<br> - 过早申请：early_allocation <br> - 过迟释放：late_deallocation <br> - 临时闲置：temporary_idleness|
+|idle_threshold|输入|临时闲置阈值，决定临时闲置低效内存的API阈值，可以灵活设置阈值大小。|
 
 
 **返回值说明**
 
 无返回值。
 
-运行后会打印提示分析过程，并识别结果写到原文件中。
+运行后会打印提示分析过程，并识别结果写入原文件中。
 
 **调用示例**
 

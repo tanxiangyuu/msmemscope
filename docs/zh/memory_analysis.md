@@ -6,11 +6,11 @@ msMemScope工具基于采集的内存数据，提供泄漏、对比、监测、�
 
 |分析能力|说明|
 |--|--|
-|内存泄漏|针对内存长时间未释放和内存泄漏等问题，需要进行内存分析时，msMemScope工具提供内存泄漏分析和kernelLaunch粒度的内存变化分析功能，进行告警定位与分析。|
+|内存泄漏|针对内存长时间未释放和内存泄漏等问题，需要进行内存分析时，msMemScope工具提供内存泄漏分析和kernelLaunch粒度的内存变化分析功能，实现告警定位与分析。|
 |内存对比|当两个Step内存使用存在差异时，可能会导致内存使用过多，甚至出现OOM（Out of Memory，内存溢出）的问题，则需要使用msMemScope工具的内存对比分析功能来定位并分析问题。|
 |内存块监测|在大模型场景中，当遇到内存踩踏定位困难时，msMemScope工具支持通过Python接口和命令行两种方式，在算子执行前后对指定的内存块进行监测。根据内存块数据的变化，快速确定算子间内存踩踏的范围或具体位置。|
 |内存拆解|msMemScope工具提供内存拆解功能，支持对CANN层和Ascend Extension for PyTorch框架的内存使用情况进行拆解，输出模型权重、激活值、梯度，以及优化器等组件的内存占用情况。|
-|低效内存识别|在训练推理模型过程中，可能会存在部分内存块申请后未立即使用，或使用完毕后未及时释放的低效情况。msMemScope工具可帮助识别这种低效内存的使用现象，从而优化训练推理模型。|
+|低效内存识别|在训练推理模型过程中，可能存在部分内存块申请后未立即使用，或使用完毕后未及时释放的低效情况。msMemScope工具可帮助识别这种低效内存的使用现象，从而优化训练推理模型。|
 
 ## 使用前准备
 
@@ -20,11 +20,11 @@ msMemScope工具的安装，请参见[《msMemScope工具安装说明》](./inst
 
 ### 功能说明
 
-内存问题主要包括内存泄漏、踩踏、内存碎片，导致内存池空闲、内存过多等问题，msMemScope工具支持内存泄漏问题的定位。
+内存问题主要包括内存泄漏、踩踏、内存碎片，可能导致内存池空闲、内存过多等问题，msMemScope工具支持内存泄漏问题的定位。
 
 ### 注意事项
 
-- 请使用内存分析功能时，如果需要设置--events参数，请确保--events参数中包含alloc和free。
+- 在使用内存分析功能时，如果需要设置--events参数，请确保--events参数中包含alloc和free。
 - 在使用内存分析功能时，请勿设置--steps参数。
 - 内存泄漏分析的离线方式目前仅支持HAL内存泄漏分析。
 
@@ -36,25 +36,25 @@ msMemScope工具的安装，请参见[《msMemScope工具安装说明》](./inst
 
 在进行内存分析时，需配合使用mstx打点功能进行问题定位，mstx打点详情参考[《MindStudio mstx API参考》](http://gitcode.com/Ascend/mstx)。
 
-1. 使用msMemScope工具拉起用户程序，Application为用户程序。
+1. 使用msMemScope工具启动用户程序，Application为用户程序。
 
     ```
     msmemscope ${Application}
     ```
 
 2. 执行完成后，会出现如下两种回显信息。
-    - 如果出现如[**图 1**  Memory leak](#leak)的回显信息，表示存在内存泄漏问题。回显信息中分别展示了每张卡内存泄漏的汇总信息，包括泄漏发生的Step数、关联的kernel、地址以及泄漏大小等信息。
+    - 如果出现如[**图 1**  memory leak](#leak)的回显信息，表示存在内存泄漏问题。回显信息中分别展示了每张卡内存泄漏的汇总信息，包括泄漏发生的Step数、关联的kernel、地址以及泄漏大小等信息。
 
-        **图 1**  Memory leak <a id="leak"></a>
-        ![](./figures/Memory%20leak.png)
+        **图 1**  memory leak <a id="leak"></a>
+        ![](./figures/memory%20leak.png)
 
-    - 如果出现如[**图 2**  Memory fluctuation](#fluctuation)的回显信息，表示存在内存波动。回显信息中展示了单个Step内的内存波动（用最小和最大的内存池分配占用比值定义）以及最小的内存池分配占用，同时给出最小比值和最大比值作为参考，用户可根据该值判断是否存在内存泄漏风险。
+    - 如果出现如[**图 2**  memory fluctuation](#fluctuation)的回显信息，表示存在内存波动。回显信息中展示了单个Step内的内存波动（用最小和最大的内存池分配占用比值定义）以及最小的内存池分配占用，同时给出最小比值和最大比值作为参考，用户可根据该值判断是否存在内存泄漏风险。
 
         > [!NOTE] 说明  
         > 在第一个Step时，内存尚未稳定，所以只支持分析从第二个Step开始的内存波动，第一个Step内存波动可忽略。
 
-        **图 2**  Memory fluctuation <a id="fluctuation"></a>  
-        ![](./figures/Memory%20fluctuation.png)
+        **图 2**  memory fluctuation <a id="fluctuation"></a>  
+        ![](./figures/memory%20fluctuation.png)
 
 **离线方式**
 
@@ -66,7 +66,7 @@ msMemScope支持对指定范围内的内存事件进行离线泄漏分析。使�
     > - 打点的mark信息将用于离线分析接口的输入。
     > - 使用mark打点功能标记三个点，分别称为A、B、C。在A到B范围内申请的内存，需要在C点前全部释放，否则会被判定为内存泄漏。
 
-2. 执行以下命令，使用msMemScope工具拉起用户程序，获取落盘csv文件，Application为用户程序。
+2. 执行以下命令，使用msMemScope工具启动用户程序，获取落盘csv文件，Application为用户程序。
 
     ```
     msmemscope ${Application}
@@ -85,10 +85,10 @@ msMemScope支持对指定范围内的内存事件进行离线泄漏分析。使�
     -   mstx_info：mark打点使用的mstx文本信息，用于标识泄漏分析的范围。
     -   start_index：内存泄漏分析开始的打点位置编号，即从第几个符合条件的mstx打点位置开始分析。
 
-    如果出现[**图 3**  Offline Leakage Analysis](#Analysis)的回显信息，表示存在内存泄漏问题。
+    如果出现[**图 3**  offline leakage analysis](#analysis)的回显信息，表示存在内存泄漏问题。
 
-    **图 3**  Offline Leakage Analysis <a id="Analysis"></a>  
-    ![](./figures/Offline%20Leakage%20Analysis.png)
+    **图 3**  offline leakage analysis <a id="analysis"></a>  
+    ![](./figures/offline%20Leakage%20Analysis.png)
 
 ## 内存对比分析功能介绍
 
@@ -126,7 +126,7 @@ msMemScope支持对指定范围内的内存事件进行离线泄漏分析。使�
     msmemscope --compare --input=path1,path2 --level=kernel
     ```
 
-    其中--compare和--input命令必须一起使用，单个使用无效，同时--input输入的两个文件路径需要逗号（全角半角逗号均可）隔开，--level也可选op。
+    其中--compare和--input参数必须一起使用，单个使用无效，同时--input输入的两个文件路径需要逗号（全角半角逗号均可）隔开，--level也可选op。
 
 5. Step间对比生成的结果目录如下。
 
@@ -176,7 +176,7 @@ Step间内存问题可通过输出文件查询定位，输出文件详解可参�
 
 3. <a id="3"></a>在用户的可执行脚本中，调用Python接口指定被监测的Tensor。
 
-    增加Python的watcher模块的接口，其中watch接口表示开始监测该内存块，remove接口表示取消监测该内存块。内存块监测有两种开启方式，示例代码中的参数说明可参见[**表 2**  开启内存块监测的参数说明](#开启内存块监测的参数说明)所示。
+    增加Python的watcher模块的接口，其中watch接口表示开始监测该内存块，remove接口表示取消监测该内存块。内存块监测有两种开启方式，示例代码中的参数说明可参见[**表 2**  开启内存块监测的参数说明](#开启内存块监测的参数说明)。
 
     > [!NOTE] 说明    
     > 建议使用方式一指定被监测的Tensor。如果需要使用方式二，需自行确认内存块地址和长度的有效性。
@@ -222,7 +222,7 @@ Step间内存问题可通过输出文件查询定位，输出文件详解可参�
     |name|必选，用来最后dump的时候标识监测的Tensor。|
     |dump_nums|可选，表示指定dump的次数，不输入取值表示无限制。|
     |test_tensor.data_ptr()|必选，表示被监测Tensor的地址。仅当使用方式二开启内存块监测时需输入该参数。|
-    |length|必选，表示输入监测内存块的长度，当输入length时，无关键字的参数只能为地址整形变量。length的大小建议小于等于已知被监测Tensor的内存块的大小。仅当使用方式二开启内存块监测时需输入该参数。|
+    |length|必选，表示输入监测内存块的长度，当输入length时，无关键字的参数只能为地址整型变量。length的大小建议小于等于已知被监测Tensor的内存块的大小。仅当使用方式二开启内存块监测时需输入该参数。|
 
 
 4. 命令执行完成后，内存块监测生成的结果目录如下。
@@ -250,7 +250,7 @@ msMemScope工具通过增加Python接口，支持用户自行对代码段做描�
 
 ### 注意事项
 
-使用示例中的方式一和方式二最多支持添加3个标签，且不允许重复。
+使用示例中的方式一和方式二，最多可添加3个不重复的标签。
 
 ### 使用示例
 
@@ -287,7 +287,7 @@ msMemScope工具通过增加Python接口，支持用户自行对代码段做描�
     describe.describer(owner="test3").__exit__()
     ```
 
-- 方式三：标记Tensor，该Tensor对应的内存申请事件的owner属性会增加用户指定的标记。
+- 方式三：标记Tensor，该Tensor对应的内存申请事件的owner属性会添加用户指定的标记。
 
     ```python
     import msmemscope.describe as describe
@@ -305,7 +305,7 @@ msMemScope工具通过增加Python接口，支持用户自行对代码段做描�
 
 ### 功能说明
 
-在训练推理模型时，可能会存在部分内存块申请后没有立即使用，或者使用结束后未及时释放等情况，从而导致内存使用增高的现象，对于内存来说，这种现象是低效的。
+在训练推理模型时，可能存在部分内存块申请后没有立即使用，或者使用结束后未及时释放等情况，从而导致内存使用增高的现象，对于内存来说，这种现象是低效的。
 
 低效内存（Inefficient Memory）是指在模型运行过程中，Device侧有关内存申请、释放以及访问操作的时机不合理的某个Tensor对象。
 

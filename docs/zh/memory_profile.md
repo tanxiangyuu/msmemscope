@@ -104,12 +104,12 @@ msmemscope.stop()		# 退出采集
 ### 注意事项
 
 - 环境变量TASK_QUEUE_ENABLE可自行配置，具体配置可参见《Ascend Extension for PyTorch 环境变量参考》的“[TASK_QUEUE_ENABLE](https://www.hiascend.com/document/detail/zh/Pytorch/720/comref/Envvariables/Envir_007.html)”章节。当TASK_QUEUE_ENABLE配置为2时，开启task_queue算子下发队列Level 2优化，此时会采集workspace内存。
-- 使用root用户运行msMemScope工具时，系统会通过打印提示，跳过文件权限校验，存在安全风险，建议使用普通用户权限安装执行。
+- 使用root用户运行msMemScope工具时，系统会打印提示，跳过文件权限校验，存在安全风险，建议使用普通用户权限安装执行。
 - 使用msMemScope工具采集内存时，推荐使用自定义采集方式设置采集项，进行内存采集，具体可参见[Python接口采集功能介绍](#python接口采集功能介绍)。
 
 ### 命令格式
 
-可以通过执行以下命令，启动msMemScope工具，采集内存数据。
+通过执行以下命令，可以启动msMemScope工具，采集内存数据。
 
 - 用户不需要使用命令行指定参数
 
@@ -218,7 +218,7 @@ msMemScope工具可以结合mstx打点能力进行内存采集，同时msMemScop
 
 > [!NOTE] 说明
 > - 仅支持采集单卡局部的内存数据。
-> - 在需要的用户程序前可添加PYTHONMALLOC=malloc。PYTHONMALLOC=malloc是Python的环境变量，表示不采用Python的默认内存分配器，所有的内存分配均使用malloc，该配置对小内存申请有一定影响。
+> - 在目标用户程序前可配置PYTHONMALLOC=malloc。PYTHONMALLOC=malloc是Python的环境变量，表示不采用Python的默认内存分配器，所有的内存分配均使用malloc，该配置对小内存申请有一定影响。
 
 ### 输出说明  
 

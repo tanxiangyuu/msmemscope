@@ -28,8 +28,8 @@ msMemScope工具进行内存分析后，输出的文件如[**表 1**  输出文�
 |Name|与Event值有关，当Event值为以下值时，Name代表不同的含义。当Event值为其余值时，Name的值为N/A。<br> - ACCESS：Name为引发访问的算子名/ID。<br>- OP_LAUNCH：Name为算子名称。<br> - KERNEL_LAUNCH：Name为kernel名称。<br> - MSTX：Name为自定义打点名称。|
 |Timestamp(ns)|事件发生的时间。|
 |Process Id|进程号。|
-|Thread Id|线程号。|
-|Device Id|设备信息。|
+|Thread ID|线程号。|
+|Device ID|设备信息。|
 |Ptr|内存地址，可以作为标识内存块的id值，一个内存块的生命周期是同一个ptr的malloc到下一次free。|
 |Attr|事件特有属性，每个事件类型有各自的属性项。具体展示信息如下所示：<br> - 当Event为MALLOC或FREE时，会展示以下参数信息：<br> 1. allocation_id：相同的allocation_id属于对同一块内存的操作。<br> 2. addr：地址。<br> 3. size：本次申请或者释放的内存大小。<br> 4. owner：内存块所有者，多级分类时格式为{A}@{B}@{C}.....，仅当Event为MALLOC时，存在此参数。<br> 5. total：内存池总大小，仅当Event Type为PTA、MindSpore或ATB时，存在此参数。<br> 6. used：内存池总计二次分配大小，仅当Event Type为PTA、MindSpore或ATB时，存在此参数。<br> 7. inefficient：表示是否为低效内存，值表示低效类别，其中early_allocation表示过早申请，late_deallocation表示过迟释放，temporary_idleness表示临时闲置。仅当Event为MALLOC，Event Type为PTA或ATB时，存在此参数。<br> - 当Event为ACCESS时，会展示以下参数信息：<br> 1. dtype：Tensor的dtype。<br> 2.shape：Tensor的shape。<br> 3.size：Tensor的size。<br> 4.format：Tensor的format。<br> 5.type：访问内存池类型，例如ATB。<br> 6. allocation_id：相同的allocation_id属于对同一块内存的操作，仅当Event Type为PTA时，存在此参数。<br> - 当Event为OP_LAUNCH，Event Type为ATB_START或ATB_END时，会展示以下参数信息：<br> 1. path：算子在模型中的位置，例如“0_1967120/0/0_GraphOperation/0_ElewiseOperation”，其中包含pid、所属模块名和算子名。<br> 2. workspace ptr：workspace内存起始地址。<br> 3. workspace size：workspace内存大小。<br> - 当Event为KERNEL_LAUNCH时，会展示以下参数信息：<br> 1.path：kernel在模型中的位置，例如“0_1967120/1/0_GraphOperation/1_ElewiseOperation/0_AddF16Kernel/before”，其中包含pid、所属算子和kernel名，仅当Event Type为KERNEL_START或KERNEL_END时，存在此参数。<br> 2. streamId：stream编号。<br> 3. taskId：任务编号。|
 |Call Stack(Python)|Python调用栈信息（可选）。|
@@ -53,7 +53,7 @@ msMemScope工具进行内存分析后，输出的文件如[**表 1**  输出文�
 
 ## python_trace_{_TID_}_{_timestamp_}.csv文件说明
 
-Python Trace采集结果文件的字段解释[**表 5**  python_trace_{_TID_}_{_timestamp_}.csv文件字段说明](#python_trace_{_TID_}_{_timestamp_}.csv文件字段说明)所示。
+Python Trace采集结果文件的字段解释如[**表 5**  python_trace_{_TID_}_{_timestamp_}.csv文件字段说明](#python_trace_{_TID_}_{_timestamp_}.csv文件字段说明)所示。
 
 **表 5**  python_trace_{_TID_}_{_timestamp_}.csv文件字段说明 <a id="python_trace_{_TID_}_{_timestamp_}.csv文件字段说明"></a>
 
