@@ -10,7 +10,7 @@ msMemScope工具提供内存事件的采集能力，支持自定义配置采集�
 
 ## 使用前准备
 
-msMemScope工具的安装，请参见[《msMemScope工具安装指南》](https://gitcode.com/Ascend/msmemscope)。
+msMemScope工具的安装，请参见[《msMemScope工具安装指南》](./install_guide.md)。
 
 ## Python接口采集功能介绍
 
@@ -21,10 +21,10 @@ msMemScope工具的安装，请参见[《msMemScope工具安装指南》](https:
 ### 注意事项
 
 - 使用export方式设置环境变量仅在当前窗口有效。设置环境变量后，如果不再需要使用msMemScope工具的功能，建议将LD_PRELOAD、LD_LIBRARY_PATH恢复成设置前状态。
-- 当设置events="traceback"，采集Python Trace事件，开启后，将落盘csv文件，名称为python_trace_{*TID*}_{*timestamp*}.csv，具体信息可参见[输出说明](https://gitcode.com/Ascend/msmemscope)。
+- 当设置events="traceback"，采集Python Trace事件，开启后，将落盘csv文件，名称为python_trace_{*TID*}_{*timestamp*}.csv，具体信息可参见[输出文件说明](./output_file_spec.md)。
 - 如果需要关闭采集项，可设置采集项取值为空。例如，关闭Python Trace采集，则设置events=""即可。
-- 使用Python脚本自定义采集范围，支持设置多段采集范围。
-- 使用Python脚本自定义配置采集项时，支持设置--device、--level、--events、--call-stack、--analysis、--watch、--output和--data-format参数，可根据需求自行设置，具体参数信息可参见[命令行采集功能介绍](#命令行采集功能介绍)。
+- 使用Python接口方式自定义采集范围，支持设置多段采集范围。
+- 使用Python接口方式自定义配置采集项时，支持设置device、level、events、call_stack、analysis、watch、output和data_format参数，可根据需求自行设置，具体参数信息可参见[命令行采集功能介绍](#命令行采集功能介绍)。
 
 ### 使用示例
 
@@ -52,7 +52,7 @@ export LD_LIBRARY_PATH=${memscope_install_path}/lib64/:${LD_LIBRARY_PATH}
 ```python
 import msmemscope
 
-msmemscope.config(call-stack="c:10,python:5", events="launch,alloc,free", level="0", device="npu", analysis="leaks,decompose", watch="op0,op1,full-content", data-format="db", output="/home/projects/output")
+msmemscope.config(call_stack="c:10,python:5", events="launch,alloc,free", level="0", device="npu", analysis="leaks,decompose", watch="op0,op1,full-content", data_format="db", output="/home/projects/output")
 msmemscope.start()   # 开启采集
 train()              # train()为用户代码
 msmemscope.stop()    # 退出采集
@@ -62,8 +62,8 @@ msmemscope.stop()    # 退出采集
 
 msMemScope工具支持通过Python接口采集Python代码的Trace数据，并与内存事件使用统一时间轴，帮助调优人员快速关联内存事件与全链路代码，精准定位问题。
 
-> [!NOTE]  
-> Python Trace采集功能将于MindStudio 9.0.0版本下线，您可通过Python接口采集方式，自定义设置events="traceback"，采集Python Trace事件，可参见[**Python接口采集**](#Python接口采集)。
+> [!NOTE] 说明  
+> Python Trace采集功能将于MindStudio 9.0.0版本下线，您可通过Python接口采集方式，自定义设置events="traceback"，采集Python Trace事件，可参见[Python接口采集](#Python接口采集)。
 
 1.在msMemScope工具中，增加Python接口，用以开启和关闭Tracer功能，在start和stop之间的Python代码，会落盘Trace数据。代码示例如下：  
 ```python
@@ -74,7 +74,7 @@ train()                    # train()为用户代码
 msmemscope.tracer.stop()   # 关闭Tracer功能
 ```
 
-2.执行完成后，会生成名称为python\_trace\_\{_TID_\}\_\{_timestamp_\}.csv的文件，具体文件信息可参见[输出说明](输出说明.md)。
+2.执行完成后，会生成名称为python_trace_{_TID_}_{_timestamp_}.csv的文件，具体文件信息可参见[输出文件说明](./output_file_spec.md)。
 
 **Step采集**
 
@@ -93,7 +93,7 @@ msmemscope.stop()		# 退出采集
 ```
 ### 输出说明
 
-内存采集的输出结果请参见[输出说明](https://gitcode.com/Ascend/)。
+内存采集的输出结果请参见[输出文件说明](./output_file_spec.md)。
 
 ## 命令行采集功能介绍
 
@@ -163,7 +163,7 @@ msmemscope.stop()		# 退出采集
 |--input|对比文件所在的绝对目录，需输入基线文件和对比文件的目录，以逗号（全角半角逗号均可）分隔，仅在compare功能开启时有效，路径最大输入长度为4096。示例：--input=/home/projects/input1,/home/projects/input2。<br> 仅当使用内存对比功能时，需要设置此参数。|否|
 
 
-> [!NOTICE] 
+> [!NOTE] 说明
 > - 当--events=launch，需要采集Aten算子下发与访问事件时，此时需要满足Ascend Extension for PyTorch框架中的PyTorch版本大于或等于2.3.1，才可使用该功能。
 > - 当--analysis参数取值包含decompose时，leaks\_dump\_\{_timestamp_\}.csv文件中Attr参数中会包含显存类别和组件名称。
 > - 当--analysis参数取值包含decompose时，会开启内存分解功能，当前支持对Ascend Extension for PyTorch框架、MindSpore框架和ATB算子框架的内存池进行分类，但是暂不支持对MindSpore框架和ATB算子框架的内存池进行细分类。在Ascend Extension for PyTorch框架下，可支持对aten、weight、gradient、optimizer\_state进行细分类，其中weight、gradient、optimizer\_state仅限于PyTorch的训练场景（即调用optimizer.step\(\)接口的场景），aten是aten算子中申请的内存，需要同时满足PyTorch版本大于或等于2.3.1，--level参数取值中包含0，--events参数取值中包含alloc，free，access。
@@ -172,7 +172,7 @@ msmemscope.stop()		# 退出采集
 
 ### 输出说明  
 
-内存采集的输出结果请参见[输出说明](https://gitcode.com/Ascend/)。
+内存采集的输出结果请参见[输出文件说明](./output_file_spec.md)。
 
 ## mstx打点采集功能介绍
 
@@ -182,7 +182,7 @@ msMemScope工具可以结合mstx打点能力进行内存采集，同时msMemScop
 
 ### 注意事项
 
-- 对于C脚本和Python脚本，mstx打点方式略有不同，具体信息可参考[《MindStudio mstx API参考》](https://gitcode.com/Ascend/)。  
+- 对于C脚本和Python脚本，mstx打点方式略有不同，具体信息可参考[《MindStudio mstx API参考》](http://gitcode.com/Ascend/mstx)。  
 - 推荐使用C脚本示例进行mstx打点采集。
 
 ### 使用示例
@@ -216,8 +216,12 @@ msMemScope工具可以结合mstx打点能力进行内存采集，同时msMemScop
     }
     ```
 
-> [!NOTICE]
+> [!NOTE] 说明
 > - 仅支持采集单卡局部的内存数据。
 > - 在需要的用户程序前可添加PYTHONMALLOC=malloc。PYTHONMALLOC=malloc是Python的环境变量，表示不采用Python的默认内存分配器，所有的内存分配均使用malloc，该配置对小内存申请有一定影响。
+
+### 输出说明  
+
+内存采集的输出结果请参见[输出文件说明](./output_file_spec.md)。
 
 
