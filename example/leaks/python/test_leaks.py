@@ -1,0 +1,57 @@
+import torch
+import torch_npu
+import torch.nn as nn
+import torch.optim as optim
+import msmemscope
+
+leaks_tensor_list = [] # 用于存储模拟泄漏的内存
+
+
+def test():
+    # 通过msmemscope.config()来设置各种采集配置
+    msmemscope.config(events='alloc,free,launch', data_format='csv', output='./output')
+    device = torch.device('npu:0') # 可以更改为想要的卡号
+    torch.npu.set_device(device)
+
+
+    class SimpleModel(nn.Module):
+        def __init__(self):
+            super(SimpleModel, self).__init__()
+            self.linear = nn.Linear(10, 10)
+
+        def forward(self, x):
+            out = self.linear(x)
+            return out    
+    model = SimpleModel().to(device)
+    criterion = nn.MSELoss()
+    optimizer = optim.SGD(model.parameters(), lr=0.01)
+    inputs = torch.randn(32, 10).to(device)
+    targets = torch.randn(32, 10).to(device)
+    
+    msmemscope.start() # 通过msmemscope.start()标识采集开始
+    for epoch in range(6):
+        outputs = model(inputs)
+        loss = criterion(outputs, targets)
+        loss.requires_grad_(True)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        leaked_tensor = torch.randn(1000, 1000).to(device) # 模拟泄漏的内存
+        leaks_tensor_list.append(leaked_tensor)
+        if epoch % 2 == 0:
+            memory_allocated = torch.npu.memory_allocated(device) / (1024 ** 2)
+            max_memory_allocated = torch.npu.max_memory_allocated(device) / (1024 ** 2)
+            print(f"Epoch {epoch} : Current Memory Allocated = {memory_allocated:.2f} MB,", 
+            f"Max Memory Allocated = {max_memory_allocated:.2f} MB")
+        
+        torch.npu.empty_cache()
+        msmemscope.step() # 通过msmemscope.step()标识一个step的结束
+    msmemscope.stop() # 通过msmemscope.stop()标识采集结束
+    
+
+def main():
+    test()
+    print("Test finished.")
+
+if __name__ == "__main__":
+    main()
