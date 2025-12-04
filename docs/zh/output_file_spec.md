@@ -1,4 +1,4 @@
-# 输出说明
+# 输出文件说明
 
 ## 简介
 
@@ -8,17 +8,17 @@ msMemScope工具进行内存分析后，输出的文件如[**表 1**  输出文�
 
 |输出文件名称|说明|
 |--|--|
-|leaks_dump_{*timestamp*}.csv|使用内存分析功能时，输出内存信息结果文件，并默认保存在msmemscope_{*PID*}_{*timestamp*}_ascend/device_{*device_id*}/dump目录下，具体详情信息可参见[leaks_dump_{_timestamp_}.csv文件说明](#leaks_dump_timestampcsv文件说明)。|
+|memscope_dump_{*timestamp*}.csv|使用内存分析功能时，输出内存信息结果文件，并默认保存在msmemscope_{*PID*}_{*timestamp*}_ascend/device_{*device_id*}/dump目录下，具体详情信息可参见[memscope_dump_{_timestamp_}.csv文件说明](#memscope_dump_timestampcsv文件说明)。|
 |memory_compare_{*timestam*p}.csv|使用内存对比功能时，输出内存对比信息结果文件，记录的是基线内存信息、对比内存信息和对比后的内存差异信息，输出文件默认保存在memscopeDumpResults/compare目录下，具体详情信息可参见[memory_compare_{_timestamp_}.csv文件说明](#memory_compare_timestampcsv文件说明)。|
-|leaks_dump_{*timestamp*}.db|db格式的内存信息结果文件，默认保存在msmemscope_{*PID*}_{*timestamp*}_ascend/device_{*device_id*}/dump目录下，可使用MindStudio Insight工具展示，展示结果及具体操作请参见《MindStudio Insight工具用户指南》中的“[内存调优](https://www.hiascend.com/document/detail/zh/mindstudio/82RC1/GUI_baseddevelopmenttool/msascendinsightug/Insight_userguide_0120.html)”章节。|
+|memscope_dump_{*timestamp*}.db|db格式的内存信息结果文件，默认保存在msmemscope_{*PID*}_{*timestamp*}_ascend/device_{*device_id*}/dump目录下，可使用MindStudio Insight工具展示，展示结果及具体操作请参见《MindStudio Insight工具用户指南》中的“[内存调优](https://www.hiascend.com/document/detail/zh/mindstudio/82RC1/GUI_baseddevelopmenttool/msascendinsightug/Insight_userguide_0120.html)”章节。|
 |python_trace_{*TID*}_{*timestamp*}.csv|Python Trace采集的结果文件，默认保存在msmemscope_{*PID*}_{*timestamp*}_ascend/device_{*device_id*}/dump目录下，具体详情信息可参见[python_trace_{_TID_}_{_timestamp_}.csv文件说明](#python_trace_tid_timestampcsv文件说明)。|
 |config.json|Python接口自定义采集的配置信息文件，默认保存在msmemscope_{*PID*}_{*timestamp*}_ascend目录下。|
 
-## leaks_dump_{_timestamp_}.csv文件说明
+## memscope_dump_{_timestamp_}.csv文件说明
 
-内存泄漏检测的结果文件字段解释如[**表 2**  leaks_dump_{timestamp}.csv文件字段及含义](#leaks_dump_{timestamp}.csv文件字段及含义)所示。
+内存泄漏检测的结果文件字段解释如[**表 2**  memscope_dump_{timestamp}.csv文件字段及含义](#memscope_dump_{timestamp}.csv文件字段及含义)所示。
 
-**表 2**  leaks_dump_{timestamp}.csv文件字段及含义 <a id="leaks_dump_{timestamp}.csv文件字段及含义"></a>
+**表 2**  memscope_dump_{timestamp}.csv文件字段及含义 <a id="memscope_dump_{timestamp}.csv文件字段及含义"></a>
 
 |字段|说明|
 |--|--|
@@ -60,9 +60,8 @@ Python Trace采集结果文件的字段解释[**表 5**  python_trace_{_TID_}_{_
 |字段|说明|
 |--|--|
 |FuncInfo|函数名。|
-|StartTime(ns)|开始时间戳，和leaks_dump_{*timestamp*}.csv中的事件时间戳是一致的。|
+|StartTime(ns)|开始时间戳，和memscope_dump_{*timestamp*}.csv中的事件时间戳是一致的。|
 |EndTime(ns)|结束时间戳。|
 |Thread Id|线程ID。|
 |Process Id|进程ID。|
-
 

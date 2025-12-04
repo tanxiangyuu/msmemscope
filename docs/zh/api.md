@@ -34,7 +34,7 @@ msMemScope工具提供快速分析接口和analyzer类分析两种方式，进�
     from msmemscope.analyzer import LeaksAnalyzer, LeaksConfig
     # 声明参数生成config
     leaks_config = LeaksConfig(
-        input_path="user/leaks.csv",	# input_path以实际路径为准
+        input_path="user/memscope.csv",	# input_path以实际路径为准
         mstx_info="test",
         start_index=0
     )
@@ -183,7 +183,7 @@ analyze(analyzer_type: str, **kwargs):
 
 ```python
 import msmemscope
-msmemscope.analyze("leaks", input_path="user/leaks.csv", mstx_info="test",start_index=0)
+msmemscope.analyze("leaks", input_path="user/memscope.csv", mstx_info="test",start_index=0)
 
 msmemscope.analyze("inefficient",
 		input_path="user/ineff.csv",mem_size=0,
@@ -227,7 +227,7 @@ check_leaks(input_path: str, mstx_info: str, start_index: int)
 
 ```python
 import msmemscope
-msmemscope.check_leaks(input_path="user/leaks.csv",mstx_info="test",start_index=0)
+msmemscope.check_leaks(input_path="user/memscope.csv",mstx_info="test",start_index=0)
 # input_path以实际路径为准
 ```
 

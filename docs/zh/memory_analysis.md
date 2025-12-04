@@ -14,7 +14,7 @@ msMemScope工具基于采集的内存数据，提供泄漏、对比、监测、�
 
 ## 使用前准备
 
-msMemScope工具的安装，请参见[《msMemScope工具安装指南》](https://gitcode.com/Ascend/msmemscope)。
+msMemScope工具的安装，请参见[《msMemScope工具安装说明》](./install_guide.md)。
 
 ## 内存泄漏分析功能介绍
 
@@ -34,7 +34,7 @@ msMemScope工具的安装，请参见[《msMemScope工具安装指南》](https:
 
 **在线方式**
 
-在进行内存分析时，需配合使用mstx打点功能进行问题定位，mstx打点详情参考[《MindStudio mstx API参考》](https://gitcode.com/Ascend/)。
+在进行内存分析时，需配合使用mstx打点功能进行问题定位，mstx打点详情参考[《MindStudio mstx API参考》](http://gitcode.com/Ascend/mstx)。
 
 1. 使用msMemScope工具拉起用户程序，Application为用户程序。
 
@@ -50,7 +50,7 @@ msMemScope工具的安装，请参见[《msMemScope工具安装指南》](https:
 
     - 如果出现如[**图 2**  内存波动](#内存波动)的回显信息，表示存在内存波动。回显信息中展示了单个Step内的内存波动（用最小和最大的内存池分配占用比值定义）以及最小的内存池分配占用，同时给出最小比值和最大比值作为参考，用户可根据该值判断是否存在内存泄漏风险。
 
-        > [!NOTICE]   
+        > [!NOTE] 说明  
         > 在第一个Step时，内存尚未稳定，所以只支持分析从第二个Step开始的内存波动，第一个Step内存波动可忽略。
 
         **图 2**  内存波动 <a id="内存波动"></a>  
@@ -62,7 +62,7 @@ msMemScope支持对指定范围内的内存事件进行离线泄漏分析。使�
 
 1. 对需要检测泄漏的范围进行mstx的mark打点。mstx打点详情参考[《MindStudio mstx API参考》](https://gitcode.com/Ascend/)。
 
-    > [!NOTICE]   
+    > [!NOTE] 说明   
     > - 打点的mark信息将用于离线分析接口的输入。
     > - 使用mark打点功能标记三个点，分别称为A、B、C。在A到B范围内申请的内存，需要在C点前全部释放，否则会被判定为内存泄漏。
 
@@ -75,9 +75,8 @@ msMemScope支持对指定范围内的内存事件进行离线泄漏分析。使�
 3. 执行以下命令，调用Python接口，对输出文件中的csv文件进行离线泄漏分析。
 
     ```python
-    python
     import msmemscope
-    msmemscope.check_leaks(input_path="user/leaks.csv",mstx_info="test",start_index=0)
+    msmemscope.check_leaks(input_path="user/memscope.csv",mstx_info="test",start_index=0)
     ```
 
     其中参数信息如下：
@@ -98,9 +97,11 @@ msMemScope支持对指定范围内的内存事件进行离线泄漏分析。使�
 
 如果训练和推理的参数设置一致，但是CANN和Ascend Extension for PyTorch或MindSpore框架的版本不配套，训练推理任务的两个不同Step的内存使用可能存在差异，会造成内存占用过多，甚至OOM的问题。msMemScope工具可帮助进行内存对比分析，从而有效定位内存相关问题。
 
-### 使用示例
+### 注意事项
 
 使用本对比功能之前，需要先采集两个不同Step的数据。
+
+### 使用示例
 
 1. 使用环境变量关闭task_queue算子下发队列优化。
 
@@ -116,7 +117,7 @@ msMemScope支持对指定范围内的内存事件进行离线泄漏分析。使�
     ```
 
     其中参数信息如下：
-    - options：命令行参数，具体信息可参见内存采集中的“[命令行采集功能介绍](https://gitcode.com/Ascend/)”。
+    - options：命令行参数，具体信息可参见内存采集中的“[命令行采集功能介绍](./memory_profile.md)”。
     - Application：用户程序。
     - steps：指定的Step编号。
 
@@ -138,7 +139,7 @@ msMemScope支持对指定范围内的内存事件进行离线泄漏分析。使�
 
 ### 输出说明
 
-Step间内存问题可通过输出文件查询定位，输出文件详解可参见[输出说明](https://gitcode.com/Ascend/)。
+Step间内存问题可通过输出文件查询定位，输出文件详解可参见[输出文件说明](./output_file_spec.md)。
 
 ## 内存块监测功能介绍
 
@@ -178,7 +179,7 @@ Step间内存问题可通过输出文件查询定位，输出文件详解可参�
 
     增加Python的watcher模块的接口，其中watch接口表示开始监测该内存块，remove接口表示取消监测该内存块。内存块监测有两种开启方式，示例代码中的参数说明可参见[**表 2**  开启内存块监测的参数说明](#开启内存块监测的参数说明)所示。
 
-    > [!NOTICE]   
+    > [!NOTE] 说明    
     > 建议使用方式一指定被监测的Tensor。如果需要使用方式二，需自行确认内存块地址和长度的有效性。
 
     - 方式一：直接输入Tensor
@@ -296,6 +297,10 @@ msMemScope工具通过增加Python接口，支持用户自行对代码段做描�
     describe.describer(t, owner="test4")
     ```
 
+### 输出说明
+
+低效内存识别的结果会保存在memscope_dump_{_timestamp_}.csv文件中，具体信息可参见[输出文件说明](./output_file_spec.md)。
+
 
 ## 低效内存识别功能介绍
 
@@ -327,11 +332,11 @@ msMemScope工具仅支持识别ATB LLM和Ascend Extension for PyTorch单算子�
 msmemscope ${Application} --analysis=inefficient
 ```
 
-低效内存识别也可离线进行分析，可通过接口自定义设置，具体操作可参见[API参考](https://gitcode.com/Ascend/)。
+低效内存识别也可离线进行分析，可通过接口自定义设置，具体操作可参见[API参考](./api.md)。
 
 
 ### 输出说明
 
-低效内存识别的结果会保存在leaks_dump_{_timestamp_}.csv文件中，具体信息可参见[输出说明](https://gitcode.com/Ascend/)。
+低效内存识别的结果会保存在memscope_dump_{_timestamp_}.csv文件中，具体信息可参见[输出文件说明](./output_file_spec.md)。
 
 
