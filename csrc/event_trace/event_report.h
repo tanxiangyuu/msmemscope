@@ -93,6 +93,7 @@ private:
 
 MemOpSpace GetMemOpSpace(unsigned long long flag);
 bool GetDevice(int32_t *devId);
+bool GetDeviceMemInfo(size_t &free, size_t &total);
 
 } // namespace MemScope
 #endif
