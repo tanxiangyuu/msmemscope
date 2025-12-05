@@ -127,6 +127,12 @@ void callback(const std::string& hash, const std::string& info, PyTraceType what
 
 void PythonTrace::Start()
 {
+    // 命令行中events开启trackback暂不支持，因为此时python解释器并未初始化，无法开启。
+    if (!Utility::IsPyInterpRepeInited()) {
+        std::cout << "[msmemscope] Warn: Python interpreter is not initialized. Start python trace failed."<< std::endl;
+        return;
+    }
+
     if (Utility::GetPyVersion() < Utility::Version("3.9")) {
         std::cout << "[msmemscope] Warn: The current Python version is below 3.9, python trace cannot be enabled."
                   << std::endl;
@@ -137,9 +143,6 @@ void PythonTrace::Start()
     if (!active) {
         std::cout << "[msmemscope] Warn: There is already an active PythonTracer. Refusing to register profile functions."
                   << std::endl;
-        return;
-    }
-    if (!Utility::IsPyInterpRepeInited()) {
         return;
     }
     Utility::PyInterpGuard stat;
