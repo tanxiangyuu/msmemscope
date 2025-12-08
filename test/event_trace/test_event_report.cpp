@@ -203,6 +203,14 @@ TEST_F(EventReportTest, ReportKernelLaunchTest)
     kernelLaunchInfo.timestamp = 123;
     kernelLaunchInfo.kernelName = "add";
     EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchInfo));
+
+    int16_t devIdNeg = -1;
+    auto taskKeyNeg = std::make_tuple(devIdNeg, streamId, taskId);
+    AclnnKernelMapInfo kernelLaunchInfoNeg {};
+    kernelLaunchInfoNeg.taskKey = taskKey;
+    kernelLaunchInfoNeg.timestamp = 123;
+    kernelLaunchInfoNeg.kernelName = "add";
+    EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchInfo));
 }
 
 TEST_F(EventReportTest, ReportAclItfTest)
