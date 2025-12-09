@@ -70,7 +70,7 @@ msMemScope工具提供内存事件采集功能，基于采集事件开展内存�
    - 命令行使用方式。通过以下命令，使用msMemScope执行脚本。
 
      ```bash
-     msmemscope --events=alloc,free,access,launch --level=kernel,op --call-stack=c,python --analysis=leaks,inefficient,decompose --output=/path_to_dump --data-format=csv python ./example_cmd.py
+     msmemscope --events=alloc,free,access,launch --level=kernel,op --call-stack=c,python --analysis=leaks,inefficient,decompose --output=./output --data-format=csv python ./example_cmd.py
      ```
 
    完整工具参数参考[内存采集](./memory_profile.md)。
