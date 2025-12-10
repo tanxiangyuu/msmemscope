@@ -26,7 +26,12 @@ struct RuntimeLibLoader {
 struct ACLImplLibLoader {
     static void *Load(void)
     {
-        return LibLoad("libascendcl_impl.so");
+        // 新老CANN包兼容方案
+        void* handle = LibLoad("libascendcl_impl.so");
+        if (handle != nullptr) {
+            return handle;
+        }
+        return LibLoad("libacl_rt_impl.so");
     }
 };
 
