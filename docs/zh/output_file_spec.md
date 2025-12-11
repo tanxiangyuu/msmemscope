@@ -23,7 +23,7 @@ msMemScope工具进行内存分析后，输出的文件如[**表 1**  输出文�
 |字段|说明|
 |--|--|
 |ID|事件ID。|
-|Event|msMemScope记录的事件类型，包括以下几种类型：<br> - SYSTEM：系统级事件 <br> - MALLOC：内存申请 <br> - FREE：内存释放 <br> - ACCESS：内存访问 <br> - OP_LAUNCH：算子执行 <br> - KERNEL_LAUNCH：kernel执行 <br> - MSTX：打点|
+|Event|msMemScope记录的事件类型，包括以下几种类型：<br> - SYSTEM：系统级事件。 <br> - MALLOC：内存申请。 <br> - FREE：内存释放。 <br> - ACCESS：内存访问。 <br> - OP_LAUNCH：算子执行。 <br> - KERNEL_LAUNCH：kernel执行。 <br> - MSTX：打点。|
 |Event Type|事件子类型。<br> - 当Event为SYSTEM时，Event Type包含ACL_INIT和ACL_FINI。<br> - 当Event为MALLOC或FREE时，Event Type包含HAL、PTA、MindSpore、ATB、HOST和PTA_WORKSPACE。<br> - 当Event为ACCESS时，Event Type包含READ、WRITE和UNKNOWN。<br> - 当Event为OP_LAUNCH时，Event Type包含ATEN_START、ATEN_END、ATB_START和ATB_END。<br> - 当Event为KERNEL_LAUNCH时，Event Type包含KERNEL_LAUNCH、KERNEL_START和KERNEL_END。<br> - 当Event为MSTX时，Event Type包含Mark、Range_start和Range_end。|
 |Name|与Event值有关，当Event值为以下值时，Name代表不同的含义。当Event值为其余值时，Name的值为N/A。<br> - ACCESS：Name为引发访问的算子名/ID。<br>- OP_LAUNCH：Name为算子名称。<br> - KERNEL_LAUNCH：Name为kernel名称。<br> - MSTX：Name为自定义打点名称。|
 |Timestamp(ns)|事件发生的时间。|
