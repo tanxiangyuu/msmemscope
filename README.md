@@ -2,14 +2,9 @@
   <br />
   <br />
 
-
   # **msMemScope**
-
-  <!-- 用分隔线替代背景 -->
   ---
 
-[![License](https://img.shields.io/badge/license-Apache--2.0-red?logo=apache)](https://www.apache.org/licenses/LICENSE-2.0)
-    <br>
 </div>
 
 # 🔥 最新消息
@@ -19,7 +14,6 @@
 # 🔭 简介
 
 msMemScope工具是基于昇腾硬件的内存检测工具，用于模型训练与推理过程中的内存问题定位。提供内存泄漏检测、内存对比、内存块监测、内存拆解和低效内存识别等功能，帮助用户完成问题定位与处理。
-
 
 # 📚目录结构
 
@@ -54,9 +48,9 @@ msMemScope工具是基于昇腾硬件的内存检测工具，用于模型训练�
 
 当前msMemScope工具支持下列框架的内存检测：
 
-- Ascend Extension for PyTorch 7.0.0及之后版本
-- MindSpore 2.7.0及之后版本
-- CANN 8.2.RC1及之后版本的ATB算子（Ascend Transformers Boost）
+- Ascend Extension for PyTorch 7.0.0及之后版本。
+- MindSpore 2.7.0及之后版本。
+- CANN 8.2.RC1及之后版本的ATB算子（Ascend Transformers Boost）。
 
 支持采集Aten算子下发与访问事件，PyTorch 2.3.1+。
 
@@ -166,7 +160,7 @@ msMemScope工具依赖的第三方开源软件，均由第三方社区提供和�
 
 # 🤝 致谢
 
-msMemScope由华为公司的下列部门联合贡献：
+msMemScope由华为公司的下列部门贡献：
 
 - 计算产品线
 
