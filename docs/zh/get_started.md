@@ -29,7 +29,7 @@ msMemScope工具提供内存事件采集功能，基于采集事件开展内存�
 
       注：<path>为msMemScope软件包安装位置。
 
-   3. 使用msMemScope的**python接口方式**需要执行以下命令设置环境变量。
+   3. 使用msMemScope的**Python接口方式**需要执行以下命令设置环境变量。
 
       ```bash
       msMemScope_DIR="path"    # "path"需替换为实际的msMemScope路径
@@ -45,12 +45,12 @@ msMemScope工具提供内存事件采集功能，基于采集事件开展内存�
 
    example下按照使用方式提供了不同代码。
 
-   - python接口使用方式：[example_api](../../example/example_api.py)
+   - Python接口使用方式：[example_api](../../example/example_api.py)
    - 命令行使用方式：[example_cmd](../../example/example_cmd.py)
 
-3. 选择以下其中一种方式使用msMemScope。**推荐使用python接口方式。**
+3. 选择以下其中一种方式使用msMemScope。**推荐使用Python接口方式。**
 
-   - python接口使用方式。
+   - Python接口使用方式。
 
      提供config、start、stop、step四种API接口。
 
