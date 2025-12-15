@@ -134,6 +134,9 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_memscope_warning)
     analysisConfig.stepList.stepCount = 0;
     StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
     static StepInnerAnalyzer analyzer(analysisConfig);
+    // 重置StepInnerAnalyzer的step信息接收方式
+    StepInnerAnalyzer::GetInstance(analysisConfig).crtStepSource_.store(
+        StepSource::None, std::memory_order_release);
     StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStart1);
     EXPECT_TRUE(StepInnerAnalyzer::GetInstance(analysisConfig).Record(clientId, *record1));
     StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStart2);
@@ -172,6 +175,9 @@ TEST(StepInnerAnalyzerTest, do_reveive_stepmsg_expect_memscope_warning)
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
     analysisConfig.eventType = eventBit.getValue();
     analysisConfig.stepList.stepCount = 0;
+    // 重置StepInnerAnalyzer的step信息接收方式
+    StepInnerAnalyzer::GetInstance(analysisConfig).crtStepSource_.store(
+        StepSource::None, std::memory_order_release);
     StepInnerAnalyzer::GetInstance(analysisConfig).config_.stepList.stepCount = 0;
     static StepInnerAnalyzer analyzer(analysisConfig);
     StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveStepMsg(firstPyStepRecord);
@@ -327,6 +333,9 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_torch_memscope) {
     memoryusage.totalAllocated = 512;
     record->memoryUsage = memoryusage;
 
+    // 重置StepInnerAnalyzer的step信息接收方式
+    StepInnerAnalyzer::GetInstance(analysisConfig).crtStepSource_.store(
+        StepSource::None, std::memory_order_release);
     StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStartFirstBuffer.Cast<MstxRecord>());
     StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordEndFirstBuffer.Cast<MstxRecord>());
     StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStartSecondBuffer.Cast<MstxRecord>());
@@ -374,6 +383,9 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_mindspore_memscope) {
     memoryusage.totalAllocated = 512;
     record->memoryUsage = memoryusage;
 
+    // 重置StepInnerAnalyzer的step信息接收方式
+    StepInnerAnalyzer::GetInstance(analysisConfig).crtStepSource_.store(
+        StepSource::None, std::memory_order_release);
     StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStartFirstBuffer.Cast<MstxRecord>());
     StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordEndFirstBuffer.Cast<MstxRecord>());
     StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStartSecondBuffer.Cast<MstxRecord>());
@@ -421,6 +433,9 @@ TEST(StepInnerAnalyzerTest, do_reveive_mstxmsg_expect_atb_memscope) {
     memoryusage.totalAllocated = 512;
     record->memoryUsage = memoryusage;
 
+    // 重置StepInnerAnalyzer的step信息接收方式
+    StepInnerAnalyzer::GetInstance(analysisConfig).crtStepSource_.store(
+        StepSource::None, std::memory_order_release);
     StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStartFirstBuffer.Cast<MstxRecord>());
     StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordEndFirstBuffer.Cast<MstxRecord>());
     StepInnerAnalyzer::GetInstance(analysisConfig).ReceiveMstxMsg(*mstxRecordStartSecondBuffer.Cast<MstxRecord>());
@@ -738,6 +753,9 @@ TEST(StepInnerAnalyzerReceiveMstxMsgFuncTest, ReceiveMstxMsgIfRangeStartA) {
     mstxRecordStart1->stepId = 1;
     mstxRecordStart1->streamId = 123;
 
+    // 重置StepInnerAnalyzer的step信息接收方式
+    StepInnerAnalyzer::GetInstance(config).crtStepSource_.store(
+        StepSource::None, std::memory_order_release);
     StepInnerAnalyzer::GetInstance(config).ReceiveMstxMsg(*mstxRecordStart1);
 }
 
@@ -761,6 +779,9 @@ TEST(StepInnerAnalyzerReceiveMstxMsgFuncTest, ReceiveMstxMsgIfRangeEnd) {
     mstxRecordStart1->stepId = 1;
     mstxRecordStart1->streamId = 123;
 
+    // 重置StepInnerAnalyzer的step信息接收方式
+    StepInnerAnalyzer::GetInstance(config).crtStepSource_.store(
+        StepSource::None, std::memory_order_release);
     StepInnerAnalyzer::GetInstance(config).ReceiveMstxMsg(*mstxRecordStart1);
 }
 
