@@ -14,8 +14,8 @@
  * See the Mulan PSL v2 for more details.
  * -------------------------------------------------------------------------
  */
-#ifndef MSLEAKS_MSTX_INJECT_H
-#define MSLEAKS_MSTX_INJECT_H
+#ifndef MSTX_INJECT_H
+#define MSTX_INJECT_H
 
 #include <cstdint>
 #include <cstddef>

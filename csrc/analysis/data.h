@@ -23,7 +23,7 @@
 namespace MemScope {
 
 enum class DataType : uint8_t {
-    LEAKS_EVENT = 0,
+    MEMORY_EVENT = 0,
     PYTHON_TRACE_EVENT = 1,
 };
 

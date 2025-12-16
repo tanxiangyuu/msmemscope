@@ -87,9 +87,9 @@ private:
     bool WriteDumpRecord(std::shared_ptr<EventBase>& event);
     bool WriteTraceEvent(std::shared_ptr<TraceEvent>& event, const std::string &tableName);
     sqlite3 *dataFileDb_ = nullptr;
-    sqlite3_stmt *insertLeakStmt_ = nullptr;
+    sqlite3_stmt *insertEventStmt_ = nullptr;
     sqlite3_stmt *insertTraceStmt_ = nullptr;
-    std::vector<std::string> leakColumns_;
+    std::vector<std::string> eventColumns_;
     std::vector<std::string> traceColumns_;
     std::string dbHeader_;
     std::string tableName_;

@@ -14,8 +14,8 @@
  * See the Mulan PSL v2 for more details.
  * -------------------------------------------------------------------------
  */
-#ifndef MSLEAKS_MSTX_MANAGER_H
-#define MSLEAKS_MSTX_MANAGER_H
+#ifndef MSTX_MANAGER_H
+#define MSTX_MANAGER_H
 
 #include <atomic>
 #include <cstdint>

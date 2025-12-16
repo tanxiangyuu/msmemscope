@@ -66,7 +66,7 @@ void PyStepManager::RecordPyStep(const ClientId &clientId, const PyStepRecord &p
     DeviceId deviceId = pyStepRecord.devId;
     uint64_t stepId = pyStepRecord.stepId;
 
-    LOG_INFO("[npu %ld][client %u]: msleaks.step(): Now in step: %llu",
+    LOG_INFO("[npu %ld][client %u]: msmemscope.step(): Now in step: %llu",
         deviceId,
         clientId,
         stepId);

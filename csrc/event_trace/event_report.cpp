@@ -205,7 +205,7 @@ bool EventReport::IsNeedSkip(int32_t devid)
     }
 
     // 目前仅命令行支持选择--steps，因此当存在stepList时代表启用了命令行，我们不推荐同时使用命令行和python接口。这里不考虑
-    // msleaks.step()接口所带来的的step信息。
+    // msmemscope.step()接口所带来的的step信息。
     auto stepList = GetConfig().stepList;
     if (stepList.stepCount == 0) {
         return false;

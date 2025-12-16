@@ -196,7 +196,7 @@ TEST_F(JsonManagerTest, ensure_config_path_consistency_env_not_set_success)
     bool ret = jsonConfig.EnsureConfigPathConsistency(configOutputDir);
     ASSERT_TRUE(ret);
     
-    const char* envPath = getenv(MSLEAKS_CONFIG_ENV);
+    const char* envPath = getenv(MSMEMSCOPE_CONFIG_ENV);
     ASSERT_NE(envPath, nullptr);
     
     std::string projectDir = FileCreateManager::GetInstance(configOutputDir).GetProjectDir();
@@ -209,7 +209,7 @@ TEST_F(JsonManagerTest, read_json_config_success)
     auto& jsonConfig = JsonConfig::GetInstance();
     MemScope::Config saveConfig = BuildTestConfig();
     std::string filePath = "./testmsmemscope/config.json";
-    setenv(MSLEAKS_CONFIG_ENV, filePath.c_str(), 1);
+    setenv(MSMEMSCOPE_CONFIG_ENV, filePath.c_str(), 1);
     jsonConfig.SaveConfigToJson(saveConfig); // 先保存配置
     
     MemScope::Config loadConfig = {};
@@ -221,7 +221,7 @@ TEST_F(JsonManagerTest, read_json_config_success)
 TEST_F(JsonManagerTest, read_json_config_no_env_fail)
 {
     auto& jsonConfig = JsonConfig::GetInstance();
-    unsetenv(MSLEAKS_CONFIG_ENV); // 确保环境变量为空
+    unsetenv(MSMEMSCOPE_CONFIG_ENV); // 确保环境变量为空
     
     MemScope::Config config = {};
     bool ret = jsonConfig.ReadJsonConfig(config);
@@ -233,7 +233,7 @@ TEST_F(JsonManagerTest, read_json_config_file_not_exist_fail)
 {
     auto& jsonConfig = JsonConfig::GetInstance();
     std::string nonExistPath = "./testmsmemscope/not_exist_config.json";
-    setenv(MSLEAKS_CONFIG_ENV, nonExistPath.c_str(), 1);
+    setenv(MSMEMSCOPE_CONFIG_ENV, nonExistPath.c_str(), 1);
     
     MemScope::Config config = {};
     bool ret = jsonConfig.ReadJsonConfig(config);
