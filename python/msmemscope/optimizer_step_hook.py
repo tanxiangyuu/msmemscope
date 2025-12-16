@@ -8,6 +8,9 @@ from torch.optim import Optimizer
 from torch.optim.optimizer import register_optimizer_step_post_hook
 from ._msmemscope import _report_tensor
 
+# 配置日志
+logging.basicConfig(level=logging.INFO)
+
 
 def append_tensor_info(
     tensor_info_list: List[Tuple[int, str]],
@@ -67,5 +70,5 @@ def disable_optimizer_step_hook():
     optimizer_step_hook.disable()
 
 
-logging.info(f"[msmemscope] Enable optimizer step hook.")
+logging.info(f"[msmemscope]: Enable optimizer step hook.")
 optimizer_step_hook = OptimizerStepHook()

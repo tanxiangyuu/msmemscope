@@ -18,6 +18,7 @@ void setConfig(Config &config)
     BitField<decltype(config.levelType)> levelBit;
     BitField<decltype(config.analysisType)> analysisBit;
     analysisBit.setBit(static_cast<size_t>(AnalysisType::LEAKS_ANALYSIS));
+    analysisBit.setBit(static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS));
     levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_OP));
     levelBit.setBit(static_cast<size_t>(LevelType::LEVEL_KERNEL));
     eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));

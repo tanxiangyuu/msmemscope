@@ -40,9 +40,6 @@ ACL_FUNC_VISIBILITY aclError aclInit(const char *configPath)
     if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportAclItf(RecordSubType::INIT)) {
         LOG_ERROR("aclInit report FAILED");
     }
-    if (BitPresent(GetConfig().analysisType, static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
-        Utility::MemScopePythonCall("msmemscope.optimizer_step_hook", "enable_optimizer_step_hook");
-    }
 
     return ret;
 }
@@ -64,10 +61,6 @@ ACL_FUNC_VISIBILITY aclError aclFinalize()
 
     if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportAclItf(RecordSubType::FINALIZE)) {
         LOG_ERROR("aclInit report FAILED");
-    }
-
-    if (BitPresent(GetConfig().analysisType, static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS))) {
-        Utility::MemScopePythonCall("msmemscope.optimizer_step_hook", "disable_optimizer_step_hook");
     }
 
     return ret;
