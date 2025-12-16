@@ -83,16 +83,16 @@ TEST(TestKernelExcuteTrace, TestGetStreamIdFuncAbnormalInput)
 {
     uint16_t streamId = STREAM_JUDGE_BIT12_OPERATOR;
     uint16_t taskId = 1;
-    GetStreamId(streamId, taskId);
+    StarsCommon::GetStreamId(streamId, taskId);
     streamId = STREAM_JUDGE_BIT13_OPERATOR;
-    GetStreamId(streamId, taskId);
+    StarsCommon::GetStreamId(streamId, taskId);
 }
 
 TEST(TestKernelExcuteTrace, TestGetTaskIdFuncAbnormalInput)
 {
     uint16_t streamId = STREAM_JUDGE_BIT12_OPERATOR;
     uint16_t taskId = 1;
-    GetTaskId(streamId, taskId);
+    StarsCommon::GetTaskId(streamId, taskId);
     streamId = STREAM_JUDGE_BIT13_OPERATOR;
-    GetTaskId(streamId, taskId);
+    StarsCommon::GetTaskId(streamId, taskId);
 }
