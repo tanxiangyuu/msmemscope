@@ -74,8 +74,10 @@ static void ReportStarsSocLog(uint32_t deviceId, const StarsSocLog* socLog)
         return;
     }
     constexpr int32_t bitOffset = 32;
-    uint16_t streamId = GetStreamId(static_cast<uint16_t>(socLog->streamId), static_cast<uint16_t>(socLog->taskId));
-    uint16_t taskId = GetTaskId(static_cast<uint16_t>(socLog->streamId), static_cast<uint16_t>(socLog->taskId));
+    uint16_t streamId = StarsCommon::GetStreamId(static_cast<uint16_t>(socLog->streamId), static_cast<uint16_t>(socLog->taskId),
+                                                 static_cast<uint16_t>(socLog->sqeType));
+    uint16_t taskId = StarsCommon::GetTaskId(static_cast<uint16_t>(socLog->streamId), static_cast<uint16_t>(socLog->taskId),
+                                             static_cast<uint16_t>(socLog->sqeType));
     auto taskKey = std::make_tuple(static_cast<uint16_t>(deviceId), streamId, taskId);
     if (socLog->funcType == STARS_FUNC_TYPE_BEGIN) {
         auto start = static_cast<uint64_t>(socLog->sysCntH) << bitOffset | socLog->sysCntL;
