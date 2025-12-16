@@ -56,6 +56,7 @@ constexpr uint64_t PROF_ACL_API = 0x00000001ULL;
 constexpr uint64_t PROF_TASK_TIME = 0x00000800ULL;
 constexpr uint64_t PROF_RUNTIME_TRACE = 0x0000004000000ULL;
 
+constexpr uint16_t MSPROF_STREAM_EXPAND_SPEC_TYPE = 804U;
 constexpr uint16_t MSPROF_REPORT_RUNTIME_LEVEL = 5000U;
 constexpr uint16_t MSPROF_REPORT_NNOPBASE_LEVEL = 10000U;
 constexpr uint16_t MSPROF_REPORT_ACL_LEVEL = 20000U;
@@ -116,6 +117,14 @@ struct MsprofHcclOPInfo {  // for MsprofReportCompactInfo buffer data
 };
 #pragma pack()
 
+#pragma pack(1)
+struct MsprofStreamExpandSpecInfo {  // for MsprofReportCompactInfo buffer data
+    uint8_t expandStatus; // 1: 扩容场景 0: 非扩容场景
+    uint8_t reserved1;
+    uint16_t reserved2;
+};
+#pragma pack()
+
 enum TsTaskType {
     TS_TASK_TYPE_KERNEL_AICORE = 0,
     TS_TASK_TYPE_KERNEL_AICPU = 1,
@@ -150,6 +159,7 @@ struct MsprofCompactInfo {
         MsprofNodeBasicInfo nodeBasicInfo;
         MsprofAttrInfo nodeAttrInfo;
         MsprofHcclOPInfo hcclopInfo;
+        MsprofStreamExpandSpecInfo streamExpandInfo;
     } data;
 };
 

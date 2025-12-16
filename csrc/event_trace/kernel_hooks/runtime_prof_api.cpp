@@ -18,6 +18,7 @@
 #include "kernel_event_trace.h"
 #include "securec.h"
 #include "kernel_hooks/kernel_event_trace.h"
+#include "stars_common.h"
 
 #include <iostream>
 namespace MemScope {
@@ -27,7 +28,13 @@ int32_t CompactInfoReporterCallbackImpl(uint32_t agingFlag, const void *data, ui
         LOG_ERROR("Report Compact Info failed with nullptr.");
         return PROFAPI_ERROR;
     }
+
+    // 新CANN会连续上报两条MsprofCompactInfo, 一条streamExpandInfo, 另一条MsprofRuntimeTrack， 保序
     const MsprofCompactInfo* compact = reinterpret_cast<const MsprofCompactInfo*>(data);
+    if (compact && compact->level == MSPROF_REPORT_RUNTIME_LEVEL
+        && compact->type == MSPROF_STREAM_EXPAND_SPEC_TYPE) {
+        StarsCommon::SetStreamExpandStatus(compact->data.streamExpandInfo.expandStatus);
+    }
     if (compact && compact->level == MSPROF_REPORT_RUNTIME_LEVEL && compact->type == RT_PROFILE_TYPE_TASK_TRACK) {
         const MsprofRuntimeTrack &runtimeTrack = compact->data.runtimeTrack;
         auto taskKey = std::make_tuple(runtimeTrack.deviceId, runtimeTrack.streamId,

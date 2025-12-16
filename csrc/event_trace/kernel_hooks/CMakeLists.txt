@@ -10,6 +10,7 @@ target_sources(ascend_kernel_hook PRIVATE
   ${EVENT_TRACE_INC_DIR}/kernel_hooks/kernel_event_trace.cpp
   ${EVENT_TRACE_INC_DIR}/kernel_hooks/driver_prof_api.cpp
   ${EVENT_TRACE_INC_DIR}/kernel_hooks/runtime_prof_api.cpp
+  ${EVENT_TRACE_INC_DIR}/kernel_hooks/stars_common.cpp
   ${EVENT_TRACE_INC_DIR}/describe_trace.cpp
   ${EVENT_TRACE_INC_DIR}/vallina_symbol.cpp
   ${UTILITY_INC_DIR}/cpython.cpp
@@ -40,4 +41,5 @@ target_sources(ascend_leaks PRIVATE
   driver_prof_api.cpp
   kernel_event_trace.cpp
   runtime_prof_api.cpp
+  stars_common.cpp
 )
