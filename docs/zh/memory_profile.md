@@ -1,4 +1,4 @@
-# 内存采集
+# **内存采集**
 
 ## 简介
 
@@ -74,7 +74,7 @@ train()                    # train()为用户代码
 msmemscope.tracer.stop()   # 关闭Tracer功能
 ```
 
-2.执行完成后，会生成名称为python_trace_{_TID_}_{_timestamp_}.csv的文件，具体文件信息可参见[输出文件说明](./output_file_spec.md)。
+2.执行完成后，会生成名称为python_trace_{*TID*}_{*timestamp*}.csv的文件，具体文件信息可参见[输出文件说明](./output_file_spec.md)。
 
 **Step采集**
 
@@ -133,7 +133,7 @@ msmemscope.stop()		# 退出采集
 
 ### 参数说明
 
-**表 1**  命令行参数说明
+**表 2**  命令行参数说明
 
 |参数|说明|
 |--|--|
@@ -142,7 +142,7 @@ msmemscope.stop()		# 退出采集
 |prog_options|用户脚本参数，请保证自定义脚本参数的安全性。当开启内存对比功能时不需要输入此参数。|
 
 
-**表 2**  参数说明
+**表 3**  参数说明
 
 |参数|说明|是否必选|
 |--|--|--|
@@ -156,8 +156,8 @@ msmemscope.stop()		# 退出采集
 |--collect-mode|内存采集方式。可选项有immediate和deferred，默认值为immediate，取值仅支持选择其一，示例：--collect-mode=immediate。<br> - immediate：立即采集，即用户脚本开始运行时，就开始采集内存信息，直到用户脚本运行结束；也可配合Python自定义采集接口控制采集范围。<br> - deferred：自定义采集，需配合Python自定义采集接口使用，等待msmemscope.start()脚本执行后，开始采集。如果仅设置--collect-mode=deferred，不使用Python自定义采集接口时，默认不采集任何数据（除少量系统数据）。|否|
 |--analysis|启用相关内存分析功能。默认值为leaks，如果--analysis参数的取值为空，则不启用任何分析功能；可多选，取值间以逗号（全角半角逗号均可）分隔，示例：--analysis=leaks,decompose。<br> - leaks：识别内存泄漏事件。<br> - inefficient：识别低效内存，支持识别ATB LLM和Ascend Extension for PyTorch单算子场景的低效内存，低效内存识别可通过接口设置，具体操作可参见[API参考](api.md)。<br> - decompose：开启内存拆解功能。<br>需要注意的是，当设置--analysis=leaks或--analysis=decompose时，默认会打开--events的alloc和free，即--events=alloc,free；当设置--analysis=inefficient时，默认打开--events的alloc、free、access和launch，即--events=alloc,free,access,launch。|否|
 |--data-format|输出的文件格式。可选项有db和csv，根据需求选择一种格式，取值不可为空，默认值为csv，示例：--data-format=db。<br> 当输出文件为db格式时，可使用MindStudio Insight工具展示，请参见《MindStudio Insight工具用户指南》中的“[内存调优](https://www.hiascend.com/document/detail/zh/mindstudio/82RC1/GUI_baseddevelopmenttool/msascendinsightug/Insight_userguide_0120.html)”章节。<br> - db：db格式文件，请确保已安装sqlite依赖。执行`sqlite3 --version`检查是否安装sqlite依赖，如果未安装，可执行`sudo apt-get install sqlite3 libsqlite3-dev`命令安装。<br> - csv：csv格式文件。|否|
-|--watch|内存块监测。可选项有start，out{*id*}，end和full-content，其中end为必选，可多选，取值间以逗号（全角半角逗号均可）分隔。参数设置格式为：--watch=start:out{*id*},end,full-content，示例：--watch=op0,op1,full-content。<br> - start：可选，字符串形式，表示一个算子，不同框架下格式不同。当需要设置out{*id*}时，start为必选。<br> - out{*id*}：可选，表示算子的output编号。当Tensor为一个列表时，可以指定需要落盘的Tensor，取值为Tensor在列表中的下标编号。<br> - end：必选，字符串形式，表示一个算子，不同框架下格式不同。<br> - full-content：可选，如果选择该值，表示落盘完整的Tensor数据，如果不选，则落盘Tensor对应的哈希值。|否|
-|--output|指定输出件落盘路径，路径最大输入长度为4096。默认的落盘目录为“memscopeDumpResults”。示例：--output=/home/projects/output。|否|
+|--watch|内存块监测。可选项有start，out{*id*}，end和full-content，可多选，其中end为必选，取值间以逗号（全角半角逗号均可）分隔。参数设置格式为：--watch=start:out{*id*},end,full-content，示例：--watch=op0,op1,full-content。<br> - start：可选，字符串形式，表示一个算子，不同框架下格式不同。当需要设置out{*id*}时，start为必选。<br> - out{*id*}：可选，表示算子的output编号。当Tensor为一个列表时，可以指定需要落盘的Tensor，取值为Tensor在列表中的下标编号。<br> - end：必选，字符串形式，表示一个算子，不同框架下格式不同。<br> - full-content：可选，如果选择该值，表示落盘完整的Tensor数据，如果不选，则落盘Tensor对应的哈希值。|否|
+|--output|指定输出文件落盘路径，路径最大输入长度为4096。默认的落盘目录为“memscopeDumpResults”。示例：--output=/home/projects/output。|否|
 |--log-level|指定输出日志的级别，可选值有info、warn、error。默认值为warn。|否|
 |--compare|开启Step间内存数据对比功能。仅当使用内存对比功能时，需要设置此参数。|否|
 |--input|对比文件所在的绝对目录，需输入基线文件和对比文件的目录，以逗号（全角半角逗号均可）分隔，仅在compare功能开启时有效，路径最大输入长度为4096。示例：--input=/home/projects/input1,/home/projects/input2。<br> 仅当使用内存对比功能时，需要设置此参数。|否|

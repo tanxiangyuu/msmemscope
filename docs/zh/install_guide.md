@@ -1,4 +1,6 @@
-# 安装说明
+# **msMemScope安装指南**
+
+## 安装说明
 
 msMemScope工具是基于昇腾硬件的内存检测工具，用于模型训练与推理过程中的内存问题定位。工具提供内存泄漏检测、内存对比、内存块监测、内存拆解和低效内存识别等功能，帮助用户高效定位和快速处理内存问题。
 
@@ -8,15 +10,15 @@ msMemScope工具支持在Linux系统上使用，目前提供以下两种安装�
 2. 最新版本：从源码安装，msMemScope提供编译打包功能，以便您可以快速安装使用或开发工具。
 
 
-# 安装前准备
+## 安装前准备
 
-## 准备软件包	
+### 准备软件包	
 
-### 软件包下载
+**软件包下载**
 
 点击[获取链接](https://gitcode.com/Ascend/msmemscope/releases)，下载msMemScope工具软件包。
 
-软件包名称：`MindStudio_memscope_linux-<arch>.run`，<arch>表示cpu架构。
+软件包名称：`MindStudio_memscope_linux-<arch>.run`，<arch>表示CPU架构。
 
 下载本软件即表示您同意[华为企业业务最终用户许可协议（EULA）](https://e.huawei.com/cn/about/eula)的条款和条件。
 
@@ -25,8 +27,7 @@ msMemScope工具支持在Linux系统上使用，目前提供以下两种安装�
 使用msMemScope工具前，需要安装驱动固件和CANN软件包，并配置环境变量。
 
 -   准备Atlas训练系列产品/Atlas推理产品的服务器，并安装对应的驱动和固件，具体安装过程请参见安装NPU驱动固件《[CANN 软件安装指南(CANN商用版)](https://www.hiascend.com/document/detail/zh/canncommercial/83RC1/softwareinst/instg/instg_0005.html?Mode=PmIns&InstallType=local&OS=openEuler&Software=cannToolKit)》或《[CANN软件安装指南(CANN社区版)](https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/850alpha001/softwareinst/instg/instg_0005.html?Mode=PmIns&OS=openEuler&Software=cannToolKit)》中的“安装NPU驱动固件”章节。
--   安装CANN软件包，请参考安装CANN《[CANN软件安装指南(CANN商用版)](https://www.hiascend.com/document/detail/zh/canncommercial/83RC1/softwareinst/instg/instg_0008.html?Mode=PmIns&InstallType=local&OS=openEuler&Software=cannToolKit)》《[CANN 软件安装指南(CANN社区版)](https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/850alpha001/softwareinst/instg/instg_0008.html?Mode=PmIns&OS=openEuler&Software=cannToolKit)》中选择“训练&推理&开发调试”场景安装CANN软件包。请根据系统选择aarch64或x86_64对应版本的CANN-toolkit、CANN-kernels、CANN-nnal。
--   若要使用MindStudio Insight进行查看时，需要单独安装MindStudio Insight软件包，具体下载链接请参见“安装与卸载”《[MindStudio Insight工具用户指南](https://www.hiascend.com/document/detail/zh/mindstudio/82RC1/GUI_baseddevelopmenttool/msascendinsightug/Insight_userguide_0005.html)》的“安装与卸载”章节。
+-   安装CANN软件包，请参考安装CANN《[CANN软件安装指南(CANN商用版)](https://www.hiascend.com/document/detail/zh/canncommercial/83RC1/softwareinst/instg/instg_0008.html?Mode=PmIns&InstallType=local&OS=openEuler&Software=cannToolKit)》《[CANN 软件安装指南(CANN社区版)](https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/850alpha001/softwareinst/instg/instg_0008.html?Mode=PmIns&OS=openEuler&Software=cannToolKit)》中选择“训练&推理&开发调试”场景安装CANN软件包。请根据系统选择aarch64或x86_64对应版本的CANN-toolkit、CANN-ops。
 
 ### 数字签名
 
@@ -34,9 +35,9 @@ msMemScope工具支持在Linux系统上使用，目前提供以下两种安装�
 
 请点击[PGP数字签名工具包](https://support.huawei.com/enterprise/zh/tool/pgp-verify-TL1000000054)获取工具包，将工具包解压后，请参考文件夹中的《OpenPGP签名验证指南》，对下载的软件包进行PGP数字签名校验。如果校验失败，请不要使用该软件包，访问支持与服务在论坛求助或提交技术工单。
 
-# 安装步骤
+## 安装步骤
 
-## 安装依赖
+### 安装依赖
 
 安装前需确保Git、Python环境可用，若不满足可执行以下命令安装。
 
@@ -52,7 +53,7 @@ openEuler系列：
 sudo yum install -y python3 git
 ```
 
-## 安装msMemScope
+### 安装msMemScope
 
 1. 在终端执行以下git命令，克隆(clone)msMemScope源码。
 
@@ -66,7 +67,7 @@ sudo yum install -y python3 git
 
    ```bash
    cd ./msmemscope/build
-   python build.py local test
+   python3 build.py local test
    ```
 
    其中参数说明如下：
@@ -74,7 +75,7 @@ sudo yum install -y python3 git
    - `local`：代表是否本地构建，添加会下载gtest、json等依赖库用于本地构建，一般只有第一次需要，除非依赖库有更新。
    - `test`：代表是否要构建测试用例。
 
-3. 在`./build `目录下执行以下命令，编译软件包。
+3. 在`./build`目录下执行以下命令，编译软件包。
 
    ```bash
    bash make_run.sh
@@ -85,7 +86,7 @@ sudo yum install -y python3 git
    ```bash
    [INFO] Run file created successfully: xx/MindStudio_memscope_linux-<arch>.run
    Usage instructions:
-     Install: bash MindStudio_memscope_linux-<arch>.run --install [--install-path=/path]
+     Install: bash MindStudio_memscope_linux-<arch>.run --install --install-path=/path
      Upgrade: bash MindStudio_memscope_linux-<arch>.run --upgrade --install-path=/path
      Version: bash MindStudio_memscope_linux-<arch>.run --version
      Help:    bash MindStudio_memscope_linux-<arch>.run --help
@@ -93,7 +94,7 @@ sudo yum install -y python3 git
 
    注： <arch>表示CPU架构。
 
-4. 在`./build `目录下执行以下命令，安装软件包。
+4. 在`./build`目录下执行以下命令，安装软件包。
 
    ```bash
    bash MindStudio_memscope_linux-<arch>.run --install --install-path=<path>
@@ -108,11 +109,11 @@ sudo yum install -y python3 git
    [INFO] Installation completed successfully
    ```
 
-## 安装后检查
+### 安装后检查
 
 请检查并确认安装目录：`<path>/msmemscope`下已生成`set_env.sh`文件。
 
-# 安装后配置
+## 安装后配置
 
 在使用msMemScope工具前，需执行以下命令，配置PYTHONPATH和PATH环境变量。
 
@@ -131,7 +132,7 @@ bash: local: can only be used in a function
 msmemscope environment setup completed
 ```
 
-# 升级
+## 升级
 
 msMemScope的软件包提供升级功能。
 
@@ -154,7 +155,7 @@ msMemScope的软件包提供升级功能。
    [INFO] Upgrade completed successfully
    ```
 
-# 卸载
+## 卸载
 
 **脚本卸载**
 
@@ -180,9 +181,9 @@ msMemScope的软件包提供升级功能。
    [INFO] Uninstallation completed successfully
    ```
 
-# 附录A：参考信息
+## 附录A：参考信息
 
-## 参数说明
+### 参数说明
 
 本章节介绍了run格式（.run）软件包相关参数说明，run格式软件包支持通过命令行参数进行一键安装，各个命令之间可以配合使用，用户根据安装需要选择对应参数，所有参数都是可选参数。
 
