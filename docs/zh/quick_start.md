@@ -1,4 +1,6 @@
-# 概述
+# **msMemScope快速入门**
+
+## 概述
 
 **简介**
 
@@ -6,16 +8,16 @@ msMemScope工具提供内存事件采集功能，基于采集事件开展内存�
 
 **环境准备**
 
-请根据[安装指南](./install_guide.md)完成安装。
+请根据[msMemScope安装指南](./install_guide.md)完成安装。
 
-# 操作步骤
+## 操作步骤
 
 1. 设置环境变量。
 
    1. 使用CANN运行用户执行以下命令配置toolkit环境变量。
 
       ```bash
-      source <cann-path>/Ascend/ascend-toolkit/set_env.sh
+      source <cann-path>/Ascend/cann/set_env.sh
       ```
 
 
@@ -43,7 +45,7 @@ msMemScope工具提供内存事件采集功能，基于采集事件开展内存�
    cd ./example
    ```
 
-   example下按照使用方式提供了不同代码。
+   example目录下按照使用方式提供了不同代码示例。
 
    - Python接口使用方式：[example_api](../../example/example_api.py)
    - 命令行使用方式：[example_cmd](../../example/example_cmd.py)
