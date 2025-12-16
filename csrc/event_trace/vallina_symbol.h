@@ -15,8 +15,8 @@
  * -------------------------------------------------------------------------
  */
 
-#ifndef LEAKS_VALLINA_SYMBOL_H
-#define LEAKS_VALLINA_SYMBOL_H
+#ifndef VALLINA_SYMBOL_H
+#define VALLINA_SYMBOL_H
 
 #include <string>
 #include <array>

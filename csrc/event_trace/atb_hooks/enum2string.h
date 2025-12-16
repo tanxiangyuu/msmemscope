@@ -15,8 +15,8 @@
  * -------------------------------------------------------------------------
  */
 
-#ifndef LEAKS_ATB_ENUM_TO_STRING_H
-#define LEAKS_ATB_ENUM_TO_STRING_H
+#ifndef ATB_ENUM_TO_STRING_H
+#define ATB_ENUM_TO_STRING_H
 
 #include <string>
 

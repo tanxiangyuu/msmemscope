@@ -107,7 +107,7 @@ bool MemoryCompare::CheckCsvHeader(std::string &path, std::ifstream& file, std::
     getline(file, line);
 
     std::string normalizedLine = NormalizeString(line);
-    if (normalizedLine + "\n" != std::string(LEAKS_HEADERS)) {
+    if (normalizedLine + "\n" != std::string(MEMSCOPE_HEADERS)) {
         return false;
     }
 

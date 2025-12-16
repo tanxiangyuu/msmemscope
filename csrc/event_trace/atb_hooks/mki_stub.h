@@ -14,8 +14,8 @@
  * See the Mulan PSL v2 for more details.
  * -------------------------------------------------------------------------
  */
-#ifndef LEAKS_MKI_STUB_H
-#define LEAKS_MKI_STUB_H
+#ifndef MKI_STUB_H
+#define MKI_STUB_H
 
 #include <vector>
 #include <exception>

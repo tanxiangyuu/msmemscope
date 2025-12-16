@@ -15,8 +15,8 @@
  * -------------------------------------------------------------------------
  */
 
-#ifndef LEAKS_UTILITY_FILE_H
-#define LEAKS_UTILITY_FILE_H
+#ifndef FILE_H
+#define FILE_H
 
 #include <unistd.h>
 #include <sys/stat.h>

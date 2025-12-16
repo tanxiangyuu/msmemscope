@@ -15,8 +15,8 @@
  * -------------------------------------------------------------------------
  */
 
-#ifndef LEAKS_UTILITY_UMASK_GUARD_H
-#define LEAKS_UTILITY_UMASK_GUARD_H
+#ifndef UMASK_GUARD_H
+#define UMASK_GUARD_H
 
 #include <sys/stat.h>
 #include <sys/types.h>

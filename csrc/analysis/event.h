@@ -116,7 +116,7 @@ public:
     std::string cCallStack;
     std::string pyCallStack;
  
-    EventBase() : DataBase(DataType::LEAKS_EVENT) {}
+    EventBase() : DataBase(DataType::MEMORY_EVENT) {}
 };
  
 class MemoryEvent : public EventBase {

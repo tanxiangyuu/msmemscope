@@ -15,8 +15,8 @@
  * -------------------------------------------------------------------------
  */
 
-#ifndef LEAKS_HOOK_RUNETIME_HOOKS_H
-#define LEAKS_HOOK_RUNETIME_HOOKS_H
+#ifndef RUNETIME_HOOKS_H
+#define RUNETIME_HOOKS_H
 
 #include <cstdint>
 #include <cstddef>

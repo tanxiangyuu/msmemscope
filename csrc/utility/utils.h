@@ -15,8 +15,8 @@
  * -------------------------------------------------------------------------
  */
 
-#ifndef LEAKS_UTILITY_UTILS_H
-#define LEAKS_UTILITY_UTILS_H
+#ifndef UTILS_H
+#define UTILS_H
 
 #include <unistd.h>
 #include <syscall.h>

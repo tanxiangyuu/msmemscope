@@ -15,8 +15,8 @@
  * -------------------------------------------------------------------------
  */
 
-#ifndef LEAKS_UTILITY_USTRING_H
-#define LEAKS_UTILITY_USTRING_H
+#ifndef USTRING_H
+#define USTRING_H
 
 #include <string>
 #include <set>

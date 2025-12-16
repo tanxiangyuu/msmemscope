@@ -15,8 +15,8 @@
  * -------------------------------------------------------------------------
  */
 
-#ifndef LEAKS_UTILITY_PATH_H
-#define LEAKS_UTILITY_PATH_H
+#ifndef PATH_H
+#define PATH_H
 
 #include <string>
 #include <vector>
