@@ -98,6 +98,7 @@ void ConfigManager::SetConfig(const Config &config)
     // EventTraceManager的构造函数中会调用InitTraceStatus，会调用GetConfig，如果在InitConfig函数中调用SetConfig，可能
     // 会造成Instance()间接调用自身，导致单例的自引用，初始化死锁现象。
     EventTraceManager::Instance().HandleWithATenCollect();
+    EventTraceManager::Instance().HandleWithDecompose();
 }
 
 bool ConfigManager::SetConfig(const std::unordered_map<std::string, std::string> &pythonConfig)
@@ -129,6 +130,7 @@ bool ConfigManager::SetConfig(const std::unordered_map<std::string, std::string>
     Utility::SetLogLevel(static_cast<LogLv>(config_.logLevel));
     Utility::JsonConfig::GetInstance().SaveConfigToJson(config_);
     EventTraceManager::Instance().HandleWithATenCollect();
+    EventTraceManager::Instance().HandleWithDecompose();
     EventTraceManager::Instance().InitJudgeFuncTable();
     // 更新analysis参数
     EventReport::Instance(MemScopeCommType::SHARED_MEMORY).UpdateAnalysisType();
@@ -269,6 +271,7 @@ void EventTraceManager::SetTraceStatus(const EventTraceStatus status)
     status_ = status;
 
     HandleWithATenCollect();
+    HandleWithDecompose();
     return;
 }
 
@@ -284,11 +287,25 @@ void EventTraceManager::HandleWithATenCollect()
     return;
 }
 
+void EventTraceManager::HandleWithDecompose()
+{
+    if ((status_ == EventTraceStatus::IN_TRACING) &&
+        BitPresent(GetConfig().analysisType, static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS)) && aclInit_) {
+        Utility::MemScopePythonCall("msmemscope.optimizer_step_hook", "enable_optimizer_step_hook");
+        return;
+    }
+
+    Utility::MemScopePythonCall("msmemscope.optimizer_step_hook", "disable_optimizer_step_hook");
+
+    return;
+}
+
 void EventTraceManager::SetAclInitStatus(bool isInit)
 {
     aclInit_ = isInit;
 
     HandleWithATenCollect();
+    HandleWithDecompose();
 }
 
 }
