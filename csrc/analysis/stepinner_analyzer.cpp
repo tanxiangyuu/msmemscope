@@ -421,7 +421,7 @@ void StepInnerAnalyzer::ReceiveMstxMsg(const MstxRecord &mstxRecord)
         // 判断是否使用mstx信息源
         StepSource crtSource = crtStepSource_.load(std::memory_order_acquire);
         if (crtSource == StepSource::PY_STEP_SOURCE) {
-            LOG_ERROR("[device %ld]: 'Mstx' and 'msleaks.step()' cannot be used simultaneously to update the step.",
+            LOG_ERROR("[device %ld]: 'Mstx' and 'msmemcope.step()' cannot be used simultaneously to update the step.",
                 deviceId);
             return;
         }
@@ -460,14 +460,14 @@ void StepInnerAnalyzer::ReceiveStepMsg(const PyStepRecord &pyStepRecord)
     // 判断是否使用python信息源
     StepSource crtSource = crtStepSource_.load(std::memory_order_acquire);
     if (crtSource == StepSource::MSTX_SOURCE) {
-        LOG_ERROR("[device %ld]: 'msleaks.step()' and 'Mstx' cannot be used simultaneously to update the step.",
+        LOG_ERROR("[device %ld]: 'msmemcope.step()' and 'Mstx' cannot be used simultaneously to update the step.",
             deviceId);
         return;
     }
     crtStepSource_.store(StepSource::PY_STEP_SOURCE, std::memory_order_release);
 
-    // msleaks.step()同时标识了上一个step的结束和(step+1)的开始，这里先处理上一个step结束，检测泄漏与gap
-    // 如果是第一次msleaks.step()的调用，即step=1，表中此时没有不处理
+    // msmemcope.step()同时标识了上一个step的结束和(step+1)的开始，这里先处理上一个step结束，检测泄漏与gap
+    // 如果是第一次msmemcope.step()的调用，即step=1，表中此时没有不处理
     HandleStepMsg(deviceId, stepId);
 
     // 处理(step+1)的开始

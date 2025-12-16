@@ -15,8 +15,8 @@
  * -------------------------------------------------------------------------
  */
 
-#ifndef LEAKS_HOOKS_ACL_HOOKS_H
-#define LEAKS_HOOKS_ACL_HOOKS_H
+#ifndef ACL_HOOKS_H
+#define ACL_HOOKS_H
 
 #include <cstdint>
 #include <cstddef>

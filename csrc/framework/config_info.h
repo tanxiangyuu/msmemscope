@@ -29,7 +29,7 @@ namespace MemScope {
 constexpr uint8_t SELECTED_STEP_MAX_NUM = 5;  // 先设定最多指定5个step的信息采集
 constexpr uint8_t DEFAULT_CALL_STACK_DEPTH = 50;
 constexpr uint8_t SKIP_DEPTH = 2;
-constexpr const char *LEAKS_HEADERS = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,"
+constexpr const char *MEMSCOPE_HEADERS = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,"
         "Ptr,Attr,Call Stack(Python),Call Stack(C)\n";
 constexpr const char *STEP_INTER_HEADERS = ",,,Base,Compare\nEvent,Name,Device Id,Allocated Memory(byte),"
         "Allocated Memory(byte),Diff Memory(byte)\n";
@@ -48,7 +48,6 @@ constexpr const char *PYTHON_TRACE_FILE_PREFIX = "python_trace_";
 constexpr const char *MEMORY_COMPARE_FILE_PREFIX = "memory_compare_";
 constexpr const char *WATCH_CSV_FILE_PREFIX = "watch_dump_data_check_sum_";
 constexpr int SQLITE_TIME_OUT = 5000;
-constexpr const char *ENABLE_CPU_IN_CMD = "MSLEAKS_ENABLE_CPU_IN_CMD";
 constexpr const char *EMPTY_DEVID = "";
 
 // level type可以多选，每一种type占一个bit位

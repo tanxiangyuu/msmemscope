@@ -43,7 +43,7 @@ const std::unordered_map<RecordType, std::string> RecordTypeToString = {
     {RecordType::MINDSPORE_NPU_RECORD, "Mindspore memory pool"}
 };
 
-// step信息的俩个来源mstx和msleaks.step()不能同时存在，第一个接收的会被用作信息来源，后续其他来源将被无视
+// step信息的俩个来源mstx和msmemscope.step()不能同时存在，第一个接收的会被用作信息来源，后续其他来源将被无视
 enum class StepSource {
     None,
     MSTX_SOURCE,

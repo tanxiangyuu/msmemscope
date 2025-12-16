@@ -14,8 +14,8 @@
  * See the Mulan PSL v2 for more details.
  * -------------------------------------------------------------------------
  */
-#ifndef LEAKS_ATB_STUB_H
-#define LEAKS_ATB_STUB_H
+#ifndef ATB_STUB_H
+#define ATB_STUB_H
 
 #include <functional>
 #include <string>

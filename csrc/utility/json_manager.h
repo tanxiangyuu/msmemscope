@@ -26,8 +26,7 @@
 namespace Utility {
 
 constexpr uint8_t JSON_INDENT = 4;  // 缩进4个空格
-constexpr const char *MSLEAKS_CONFIG_ENV = "MSLEAKS_CONFIG_PATH";
-constexpr const char *MSLEAKS_CONFIG_PATH = "config.json";
+constexpr const char *MSMEMSCOPE_CONFIG_ENV = "MSMEMSCOPE_CONFIG_PATH";
 
 class JsonManager {
 public:

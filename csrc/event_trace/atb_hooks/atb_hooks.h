@@ -15,8 +15,8 @@
  * -------------------------------------------------------------------------
  */
 
-#ifndef LEAKS_ATB_HOOK_H
-#define LEAKS_ATB_HOOK_H
+#ifndef ATB_HOOK_H
+#define ATB_HOOK_H
 #include <string>
 #include "enum2string.h"
 #include "vallina_symbol.h"
@@ -27,7 +27,7 @@ using MemScopeOriginalRunnerExecuteFunc = atb::Status (*)(atb::Runner*, atb::Run
 using MemScopeOriginalGetOperationName = std::string (*)(atb::Runner*);
 using MemScopeOriginalGetSaveTensorDir = std::string (*)(atb::Runner*);
 using MemScopeOriginalGetExecuteStream = aclrtStream (*)(atb::Runner*, atb::Context *context);
-constexpr uint16_t LEAKS_STRING_MAX_LENGTH = 255;
+constexpr uint16_t ATB_STRING_MAX_LENGTH = 255;
 }
 
 namespace MemScope {
