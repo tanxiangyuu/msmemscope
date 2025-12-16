@@ -242,3 +242,21 @@ aclError aclrtLaunchKernelV2Impl(aclrtFuncHandle funcHandle, uint32_t blockDim, 
     return ret;
 }
 
+aclError aclrtLaunchKernelWithHostArgsImpl(aclrtFuncHandle funcHandle, uint32_t blockDim, aclrtStream stream, aclrtLaunchKernelCfg *cfg,
+                                           void *hostArgs, size_t argsSize, aclrtPlaceHolderInfo *placeHolderArray, size_t placeHolderNum)
+{
+    StartKernelEventTrace();
+    using AclrtLaunchKernelWithCfg = decltype(&aclrtLaunchKernelWithHostArgsImpl);
+    static auto vallina = VallinaSymbol<ACLImplLibLoader>::Instance().Get<AclrtLaunchKernelWithCfg>(__func__);
+    if (vallina == nullptr) {
+        LOG_ERROR("vallina func get FAILED: " + std::string(__func__));
+        return ACL_ERROR_RT_FAILURE;
+    }
+
+    RuntimeKernelLinker::GetInstance().KernelLaunch();
+    g_isInAclrtFunc = true;
+    aclError ret = vallina(funcHandle, blockDim, stream, cfg, hostArgs, argsSize, placeHolderArray, placeHolderNum);
+    g_isInAclrtFunc = false;
+    KernelWatchEnd();
+    return ret;
+}
