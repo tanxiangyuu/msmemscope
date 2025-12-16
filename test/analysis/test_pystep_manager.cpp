@@ -10,7 +10,7 @@
 using namespace MemScope;
 
 // 预期能够正常接收来自python接口的step信息
-TEST(PyStepManagerTest, do_msleaks_step_expect_success) {
+TEST(PyStepManagerTest, do_msmemscope_step_expect_success) {
     ClientId clientId = 0;
     auto firstPyStepRecord = PyStepRecord {};
     firstPyStepRecord.stepId = 1;

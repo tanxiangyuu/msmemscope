@@ -176,7 +176,7 @@ void Dump::WriteToFile(const std::shared_ptr<EventBase>& event)
     }
     auto it = handlerMap_.find(event->device);
     if (it == handlerMap_.end()) {
-        handlerMap_.insert({event->device, MakeDataHandler(config_, DataType::LEAKS_EVENT, event->device)});
+        handlerMap_.insert({event->device, MakeDataHandler(config_, DataType::MEMORY_EVENT, event->device)});
     }
     handlerMap_[event->device]->Write(event);
 }

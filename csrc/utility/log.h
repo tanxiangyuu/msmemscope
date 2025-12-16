@@ -14,8 +14,8 @@
  * See the Mulan PSL v2 for more details.
  * -------------------------------------------------------------------------
  */
-#ifndef LEAKS_UTILITY_LOG_H
-#define LEAKS_UTILITY_LOG_H
+#ifndef LOG_H
+#define LOG_H
 
 #include <type_traits>
 #include <string>

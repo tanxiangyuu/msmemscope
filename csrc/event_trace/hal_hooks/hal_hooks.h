@@ -15,8 +15,8 @@
  * -------------------------------------------------------------------------
  */
 
-#ifndef LEAKS_HOOKS_HAL_HOOKS_H
-#define LEAKS_HOOKS_HAL_HOOKS_H
+#ifndef HAL_HOOKS_H
+#define HAL_HOOKS_H
 
 #include "ascend_hal.h"
 #include "event_report.h"

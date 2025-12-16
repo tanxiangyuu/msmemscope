@@ -14,8 +14,8 @@
  * See the Mulan PSL v2 for more details.
  * -------------------------------------------------------------------------
  */
-#ifndef LEAKS_HOOK_ASCEND_HAL_H
-#define LEAKS_HOOK_ASCEND_HAL_H
+#ifndef ASCEND_HAL_H
+#define ASCEND_HAL_H
 
 typedef enum tagDrvError {
     DRV_ERROR_NONE = 0,                /**< success */

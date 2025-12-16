@@ -15,8 +15,8 @@
  * -------------------------------------------------------------------------
  */
  
-#ifndef MSLEAKS_FUZZ_H
-#define MSLEAKS_FUZZ_H
+#ifndef FUZZ_H
+#define FUZZ_H
 
 #include "gtest/gtest.h"
 #include "secodeFuzz.h"

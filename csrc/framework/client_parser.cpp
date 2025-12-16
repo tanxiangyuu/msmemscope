@@ -854,7 +854,6 @@ void ClientParser::InitialConfig(Config &config)
 
     (void)memset_s(config.outputDir, PATH_MAX, 0, PATH_MAX);
     SetDefaultOutputDir(config);
-    unsetenv(ENABLE_CPU_IN_CMD);
 }
 
 UserCommand ClientParser::Parse(int32_t argc, char **argv)

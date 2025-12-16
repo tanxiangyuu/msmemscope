@@ -203,7 +203,7 @@ JsonConfig& JsonConfig::GetInstance()
 
 bool JsonConfig::EnsureConfigPathConsistency(const std::string& configOutputDir)
 {
-    const char* envPath = std::getenv(MSLEAKS_CONFIG_ENV);
+    const char* envPath = std::getenv(MSMEMSCOPE_CONFIG_ENV);
     std::string currentEnvPath = envPath ? std::string(envPath) : "";
  
     // 创建 FileCreateManager 实例并获取实际配置路径
@@ -216,8 +216,8 @@ bool JsonConfig::EnsureConfigPathConsistency(const std::string& configOutputDir)
     }
  
     if (needUpdate) {
-        if (setenv(MSLEAKS_CONFIG_ENV, actualConfigPath.c_str(), 1) != 0) {
-            std::cout << "[msmemscope] Error: Failed to set MSLEAKS_CONFIG_ENV to " << actualConfigPath << std::endl;
+        if (setenv(MSMEMSCOPE_CONFIG_ENV, actualConfigPath.c_str(), 1) != 0) {
+            std::cout << "[msmemscope] Error: Failed to set MSMEMSCOPE_CONFIG_ENV to " << actualConfigPath << std::endl;
             return false;
         }
     }
@@ -266,7 +266,7 @@ void JsonConfig::SaveConfigToJson(const MemScope::Config& config)
 
 bool JsonConfig::ReadJsonConfig(MemScope::Config& config)
 {
-    const char* path = std::getenv(MSLEAKS_CONFIG_ENV);
+    const char* path = std::getenv(MSMEMSCOPE_CONFIG_ENV);
     if (!path) {
         return false;
     }
