@@ -1,4 +1,19 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+/* -------------------------------------------------------------------------
+ * This file is part of the MindStudio project.
+ * Copyright (c) 2025 Huawei Technologies Co.,Ltd.
+ *
+ * MindStudio is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *
+ *          http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ * -------------------------------------------------------------------------
+ */
 
 #include "json_manager.h"
 
@@ -188,7 +203,7 @@ JsonConfig& JsonConfig::GetInstance()
 
 bool JsonConfig::EnsureConfigPathConsistency(const std::string& configOutputDir)
 {
-    const char* envPath = std::getenv(MSLEAKS_CONFIG_ENV);
+    const char* envPath = std::getenv(MSMEMSCOPE_CONFIG_ENV);
     std::string currentEnvPath = envPath ? std::string(envPath) : "";
  
     // 创建 FileCreateManager 实例并获取实际配置路径
@@ -201,8 +216,8 @@ bool JsonConfig::EnsureConfigPathConsistency(const std::string& configOutputDir)
     }
  
     if (needUpdate) {
-        if (setenv(MSLEAKS_CONFIG_ENV, actualConfigPath.c_str(), 1) != 0) {
-            std::cout << "[msmemscope] Error: Failed to set MSLEAKS_CONFIG_ENV to " << actualConfigPath << std::endl;
+        if (setenv(MSMEMSCOPE_CONFIG_ENV, actualConfigPath.c_str(), 1) != 0) {
+            std::cout << "[msmemscope] Error: Failed to set MSMEMSCOPE_CONFIG_ENV to " << actualConfigPath << std::endl;
             return false;
         }
     }
@@ -251,7 +266,7 @@ void JsonConfig::SaveConfigToJson(const MemScope::Config& config)
 
 bool JsonConfig::ReadJsonConfig(MemScope::Config& config)
 {
-    const char* path = std::getenv(MSLEAKS_CONFIG_ENV);
+    const char* path = std::getenv(MSMEMSCOPE_CONFIG_ENV);
     if (!path) {
         return false;
     }

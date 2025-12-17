@@ -1,8 +1,24 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+/* -------------------------------------------------------------------------
+ * This file is part of the MindStudio project.
+ * Copyright (c) 2025 Huawei Technologies Co.,Ltd.
+ *
+ * MindStudio is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *
+ *          http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ * -------------------------------------------------------------------------
+ */
 #include "runtime_prof_api.h"
 #include "kernel_event_trace.h"
 #include "securec.h"
 #include "kernel_hooks/kernel_event_trace.h"
+#include "stars_common.h"
 
 #include <iostream>
 namespace MemScope {
@@ -12,7 +28,13 @@ int32_t CompactInfoReporterCallbackImpl(uint32_t agingFlag, const void *data, ui
         LOG_ERROR("Report Compact Info failed with nullptr.");
         return PROFAPI_ERROR;
     }
+
+    // 新CANN会连续上报两条MsprofCompactInfo, 一条streamExpandInfo, 另一条MsprofRuntimeTrack， 保序
     const MsprofCompactInfo* compact = reinterpret_cast<const MsprofCompactInfo*>(data);
+    if (compact && compact->level == MSPROF_REPORT_RUNTIME_LEVEL
+        && compact->type == MSPROF_STREAM_EXPAND_SPEC_TYPE) {
+        StarsCommon::SetStreamExpandStatus(compact->data.streamExpandInfo.expandStatus);
+    }
     if (compact && compact->level == MSPROF_REPORT_RUNTIME_LEVEL && compact->type == RT_PROFILE_TYPE_TASK_TRACK) {
         const MsprofRuntimeTrack &runtimeTrack = compact->data.runtimeTrack;
         auto taskKey = std::make_tuple(runtimeTrack.deviceId, runtimeTrack.streamId,

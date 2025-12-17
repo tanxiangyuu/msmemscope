@@ -1,4 +1,19 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+/* -------------------------------------------------------------------------
+ * This file is part of the MindStudio project.
+ * Copyright (c) 2025 Huawei Technologies Co.,Ltd.
+ *
+ * MindStudio is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *
+ *          http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ * -------------------------------------------------------------------------
+ */
 
 #ifndef DATA_HANDLER_H
 #define DATA_HANDLER_H
@@ -72,9 +87,9 @@ private:
     bool WriteDumpRecord(std::shared_ptr<EventBase>& event);
     bool WriteTraceEvent(std::shared_ptr<TraceEvent>& event, const std::string &tableName);
     sqlite3 *dataFileDb_ = nullptr;
-    sqlite3_stmt *insertLeakStmt_ = nullptr;
+    sqlite3_stmt *insertEventStmt_ = nullptr;
     sqlite3_stmt *insertTraceStmt_ = nullptr;
-    std::vector<std::string> leakColumns_;
+    std::vector<std::string> eventColumns_;
     std::vector<std::string> traceColumns_;
     std::string dbHeader_;
     std::string tableName_;

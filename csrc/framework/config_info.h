@@ -1,4 +1,19 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+/* -------------------------------------------------------------------------
+ * This file is part of the MindStudio project.
+ * Copyright (c) 2025 Huawei Technologies Co.,Ltd.
+ *
+ * MindStudio is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *
+ *          http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ * -------------------------------------------------------------------------
+ */
 
 #ifndef CONFIG_INFO_H
 #define CONFIG_INFO_H
@@ -14,7 +29,7 @@ namespace MemScope {
 constexpr uint8_t SELECTED_STEP_MAX_NUM = 5;  // 先设定最多指定5个step的信息采集
 constexpr uint8_t DEFAULT_CALL_STACK_DEPTH = 50;
 constexpr uint8_t SKIP_DEPTH = 2;
-constexpr const char *LEAKS_HEADERS = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,"
+constexpr const char *MEMSCOPE_HEADERS = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,"
         "Ptr,Attr,Call Stack(Python),Call Stack(C)\n";
 constexpr const char *STEP_INTER_HEADERS = ",,,Base,Compare\nEvent,Name,Device Id,Allocated Memory(byte),"
         "Allocated Memory(byte),Diff Memory(byte)\n";
@@ -33,7 +48,6 @@ constexpr const char *PYTHON_TRACE_FILE_PREFIX = "python_trace_";
 constexpr const char *MEMORY_COMPARE_FILE_PREFIX = "memory_compare_";
 constexpr const char *WATCH_CSV_FILE_PREFIX = "watch_dump_data_check_sum_";
 constexpr int SQLITE_TIME_OUT = 5000;
-constexpr const char *ENABLE_CPU_IN_CMD = "MSLEAKS_ENABLE_CPU_IN_CMD";
 constexpr const char *EMPTY_DEVID = "";
 
 // level type可以多选，每一种type占一个bit位

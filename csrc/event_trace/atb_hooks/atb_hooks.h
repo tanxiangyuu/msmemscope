@@ -1,7 +1,22 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+/* -------------------------------------------------------------------------
+ * This file is part of the MindStudio project.
+ * Copyright (c) 2025 Huawei Technologies Co.,Ltd.
+ *
+ * MindStudio is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *
+ *          http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ * -------------------------------------------------------------------------
+ */
 
-#ifndef LEAKS_ATB_HOOK_H
-#define LEAKS_ATB_HOOK_H
+#ifndef ATB_HOOK_H
+#define ATB_HOOK_H
 #include <string>
 #include "enum2string.h"
 #include "vallina_symbol.h"
@@ -12,7 +27,7 @@ using MemScopeOriginalRunnerExecuteFunc = atb::Status (*)(atb::Runner*, atb::Run
 using MemScopeOriginalGetOperationName = std::string (*)(atb::Runner*);
 using MemScopeOriginalGetSaveTensorDir = std::string (*)(atb::Runner*);
 using MemScopeOriginalGetExecuteStream = aclrtStream (*)(atb::Runner*, atb::Context *context);
-constexpr uint16_t LEAKS_STRING_MAX_LENGTH = 255;
+constexpr uint16_t ATB_STRING_MAX_LENGTH = 255;
 }
 
 namespace MemScope {

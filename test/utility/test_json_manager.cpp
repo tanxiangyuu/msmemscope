@@ -1,4 +1,19 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+/* -------------------------------------------------------------------------
+ * This file is part of the MindStudio project.
+ * Copyright (c) 2025 Huawei Technologies Co.,Ltd.
+ *
+ * MindStudio is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *
+ *          http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ * -------------------------------------------------------------------------
+ */
 
 #include <gtest/gtest.h>
 #include <cstdlib>
@@ -181,7 +196,7 @@ TEST_F(JsonManagerTest, ensure_config_path_consistency_env_not_set_success)
     bool ret = jsonConfig.EnsureConfigPathConsistency(configOutputDir);
     ASSERT_TRUE(ret);
     
-    const char* envPath = getenv(MSLEAKS_CONFIG_ENV);
+    const char* envPath = getenv(MSMEMSCOPE_CONFIG_ENV);
     ASSERT_NE(envPath, nullptr);
     
     std::string projectDir = FileCreateManager::GetInstance(configOutputDir).GetProjectDir();
@@ -194,7 +209,7 @@ TEST_F(JsonManagerTest, read_json_config_success)
     auto& jsonConfig = JsonConfig::GetInstance();
     MemScope::Config saveConfig = BuildTestConfig();
     std::string filePath = "./testmsmemscope/config.json";
-    setenv(MSLEAKS_CONFIG_ENV, filePath.c_str(), 1);
+    setenv(MSMEMSCOPE_CONFIG_ENV, filePath.c_str(), 1);
     jsonConfig.SaveConfigToJson(saveConfig); // 先保存配置
     
     MemScope::Config loadConfig = {};
@@ -206,7 +221,7 @@ TEST_F(JsonManagerTest, read_json_config_success)
 TEST_F(JsonManagerTest, read_json_config_no_env_fail)
 {
     auto& jsonConfig = JsonConfig::GetInstance();
-    unsetenv(MSLEAKS_CONFIG_ENV); // 确保环境变量为空
+    unsetenv(MSMEMSCOPE_CONFIG_ENV); // 确保环境变量为空
     
     MemScope::Config config = {};
     bool ret = jsonConfig.ReadJsonConfig(config);
@@ -218,7 +233,7 @@ TEST_F(JsonManagerTest, read_json_config_file_not_exist_fail)
 {
     auto& jsonConfig = JsonConfig::GetInstance();
     std::string nonExistPath = "./testmsmemscope/not_exist_config.json";
-    setenv(MSLEAKS_CONFIG_ENV, nonExistPath.c_str(), 1);
+    setenv(MSMEMSCOPE_CONFIG_ENV, nonExistPath.c_str(), 1);
     
     MemScope::Config config = {};
     bool ret = jsonConfig.ReadJsonConfig(config);

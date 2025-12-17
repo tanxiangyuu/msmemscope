@@ -1,4 +1,19 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+/* -------------------------------------------------------------------------
+ * This file is part of the MindStudio project.
+ * Copyright (c) 2025 Huawei Technologies Co.,Ltd.
+ *
+ * MindStudio is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *
+ *          http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ * -------------------------------------------------------------------------
+ */
 
 #include <gtest/gtest.h>
 #include <gtest/internal/gtest-port.h>
@@ -40,7 +55,7 @@ TEST_F(DataHandlerTest, CsvHandler_Write_LeakRecord)
     config.enablePyStack = false;
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsmemscope", sizeof(config.outputDir) - 1);
 
-    CsvHandler handler(config, DataType::LEAKS_EVENT, devId);
+    CsvHandler handler(config, DataType::MEMORY_EVENT, devId);
     handler.Init();
     std::shared_ptr<EventBase> data1 = std::make_shared<EventBase>();
     data1->id = 1;
@@ -56,7 +71,7 @@ TEST_F(DataHandlerTest, CsvHandler_Write_LeakRecord)
     ASSERT_TRUE(handler.Write(data1));
 
     config.enablePyStack = true;
-    CsvHandler handlerPy(config, DataType::LEAKS_EVENT, devId);
+    CsvHandler handlerPy(config, DataType::MEMORY_EVENT, devId);
     handlerPy.Init();
     CallStackString stack_;
     data1->pyCallStack = "call_stack_py";
@@ -93,7 +108,7 @@ TEST_F(DataHandlerTest, DbHandler_Write_LeakRecord)
     config.enablePyStack = true;
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsmemscope", sizeof(config.outputDir) - 1);
 
-    std::unique_ptr<DataHandler> handler = MakeDataHandler(config, DataType::LEAKS_EVENT, devId);
+    std::unique_ptr<DataHandler> handler = MakeDataHandler(config, DataType::MEMORY_EVENT, devId);
     handler->Init();
     std::shared_ptr<EventBase> data1 = std::make_shared<EventBase>();
     data1->id = 1;
@@ -138,7 +153,7 @@ TEST_F(DataHandlerTest, CsvHandler_Write_NullData)
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsmemscope", sizeof(config.outputDir) - 1);
-    CsvHandler handler(config, DataType::LEAKS_EVENT, devId);
+    CsvHandler handler(config, DataType::MEMORY_EVENT, devId);
     handler.Init();
     ASSERT_FALSE(handler.Write(nullptr));
 }
@@ -159,7 +174,7 @@ TEST_F(DataHandlerTest, DbHandler_Write_NullData)
     config.enableCStack = false;
     config.enablePyStack = false;
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsmemscope", sizeof(config.outputDir) - 1);
-    DbHandler handler(config, DataType::LEAKS_EVENT, devId);
+    DbHandler handler(config, DataType::MEMORY_EVENT, devId);
     handler.Init();
     ASSERT_FALSE(handler.Write(nullptr));
 }
@@ -179,10 +194,10 @@ TEST_F(DataHandlerTest, DataHandler_Write_Type_False)
     Config config;
     config.dataFormat = static_cast<uint8_t>(DataFormat::DB);
     strncpy_s(config.outputDir, sizeof(config.outputDir) - 1, "./testmsmemscope", sizeof(config.outputDir) - 1);
-    DbHandler handler(config, DataType::LEAKS_EVENT, devId);
+    DbHandler handler(config, DataType::MEMORY_EVENT, devId);
     EXPECT_FALSE(handler.Write(data));
     config.dataFormat = static_cast<uint8_t>(DataFormat::CSV);
-    CsvHandler handler_(config, DataType::LEAKS_EVENT, devId);
+    CsvHandler handler_(config, DataType::MEMORY_EVENT, devId);
     EXPECT_FALSE(handler_.Write(data));
 }
 

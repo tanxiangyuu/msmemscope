@@ -1,4 +1,19 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+/* -------------------------------------------------------------------------
+ * This file is part of the MindStudio project.
+ * Copyright (c) 2025 Huawei Technologies Co.,Ltd.
+ *
+ * MindStudio is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *
+ *          http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ * -------------------------------------------------------------------------
+ */
 
 #include "atb_hooks.h"
 
@@ -55,12 +70,12 @@ namespace atb {
     static void MemScopeReportTensors(const atb::RunnerVariantPack& runnerVariantPack, const std::string& name)
     {
         for (auto& tensor : runnerVariantPack.inTensors) {
-            char nameStr[LEAKS_STRING_MAX_LENGTH];
-            char attrStr[LEAKS_STRING_MAX_LENGTH];
-            if (strncpy_s(nameStr, LEAKS_STRING_MAX_LENGTH, name.c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+            char nameStr[ATB_STRING_MAX_LENGTH];
+            char attrStr[ATB_STRING_MAX_LENGTH];
+            if (strncpy_s(nameStr, ATB_STRING_MAX_LENGTH, name.c_str(), ATB_STRING_MAX_LENGTH - 1) != EOK) {
                 nameStr[0] = '\0';
             }
-            if (strncpy_s(attrStr, LEAKS_STRING_MAX_LENGTH, MemScopeGetTensorInfo(tensor).c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+            if (strncpy_s(attrStr, ATB_STRING_MAX_LENGTH, MemScopeGetTensorInfo(tensor).c_str(), ATB_STRING_MAX_LENGTH - 1) != EOK) {
                 attrStr[0] = '\0';
             }
             EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportAtbAccessMemory(
@@ -69,12 +84,12 @@ namespace atb {
                 tensor.dataSize, AccessType::UNKNOWN);
         }
         for (auto& tensor : runnerVariantPack.outTensors) {
-            char nameStr[LEAKS_STRING_MAX_LENGTH];
-            char attrStr[LEAKS_STRING_MAX_LENGTH];
-            if (strncpy_s(nameStr, LEAKS_STRING_MAX_LENGTH, name.c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+            char nameStr[ATB_STRING_MAX_LENGTH];
+            char attrStr[ATB_STRING_MAX_LENGTH];
+            if (strncpy_s(nameStr, ATB_STRING_MAX_LENGTH, name.c_str(), ATB_STRING_MAX_LENGTH - 1) != EOK) {
                 nameStr[0] = '\0';
             }
-            if (strncpy_s(attrStr, LEAKS_STRING_MAX_LENGTH, MemScopeGetTensorInfo(tensor).c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+            if (strncpy_s(attrStr, ATB_STRING_MAX_LENGTH, MemScopeGetTensorInfo(tensor).c_str(), ATB_STRING_MAX_LENGTH - 1) != EOK) {
                 attrStr[0] = '\0';
             }
             EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportAtbAccessMemory(
@@ -89,12 +104,12 @@ namespace atb {
         const Mki::LaunchParam &launchParam, const std::string& name)
     {
         for (auto& tensor : getInTensors(const_cast<Mki::LaunchParam*>(&launchParam))) {
-            char nameStr[LEAKS_STRING_MAX_LENGTH];
-            char attrStr[LEAKS_STRING_MAX_LENGTH];
-            if (strncpy_s(nameStr, LEAKS_STRING_MAX_LENGTH, name.c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+            char nameStr[ATB_STRING_MAX_LENGTH];
+            char attrStr[ATB_STRING_MAX_LENGTH];
+            if (strncpy_s(nameStr, ATB_STRING_MAX_LENGTH, name.c_str(), ATB_STRING_MAX_LENGTH - 1) != EOK) {
                 nameStr[0] = '\0';
             }
-            if (strncpy_s(attrStr, LEAKS_STRING_MAX_LENGTH, MemScopeGetTensorInfo(tensor).c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+            if (strncpy_s(attrStr, ATB_STRING_MAX_LENGTH, MemScopeGetTensorInfo(tensor).c_str(), ATB_STRING_MAX_LENGTH - 1) != EOK) {
                 attrStr[0] = '\0';
             }
             EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportAtbAccessMemory(
@@ -103,12 +118,12 @@ namespace atb {
                 tensor.dataSize, AccessType::UNKNOWN);
         }
         for (auto& tensor : getOutTensors(const_cast<Mki::LaunchParam*>(&launchParam))) {
-            char nameStr[LEAKS_STRING_MAX_LENGTH];
-            char attrStr[LEAKS_STRING_MAX_LENGTH];
-            if (strncpy_s(nameStr, LEAKS_STRING_MAX_LENGTH, name.c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+            char nameStr[ATB_STRING_MAX_LENGTH];
+            char attrStr[ATB_STRING_MAX_LENGTH];
+            if (strncpy_s(nameStr, ATB_STRING_MAX_LENGTH, name.c_str(), ATB_STRING_MAX_LENGTH - 1) != EOK) {
                 nameStr[0] = '\0';
             }
-            if (strncpy_s(attrStr, LEAKS_STRING_MAX_LENGTH, MemScopeGetTensorInfo(tensor).c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+            if (strncpy_s(attrStr, ATB_STRING_MAX_LENGTH, MemScopeGetTensorInfo(tensor).c_str(), ATB_STRING_MAX_LENGTH - 1) != EOK) {
                 attrStr[0] = '\0';
             }
             EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportAtbAccessMemory(
@@ -120,12 +135,12 @@ namespace atb {
 
     static void MemScopeReportOp(const std::string& name, const std::string& params, bool isStart)
     {
-        char nameStr[LEAKS_STRING_MAX_LENGTH];
-        char attrStr[LEAKS_STRING_MAX_LENGTH];
-        if (strncpy_s(nameStr, LEAKS_STRING_MAX_LENGTH, name.c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+        char nameStr[ATB_STRING_MAX_LENGTH];
+        char attrStr[ATB_STRING_MAX_LENGTH];
+        if (strncpy_s(nameStr, ATB_STRING_MAX_LENGTH, name.c_str(), ATB_STRING_MAX_LENGTH - 1) != EOK) {
             nameStr[0] = '\0';
         }
-        if (strncpy_s(attrStr, LEAKS_STRING_MAX_LENGTH, params.c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+        if (strncpy_s(attrStr, ATB_STRING_MAX_LENGTH, params.c_str(), ATB_STRING_MAX_LENGTH - 1) != EOK) {
             attrStr[0] = '\0';
         }
         RecordSubType type = isStart ? RecordSubType::ATB_START : RecordSubType::ATB_END;
@@ -205,12 +220,12 @@ namespace atb {
         oss << "path:" << dirPath;
         std::string params = oss.str();
 
-        char nameStr[LEAKS_STRING_MAX_LENGTH];
-        char attrStr[LEAKS_STRING_MAX_LENGTH];
-        if (strncpy_s(nameStr, LEAKS_STRING_MAX_LENGTH, name.c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+        char nameStr[ATB_STRING_MAX_LENGTH];
+        char attrStr[ATB_STRING_MAX_LENGTH];
+        if (strncpy_s(nameStr, ATB_STRING_MAX_LENGTH, name.c_str(), ATB_STRING_MAX_LENGTH - 1) != EOK) {
             nameStr[0] = '\0';
         }
-        if (strncpy_s(attrStr, LEAKS_STRING_MAX_LENGTH, params.c_str(), LEAKS_STRING_MAX_LENGTH - 1) != EOK) {
+        if (strncpy_s(attrStr, ATB_STRING_MAX_LENGTH, params.c_str(), ATB_STRING_MAX_LENGTH - 1) != EOK) {
             attrStr[0] = '\0';
         }
 
