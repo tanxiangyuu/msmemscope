@@ -1,7 +1,22 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+/* -------------------------------------------------------------------------
+ * This file is part of the MindStudio project.
+ * Copyright (c) 2025 Huawei Technologies Co.,Ltd.
+ *
+ * MindStudio is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *
+ *          http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ * -------------------------------------------------------------------------
+ */
 
-#ifndef LEAKS_HOOK_RUNETIME_HOOKS_H
-#define LEAKS_HOOK_RUNETIME_HOOKS_H
+#ifndef RUNETIME_HOOKS_H
+#define RUNETIME_HOOKS_H
 
 #include <cstdint>
 #include <cstddef>
@@ -12,6 +27,7 @@
 #include <cstring>
 #include <dlfcn.h>
 #include "vallina_symbol.h"
+#include "acl_hooks.h"
 
 namespace MemScope {
 constexpr uint64_t MAX_BINARY_SIZE = 32ULL * 1024 * 1024 * 1024; // 32GB
@@ -86,6 +102,11 @@ typedef struct aclrtLaunchKernelCfg {
     aclrtLaunchKernelAttr *attrs;
     size_t numAttrs;
 } aclrtLaunchKernelCfg;
+
+typedef struct aclrtPlaceHolderInfo {
+    uint32_t addrOffset;
+    uint32_t dataOffset;
+} aclrtPlaceHolderInfo;
 
 typedef enum tagRtError {
     RT_ERROR_NONE = 0x0,                      // success
@@ -213,6 +234,13 @@ RTS_API rtError_t rtLaunchKernelByFuncHandle(rtFuncHandle funcHandle, uint32_t b
     rtLaunchArgsHandle argsHandle, RtStreamT stm);
 RTS_API rtError_t rtLaunchKernelByFuncHandleV2(rtFuncHandle funcHandle, uint32_t blockDim,
     rtLaunchArgsHandle argsHandle, RtStreamT stm, const RtTaskCfgInfoT *cfgInfo);
+
+// 适配为C接口
+RTS_API aclError aclrtLaunchKernelImpl(aclrtFuncHandle funcHandle, uint32_t blockDim, const void *argsData, size_t argsSize, aclrtStream stream);
+RTS_API aclError aclrtLaunchKernelWithConfigImpl(aclrtFuncHandle funcHandle, uint32_t blockDim, aclrtStream stream, aclrtLaunchKernelCfg *cfg, aclrtArgsHandle argsHandle, void *reserve);
+RTS_API aclError aclrtLaunchKernelV2Impl(aclrtFuncHandle funcHandle, uint32_t blockDim, const void *argsData, size_t argsSize, aclrtLaunchKernelCfg *cfg, aclrtStream stream);
+RTS_API aclError aclrtLaunchKernelWithHostArgsImpl(aclrtFuncHandle funcHandle, uint32_t blockDim, aclrtStream stream, aclrtLaunchKernelCfg *cfg,
+    void *hostArgs, size_t argsSize, aclrtPlaceHolderInfo *placeHolderArray, size_t placeHolderNum);
 
 #ifdef __cplusplus
 }  // extern "C"

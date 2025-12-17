@@ -1,4 +1,19 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+/* -------------------------------------------------------------------------
+ * This file is part of the MindStudio project.
+ * Copyright (c) 2025 Huawei Technologies Co.,Ltd.
+ *
+ * MindStudio is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *
+ *          http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ * -------------------------------------------------------------------------
+ */
 
 #include <sstream>
 #include "file.h"
@@ -22,9 +37,9 @@ CsvHandler::CsvHandler(const Config config, DataType dataType, std::string devId
 void CsvHandler::InitSetParm()
 {
     switch (dataType_) {
-        case DataType::LEAKS_EVENT: {
+        case DataType::MEMORY_EVENT: {
             prefix_ = CSV_FILE_PREFIX;
-            csvHeader_ = LEAKS_HEADERS;
+            csvHeader_ = MEMSCOPE_HEADERS;
             break;
         }
         case DataType::PYTHON_TRACE_EVENT:
@@ -57,7 +72,7 @@ bool CsvHandler::Write(std::shared_ptr<DataBase> data)
     }
 
     switch (data->GetDataType()) {
-        case DataType::LEAKS_EVENT: {
+        case DataType::MEMORY_EVENT: {
             auto event = std::dynamic_pointer_cast<EventBase>(data);
             if (event) {
                 return WriteDumpRecord(event);
@@ -132,14 +147,14 @@ DbHandler::DbHandler(const Config config, DataType dataType, std::string devId) 
 void DbHandler::InitSetParm()
 {
     switch (dataType_) {
-        case DataType::LEAKS_EVENT: {
+        case DataType::MEMORY_EVENT: {
             std::vector<std::pair<std::string, std::string>> schema = DUMP_RECORD_TABLE_SQL;
-            leakColumns_ = ParserHeader(DUMP_RECORD_TABLE_SQL);
+            eventColumns_ = ParserHeader(DUMP_RECORD_TABLE_SQL);
 
             schema.emplace_back("Call Stack(Python)", "TEXT");
-            leakColumns_.push_back("Call Stack(Python)");
+            eventColumns_.push_back("Call Stack(Python)");
             schema.emplace_back("Call Stack(C)", "TEXT");
-            leakColumns_.push_back("Call Stack(C)");
+            eventColumns_.push_back("Call Stack(C)");
 
             tableName_ = DUMP_RECORD_TABLE;
             dbHeader_ = BuildCreateStatement(tableName_, schema);
@@ -147,11 +162,11 @@ void DbHandler::InitSetParm()
                 LOG_ERROR("Sqlite create error: %s", Sqlite3Errmsg(dataFileDb_));
                 break;
             }
-            std::string insertSql = BuildInsertStatement(DUMP_RECORD_TABLE, leakColumns_);
-            int resultCount1 = Sqlite3PrepareV2(dataFileDb_, insertSql.c_str(), -1, &insertLeakStmt_, nullptr);
+            std::string insertSql = BuildInsertStatement(DUMP_RECORD_TABLE, eventColumns_);
+            int resultCount1 = Sqlite3PrepareV2(dataFileDb_, insertSql.c_str(), -1, &insertEventStmt_, nullptr);
             if (resultCount1 != SQLITE_OK) {
                 LOG_ERROR("Sqlite prepare error: %s", Sqlite3Errmsg(dataFileDb_));
-                insertLeakStmt_ = nullptr;
+                insertEventStmt_ = nullptr;
             }
             break;
         }
@@ -197,7 +212,7 @@ bool DbHandler::Write(std::shared_ptr<DataBase> data)
     }
 
     switch (data->GetDataType()) {
-        case DataType::LEAKS_EVENT: {
+        case DataType::MEMORY_EVENT: {
             auto event = std::dynamic_pointer_cast<EventBase>(data);
             if (event) {
                 return WriteDumpRecord(event);
@@ -230,30 +245,30 @@ bool DbHandler::WriteDumpRecord(std::shared_ptr<EventBase>& event)
     std::string attrJson = FixJson(event->attr);
     int paramIndex = 1;
     std::lock_guard<std::mutex> lock(dbFileMutex_);
-    if (!insertLeakStmt_) {
+    if (!insertEventStmt_) {
         LOG_ERROR("Sqlite prepare failed.");
         return false;
     }
-    Sqlite3BindInt64(insertLeakStmt_, paramIndex++, event->id);
-    Sqlite3BindText(insertLeakStmt_, paramIndex++, eventType.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(insertLeakStmt_, paramIndex++, eventSubType.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(insertLeakStmt_, paramIndex++, event->name.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindInt64(insertLeakStmt_, paramIndex++, event->timestamp);
-    Sqlite3BindInt(insertLeakStmt_, paramIndex++, event->pid);
-    Sqlite3BindInt(insertLeakStmt_, paramIndex++, event->tid);
-    Sqlite3BindText(insertLeakStmt_, paramIndex++, event->device.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(insertLeakStmt_, paramIndex++, addr.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(insertLeakStmt_, paramIndex++, attrJson.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(insertLeakStmt_, paramIndex++, event->pyCallStack.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(insertLeakStmt_, paramIndex++, event->cCallStack.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindInt64(insertEventStmt_, paramIndex++, event->id);
+    Sqlite3BindText(insertEventStmt_, paramIndex++, eventType.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(insertEventStmt_, paramIndex++, eventSubType.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(insertEventStmt_, paramIndex++, event->name.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindInt64(insertEventStmt_, paramIndex++, event->timestamp);
+    Sqlite3BindInt(insertEventStmt_, paramIndex++, event->pid);
+    Sqlite3BindInt(insertEventStmt_, paramIndex++, event->tid);
+    Sqlite3BindText(insertEventStmt_, paramIndex++, event->device.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(insertEventStmt_, paramIndex++, addr.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(insertEventStmt_, paramIndex++, attrJson.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(insertEventStmt_, paramIndex++, event->pyCallStack.c_str(), -1, SQLITE_STATIC);
+    Sqlite3BindText(insertEventStmt_, paramIndex++, event->cCallStack.c_str(), -1, SQLITE_STATIC);
     Sqlite3BusyTimeout(dataFileDb_, SQLITE_TIME_OUT);
-    int rc = Sqlite3Step(insertLeakStmt_);
+    int rc = Sqlite3Step(insertEventStmt_);
     if (rc != SQLITE_DONE) {
         LOG_ERROR("Sqlite insert error in memscope dump: %s  %d", Sqlite3Errmsg(dataFileDb_), getpid());
-        Sqlite3Reset(insertLeakStmt_);
+        Sqlite3Reset(insertEventStmt_);
         return false;
     }
-    Sqlite3Reset(insertLeakStmt_);
+    Sqlite3Reset(insertEventStmt_);
     return true;
 }
 
@@ -290,8 +305,8 @@ DbHandler::~DbHandler()
         Sqlite3Exec(dataFileDb_, "PRAGMA wal_checkpoint(FULL);", nullptr, nullptr, nullptr);
         // 提交任何未完成的事务
         Sqlite3Exec(dataFileDb_, "COMMIT;", nullptr, nullptr, nullptr);
-        if (insertLeakStmt_ != nullptr) {
-            Sqlite3Finalize(insertLeakStmt_);
+        if (insertEventStmt_ != nullptr) {
+            Sqlite3Finalize(insertEventStmt_);
         }
         if (insertTraceStmt_ != nullptr) {
             Sqlite3Finalize(insertTraceStmt_);

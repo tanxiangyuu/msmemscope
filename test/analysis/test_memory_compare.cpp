@@ -1,4 +1,19 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+/* -------------------------------------------------------------------------
+ * This file is part of the MindStudio project.
+ * Copyright (c) 2025 Huawei Technologies Co.,Ltd.
+ *
+ * MindStudio is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *
+ *          http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ * -------------------------------------------------------------------------
+ */
 #include <gtest/gtest.h>
 #include <gtest/internal/gtest-port.h>
 #include "config_info.h"
@@ -55,7 +70,7 @@ TEST_F(MemoryCompareTest, do_read_csv_file_expect_read_correct_data)
 {
     Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
     FILE *fp = fopen("test_memscope.csv", "w");
-    std::string testHeader = std::string(LEAKS_HEADERS);
+    std::string testHeader = std::string(MEMSCOPE_HEADERS);
     fprintf(fp, testHeader.c_str());
 
     for (int index = 0; index < 10; ++index) {
@@ -108,7 +123,7 @@ TEST_F(MemoryCompareTest, do_read_invalid_csv_file_expect_empty_data)
     ASSERT_EQ(data.size(), 0);
 
     fp = fopen("test_memscope.csv", "w");
-    std::string testHeader = std::string(LEAKS_HEADERS);
+    std::string testHeader = std::string(MEMSCOPE_HEADERS);
     fprintf(fp, testHeader.c_str());
     fprintf(fp, "1,0,pytorch,malloc,123,234,0,0,N/A,N/A,0\n");
     fclose(fp);
@@ -337,7 +352,7 @@ TEST_F(MemoryCompareTest, do_kernel_launch_compare)
     config.enablePyStack = false;
     Utility::UmaskGuard umaskGuard(Utility::DEFAULT_UMASK_FOR_CSV_FILE);
     FILE *fp = fopen("test_memscope.csv", "w");
-    std::string testHeader = std::string(LEAKS_HEADERS);
+    std::string testHeader = std::string(MEMSCOPE_HEADERS);
     fprintf(fp, testHeader.c_str());
 
     for (int index = 0; index < 10; ++index) {

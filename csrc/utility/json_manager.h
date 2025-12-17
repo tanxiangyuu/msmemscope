@@ -1,4 +1,19 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+/* -------------------------------------------------------------------------
+ * This file is part of the MindStudio project.
+ * Copyright (c) 2025 Huawei Technologies Co.,Ltd.
+ *
+ * MindStudio is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *
+ *          http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ * -------------------------------------------------------------------------
+ */
 
 #ifndef JSON_MANAGER_H
 #define JSON_MANAGER_H
@@ -11,8 +26,7 @@
 namespace Utility {
 
 constexpr uint8_t JSON_INDENT = 4;  // 缩进4个空格
-constexpr const char *MSLEAKS_CONFIG_ENV = "MSLEAKS_CONFIG_PATH";
-constexpr const char *MSLEAKS_CONFIG_PATH = "config.json";
+constexpr const char *MSMEMSCOPE_CONFIG_ENV = "MSMEMSCOPE_CONFIG_PATH";
 
 class JsonManager {
 public:

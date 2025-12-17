@@ -1,4 +1,19 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+/* -------------------------------------------------------------------------
+ * This file is part of the MindStudio project.
+ * Copyright (c) 2025 Huawei Technologies Co.,Ltd.
+ *
+ * MindStudio is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *
+ *          http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ * -------------------------------------------------------------------------
+ */
 
 #include "kernel_event_trace.h"
 #include "event_report.h"
@@ -59,8 +74,10 @@ static void ReportStarsSocLog(uint32_t deviceId, const StarsSocLog* socLog)
         return;
     }
     constexpr int32_t bitOffset = 32;
-    uint16_t streamId = GetStreamId(static_cast<uint16_t>(socLog->streamId), static_cast<uint16_t>(socLog->taskId));
-    uint16_t taskId = GetTaskId(static_cast<uint16_t>(socLog->streamId), static_cast<uint16_t>(socLog->taskId));
+    uint16_t streamId = StarsCommon::GetStreamId(static_cast<uint16_t>(socLog->streamId), static_cast<uint16_t>(socLog->taskId),
+                                                 static_cast<uint16_t>(socLog->sqeType));
+    uint16_t taskId = StarsCommon::GetTaskId(static_cast<uint16_t>(socLog->streamId), static_cast<uint16_t>(socLog->taskId),
+                                             static_cast<uint16_t>(socLog->sqeType));
     auto taskKey = std::make_tuple(static_cast<uint16_t>(deviceId), streamId, taskId);
     if (socLog->funcType == STARS_FUNC_TYPE_BEGIN) {
         auto start = static_cast<uint64_t>(socLog->sysCntH) << bitOffset | socLog->sysCntL;

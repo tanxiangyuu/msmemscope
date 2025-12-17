@@ -1,4 +1,19 @@
-// Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+/* -------------------------------------------------------------------------
+ * This file is part of the MindStudio project.
+ * Copyright (c) 2025 Huawei Technologies Co.,Ltd.
+ *
+ * MindStudio is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *
+ *          http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ * -------------------------------------------------------------------------
+ */
 #include <gtest/gtest.h>
 #include <gtest/internal/gtest-port.h>
 #include <string>
@@ -680,7 +695,7 @@ TEST_F(TestProcess, process_hal_device_memory_event)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -705,7 +720,7 @@ TEST_F(TestProcess, process_pta_caching_memory_event)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -735,7 +750,7 @@ TEST_F(TestProcess, process_pta_workspace_memory_event)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -760,7 +775,7 @@ TEST_F(TestProcess, process_atb_memory_event)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -792,7 +807,7 @@ TEST_F(TestProcess, process_mindspore_memory_event)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -817,7 +832,7 @@ TEST_F(TestProcess, process_aten_op_event)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -842,7 +857,7 @@ TEST_F(TestProcess, process_atb_op_event)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -867,7 +882,7 @@ TEST_F(TestProcess, process_kernel_event)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -899,7 +914,7 @@ TEST_F(TestProcess, process_mstx_event)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -926,7 +941,7 @@ TEST_F(TestProcess, process_system_event)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -953,7 +968,7 @@ TEST_F(TestProcess, process_clean_up_event)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -980,7 +995,7 @@ TEST_F(TestProcess, dump_event_before_malloc)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -1006,7 +1021,7 @@ TEST_F(TestProcess, dump_two_malloc_event)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -1034,7 +1049,7 @@ TEST_F(TestProcess, clean_up_event_failed)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -1056,7 +1071,7 @@ TEST_F(TestProcess, process_memory_owner_event)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -1093,7 +1108,7 @@ TEST_F(TestProcess, process_memory_owner_event_in_torch_step)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -1126,7 +1141,7 @@ TEST_F(TestProcess, process_memory_owner_event_without_malloc)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -1160,7 +1175,7 @@ TEST_F(TestProcess, init_memory_owner)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -1208,7 +1223,7 @@ TEST_F(TestProcess, updata_owner_by_access_event)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -1242,7 +1257,7 @@ TEST_F(TestProcess, updata_owner_failed_by_atb_access_event)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -1276,7 +1291,7 @@ TEST_F(TestProcess, get_different_allocation_id_with_trace_start_and_stop_event)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -1310,7 +1325,7 @@ TEST_F(TestProcess, get_the_same_allocation_id_with_trace_start_and_stop_event)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
@@ -1344,7 +1359,7 @@ TEST_F(TestProcess, add_memory_event_into_state)
     config.dataFormat = 0;
     std::string path = "./testmsmemscope";
     strncpy_s(config.outputDir, sizeof(config.outputDir), path.c_str(), sizeof(config.outputDir) - 1);
-    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::LEAKS_EVENT, testdDevId);    // 重置文件指针
+    Dump::GetInstance(config).handlerMap_[testdDevId] = MakeDataHandler(config, DataType::MEMORY_EVENT, testdDevId);    // 重置文件指针
     Dump::GetInstance(config).handlerMap_[testdDevId]->Init();
     MemoryState::ResetCount();
  
