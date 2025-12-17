@@ -29,15 +29,15 @@ int32_t CompactInfoReporterCallbackImpl(uint32_t agingFlag, const void *data, ui
         return PROFAPI_ERROR;
     }
 
-    // 新CANN会连续上报两条MsprofCompactInfo, 一条streamExpandInfo, 另一条MsprofRuntimeTrack， 保序
     const MsprofCompactInfo* compact = reinterpret_cast<const MsprofCompactInfo*>(data);
+    // streamExpandInfo代表是否扩容,会在一开始上报一次
     if (compact && compact->level == MSPROF_REPORT_RUNTIME_LEVEL
         && compact->type == MSPROF_STREAM_EXPAND_SPEC_TYPE) {
         StarsCommon::SetStreamExpandStatus(compact->data.streamExpandInfo.expandStatus);
     }
     if (compact && compact->level == MSPROF_REPORT_RUNTIME_LEVEL && compact->type == RT_PROFILE_TYPE_TASK_TRACK) {
         const MsprofRuntimeTrack &runtimeTrack = compact->data.runtimeTrack;
-        auto taskKey = std::make_tuple(runtimeTrack.deviceId, runtimeTrack.streamId,
+        TaskKey taskKey = std::make_tuple(runtimeTrack.deviceId, runtimeTrack.streamId,
             static_cast<uint16_t>(runtimeTrack.taskInfo & 0xffff));
         RuntimeKernelLinker::GetInstance().RuntimeTaskInfoLaunch(taskKey, runtimeTrack.kernelName);
     }

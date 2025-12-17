@@ -327,16 +327,16 @@ struct TraceStatusRecord : public RecordBase {
 };
 
 struct KernelLaunchRecord : public RecordBase {
-    int16_t streamId;           // streamId
-    int16_t taskId;
+    uint16_t streamId;           // streamId
+    uint16_t taskId;
     uint64_t kernelLaunchIndex; // kernelLaunch索引
     uint32_t blockDim;          // 算子核函数运行所需核数
     /* TLVBlockType::KERNEL_NAME */
 };
 
 struct KernelExcuteRecord : public RecordBase {
-    int16_t streamId;
-    int16_t taskId;
+    uint16_t streamId;
+    uint16_t taskId;
     /* TLVBlockType::KERNEL_NAME */
 };
 
