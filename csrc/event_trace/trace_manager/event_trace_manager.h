@@ -86,6 +86,7 @@ public:
     void SetAclInitStatus(bool isInit);
     void HandleWithATenCollect();
     void HandleWithDecompose();
+    void CleanUpEventTraceManager();
 private:
     EventTraceManager()
     {
