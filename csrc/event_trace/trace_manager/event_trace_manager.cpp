@@ -21,6 +21,7 @@
 #include "bit_field.h"
 #include "client_parser.h"
 #include "json_manager.h"
+#include "dump.h"
 
 namespace MemScope {
 
@@ -323,4 +324,11 @@ void EventTraceManager::SetAclInitStatus(bool isInit)
     HandleWithDecompose();
 }
 
+void EventTraceManager::CleanUpEventTraceManager()
+{
+    // 这里可以添加其他的CleanUp操作,最好把析构函数中的抽象出来,放到stop实现
+    Config config = Config{};
+    Dump::GetInstance(config).WritePublicEventToFile();
+    Dump::GetInstance(config).FflushEventToFile();
+}
 }
