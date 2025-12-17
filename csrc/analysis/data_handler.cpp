@@ -130,8 +130,16 @@ bool CsvHandler::WriteTraceEvent(std::shared_ptr<TraceEvent>& event)
     return true;
 }
 
+void CsvHandler::FflushFile()
+{
+    if (file_ != nullptr) {
+        fflush(file_);
+    }
+}
+
 CsvHandler::~CsvHandler()
 {
+    FflushFile();
     if (file_ != nullptr) {
         std::fclose(file_);
         file_ = nullptr;
@@ -299,17 +307,26 @@ bool DbHandler::WriteTraceEvent(std::shared_ptr<TraceEvent>& event, const std::s
     return true;
 }
 
-DbHandler::~DbHandler()
+void DbHandler::FflushFile()
 {
     if (dataFileDb_ != nullptr) {
         Sqlite3Exec(dataFileDb_, "PRAGMA wal_checkpoint(FULL);", nullptr, nullptr, nullptr);
         // 提交任何未完成的事务
         Sqlite3Exec(dataFileDb_, "COMMIT;", nullptr, nullptr, nullptr);
+    }
+}
+
+DbHandler::~DbHandler()
+{
+    FflushFile();
+    if (dataFileDb_ != nullptr) {
         if (insertEventStmt_ != nullptr) {
             Sqlite3Finalize(insertEventStmt_);
+            insertEventStmt_ = nullptr;
         }
         if (insertTraceStmt_ != nullptr) {
             Sqlite3Finalize(insertTraceStmt_);
+            insertTraceStmt_ = nullptr;
         }
         int rc = Sqlite3Close(dataFileDb_);
         if (rc != SQLITE_OK) {

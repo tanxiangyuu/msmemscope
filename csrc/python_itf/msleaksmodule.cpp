@@ -46,6 +46,7 @@ PyDoc_STRVAR(StopDoc,
 static PyObject* MsmemscopeStop(PyObject* self, PyObject* args)
 {
     EventTraceManager::Instance().SetTraceStatus(EventTraceStatus::NOT_IN_TRACING);
+    EventTraceManager::Instance().CleanUpEventTraceManager();
     Py_RETURN_NONE;
 }
 

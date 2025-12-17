@@ -31,6 +31,8 @@ class Dump : public AnalyzerBase {
 public:
     static Dump& GetInstance(Config config);
     void EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state) override;
+    void WritePublicEventToFile();
+    void FflushEventToFile();
 private:
     explicit Dump(Config config);
     ~Dump() override;

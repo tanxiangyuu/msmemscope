@@ -42,6 +42,7 @@ public:
     virtual ~DataHandler() = default;
     virtual bool Init() = 0;
     virtual bool Write(std::shared_ptr<DataBase> data) = 0;
+    virtual void FflushFile() = 0;
 
 protected:
     explicit DataHandler(const Config config);
@@ -60,6 +61,7 @@ public:
     explicit CsvHandler(const Config config, DataType dataType, std::string devId);
     bool Init() override;
     bool Write(std::shared_ptr<DataBase> data) override;
+    void FflushFile() override;
 
 private:
     void InitSetParm();
@@ -81,6 +83,7 @@ public:
     ~DbHandler() override;
     bool Init() override;
     bool Write(std::shared_ptr<DataBase> data) override;
+    void FflushFile() override;
 
 private:
     void InitSetParm();
