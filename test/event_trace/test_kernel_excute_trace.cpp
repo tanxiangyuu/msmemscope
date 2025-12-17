@@ -26,8 +26,8 @@ TEST(TestKernelExcuteTrace, TestKernelExcuteTraceNormal)
 {
     uint32_t deviceId = 0;
     uint64_t sysCnt = 0;
-    int16_t streamId = 1;
-    int16_t taskId = 2;
+    uint16_t streamId = 1;
+    uint16_t taskId = 2;
     StartDriverKernelInfoTrace(static_cast<int32_t>(deviceId));
     RegisterRtProfileCallback();
 

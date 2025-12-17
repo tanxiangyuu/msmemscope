@@ -215,9 +215,9 @@ TEST_F(EventReportTest, ReportKernelLaunchTest)
     config.eventType = eventBit.getValue();
     ConfigManager::Instance().SetConfig(config);
 
-    int16_t devId = 1;
-    int16_t streamId = 1;
-    int16_t taskId = 1;
+    uint16_t devId = 1;
+    uint16_t streamId = 1;
+    uint16_t taskId = 1;
     auto taskKey = std::make_tuple(devId, streamId, taskId);
     AclnnKernelMapInfo kernelLaunchInfo {};
     kernelLaunchInfo.taskKey = taskKey;
@@ -499,9 +499,9 @@ TEST_F(EventReportTest, ReportTestWithNoReceiveServerInfo)
     EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, flag, callStack));
     EXPECT_TRUE(instance.ReportFree(testAddr, callStack));
 
-    int16_t devId = 1;
-    int16_t streamId = 1;
-    int16_t taskId = 1;
+    uint16_t devId = 1;
+    uint16_t streamId = 1;
+    uint16_t taskId = 1;
     auto taskKey = std::make_tuple(devId, streamId, taskId);
     AclnnKernelMapInfo kernelLaunchInfo {};
     kernelLaunchInfo.taskKey = taskKey;
