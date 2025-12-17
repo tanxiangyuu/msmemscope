@@ -27,7 +27,7 @@
 
 namespace MemScope {
 
-using TaskKey = std::tuple<int16_t, int16_t, int16_t>; // <deviceId, streamId, taskId> 唯一标识一个算子任务
+using TaskKey = std::tuple<uint16_t, uint16_t, uint16_t>; // <deviceId, streamId, taskId> 唯一标识一个算子任务
 using ThreadId = uint64_t;
 
 struct AclnnKernelMapInfo {
