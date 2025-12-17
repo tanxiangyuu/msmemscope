@@ -181,13 +181,30 @@ void Dump::WriteToFile(const std::shared_ptr<EventBase>& event)
     handlerMap_[event->device]->Write(event);
 }
 
-Dump::~Dump()
+// 每一次结束采集,都需要将所有文件都存在的公共事件,写回到每个文件中,防止落盘文件缺失
+void Dump::WritePublicEventToFile()
 {
     for (auto& event : sharedEventLists_) {
         for (auto& handler : handlerMap_) {
             handler.second->Write(event);
         }
     }
+    sharedEventLists_.clear();
+}
+
+void Dump::FflushEventToFile()
+{
+    // 刷新数据缓冲区数据,同步到落盘文件中,防止缺失
+    std::cout << "[msmemscope] INFO: Fflush temporary cache events to file!" << std::endl;
+    for (auto& handler : handlerMap_) {
+        handler.second->FflushFile();
+    }
+}
+
+Dump::~Dump()
+{
+    WritePublicEventToFile();
+    FflushEventToFile();
 }
 
 }
