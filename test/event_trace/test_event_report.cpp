@@ -81,6 +81,12 @@ TEST_F(EventReportTest, ReportAddrInfoTest)
     EXPECT_TRUE(instance.ReportAddrInfo(buffer));
 }
 
+TEST_F(EventReportTest, ReportPyStepTest)
+{
+    EventReport& instance = EventReport::Instance(MemScopeCommType::MEMORY_DEBUG);
+    EXPECT_TRUE(instance.ReportPyStepRecord());
+}
+
 TEST_F(EventReportTest, ReportTorchNpuMallocTest)
 {
     EventReport& instance = EventReport::Instance(MemScopeCommType::MEMORY_DEBUG);
@@ -222,10 +228,10 @@ TEST_F(EventReportTest, ReportKernelLaunchTest)
     int16_t devIdNeg = -1;
     auto taskKeyNeg = std::make_tuple(devIdNeg, streamId, taskId);
     AclnnKernelMapInfo kernelLaunchInfoNeg {};
-    kernelLaunchInfoNeg.taskKey = taskKey;
+    kernelLaunchInfoNeg.taskKey = taskKeyNeg;
     kernelLaunchInfoNeg.timestamp = 123;
     kernelLaunchInfoNeg.kernelName = "add";
-    EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchInfo));
+    EXPECT_TRUE(instance.ReportKernelLaunch(kernelLaunchInfoNeg));
 }
 
 TEST_F(EventReportTest, ReportAclItfTest)

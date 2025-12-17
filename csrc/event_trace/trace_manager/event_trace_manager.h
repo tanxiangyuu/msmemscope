@@ -85,6 +85,7 @@ public:
     void InitJudgeFuncTable();
     void SetAclInitStatus(bool isInit);
     void HandleWithATenCollect();
+    void HandleWithDecompose();
 private:
     EventTraceManager()
     {
