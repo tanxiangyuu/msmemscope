@@ -156,7 +156,9 @@ msMemScope工具提供API接口，便于快速分析内存情况，具体使用�
 
 ## License
 
-msMemScope工具的使用许可证，具体请参见[License](./License)文件。
+msMemScope工具的使用许可证，具体请参见[License](./License)。
+
+msMemScope工具docs目录下的文档适用CC-BY 4.0许可证，具体请参见[License](./docs/LICENSE)。
 
 ## 贡献声明
 
