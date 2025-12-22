@@ -54,7 +54,7 @@ msMemScope工具支持通过软件包和源码两种方式进行安装，可根�
 
 ## 快速入门
 
-快速入门旨在帮助用户快速熟悉msMemScope工具的使用方式。具体操作请参见[msMemScope快速入门](./docs/zh/get_started.md)。
+快速入门旨在帮助用户快速熟悉msMemScope工具的使用方式。具体操作请参见[msMemScope快速入门](./docs/zh/quick_start.md)。
 
 ## 工具限制与注意事项
 
