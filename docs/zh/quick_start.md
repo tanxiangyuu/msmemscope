@@ -31,7 +31,7 @@ msMemScope工具提供内存事件采集功能，基于采集事件开展内存�
 
       注：<path>为msMemScope软件包安装位置。
 
-   3. 使用msMemScope的**Python接口方式**需要执行以下命令设置环境变量。
+   3. 使用msMemScope的**Python接口方式**需要执行以下命令设置环境变量。推荐将以下命令加入专门的环境变量设置脚本。
 
       ```bash
       msMemScope_DIR="path"    # "path"需替换为实际的msMemScope路径
