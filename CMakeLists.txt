@@ -27,7 +27,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 option(BUILD_TESTS "build unit tests" OFF)
 
-option(FUZZ_TESTS "build fuzz tests" OFF)
 get_filename_component(ROOT_DIR ./ ABSOLUTE)
 
 # 设置git commit ID

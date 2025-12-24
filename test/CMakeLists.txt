@@ -10,9 +10,6 @@ add_subdirectory(framework)
 add_subdirectory(utility)
 add_subdirectory(analysis)
 add_subdirectory(event_trace)
-if (${FUZZ_TESTS})
-    add_subdirectory(fuzz_test)
-endif()
 
 set(memscope_header ../csrc
                  ../csrc/analysis

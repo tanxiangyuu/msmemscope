@@ -6,23 +6,15 @@ TOP_DIR=${CUR_DIR}/..
 GTEST_DIR="${TOP_DIR}/opensource/googletest"
 if [ ! -d "$GTEST_DIR" ]; then
     cd ${TOP_DIR}/opensource
-    git clone https://codehub-dg-y.huawei.com/OpenSourceCenter/googletest.git googletest -b release-1.12.1
+    git clone https://gitcode.com/GitHub_Trending/go/googletest.git googletest -b release-1.12.0
 else
     echo "opensource/googletest already exists. no need to download. exit."
-fi
-
-FUZZ_DIR="${TOP_DIR}/opensource/Secodefuzz"
-if [ ! -d "$FUZZ_DIR" ]; then
-    cd ${TOP_DIR}/opensource
-    git clone https://szv-open.codehub.huawei.com/innersource/Fuzz/secodefuzz.git Secodefuzz -b master
-else
-    echo "opensource/secodefuzz already exists. no need to download. exit."
 fi
 
 SECUREC_DIR="${TOP_DIR}/platform/securec"
 if [ ! -d "$SECUREC_DIR" ]; then
     cd ${TOP_DIR}/platform
-    git clone https://codehub-dg-y.huawei.com/hwsecurec_group/huawei_secure_c.git securec -b tag_Huawei_Secure_C_V100R001C01SPC012B002_00001
+    git clone https://gitcode.com/openeuler/libboundscheck.git securec -b v1.1.16
 else
     echo "platform/securec already exists. no need to download. exit."
 fi
@@ -30,7 +22,7 @@ fi
 JSON_PATH="${TOP_DIR}/opensource/json"
 if [ ! -d "$JSON_PATH" ]; then
     cd ${TOP_DIR}/opensource
-    git clone https://szv-open.codehub.huawei.com/OpenSourceCenter/nlohmann/json.git json -b v3.11.3
+    git clone https://gitcode.com/GitHub_Trending/js/json.git json -b v3.11.3
 else
     echo "opensource/json already exists. no need to download. exit."
 fi
