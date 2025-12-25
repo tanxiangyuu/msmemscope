@@ -1,0 +1,76 @@
+/* -------------------------------------------------------------------------
+ * This file is part of the MindStudio project.
+ * Copyright (c) 2025 Huawei Technologies Co.,Ltd.
+ *
+ * MindStudio is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *
+ *          http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ * -------------------------------------------------------------------------
+ */
+
+#ifndef TENSOR_DUMPER_H
+#define TENSOR_DUMPER_H
+
+#include <string>
+#include <mutex>
+#include <unordered_map>
+#include "tensor_monitor.h"
+#include "record_info.h"
+#include "kernel_hooks/acl_hooks.h"
+
+namespace MemScope {
+
+class TensorDumper {
+public:
+    TensorDumper(const TensorDumper&) = delete;
+    TensorDumper& operator=(const TensorDumper&) = delete;
+
+    static TensorDumper& GetInstance()
+    {
+        static TensorDumper instance;
+        return instance;
+    }
+
+    bool DumpOneTensor(const MonitoredTensor& tensor, std::string& fileName);
+    void Dump(aclrtStream stream, const std::string &op, bool isWatchStart);
+    void SetDumpNums(uint64_t ptr, int32_t dumpNums);
+    int32_t GetDumpNums(uint64_t ptr);
+    void DeleteDumpNums(uint64_t ptr);
+    void SetDumpName(uint64_t ptr, std::string name);
+    std::string GetDumpName(uint64_t ptr);
+    void DeleteDumpName(uint64_t ptr);
+
+private:
+    TensorDumper();
+    ~TensorDumper();
+
+    bool IsDumpFullContent();
+
+    bool DumpTensorBinary(const std::vector<uint8_t> &hostData, std::string& fileName);
+    bool DumpTensorHashValue(const std::vector<uint8_t> &hostData, std::string& fileName);
+    void SynchronizeStream(aclrtStream stream);
+    uint64_t CountOpName(const std::string& name);
+    std::string GetFileName(const std::string &op, std::string watchedOpName, uint64_t index, bool isWatchStart);
+
+private:
+    bool fullContent_;
+    std::string dumpDir_;
+    FILE *csvFile_ = nullptr; // 仅落盘哈希值时的csv文件指针
+    std::mutex mutex_;
+    std::mutex mapMutex_;
+    std::unordered_map<uint64_t, std::string> dumpNameMap_;
+    std::unordered_map<uint64_t, int32_t> dumpNumsMap_;
+    std::unordered_map<std::string, uint64_t> opNameCnt_;
+    std::mutex opNameMutex_;
+};
+
+void CleanFileName(std::string& fileName);
+}
+#endif

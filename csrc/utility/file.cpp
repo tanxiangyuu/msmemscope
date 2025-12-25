@@ -1,0 +1,265 @@
+/* -------------------------------------------------------------------------
+ * This file is part of the MindStudio project.
+ * Copyright (c) 2025 Huawei Technologies Co.,Ltd.
+ *
+ * MindStudio is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *
+ *          http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ * -------------------------------------------------------------------------
+ */
+
+#include <dlfcn.h>
+#include <securec.h>
+#include "utils.h"
+#include "file.h"
+
+namespace Utility {
+
+    // Log创建之前不要使用LOG_***
+    bool CheckFileBeforeCreate(const std::string &path)
+    {
+        Path curPath = Path(path).Absolute();
+        std::string curPathStr = curPath.ToString();
+        std::string users;
+
+        if (!curPath.Exists()) {
+            std::cout << "[msmemscope] Error: The path " << curPathStr << " do not exist." << std::endl;
+            return false;
+        }
+        if (CheckStrIsStartsWithInvalidChar(curPathStr.c_str())) {
+            std::cout << "[msmemscope] Error: The path " << curPathStr << " is invalid." << std::endl;
+            return false;
+        }
+        if (!curPath.IsReadable()) {
+            std::cout << "[msmemscope] Error: The file path " << curPathStr << " is not readable." << std::endl;
+            return false;
+        }
+        if (!curPath.IsValidLength()) {
+            std::cout << "[msmemscope] Error: The length of file path " << curPathStr
+                      << " exceeds the maximum length." << std::endl;
+            return false;
+        }
+        if (!curPath.IsValidDepth()) {
+            std::cout << "[msmemscope] Error: The depth of file path " << curPathStr
+                      << " exceeds the maximum depth." << std::endl;
+            return false;
+        }
+        if (curPath.IsSoftLink()) {
+            std::cout << "[msmemscope] Error: The file path " << curPathStr
+                      << " is invalid: soft link is not allowed." << std::endl;
+            return false;
+        }
+        if (!curPath.IsPermissionValid()) {
+            std::cout << "[msmemscope] Error: The file path " << curPathStr
+                      << " is invalid: permission is not valid." << std::endl;
+            return false;
+        }
+        return true;
+    }
+
+    bool FileExists(const std::string& filePath)
+    {
+        std::ifstream file(filePath);
+        return file.good();
+    }
+
+    bool TableExists(sqlite3 *filefp, std::string tableName)
+    {
+        std::string sql = "SELECT name FROM sqlite_master WHERE type='table' AND name=?";
+        sqlite3_stmt* stmt;
+        int rc = Sqlite3PrepareV2(filefp, sql.c_str(), -1, &stmt, nullptr);
+        if (rc != SQLITE_OK) {
+            return false;
+        }
+        rc = Sqlite3BindText(stmt, 1, tableName.c_str(), -1, SQLITE_STATIC);
+        if (rc != SQLITE_OK) {
+            Sqlite3Finalize(stmt);
+            return false;
+        }
+        Sqlite3BusyTimeout(filefp, MemScope::SQLITE_TIME_OUT);
+        rc = Sqlite3Step(stmt);
+        bool exists = (rc == SQLITE_ROW);
+        Sqlite3Finalize(stmt);
+        return exists;
+    }
+
+    FileCreateManager& FileCreateManager::GetInstance(const std::string outputDir)
+    {
+        static FileCreateManager instance(outputDir);
+        return instance;
+    }
+
+    FileCreateManager::FileCreateManager(const std::string outputDir)
+    {
+        projectDir_ = outputDir + "/" + "msmemscope_" + std::to_string(GetPid()) + "_" + GetDateStr() + "_ascend";
+    }
+
+    FILE* FileCreateManager::CreateFileWithUmask(const std::string &path, const std::string &mode, mode_t mask)
+    {
+        if (path.empty()) {
+            return nullptr;
+        }
+        UmaskGuard guard{mask};
+        FILE *fp = fopen(path.c_str(), mode.c_str());
+        return fp;
+    }
+
+    FILE* FileCreateManager::CreateFile(const std::string &dir, const std::string &name, mode_t mask)
+    {
+        if (!MakeDir(dir)) {
+            return nullptr;
+        }
+        std::string filePath = dir + "/" + name;
+        if (!CheckFileBeforeCreate(dir)) {
+            return nullptr;
+        }
+        return CreateFileWithUmask(filePath, "a", mask);
+    }
+
+    bool FileCreateManager::CreateDir()
+    {
+        if (!MakeDir(projectDir_)) {
+            std::cerr << "[msmemscope] Error: Failed to create directory: " << projectDir_ << std::endl;
+            return false;
+        }
+        if (!CheckFileBeforeCreate(projectDir_)) {
+            return false;
+        }
+        return true;
+    }
+
+    bool FileCreateManager::CreateCsvFile(FILE **filefp, std::string devId, std::string filePrefix, std::string taskDir,
+        std::string headers)
+    {
+        if (*filefp == nullptr) {
+            std::string fileName = filePrefix + GetDateStr() + ".csv";
+            std::string dirPath;
+            if (devId.empty()) {
+                dirPath = projectDir_ + "/" + taskDir;
+            } else {
+                dirPath = projectDir_ + "/" + "device_" + devId + "/" + taskDir;
+            }
+            std::string filePath = dirPath + "/" + fileName;
+            FILE* fp = CreateFile(dirPath, fileName, DEFAULT_UMASK_FOR_CSV_FILE);
+            if (fp != nullptr) {
+                std::cout << "[msmemscope] Info: create file " << filePath << "." << std::endl;
+                fprintf(fp, "%s", headers.c_str());
+                *filefp = fp;
+            } else {
+                std::cout << "[msmemscope] Error: open file " << filePath << " failed." << std::endl;
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool FileCreateManager::CreateDbFile(sqlite3 **filefp, std::string devId, std::string filePrefix,
+        std::string taskDir, std::string tableName, std::string tableCreateSql)
+    {
+        if (*filefp == nullptr) {
+            if (dbDateStr_ == "") {
+                dbDateStr_ = GetDateStr();
+            }
+            std::string fileName = filePrefix + dbDateStr_ + ".db";
+            std::string dirPath;
+            if (devId.empty()) {
+                dirPath = projectDir_ + "/" + taskDir;
+            } else {
+                dirPath = projectDir_ + "/" + "device_" + devId + "/" + taskDir;
+            }
+            std::string filePath = dirPath + "/" + fileName;
+            // 在sqlite3_open前先创建好db文件
+            FILE* fp = CreateFile(dirPath, fileName, DEFAULT_UMASK_FOR_DB_FILE);
+            if (fp == nullptr) {
+                std::cout << "[msmemscope] Error: open file " << filePath << " failed." << std::endl;
+                return false;
+            } else {
+                std::cout << "[msmemscope] Info: create dbfile " << filePath << "." << std::endl;
+            }
+            sqlite3* db = nullptr;
+            int rc = Sqlite3Open(filePath.c_str(), &db);
+            if (rc != SQLITE_OK) {
+                std::cout << "[msmemscope] Error: Cannot open database: " << Sqlite3Errmsg(db) << std::endl;
+                if (db != nullptr) {
+                    Sqlite3Close(db);
+                }
+                return false;
+            }
+            Sqlite3Exec(db, "PRAGMA journal_mode=WAL;", nullptr, nullptr, nullptr);
+            if (CreateDbTable(db, tableCreateSql)) {
+                std::cout << "[msmemscope] Info: create dbtable " << tableName << " in " << filePath << "." << std::endl;
+                *filefp = db;
+            } else {
+                Sqlite3Close(db);
+                return false;
+            }
+        } else if (!TableExists(*filefp, tableName) && !CreateDbTable(*filefp, tableCreateSql)) {
+            return false;
+        }
+        return true;
+    }
+
+    bool FileCreateManager::CreateLogFile(FILE **filefp, std::string taskDir, std::string& logFilePath)
+    {
+        if (*filefp == nullptr) {
+            std::string fileName = "msmemscope_" + GetDateStr() + ".log";
+            std::string dirPath = projectDir_ + "/" + taskDir;
+            logFilePath = dirPath + "/" + fileName;
+            FILE* fp = CreateFile(dirPath, fileName, DEFAULT_UMASK_FOR_LOG_FILE);
+            if (fp == nullptr) {
+                std::cout << "[msmemscope] Error: Create log file failed: " << logFilePath << std::endl;
+                return false;
+            } else {
+                std::cout << "[msmemscope] Info: logging into file " << logFilePath << std::endl;
+                *filefp = fp;
+            }
+        }
+        return true;
+    }
+
+    bool FileCreateManager::CreateConfigFile(FILE **filefp, std::string fileName, std::string& configFilePath)
+    {
+        if (*filefp == nullptr) {
+            std::string realName = fileName + ".json";
+            configFilePath = projectDir_ + "/" + realName;
+            FILE* fp = CreateFile(projectDir_, realName, DEFAULT_UMASK_FOR_CONFIG_FILE);
+            if (fp == nullptr) {
+                std::cout << "[msmemscope] Error: Create config file failed: " << configFilePath << std::endl;
+                return false;
+            } else {
+                std::cout << "[msmemscope] Info: Config into file " << configFilePath << std::endl;
+                *filefp = fp;
+            }
+        }
+        return true;
+    }
+    
+    bool FileCreateManager::CreateDbTable(sqlite3 *filefp, std::string tableCreateSql)
+    {
+        Sqlite3BusyTimeout(filefp, MemScope::SQLITE_TIME_OUT);
+        int rc = Sqlite3Exec(filefp, tableCreateSql.c_str(), nullptr, nullptr, nullptr);
+        if (rc != SQLITE_OK) {
+            std::cout << "[msmemscope] Error: Create SQLTable error: " << Sqlite3Errmsg(filefp) << std::endl;
+            return false;
+        }
+        return true;
+    }
+
+    std::string FileCreateManager::GetProjectDir()
+    {
+        return projectDir_;
+    }
+
+    void FileCreateManager::SetProjectDir(std::string dirPath)
+    {
+        projectDir_ = dirPath;
+    }
+
+}  // namespace Utility

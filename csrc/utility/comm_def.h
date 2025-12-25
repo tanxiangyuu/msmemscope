@@ -1,0 +1,35 @@
+/* -------------------------------------------------------------------------
+ * This file is part of the MindStudio project.
+ * Copyright (c) 2025 Huawei Technologies Co.,Ltd.
+ *
+ * MindStudio is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *
+ *          http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ * -------------------------------------------------------------------------
+ */
+
+#ifndef COMM_DEF_H
+#define COMM_DEF_H
+
+namespace MemScope {
+
+using ClientId = std::size_t;
+
+enum class MemScopeCommType {
+    SHARED_MEMORY,
+    MEMORY_DEBUG
+};
+
+constexpr size_t SHM_SIZE = 64 * 1024 * 1024;
+constexpr size_t SHM_S2C_SIZE = 4 * 1024 * 1024;
+
+}
+
+#endif
