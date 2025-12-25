@@ -1,0 +1,46 @@
+/* -------------------------------------------------------------------------
+ * This file is part of the MindStudio project.
+ * Copyright (c) 2025 Huawei Technologies Co.,Ltd.
+ *
+ * MindStudio is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *
+ *          http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ * -------------------------------------------------------------------------
+ */
+ 
+#ifndef DATA_BASE_H
+#define DATA_BASE_H
+
+#include <cstdint>
+
+namespace MemScope {
+
+enum class DataType : uint8_t {
+    MEMORY_EVENT = 0,
+    PYTHON_TRACE_EVENT = 1,
+};
+
+class DataBase {
+public:
+    virtual ~DataBase() = default;
+    explicit DataBase(DataType type) : dataType_(type) {}
+
+    const DataType GetDataType()
+    {
+        return dataType_;
+    }
+
+protected:
+    DataType dataType_;
+};
+
+}
+
+#endif
