@@ -14,14 +14,13 @@ msMemScope工具提供内存事件采集功能，基于采集事件开展内存�
 
 1. 设置环境变量。
 
-   1. 使用CANN运行用户执行以下命令配置toolkit环境变量。
+   1. 使用CANN运行用户执行以下命令配置环境变量。
 
       ```bash
       source <cann-path>/Ascend/cann/set_env.sh
       ```
 
-
-      注：<cann-path>为CANN的安装目录。
+      注：其中`cann-path`为CANN的安装目录。
 
    2. 使用msMemScope工具采集内存数据执行以下命令配置环境变量。
 
@@ -29,7 +28,7 @@ msMemScope工具提供内存事件采集功能，基于采集事件开展内存�
       source <path>/msmemscope/set_env.sh
       ```
 
-      注：<path>为msMemScope软件包安装位置。
+      注：其中`path`为msMemScope软件包安装位置。
 
    3. 使用msMemScope的**Python接口方式**需要执行以下命令设置环境变量。推荐将以下命令加入专门的环境变量设置脚本。
 

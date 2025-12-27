@@ -64,4 +64,3 @@ Python Trace采集结果文件的字段解释如[**表 4**  python_trace_{_TID_}
 |EndTime(ns)|结束时间戳。|
 |Thread Id|线程ID。|
 |Process Id|进程ID。|
-

@@ -9,16 +9,15 @@ msMemScope工具支持在Linux系统上使用，目前提供以下两种安装�
 1. 稳定版本：提供安装软件包。
 2. 最新版本：从源码安装，msMemScope提供编译打包功能，以便您可以快速安装使用或开发工具。
 
-
 ## 安装前准备
 
-### 准备软件包	
+### 准备软件包 
 
 **软件包下载**
 
 点击[获取链接](https://gitcode.com/Ascend/msmemscope/releases)，下载msMemScope工具软件包。
 
-软件包名称：`MindStudio_memscope_linux-<arch>.run`，<arch>表示CPU架构。
+软件包名称：`MindStudio_memscope_linux-<arch>.run`，`arch`表示CPU架构。
 
 下载本软件即表示您同意[华为企业业务最终用户许可协议（EULA）](https://e.huawei.com/cn/about/eula)的条款和条件。
 
@@ -26,8 +25,8 @@ msMemScope工具支持在Linux系统上使用，目前提供以下两种安装�
 
 使用msMemScope工具前，需要安装驱动固件和CANN软件包，并配置环境变量。
 
--   准备Atlas训练系列产品/Atlas推理产品的服务器，并安装对应的驱动和固件，具体安装过程请参见安装NPU驱动固件《[CANN 软件安装指南(CANN商用版)](https://www.hiascend.com/document/detail/zh/canncommercial/83RC1/softwareinst/instg/instg_0005.html?Mode=PmIns&InstallType=local&OS=openEuler&Software=cannToolKit)》或《[CANN软件安装指南(CANN社区版)](https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/850alpha001/softwareinst/instg/instg_0005.html?Mode=PmIns&OS=openEuler&Software=cannToolKit)》中的“安装NPU驱动固件”章节。
--   安装CANN软件包，请参考安装CANN《[CANN软件安装指南(CANN商用版)](https://www.hiascend.com/document/detail/zh/canncommercial/83RC1/softwareinst/instg/instg_0008.html?Mode=PmIns&InstallType=local&OS=openEuler&Software=cannToolKit)》《[CANN 软件安装指南(CANN社区版)](https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/850alpha001/softwareinst/instg/instg_0008.html?Mode=PmIns&OS=openEuler&Software=cannToolKit)》中选择“训练&推理&开发调试”场景安装CANN软件包。请根据系统选择aarch64或x86_64对应版本的CANN-toolkit、CANN-ops。
+- 准备Atlas训练系列产品/Atlas推理产品的服务器，并安装对应的驱动和固件，具体安装过程请参见安装NPU驱动固件《[CANN 软件安装指南(CANN商用版)](https://www.hiascend.com/document/detail/zh/canncommercial/83RC1/softwareinst/instg/instg_0005.html?Mode=PmIns&InstallType=local&OS=openEuler&Software=cannToolKit)》或《[CANN软件安装指南(CANN社区版)](https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/850alpha001/softwareinst/instg/instg_0005.html?Mode=PmIns&OS=openEuler&Software=cannToolKit)》中的“安装NPU驱动固件”章节。
+- 安装CANN软件包，请参考安装CANN《[CANN软件安装指南(CANN商用版)](https://www.hiascend.com/document/detail/zh/canncommercial/83RC1/softwareinst/instg/instg_0008.html?Mode=PmIns&InstallType=local&OS=openEuler&Software=cannToolKit)》《[CANN 软件安装指南(CANN社区版)](https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/850alpha001/softwareinst/instg/instg_0008.html?Mode=PmIns&OS=openEuler&Software=cannToolKit)》中选择“训练&推理&开发调试”场景安装CANN软件包。请根据系统选择aarch64或x86_64对应版本的CANN-toolkit、CANN-ops。
 
 ### 数字签名
 
@@ -61,7 +60,7 @@ sudo yum install -y python3 git
    git clone https://gitcode.com/Ascend/msmemscope.git <remote-name>
    ```
 
-   注：<remote-name>为远程仓库别名，需要指定。
+   注：其中`remote-name`为远程仓库别名，需要指定。
 
 2. 下载构建依赖以及编译。
 
@@ -92,7 +91,7 @@ sudo yum install -y python3 git
      Help:    bash MindStudio_memscope_linux-<arch>.run --help
    ```
 
-   注： <arch>表示CPU架构。
+   注：其中`arch`表示CPU架构。
 
 4. 在`./build`目录下执行以下命令，安装软件包。
 
@@ -100,9 +99,9 @@ sudo yum install -y python3 git
    bash MindStudio_memscope_linux-<arch>.run --install --install-path=<path>
    ```
 
-   注：<path>为安装目录。
+   注：其中`path`为安装目录。
 
-   将msMemScope安装在<path>目录下，安装成功后，打印以下信息。
+   将msMemScope安装在`path`目录下，安装成功后，打印以下信息。
 
    ```bash
    source <path>/msmemscope/set_env.sh
@@ -146,7 +145,7 @@ msMemScope的软件包提供升级功能。
 
    其中参数说明如下。
 
-   - `--upgrade ` 参数升级产物。
+   - `--upgrade` 参数升级产物。
    - `--install-path`指定目标目录，只升级选定的目录。
 
    升级完成后，若打印如下信息，则说明软件升级成功。
@@ -165,7 +164,7 @@ msMemScope的软件包提供升级功能。
    cd <path>/msmemscope
    ```
 
-   注：<path>为软件包的安装路径，请根据实际情况替换。
+   注：其中`path`为软件包的安装路径，请根据实际情况替换。
 
 2. 执行以下命令运行卸载脚本，完成卸载。
 
@@ -177,7 +176,7 @@ msMemScope的软件包提供升级功能。
 
    卸载完成后，若打印如下信息，则说明软件卸载成功。
 
-   ```
+   ```tex
    [INFO] Uninstallation completed successfully
    ```
 
@@ -191,7 +190,7 @@ msMemScope的软件包提供升级功能。
 
 详细参数请参见[表1](#cli-args-table)。
 
->如果通过./MindStudio_memscope_linux-<arch>.run --help命令查询出的参数未解释在如下表格，则说明该参数为预留参数或适用于其他产品类型，用户无需关注。
+> 如果通过./MindStudio_memscope_linux-{arch}.run --help命令查询出的参数未解释在如下表格，则说明该参数为预留参数或适用于其他产品类型，用户无需关注。
 
 **表 1**  参数说明
 
@@ -226,4 +225,3 @@ msMemScope的软件包提供升级功能。
   </tr>
 </tbody>
 </table>
-

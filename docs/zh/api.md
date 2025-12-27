@@ -21,8 +21,7 @@ msMemScope工具提供快速分析接口和基于analyzer类的离线分析两�
     |analyze|msMemScope工具提供的快速分析接口。支持内存泄漏分析和自定义低效内存识别。|
     |check_leaks|msMemScope工具提供的内存泄漏快速分析接口。|
     |check_inefficient|msMemScope工具提供的自定义低效内存识别快速分析接口。|
-
-
+    
 - analyzer类
 
     可以直接从msMemScope工具导入analyzer类，进行离线分析，涉及的接口如[**表 2**  analyzer类接口说明](#analyzer类接口说明)所示。但是代码实现较为繁琐，不推荐使用该方式。
@@ -34,7 +33,7 @@ msMemScope工具提供快速分析接口和基于analyzer类的离线分析两�
     from msmemscope.analyzer import LeaksAnalyzer, LeaksConfig
     # 声明参数生成config
     leaks_config = LeaksConfig(
-        input_path="user/memscope.csv",	# input_path以实际路径为准
+        input_path="user/memscope.csv", # input_path以实际路径为准
         mstx_info="test",
         start_index=0
     )
@@ -46,7 +45,7 @@ msMemScope工具提供快速分析接口和基于analyzer类的离线分析两�
     from msmemscope.analyzer import InefficientConfig, InefficientAnalyzer
     # 声明参数生成config
     ineff_config = InefficientConfig(
-        input_path="user/ineff.csv",	# input_path以实际路径为准
+        input_path="user/ineff.csv", # input_path以实际路径为准
         mem_size=0,
         inefficient_type=["early_allocation","late_deallocation","temporary_idleness"],
         idle_threshold=3000
@@ -65,8 +64,6 @@ msMemScope工具提供快速分析接口和基于analyzer类的离线分析两�
     |InefficientConfig|低效内存分析参数。|
     |InefficientAnalyzer|低效内存分析类。|
 
-
-
 ## list\_analyzers
 
 **功能说明**
@@ -75,7 +72,7 @@ msMemScope工具提供快速分析接口和基于analyzer类的离线分析两�
 
 **函数原型**
 
-```
+```shell
 list_analyzers() -> List[str]
 ```
 
@@ -84,7 +81,6 @@ list_analyzers() -> List[str]
 |参数名|输入/输出|说明|
 |--|--|--|
 |List[str]|输出|字符串列表。|
-
 
 **返回值说明**
 
@@ -100,7 +96,6 @@ config_list = msmemscope.list_analyzers()
 print(config_list)
 ```
 
-
 ## get\_analyzer\_config
 
 **功能说明**
@@ -109,7 +104,7 @@ print(config_list)
 
 **函数原型**
 
-```
+```shell
 get_analyzer_config(analyzer_type: str) -> Dict[str, Any]
 ```
 
@@ -119,7 +114,6 @@ get_analyzer_config(analyzer_type: str) -> Dict[str, Any]
 |--|--|--|
 |str|输入|字符串，代表对应的内存分析类型，可参考list_analyzers的输出结果，例如“leaks”或“inefficient”。|
 |Dict[str, Any]|输出|包含所有参数的字典，支持直接打印。|
-
 
 **返回值说明**
 
@@ -136,7 +130,6 @@ print(leaks_para)
 ineff_para = msmemscope.get_analyzer_config("inefficient")
 print(ineff_para)
 ```
-
 
 ## analyze
 
@@ -159,7 +152,7 @@ msMemScope工具提供的对外分析接口。支持内存泄漏分析和自定�
 
 **函数原型**
 
-```
+```shell
 analyze(analyzer_type: str, **kwargs):
 ```
 
@@ -186,13 +179,12 @@ import msmemscope
 msmemscope.analyze("leaks", input_path="user/memscope.csv", mstx_info="test",start_index=0)
 
 msmemscope.analyze("inefficient",
-		input_path="user/ineff.csv",mem_size=0,
-		inefficient_type=["early_allocation","late_deallocation","temporary_idleness"],
-		idle_threshold=3000
-		)
+  input_path="user/ineff.csv",mem_size=0,
+  inefficient_type=["early_allocation","late_deallocation","temporary_idleness"],
+  idle_threshold=3000
+  )
 # input_path以实际路径为准
 ```
-
 
 ## check\_leaks
 
@@ -202,7 +194,7 @@ msMemScope工具对外提供内存泄漏快速分析接口。
 
 **函数原型**
 
-```
+```shell
 check_leaks(input_path: str, mstx_info: str, start_index: int)
 ```
 
@@ -215,7 +207,6 @@ check_leaks(input_path: str, mstx_info: str, start_index: int)
 |input_path|输入|使用msMemScope采集的csv文件所在路径，需使用绝对路径。|
 |mstx_info|输入|mark打点使用的mstx文本信息，用于标识泄漏分析的范围。|
 |start_index|输入|开始进行泄漏分析的mstx打点索引。|
-
 
 **返回值说明**
 
@@ -231,7 +222,6 @@ msmemscope.check_leaks(input_path="user/memscope.csv",mstx_info="test",start_ind
 # input_path以实际路径为准
 ```
 
-
 ## check\_inefficient
 
 **功能说明**
@@ -240,7 +230,7 @@ msMemScope工具对外提供的自定义低效内存识别快速分析接口。
 
 **函数原型**
 
-```
+```shell
 check_inefficient(input_path: str, mem_size: int = 0, inefficient_type: List[str] = None, idle_threshold: int = 3000)    # 如果无输入采用默认值
 ```
 
@@ -255,7 +245,6 @@ check_inefficient(input_path: str, mem_size: int = 0, inefficient_type: List[str
 |inefficient_type|输入|低效类型分类，确定判断策略，仅输出用户关注的低效内存类型。当前支持的类型如下：<br> - 过早申请：early_allocation <br> - 过迟释放：late_deallocation <br> - 临时闲置：temporary_idleness|
 |idle_threshold|输入|临时闲置阈值，决定临时闲置低效内存的API阈值，可以灵活设置阈值大小。|
 
-
 **返回值说明**
 
 无返回值。
@@ -267,9 +256,7 @@ check_inefficient(input_path: str, mem_size: int = 0, inefficient_type: List[str
 ```python
 import msmemscope
 msmemscope.check_inefficient(input_path="user/ineff.csv",mem_size=0,
-			  inefficient_type=["early_allocation","late_deallocation","temporary_idleness"],idle_threshold=3000
-			  )
+     inefficient_type=["early_allocation","late_deallocation","temporary_idleness"],idle_threshold=3000
+     )
 # input_path以实际路径为准
 ```
-
-
