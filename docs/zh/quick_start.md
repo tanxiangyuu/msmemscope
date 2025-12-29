@@ -14,7 +14,7 @@ msMemScope工具提供内存事件采集功能，基于采集事件开展内存�
 
 1. 设置环境变量。
 
-   1. 使用CANN运行用户执行以下命令配置环境变量。
+   1. 使用CANN运行用户请执行以下命令配置环境变量。
 
       ```bash
       source <cann-path>/Ascend/cann/set_env.sh
