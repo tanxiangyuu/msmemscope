@@ -1,0 +1,1 @@
+python ../../testfile/scripts/test_mindspore_cmd.py
