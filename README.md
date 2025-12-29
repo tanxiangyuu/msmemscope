@@ -18,7 +18,7 @@ msMemScope（内存工具）是基于昇腾硬件的内存检测工具，用于�
    |-- build.py          # 构建脚本
 |-- docs                 # 项目文档介绍 
 |-- example              # 项目示例代码
-|-- csrc                 # 源码
+|-- csrc                 # c++源码
    |-- framework         # 命令行解析，完成和event_trace模块的交互，获取内存事件并发送给analysis模块进行处理
    |-- event_trace       # 完成对内存事件的记录并提交框架模块
    |-- analysis          # 内存事件处理和分析
@@ -26,7 +26,7 @@ msMemScope（内存工具）是基于昇腾硬件的内存检测工具，用于�
 |-- output
    |-- bin
       |-- msmemscope     # 可执行文件
-|-- test                 # UT测试
+|-- test                 # UT测试、ST测试
 ```
 
 ## 版本说明
@@ -175,16 +175,13 @@ msMemScope工具docs目录下的文档适用CC-BY 4.0许可证，具体请参见
    6. 新建Pull Request。
    7. 代码检视：您需要根据评审意见修改代码，并再次推送更新。此流程可能涉及多轮迭代。
    8. 当您的PR获得足够数量的检视者批准后，Committer会进行最终审核。
-   9. 审核和测试通过后，CI会将您的PR合并到项目的主干分支。
+   9. 审核和测试通过后，CI会将您的PR合并入项目的主干分支。
+6. 详细步骤请参见[开发者指南](./docs/zh/development_guide/development_guide.md)。
 
 ## 建议与交流
 
 欢迎大家为社区做贡献。如果有任何疑问或建议，请提交[Issues](https://gitcode.com/Ascend/msmemscope/issues)，我们会尽快回复。感谢您的支持。
 
 ## 致谢
-
-msMemScope由华为公司的下列部门贡献：
-
-- 计算产品线
 
 感谢来自社区的每一个PR，欢迎贡献msMemScope。

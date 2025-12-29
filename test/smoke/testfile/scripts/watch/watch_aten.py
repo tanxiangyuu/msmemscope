@@ -7,7 +7,6 @@ import mstx
 
 import os
 import sys
-
 import msmemscope
 
 class SimpleModel(nn.Module):
