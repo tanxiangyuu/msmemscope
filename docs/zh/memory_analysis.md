@@ -38,7 +38,7 @@ msMemScope工具的安装，请参见[《msMemScope工具安装说明》](./inst
 
 1. 使用msMemScope工具启动用户程序，Application为用户程序。
 
-    ```
+    ```shell
     msmemscope ${Application}
     ```
 
@@ -68,7 +68,7 @@ msMemScope支持对指定范围内的内存事件进行离线泄漏分析。使�
 
 2. 执行以下命令，使用msMemScope工具启动用户程序，获取落盘csv文件，Application为用户程序。
 
-    ```
+    ```shell
     msmemscope ${Application}
     ```
 
@@ -81,9 +81,9 @@ msMemScope支持对指定范围内的内存事件进行离线泄漏分析。使�
 
     其中参数信息如下：
 
-    -   input_path：csv文件所在路径，需使用绝对路径。
-    -   mstx_info：mark打点使用的mstx文本信息，用于标识泄漏分析的范围。
-    -   start_index：内存泄漏分析开始的打点位置编号，即从第几个符合条件的mstx打点位置开始分析。
+    - input_path：csv文件所在路径，需使用绝对路径。
+    - mstx_info：mark打点使用的mstx文本信息，用于标识泄漏分析的范围。
+    - start_index：内存泄漏分析开始的打点位置编号，即从第几个符合条件的mstx打点位置开始分析。
 
     如果出现[**图 3**  offline leakage analysis](#analysis)的回显信息，表示存在内存泄漏问题。
 
@@ -104,14 +104,14 @@ msMemScope支持对指定范围内的内存事件进行离线泄漏分析。使�
 
 1. 使用环境变量关闭task_queue算子下发队列优化。
 
-    ```
+    ```shell
     export TASK_QUEUE_ENABLE=0
     ```
 
 2. 在训练推理代码中添加mstx打点代码，可参考[内存泄漏分析功能介绍](#内存泄漏分析功能介绍)。
 3. 执行以下命令，使用msMemScope工具采集指定Step的内存数据，需要采集两个不同Step的数据。建议每次只采集一个Step的数据，两个不同Step的数据采集完成后，用来进行Step间内存对比分析。
 
-    ```
+    ```shell
     msmemscope [options] ${Application} --steps=Required Step --level=kernel
     ```
 
@@ -122,7 +122,7 @@ msMemScope支持对指定范围内的内存事件进行离线泄漏分析。使�
 
 4. 执行以下命令，对比采集到的两个Step的内存使用差异。
 
-    ```
+    ```shell
     msmemscope --compare --input=path1,path2 --level=kernel
     ```
 
@@ -130,7 +130,7 @@ msMemScope支持对指定范围内的内存事件进行离线泄漏分析。使�
 
 5. Step间对比生成的结果目录如下。
 
-    ```
+    ```shell
     |- memscopeDumpResults
            |- compare
                    |- memory_compare_{timestamp}.csv
@@ -156,13 +156,13 @@ Step间内存问题可通过输出文件查询定位，输出文件详解可参�
 
 1. 执行以下命令，关闭多任务下发。
 
-    ```
+    ```shell
     export ASCEND_LAUNCH_BLOCKING=1
     ```
 
 2. 执行以下命令，开启内存块监测。
 
-    ```
+    ```shell
     msmemscope ${Application} --watch=start:outid,end,full-content
     ```
 
@@ -172,7 +172,6 @@ Step间内存问题可通过输出文件查询定位，输出文件详解可参�
     |--|--|
     |Application|用户的可执行脚本。如果需要使用Python接口指定被监测的Tensor，具体设置请参见[3](#3)。|
     |--watch|开启内存块监测功能。<br> - start：可选，字符串形式，表示开始监测算子。<br> - outid：可选，表示算子的output编号。当Tensor为一个列表时，可以指定需要落盘的Tensor，取值为Tensor在列表中的下标编号。<br> - end：必选，字符串形式，表示结束监测算子。<br> - full-content：可选，表示全量落盘内存数据，会将每个Tensor对应的二进制文件进行落盘。如果不选择该值，表示轻量化落盘，仅落盘Tensor对应的哈希值。<br> 示例：--watch=token0/layer0/module0/op0,token0/layer0/module0/op1,full-content|
-
 
 3. <a id="3"></a>在用户的可执行脚本中，调用Python接口指定被监测的Tensor。
 
@@ -224,10 +223,9 @@ Step间内存问题可通过输出文件查询定位，输出文件详解可参�
     |test_tensor.data_ptr()|必选，表示被监测Tensor的地址。仅当使用方式二开启内存块监测时需输入该参数。|
     |length|必选，表示输入监测内存块的长度，当输入length时，无关键字的参数只能为地址整型变量。length的大小建议小于等于已知被监测Tensor的内存块的大小。仅当使用方式二开启内存块监测时需输入该参数。|
 
-
 4. 命令执行完成后，内存块监测生成的结果目录如下。
 
-    ```
+    ```shell
     ├── memscopeDumpResults             
     │    └── watch_dump
           │    ├── {deviceid}_{tid}_{opName}_{调用次数}-{watchedOpName}_{outid}_{before/after}.bin        # 当输入full-content参数时，落盘bin文件
@@ -238,9 +236,8 @@ Step间内存问题可通过输出文件查询定位，输出文件详解可参�
 
 内存块监测功能输出的文件为bin文件或csv文件。
 
--  bin文件记录的是Tensor的详细落盘结果。
--  csv文件仅记录了Tensor对应的哈希值。
-
+- bin文件记录的是Tensor的详细落盘结果。
+- csv文件仅记录了Tensor对应的哈希值。
 
 ## 内存拆解功能介绍
 
@@ -300,7 +297,6 @@ msMemScope工具通过增加Python接口，支持用户自行对代码段做描�
 
 低效内存识别的结果会保存在memscope_dump_{_timestamp_}.csv文件中，具体信息可参见[输出文件说明](./output_file_spec.md)。
 
-
 ## 低效内存识别功能介绍
 
 ### 功能说明
@@ -327,15 +323,12 @@ msMemScope工具仅支持识别ATB LLM和Ascend Extension for PyTorch单算子�
 
 执行以下命令，开启低效内存识别功能。其中Application为用户脚本。
 
-```
+```shell
 msmemscope ${Application} --analysis=inefficient
 ```
 
 低效内存识别也可离线进行分析，可通过接口自定义设置，具体操作可参见[API参考](./api.md)。
 
-
 ### 输出说明
 
 低效内存识别的结果会保存在memscope_dump_{_timestamp_}.csv文件中，具体信息可参见[输出文件说明](./output_file_spec.md)。
-
-

@@ -30,14 +30,15 @@ msMemScope工具的安装，请参见[《msMemScope工具安装指南》](./inst
 
 **Python接口采集**<a id="Python接口采集"></a>
 
-1.设置环境变量。  
+1.设置环境变量。
 执行以下命令，设置LD_PRELOAD和LD_LIBRARY_PATH环境变量。
-```
+
+```shell
 export LD_PRELOAD=${memscope_install_path}/lib64/{so_name}:${memscope_install_path}/lib64/{so_name}
 export LD_LIBRARY_PATH=${memscope_install_path}/lib64/:${LD_LIBRARY_PATH}
 ```
-其中的参数说明如[**表 1**  参数说明](#参数说明)。 
 
+其中的参数说明如[**表 1**  参数说明](#参数说明)。 
 
 **表 1**  参数说明<a id="参数说明"></a>
 
@@ -47,8 +48,9 @@ export LD_LIBRARY_PATH=${memscope_install_path}/lib64/:${LD_LIBRARY_PATH}
 |so_name|需要配置的so包名称，每个so包之间以半角冒号分隔。需要配置的so包有libascend_kernel_hook.so、libascend_mstx_hook.so、libatb_abi_0_hook.so、libatb_abi_1_hook.so、libleaks_ascend_hal_hook.so，共5个so包。|
 |LD_LIBRARY_PATH|LD_LIBRARY_PATH环境变量。|
 
-2.采集内存。  
+2.采集内存。
 执行以下示例代码，采集内存事件。需要注意的是，请根据需求自行配置`msmemscope.config`的参数。
+
 ```python
 import msmemscope
 
@@ -65,7 +67,8 @@ msMemScope工具支持通过Python接口采集Python代码的Trace数据，并�
 > [!NOTE] 说明  
 > Python Trace采集功能将于MindStudio 9.0.0版本下线，您可通过Python接口采集方式，自定义设置events="traceback"，采集Python Trace事件，可参见[Python接口采集](#Python接口采集)。
 
-1.在msMemScope工具中，增加Python接口，用以开启和关闭Tracer功能，在start和stop之间的Python代码，会落盘Trace数据。代码示例如下：  
+1.在msMemScope工具中，增加Python接口，用以开启和关闭Tracer功能，在start和stop之间的Python代码，会落盘Trace数据。代码示例如下：
+
 ```python
 import msmemscope
 
@@ -85,12 +88,13 @@ msmemscope.tracer.stop()   # 关闭Tracer功能
 import msmemscope
 
 msmemscope.config()
-msmemscope.start()		# 开启采集
+msmemscope.start()  # 开启采集
 for i in range(10):
-    train()			    # train()为用户代码
-    msmemscope.step()	# 输入Step信息
-msmemscope.stop()		# 退出采集
+    train()       # train()为用户代码
+    msmemscope.step() # 输入Step信息
+msmemscope.stop()  # 退出采集
 ```
+
 ### 输出说明
 
 内存采集的输出结果请参见[输出文件说明](./output_file_spec.md)。
@@ -113,7 +117,7 @@ msmemscope.stop()		# 退出采集
 
 - 用户不需要使用命令行指定参数
 
-    ```
+    ```shell
     msmemscope [options] <prog_name> 
     ```
 
@@ -121,13 +125,13 @@ msmemscope.stop()		# 退出采集
 
     - 方式一（推荐使用此方式）：_user_.sh为用户脚本
 
-        ```
+        ```shell
         msmemscope [options] bash user.sh
         ```
 
     - 方式二
 
-        ```
+        ```shell
         msmemscope [options] -- <prog_name> [prog_options]
         ```
 
@@ -140,7 +144,6 @@ msmemscope.stop()		# 退出采集
 |options|命令行参数，详细参数参见表2。|
 |prog_name|用户脚本名称，请保证自定义脚本的安全性。当开启内存对比功能时不需要输入此参数。|
 |prog_options|用户脚本参数，请保证自定义脚本参数的安全性。当开启内存对比功能时不需要输入此参数。|
-
 
 **表 3**  参数说明
 
@@ -162,8 +165,8 @@ msmemscope.stop()		# 退出采集
 |--compare|开启Step间内存数据对比功能。仅当使用内存对比功能时，需要设置此参数。|否|
 |--input|对比文件所在的绝对目录，需输入基线文件和对比文件的目录，以逗号（全角半角逗号均可）分隔，仅在compare功能开启时有效，路径最大输入长度为4096。示例：--input=/home/projects/input1,/home/projects/input2。<br> 仅当使用内存对比功能时，需要设置此参数。|否|
 
-
 > [!NOTE] 说明
+> 
 > - 当--events=launch，需要采集Aten算子下发与访问事件时，此时需要满足Ascend Extension for PyTorch框架中的PyTorch版本大于或等于2.3.1，才可使用该功能。
 > - 当--analysis参数取值包含decompose时，memscope\_dump\_\{_timestamp_\}.csv文件中Attr参数中会包含显存类别和组件名称。
 > - 当--analysis参数取值包含decompose时，会开启内存分解功能，当前支持对Ascend Extension for PyTorch框架、MindSpore框架和ATB算子框架的内存池进行分类，但是暂不支持对MindSpore框架和ATB算子框架的内存池进行细分类。在Ascend Extension for PyTorch框架下，可支持对aten、weight、gradient、optimizer\_state进行细分类，其中weight、gradient、optimizer\_state仅限于PyTorch的训练场景（即调用optimizer.step\(\)接口的场景），aten是aten算子中申请的内存，需要同时满足PyTorch版本大于或等于2.3.1，--level参数取值中包含0。
@@ -217,11 +220,10 @@ msMemScope工具可以结合mstx打点能力进行内存采集，同时msMemScop
     ```
 
 > [!NOTE] 说明
+> 
 > - 仅支持采集单卡局部的内存数据。
 > - 在目标用户程序前可配置PYTHONMALLOC=malloc。PYTHONMALLOC=malloc是Python的环境变量，表示不采用Python的默认内存分配器，所有的内存分配均使用malloc，该配置对小内存申请有一定影响。
 
 ### 输出说明  
 
 内存采集的输出结果请参见[输出文件说明](./output_file_spec.md)。
-
-
