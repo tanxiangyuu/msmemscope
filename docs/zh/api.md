@@ -6,7 +6,7 @@ msMemScope工具提供开放接口，帮助用户进行内存分析，识别内�
 
 analyzer类是msMemScope工具新增的离线分析模块，负责所有的离线分析功能。可以从msMemScope导入对应的analyzer分析类，实现内存泄漏分析和自定义低效内存识别。
 
-msMemScope工具提供快速分析接口和基于analyzer类的离线分析两种方式，进行离线分析。推荐使用快速分析接口。
+msMemScope工具提供快速分析接口和基于analyzer类的离线分析两种方式，推荐使用快速分析接口。
 
 - 快速分析接口
 
@@ -83,8 +83,6 @@ list_analyzers() -> List[str]
 |List[str]|输出|字符串列表。|
 
 **返回值说明**
-
-无返回值。
 
 运行后会输出当前msMemScope工具支持的内存分析类型。
 

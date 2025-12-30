@@ -1,11 +1,11 @@
 # 内存对比案例
 ## 概述
-本案例介绍了内存工具msmemscope的内存对比功能，目前主要用于处理Step间发生的显存差异对比。如果训练推理参数一致，但是CANN或框架的版本不配套，那么任务的两个不同Step的内存使用可能存在差异。msmemscope提供了用户对比分析、定位问题的能力。
+本案例介绍了内存工具msMemScope的内存对比功能，目前主要用于处理Step间发生的显存差异对比。如果训练推理参数一致，但是CANN或框架的版本不配套，那么任务的两个不同Step的内存使用可能存在差异。msMemScope提供了用户对比分析、定位问题的能力。
 
 ## 前期准备
-请参见[安装指南](docs/zh/install_guide.md)安装msmemscope工具。
+请参见[安装指南](docs/zh/install_guide.md)安装msMemScope工具。
 
-此外，使用对比功能前需要环境变量关闭task_queue算子下发队列优化后，再使用msmemscope工具采集两个不同step的数据。
+此外，使用对比功能前需要环境变量关闭task_queue算子下发队列优化后，再使用msMemScope工具采集两个不同step的数据。
 ```bash
 export TASK_QUEUE_ENABLE=0
 ```
