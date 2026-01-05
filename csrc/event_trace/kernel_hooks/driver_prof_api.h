@@ -18,6 +18,7 @@
 #ifndef DRIVER_PROF_API_H
 #define DRIVER_PROF_API_H
 
+#include <cstdint>
 #include "vallina_symbol.h"
 namespace MemScope {
 
