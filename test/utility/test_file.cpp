@@ -173,11 +173,11 @@ TEST_F(FileTest, table_exists_not_exist_table_expect_false)
 {
     sqlite3* db = nullptr;
     std::string dbPath = "./test_db.db";
-    int rc = Sqlite3Open(dbPath.c_str(), &db);
+    int rc = sqlite3_open(dbPath.c_str(), &db);
     ASSERT_EQ(rc, SQLITE_OK);
     auto ret = Utility::TableExists(db, "non_existent_table");
     ASSERT_FALSE(ret);
-    Sqlite3Close(db);
+    sqlite3_close(db);
     remove(dbPath.c_str());
 }
 
@@ -186,13 +186,13 @@ TEST_F(FileTest, table_exists_exist_table_expect_true)
 {
     sqlite3* db = nullptr;
     std::string dbPath = "./test_db.db";
-    int rc = Sqlite3Open(dbPath.c_str(), &db);
+    int rc = sqlite3_open(dbPath.c_str(), &db);
     ASSERT_EQ(rc, SQLITE_OK);
     std::string createSql = "CREATE TABLE test_table (id INT);";
-    Sqlite3Exec(db, createSql.c_str(), nullptr, nullptr, nullptr);
+    sqlite3_exec(db, createSql.c_str(), nullptr, nullptr, nullptr);
     auto ret = Utility::TableExists(db, "test_table");
-    ASSERT_FALSE(ret);
-    Sqlite3Close(db);
+    ASSERT_TRUE(ret);
+    sqlite3_close(db);
     remove(dbPath.c_str());
 }
 

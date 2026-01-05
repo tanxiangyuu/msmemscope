@@ -17,6 +17,7 @@ target_include_directories(atb_abi_0_hook PUBLIC
   ${SECUREC_INC_DIR}
   ${ANALYSIS_DIR}
   ${JSON_DIR}
+  ${SQLITE3_DIR}
 )
 
 target_link_libraries(atb_abi_0_hook ascend_leaks dl)
@@ -44,6 +45,7 @@ target_include_directories(atb_abi_1_hook PUBLIC
   ${SECUREC_INC_DIR}
   ${ANALYSIS_DIR}
   ${JSON_DIR}
+  ${SQLITE3_DIR}
 )
 
 target_link_libraries(atb_abi_1_hook ascend_leaks dl)

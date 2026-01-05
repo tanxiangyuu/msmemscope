@@ -16,7 +16,6 @@ target_sources(ascend_kernel_hook PRIVATE
   ${UTILITY_INC_DIR}/cpython.cpp
   ${UTILITY_INC_DIR}/log.cpp
   ${UTILITY_INC_DIR}/file.cpp
-  ${UTILITY_INC_DIR}/sqlite_loader.cpp
   ${UTILITY_INC_DIR}/ustring.cpp
   ${UTILITY_INC_DIR}/call_stack.cpp
   ${UTILITY_INC_DIR}/cpython.cpp
@@ -33,6 +32,7 @@ target_include_directories(ascend_kernel_hook PUBLIC
   ${SECUREC_INC_DIR}
   ${ANALYSIS_DIR}
   ${JSON_DIR}
+  ${SQLITE3_DIR}
 )
 target_link_options(ascend_kernel_hook PRIVATE "-Wl,--disable-new-dtags")
 target_link_libraries(ascend_kernel_hook ascend_hal ascend_leaks dl pthread stdc++fs c_sec)

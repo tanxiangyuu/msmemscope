@@ -25,7 +25,6 @@
 #include "kernel_hooks/runtime_hooks.h"
 #include "kernel_hooks/acl_hooks.h"
 #include "vallina_symbol.h"
-#include "utility/sqlite_loader.h"
 
 using namespace testing;
 using namespace MemScope;

@@ -74,19 +74,19 @@ namespace Utility {
     {
         std::string sql = "SELECT name FROM sqlite_master WHERE type='table' AND name=?";
         sqlite3_stmt* stmt;
-        int rc = Sqlite3PrepareV2(filefp, sql.c_str(), -1, &stmt, nullptr);
+        int rc = sqlite3_prepare_v2(filefp, sql.c_str(), -1, &stmt, nullptr);
         if (rc != SQLITE_OK) {
             return false;
         }
-        rc = Sqlite3BindText(stmt, 1, tableName.c_str(), -1, SQLITE_STATIC);
+        rc = sqlite3_bind_text(stmt, 1, tableName.c_str(), -1, SQLITE_STATIC);
         if (rc != SQLITE_OK) {
-            Sqlite3Finalize(stmt);
+            sqlite3_finalize(stmt);
             return false;
         }
-        Sqlite3BusyTimeout(filefp, MemScope::SQLITE_TIME_OUT);
-        rc = Sqlite3Step(stmt);
+        sqlite3_busy_timeout(filefp, MemScope::SQLITE_TIME_OUT);
+        rc = sqlite3_step(stmt);
         bool exists = (rc == SQLITE_ROW);
-        Sqlite3Finalize(stmt);
+        sqlite3_finalize(stmt);
         return exists;
     }
 
@@ -184,20 +184,20 @@ namespace Utility {
                 std::cout << "[msmemscope] Info: create dbfile " << filePath << "." << std::endl;
             }
             sqlite3* db = nullptr;
-            int rc = Sqlite3Open(filePath.c_str(), &db);
+            int rc = sqlite3_open(filePath.c_str(), &db);
             if (rc != SQLITE_OK) {
-                std::cout << "[msmemscope] Error: Cannot open database: " << Sqlite3Errmsg(db) << std::endl;
+                std::cout << "[msmemscope] Error: Cannot open database: " << sqlite3_errmsg(db) << std::endl;
                 if (db != nullptr) {
-                    Sqlite3Close(db);
+                    sqlite3_close(db);
                 }
                 return false;
             }
-            Sqlite3Exec(db, "PRAGMA journal_mode=WAL;", nullptr, nullptr, nullptr);
+            sqlite3_exec(db, "PRAGMA journal_mode=WAL;", nullptr, nullptr, nullptr);
             if (CreateDbTable(db, tableCreateSql)) {
                 std::cout << "[msmemscope] Info: create dbtable " << tableName << " in " << filePath << "." << std::endl;
                 *filefp = db;
             } else {
-                Sqlite3Close(db);
+                sqlite3_close(db);
                 return false;
             }
         } else if (!TableExists(*filefp, tableName) && !CreateDbTable(*filefp, tableCreateSql)) {
@@ -243,10 +243,10 @@ namespace Utility {
     
     bool FileCreateManager::CreateDbTable(sqlite3 *filefp, std::string tableCreateSql)
     {
-        Sqlite3BusyTimeout(filefp, MemScope::SQLITE_TIME_OUT);
-        int rc = Sqlite3Exec(filefp, tableCreateSql.c_str(), nullptr, nullptr, nullptr);
+        sqlite3_busy_timeout(filefp, MemScope::SQLITE_TIME_OUT);
+        int rc = sqlite3_exec(filefp, tableCreateSql.c_str(), nullptr, nullptr, nullptr);
         if (rc != SQLITE_OK) {
-            std::cout << "[msmemscope] Error: Create SQLTable error: " << Sqlite3Errmsg(filefp) << std::endl;
+            std::cout << "[msmemscope] Error: Create SQLTable error: " << sqlite3_errmsg(filefp) << std::endl;
             return false;
         }
         return true;

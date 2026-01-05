@@ -16,6 +16,7 @@ target_include_directories(leaks_ascend_hal_hook PUBLIC
   ${Python3_INCLUDE_DIRS}
   ${ANALYSIS_DIR}
   ${JSON_DIR}
+  ${SQLITE3_DIR}
 )
 target_link_options(leaks_ascend_hal_hook PRIVATE "-Wl,--disable-new-dtags")
 target_link_libraries(leaks_ascend_hal_hook ascend_hal stdc++fs c_sec)

@@ -6,8 +6,8 @@ from argparse import ArgumentParser
 
 
 def create_arg_parser() -> ArgumentParser:
-    parser = ArgumentParser(prog="msleaks test framework",
-                            description="test framework for msleaks test cases")
+    parser = ArgumentParser(prog="msmemscope test framework",
+                            description="test framework for msmemscope test cases")
     parser.add_argument("-f", "--filter",
                         help="filter test cases to run. regex is supported")
     parser.add_argument("-l", "--llama2_7b", action='store_true', help="enable modelLink test case")

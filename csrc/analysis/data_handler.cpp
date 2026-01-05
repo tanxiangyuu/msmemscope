@@ -167,13 +167,13 @@ void DbHandler::InitSetParm()
             tableName_ = DUMP_RECORD_TABLE;
             dbHeader_ = BuildCreateStatement(tableName_, schema);
             if (!Init()) {
-                LOG_ERROR("Sqlite create error: %s", Sqlite3Errmsg(dataFileDb_));
+                LOG_ERROR("Sqlite create error: %s", sqlite3_errmsg(dataFileDb_));
                 break;
             }
             std::string insertSql = BuildInsertStatement(DUMP_RECORD_TABLE, eventColumns_);
-            int resultCount1 = Sqlite3PrepareV2(dataFileDb_, insertSql.c_str(), -1, &insertEventStmt_, nullptr);
+            int resultCount1 = sqlite3_prepare_v2(dataFileDb_, insertSql.c_str(), -1, &insertEventStmt_, nullptr);
             if (resultCount1 != SQLITE_OK) {
-                LOG_ERROR("Sqlite prepare error: %s", Sqlite3Errmsg(dataFileDb_));
+                LOG_ERROR("Sqlite prepare error: %s", sqlite3_errmsg(dataFileDb_));
                 insertEventStmt_ = nullptr;
             }
             break;
@@ -183,13 +183,13 @@ void DbHandler::InitSetParm()
             dbHeader_ = BuildCreateStatement(tableName_, PYTHON_TRACE_TABLE_SQL);
             traceColumns_ = ParserHeader(PYTHON_TRACE_TABLE_SQL);
             if (!Init()) {
-                LOG_ERROR("Sqlite create error: %s", Sqlite3Errmsg(dataFileDb_));
+                LOG_ERROR("Sqlite create error: %s", sqlite3_errmsg(dataFileDb_));
                 break;
             }
             std::string insertSql = BuildInsertStatement(tableName_, traceColumns_);
-            int resultCount2 = Sqlite3PrepareV2(dataFileDb_, insertSql.c_str(), -1, &insertTraceStmt_, nullptr);
+            int resultCount2 = sqlite3_prepare_v2(dataFileDb_, insertSql.c_str(), -1, &insertTraceStmt_, nullptr);
             if (resultCount2 != SQLITE_OK) {
-                LOG_ERROR("Sqlite prepare error: %s", Sqlite3Errmsg(dataFileDb_));
+                LOG_ERROR("Sqlite prepare error: %s", sqlite3_errmsg(dataFileDb_));
                 insertTraceStmt_ = nullptr;
             }
             break;
@@ -257,26 +257,26 @@ bool DbHandler::WriteDumpRecord(std::shared_ptr<EventBase>& event)
         LOG_ERROR("Sqlite prepare failed.");
         return false;
     }
-    Sqlite3BindInt64(insertEventStmt_, paramIndex++, event->id);
-    Sqlite3BindText(insertEventStmt_, paramIndex++, eventType.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(insertEventStmt_, paramIndex++, eventSubType.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(insertEventStmt_, paramIndex++, event->name.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindInt64(insertEventStmt_, paramIndex++, event->timestamp);
-    Sqlite3BindInt(insertEventStmt_, paramIndex++, event->pid);
-    Sqlite3BindInt(insertEventStmt_, paramIndex++, event->tid);
-    Sqlite3BindText(insertEventStmt_, paramIndex++, event->device.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(insertEventStmt_, paramIndex++, addr.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(insertEventStmt_, paramIndex++, attrJson.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(insertEventStmt_, paramIndex++, event->pyCallStack.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(insertEventStmt_, paramIndex++, event->cCallStack.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BusyTimeout(dataFileDb_, SQLITE_TIME_OUT);
-    int rc = Sqlite3Step(insertEventStmt_);
+    sqlite3_bind_int64(insertEventStmt_, paramIndex++, event->id);
+    sqlite3_bind_text(insertEventStmt_, paramIndex++, eventType.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(insertEventStmt_, paramIndex++, eventSubType.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(insertEventStmt_, paramIndex++, event->name.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_int64(insertEventStmt_, paramIndex++, event->timestamp);
+    sqlite3_bind_int(insertEventStmt_, paramIndex++, event->pid);
+    sqlite3_bind_int(insertEventStmt_, paramIndex++, event->tid);
+    sqlite3_bind_text(insertEventStmt_, paramIndex++, event->device.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(insertEventStmt_, paramIndex++, addr.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(insertEventStmt_, paramIndex++, attrJson.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(insertEventStmt_, paramIndex++, event->pyCallStack.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(insertEventStmt_, paramIndex++, event->cCallStack.c_str(), -1, SQLITE_STATIC);
+    sqlite3_busy_timeout(dataFileDb_, SQLITE_TIME_OUT);
+    int rc = sqlite3_step(insertEventStmt_);
     if (rc != SQLITE_DONE) {
-        LOG_ERROR("Sqlite insert error in memscope dump: %s  %d", Sqlite3Errmsg(dataFileDb_), getpid());
-        Sqlite3Reset(insertEventStmt_);
+        LOG_ERROR("Sqlite insert error in memscope dump: %s  %d", sqlite3_errmsg(dataFileDb_), getpid());
+        sqlite3_reset(insertEventStmt_);
         return false;
     }
-    Sqlite3Reset(insertEventStmt_);
+    sqlite3_reset(insertEventStmt_);
     return true;
 }
 
@@ -290,29 +290,29 @@ bool DbHandler::WriteTraceEvent(std::shared_ptr<TraceEvent>& event, const std::s
     std::string startTime = event->startTs ? std::to_string(event->startTs) : "N/A";
     std::string endTime = event->endTs ? std::to_string(event->endTs) : "N/A";
     int paramIndex = 1;
-    Sqlite3BindText(insertTraceStmt_, paramIndex++, event->info.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(insertTraceStmt_, paramIndex++, startTime.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindText(insertTraceStmt_, paramIndex++, endTime.c_str(), -1, SQLITE_STATIC);
-    Sqlite3BindInt64(insertTraceStmt_, paramIndex++, event->tid);
-    Sqlite3BindInt64(insertTraceStmt_, paramIndex++, event->pid);
+    sqlite3_bind_text(insertTraceStmt_, paramIndex++, event->info.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(insertTraceStmt_, paramIndex++, startTime.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_text(insertTraceStmt_, paramIndex++, endTime.c_str(), -1, SQLITE_STATIC);
+    sqlite3_bind_int64(insertTraceStmt_, paramIndex++, event->tid);
+    sqlite3_bind_int64(insertTraceStmt_, paramIndex++, event->pid);
 
-    Sqlite3BusyTimeout(dataFileDb_, SQLITE_TIME_OUT);
-    int rc = Sqlite3Step(insertTraceStmt_);
+    sqlite3_busy_timeout(dataFileDb_, SQLITE_TIME_OUT);
+    int rc = sqlite3_step(insertTraceStmt_);
     if (rc != SQLITE_DONE) {
-        LOG_ERROR("Sqlite insert error in python trace: %s", Sqlite3Errmsg(dataFileDb_));
-        Sqlite3Reset(insertTraceStmt_);
+        LOG_ERROR("Sqlite insert error in python trace: %s", sqlite3_errmsg(dataFileDb_));
+        sqlite3_reset(insertTraceStmt_);
         return false;
     }
-    Sqlite3Reset(insertTraceStmt_);
+    sqlite3_reset(insertTraceStmt_);
     return true;
 }
 
 void DbHandler::FflushFile()
 {
     if (dataFileDb_ != nullptr) {
-        Sqlite3Exec(dataFileDb_, "PRAGMA wal_checkpoint(FULL);", nullptr, nullptr, nullptr);
+        sqlite3_exec(dataFileDb_, "PRAGMA wal_checkpoint(FULL);", nullptr, nullptr, nullptr);
         // 提交任何未完成的事务
-        Sqlite3Exec(dataFileDb_, "COMMIT;", nullptr, nullptr, nullptr);
+        sqlite3_exec(dataFileDb_, "COMMIT;", nullptr, nullptr, nullptr);
     }
 }
 
@@ -321,16 +321,16 @@ DbHandler::~DbHandler()
     FflushFile();
     if (dataFileDb_ != nullptr) {
         if (insertEventStmt_ != nullptr) {
-            Sqlite3Finalize(insertEventStmt_);
+            sqlite3_finalize(insertEventStmt_);
             insertEventStmt_ = nullptr;
         }
         if (insertTraceStmt_ != nullptr) {
-            Sqlite3Finalize(insertTraceStmt_);
+            sqlite3_finalize(insertTraceStmt_);
             insertTraceStmt_ = nullptr;
         }
-        int rc = Sqlite3Close(dataFileDb_);
+        int rc = sqlite3_close(dataFileDb_);
         if (rc != SQLITE_OK) {
-            LOG_ERROR("Sqlite close error: %s", Sqlite3Errmsg(dataFileDb_));
+            LOG_ERROR("Sqlite close error: %s", sqlite3_errmsg(dataFileDb_));
         }
         dataFileDb_ = nullptr;
     }

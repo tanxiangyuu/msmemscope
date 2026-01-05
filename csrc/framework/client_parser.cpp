@@ -31,7 +31,6 @@
 #include "bit_field.h"
 #include "securec.h"
 #include "vallina_symbol.h"
-#include "sqlite_loader.h"
 #include "string_validator.h"
 #include "event_trace/trace_manager/event_trace_manager.h"
 #include "event_trace/python_trace.h"
@@ -671,17 +670,6 @@ void ParseDataFormat(const std::string &param, Config &config, bool &printHelpIn
     } else {
         auto dataFormat = it->second;
         config.dataFormat = static_cast<uint8_t>(dataFormat);
-    }
-
-    auto parseFailedSqlite = [&printHelpInfo](void) {
-        std::cout << "[msmemscope] Error: SQLite library not installed." << std::endl;
-        printHelpInfo = true;
-    };
-    if (config.dataFormat == static_cast<uint8_t>(DataFormat::DB)) {
-        auto func = VallinaSymbol<Sqlite3LibLoader>::Instance().Get<Sqlite3OpenFunc>("sqlite3_open");
-        if (func == nullptr) {
-            return parseFailedSqlite();
-        }
     }
 
     return;
