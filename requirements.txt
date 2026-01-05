@@ -1,0 +1,7 @@
+packaging
+numpy
+torch
+torch_npu
+
+# 离线分析接口使用（可选）
+# sqlite3

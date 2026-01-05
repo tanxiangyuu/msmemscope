@@ -38,18 +38,18 @@ msMemScope工具支持在Linux系统上使用，目前提供以下两种安装�
 
 ### 安装依赖
 
-安装前需确保Git、Python环境可用，若不满足可执行以下命令安装。
+安装前需确保Git、Python等环境可用，请满足[版本依赖](./development_guide/development_guide.md#1-开发环境配置)限制，若不满足可执行以下命令安装。
 
 Debian系列：
 
 ```bash
-sudo apt-get install -y python3 git
+sudo apt-get install -y python3 git build-essential cmake
 ```
 
 openEuler系列：
 
 ```bash
-sudo yum install -y python3 git
+sudo yum install -y python3 git gcc gcc-c++ make cmake
 ```
 
 ### 安装msMemScope
@@ -62,7 +62,12 @@ sudo yum install -y python3 git
 
    注：其中`remote-name`为远程仓库别名，需要指定。
 
-2. 下载构建依赖以及编译。
+2. 执行以下命令下载Python三方依赖。注：`sqlite3`为离线功能使用依赖，可选安装。
+   ```bash
+   pip3 install -r ./requirements.txt
+   ```
+
+3. 下载构建依赖以及编译。
 
    ```bash
    cd ./msmemscope/build
@@ -74,7 +79,7 @@ sudo yum install -y python3 git
    - `local`：代表是否本地构建，添加会下载gtest、json等依赖库用于本地构建，一般只有第一次需要，除非依赖库有更新。
    - `test`：代表是否要构建测试用例。
 
-3. 在`./build`目录下执行以下命令，编译软件包。
+4. 在`./build`目录下执行以下命令，编译软件包。
 
    ```bash
    bash make_run.sh
@@ -93,7 +98,7 @@ sudo yum install -y python3 git
 
    注：其中`arch`表示CPU架构。
 
-4. 在`./build`目录下执行以下命令，安装软件包。
+5. 在`./build`目录下执行以下命令，安装软件包。
 
    ```bash
    bash MindStudio_memscope_linux-<arch>.run --install --install-path=<path>
