@@ -20,6 +20,7 @@
 
 #include <string>
 #include <vector>
+#include <cstdint>
 
 std::string CalculateDataCheckSum64(const std::vector<uint8_t>& data);
 

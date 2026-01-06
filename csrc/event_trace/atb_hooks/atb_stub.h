@@ -21,7 +21,7 @@
 #include <string>
 #include <exception>
 #include <stdexcept>
-
+#include <cstdint>
 #ifdef __cplusplus
 extern "C" {
 #endif
