@@ -13,6 +13,7 @@ get_filename_component(EVENT_TRACE_INC_DIR ./event_trace ABSOLUTE)
 get_filename_component(UTILITY_INC_DIR ./utility ABSOLUTE)
 get_filename_component(ANALYSIS_DIR ./analysis ABSOLUTE)
 get_filename_component(JSON_DIR ../opensource/json/single_include ABSOLUTE)
+get_filename_component(SQLITE3_DIR ../opensource/sqlite3 ABSOLUTE)
 
 add_library(ascend_leaks SHARED dummy.cpp)
 
@@ -22,11 +23,12 @@ target_include_directories(
                         ${SECUREC_INC_DIR}
                         ${Python3_INCLUDE_DIRS}
                         ${EVENT_TRACE_INC_DIR}
+                        ${SQLITE3_DIR}
 )
 
 #避免依赖python版本
 target_link_options(ascend_leaks PRIVATE "-Wl,--copy-dt-needed-entries")
-target_link_libraries(ascend_leaks pthread stdc++fs dl c_sec rt)
+target_link_libraries(ascend_leaks PRIVATE pthread stdc++fs dl c_sec rt sqlite3)
 
 add_subdirectory(framework)
 add_subdirectory(utility)

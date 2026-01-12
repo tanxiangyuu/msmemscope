@@ -98,8 +98,7 @@ if __name__ == '__main__':
         events='launch,access,free,alloc',
         level='kernel,op',
         device='npu',
-        data_format='csv',
-        call_stack='c,python'
+        data_format='db'
     )
     msmemscope.start()
     model = TrainModel()

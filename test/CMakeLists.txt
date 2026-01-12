@@ -36,6 +36,6 @@ target_sources(memscope_test PRIVATE ${TEST_ORIGINAL_SOURCE})
 
 include_directories(memscope_test ${memscope_header} ${gtest_header} ${Python3_INCLUDE_DIRS} ${json_header})
 
-target_link_libraries(memscope_test gtest_main dl pthread stdc++fs ${Python3_LIBRARIES} rt)
+target_link_libraries(memscope_test gtest_main dl pthread stdc++fs ${Python3_LIBRARIES} rt sqlite3)
  
 add_test(NAME memscope_test COMMAND memscope_test)

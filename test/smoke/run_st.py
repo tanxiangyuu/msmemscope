@@ -12,7 +12,7 @@ from src.utils.result import Result
 from src.utils.utils import ColorText
 from src.utils.arg_parser import create_arg_parser
 
-from src.test_suit.multirank_test import MultirankTestSuite
+from src.test_suit.multirank_test import MultirankCsvTestSuite, MultirankDbTestSuite
 from src.test_suit.step_compare_test import StepCompareTestSuite
 from src.test_suit.hijack_atb_test import HijackAtbTestSuite
 from src.test_suit.mindspore_test import HijackMindsporeTestSuite
@@ -74,6 +74,7 @@ def run_tests(working_dir: str, params) -> bool:
     multirank_cmd_command = ["../../msmemscope/output/bin/msmemscope", "bash", "../../testfile/scripts/test_multirank_cmd.sh",
         "--log-level=info", "--call-stack=c,python", "--level=0,1"]
     multirank_api_command = ["bash", "../../testfile/scripts/test_multirank_api.sh"]
+    multirank_api_db_command = ["bash", "../../testfile/scripts/test_multirank_api_db.sh"]
     # llama2_7b_cmd = ["../../msmemscope/output/bin/msmemscope", "bash", config.get('llama2_7b_sh_path'), "--log-level=info"]
     base_file_path = "../../testfile/csvfile/memscope_dump_20250428113810.csv"
     compare_file_path = "../../testfile/csvfile/memscope_dump_20250428113811.csv"
@@ -100,8 +101,9 @@ def run_tests(working_dir: str, params) -> bool:
     watch_aten_bin_cmd = ["../../msmemscope/output/bin/msmemscope", "bash", "../../testfile/scripts/watch/watch_aten_bin_cmd.sh",
         "--watch=torch._ops.aten.mse_loss.default,torch._ops.aten.mse_loss_backward.default,full-content"]
     test_suites = [
-        MultirankTestSuite("msmemscope_multirank_cmd_test", params, "check_multirank_cmd", multirank_cmd_command, 100),
-        MultirankTestSuite("msmemscope_multirank_api_test", params, "check_multirank_api", multirank_api_command, 100),
+        MultirankCsvTestSuite("multirank_cmd_test", params, "check_multirank_cmd", multirank_cmd_command, 100),
+        MultirankCsvTestSuite("multirank_api_test", params, "check_multirank_api", multirank_api_command, 100),
+        MultirankDbTestSuite("multirank_api_db_test", params, "check_multirank_api_db", multirank_api_db_command, 100),
         StepCompareTestSuite("step_compare_test", params, "check_step_compare", step_compare_cmd, 100),
         HijackAtbTestSuite("hijack_atb_test", params, "check_hijack_atb", hijack_atb_cmd, 100),
         HijackMindsporeTestSuite("hijack_mindspore_cmd_test", params, "check_hijack_mindspore_cmd", hijack_mindspore_cmd_command, 1000),
