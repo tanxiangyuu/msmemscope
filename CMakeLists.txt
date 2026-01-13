@@ -35,12 +35,12 @@ execute_process(COMMAND "${GIT_EXECUTABLE}" rev-parse HEAD
   OUTPUT_VARIABLE MSLEAKS_COMMIT_ID OUTPUT_STRIP_TRAILING_WHITESPACE)
 add_definitions(-D__MSLEAKS_COMMIT_ID__="${MSLEAKS_COMMIT_ID}")
 
+add_subdirectory(opensource)
 add_subdirectory(platform)
 add_subdirectory(csrc)
 
 if (${BUILD_TESTS})
   message(STATUS "enable unit tests build")
   enable_testing()
-  add_subdirectory(opensource)
   add_subdirectory(test)
 endif()

@@ -24,6 +24,7 @@ target_include_directories(ascend_mstx_hook PUBLIC
   ${Python3_INCLUDE_DIRS}
   ${ANALYSIS_DIR}
   ${JSON_DIR}
+  ${SQLITE3_DIR}
 )
 
 target_link_options(ascend_mstx_hook PRIVATE "-Wl,--disable-new-dtags")

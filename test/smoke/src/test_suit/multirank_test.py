@@ -9,6 +9,7 @@ import re
 import pandas as pd
 from packaging import version
 import torch
+import sqlite3
 
 from .base_test import BaseTest, TestSuite
 from ..utils.result import Result
@@ -16,13 +17,52 @@ from ..utils.file_system import WorkingDir
 from ..utils.utils import ColorText
 
 
-class MultirankTestSuite(TestSuite):
-    def __init__(self, name: str, config, work_path: str, cmd: str, max_time):
-        super().__init__(name, config, work_path, cmd, max_time)
+class MultirankConfig:
+    """多Rank测试配置常量，集中管理便于维护"""
+    # 文件生成数量配置
+    FILE_GEN_COUNT_CSV_DB = 3
+    FILE_GEN_COUNT_LOG = 1
+    # CSV列名配置
+    CSV_COLUMNS = (
+        "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,"
+        "Ptr,Attr,Call Stack(Python),Call Stack(C)"
+    )
+    # 日志校验阈值
+    LOG_THRESHOLDS = {
+        "LEAK_COUNT": 20,
+        "MSTX_START_COUNT": 4,
+        "STEP_INNER_COUNT": 100
+    }
+    # 数据校验阈值（按模式区分）
+    DATA_THRESHOLDS = {
+        "multirank_cmd_test": {
+            "system_num": 6,
+            "mstx_num": 202,
+            "op_threshold": {"min": 16000, "max": 16500},
+            "kernel_threshold": {"min": 16000, "max": 16500},
+            "hal_threshold": {"min": 200, "max": 350},
+            "pta_threshold": {"min": 9200, "max": 9300}
+        },
+        "default": {  # API模式
+            "system_num": 9,
+            "mstx_num": 202,
+            "op_threshold": {"min": 16000, "max": 16500},
+            "kernel_threshold": {"min": 16000, "max": 16500},
+            "hal_threshold": {"min": 200, "max": 350},
+            "pta_threshold": {"min": 8700, "max": 8800}
+        }
+    }
+    # Torch版本阈值
+    TORCH_VERSION_THRESHOLD = "2.3.0"
+    TORCH_DATA_LENGTH_THRESHOLD = {"min": 15000, "max": 17000}
 
-        # 传入name区分命令行和api
+class MultirankTestSuite(TestSuite):
+    """多Rank测试套件基类，抽离公共逻辑"""
+    def __init__(self, name: str, config, work_path: str, cmd: str, max_time, test_case_name: str):
+        super().__init__(name, config, work_path, cmd, max_time)
+        # 子类只需传入不同的test_case_name即可
         test_cases = [
-            MultirankTestCase("check_dump", name, work_path, ""),
+            MultirankTestCase(test_case_name, name, work_path, ""),
             #MultirankTestCase("check_log", work_path, ""),
             #MultirankAnaLyzerModuleTestCase("check_npu_leaks", work_path, ""),
             #MultirankAnaLyzerModuleTestCase("check_leaks_warning", work_path, ""),
@@ -36,21 +76,29 @@ class MultirankTestSuite(TestSuite):
 
     def set_up(self):
         super().set_up()
-
-        if not os.path.exists(self._work_path):
-            os.mkdir(self._work_path)
-
+        # 确保工作目录存在
+        os.makedirs(self._work_path, exist_ok=True)
+        
+        # 清理旧文件
         with WorkingDir(self._work_path):
             if os.path.exists('memscopeDumpResults'):
                 shutil.rmtree('memscopeDumpResults')
-            log_files = [name for name in os.listdir(".") if name.endswith('.log')]
-            for file in log_files:
-                os.remove(file)
-            json_files = [name for name in os.listdir(".") if name.endswith('.json')]
-            for file in json_files:
-                os.remove(file)
+
+            for suffix in ['.log', '.json']:
+                for file in os.listdir("."):
+                    if file.endswith(suffix):
+                        os.remove(file)
+
     def tear_down(self):
         super().tear_down()
+
+class MultirankCsvTestSuite(MultirankTestSuite):
+    def __init__(self, name: str, config, work_path: str, cmd: str, max_time):
+        super().__init__(name, config, work_path, cmd, max_time, "check_dump_csv")
+
+class MultirankDbTestSuite(MultirankTestSuite):
+    def __init__(self, name: str, config, work_path: str, cmd: str, max_time):
+        super().__init__(name, config, work_path, cmd, max_time, "check_dump_db")
 
 
 class MultirankTestCase(BaseTest):
@@ -59,107 +107,138 @@ class MultirankTestCase(BaseTest):
         self.case_name = case_name
         self._golden_path = golden_path
         self._real_path = real_path
+        # 获取当前模式的阈值配置
+        self.thresholds = MultirankConfig.DATA_THRESHOLDS.get(
+            self.case_name, MultirankConfig.DATA_THRESHOLDS["default"]
+        )
 
     def __str__(self):
-        return f"case name: {self.name}, " \
-               f"case path: {self._real_path}"
+        return f"case name: {self.name}, case path: {self._real_path}"
 
-    def comp_memscope_csv_contents(self, file_paths, column):
+    def _check_event_count(self, event_counts, event_name, expected_value, file_path):
+        """Event计数校验方法"""
+        if event_counts.get(event_name, None) is None:
+            logging.error(f"{event_name} key not found in Event_counts (file: {file_path})")
+            return Result(False, [f"{event_name} key not found", -1], [-1])
+        
+        if event_counts[event_name] != expected_value:
+            logging.error(f"{event_name} count error (file: {file_path}). Expected: {expected_value}, Actual: {event_counts[event_name]}")
+            return Result(False, [f"{event_name}: ", expected_value], [event_counts[event_name]])
+        return Result(True, [], [])
 
-        # 由于多卡冒烟涉及多个文件，必须合并后统计
+    def _check_threshold_range(self, count, threshold, name, file_path):
+        """范围阈值校验方法"""
+        if count < threshold["min"] or count > threshold["max"]:
+            logging.error(f"{name} count out of range (file: {file_path}). Min: {threshold['min']}, Max: {threshold['max']}, Actual: {count}")
+            return Result(False, [f"{name} min: ", threshold['min'], f"{name} max: ", threshold['max']], [count])
+        return Result(True, [], [])
+
+    def _validate_data_frame(self, df, column, file_paths):
+        """校验DataFrame的列和长度"""
+        # 校验列名
+        if list(df.columns) != column.split(','):
+            logging.error(f"Column mismatch (files: {file_paths}). Expected: {column}, Actual: {df.columns}")
+            return Result(False, [column], [df.columns])
+        
+        # 校验torch版本对应的长度阈值
+        if version.parse(torch.__version__) < version.parse(MultirankConfig.TORCH_VERSION_THRESHOLD):
+            min_th = MultirankConfig.TORCH_DATA_LENGTH_THRESHOLD["min"]
+            max_th = MultirankConfig.TORCH_DATA_LENGTH_THRESHOLD["max"]
+            if len(df) < min_th or len(df) > max_th:
+                logging.error(f"Data length error (files: {file_paths}). Min: {min_th}, Max: {max_th}, Actual: {len(df)}")
+                return Result(False, ["min: ", min_th, "max: ", max_th], [len(df)])
+        return Result(True, [], [])
+
+    # 公共文件查找方法
+    def _find_files(self, dir_path, file_patterns):
+        """通用文件查找方法：递归查找符合条件的文件"""
+        file_names = []
+        file_paths = []
+        if not os.path.exists(dir_path):
+            logging.error(f"Directory {dir_path} not exist")
+            return file_names, file_paths
+        
+        for root, dirs, files in os.walk(dir_path):
+            for file in files:
+                if all(pattern(file) for pattern in file_patterns):
+                    full_path = os.path.join(root, file)
+                    file_names.append(file)
+                    file_paths.append(full_path)
+        return file_names, file_paths
+
+    # CSV/DB核心校验逻辑
+    def comp_memscope_contents(self, file_paths, is_db=False):
+        """统一的CSV/DB内容校验方法"""
+        # 处理CSV/DB文件读取
         dfs = []
         for file in file_paths:
             try:
-                # 读取所有CSV文件,进行合并
-                df = pd.read_csv(file)
+                if is_db:
+                    # DB文件处理
+                    conn = sqlite3.connect(file)
+                    df = pd.read_sql_query("SELECT * FROM memscope_dump", conn)
+                    conn.close()
+                    if df.empty:
+                        logging.error(f"SQLite file {file} has no data in memscope_dump table")
+                        return Result(False, ["Non-empty data expected"], ["Empty table"])
+                else:
+                    # CSV文件处理
+                    df = pd.read_csv(file)
                 dfs.append(df)
             except Exception as e:
                 logging.error(f"Error reading {file}: {str(e)}")
+                return Result(False, [f"Read error: {str(e)}"], [])
         
-        # 合并所有 DataFrame（按行叠加）
-        if dfs:
-            data = pd.concat(dfs, ignore_index=True)
+        # 处理空数据情况（修复原代码潜在bug）
+        if not dfs:
+            logging.error(f"No valid data found in files: {file_paths}")
+            return Result(False, ["Valid data expected"], ["No data"])
         
-        Event_counts = data['Event'].value_counts()
-        Event_type_counts = data['Event Type'].value_counts()
+        # 合并数据
+        data = pd.concat(dfs, ignore_index=True)
 
-        if list(data.columns) != column.split(','):
-            logging.error("the sum data column of %s is error, please check your dump file")
-            return Result(False, [column], [data.columns])
+        if not is_db:
+            # 校验列和长度
+            validate_result = self._validate_data_frame(data, MultirankConfig.CSV_COLUMNS, file_paths)
+            if not validate_result.success:
+                return validate_result
 
-        if version.parse(torch.__version__) < version.parse("2.3.0"):
-            min_threshold = 15000
-            max_threshold = 17000
 
-            if len(data) < min_threshold or len(data) > max_threshold:
-                logging.error("the sum data length of %s is error")
-                return Result(False, ["min: ", min_threshold, "max: ", max_threshold], [len(data)])
-
-        # 命令行和API校验条件有些不一致
-        if self.case_name == "msmemscope_multirank_cmd_test":
-            system_num = 6
-            mstx_num = 202
-            op_threshold = {"min":16000, "max":16500}
-            kernel_threshold = {"min":16000, "max":16500}
-            hal_threshold = {"min":250, "max":350}
-            pta_threshold = {"min":9200, "max":9300}
-        else:
-            system_num = 9                                  # API不一致
-            mstx_num = 202
-            op_threshold = {"min":16000, "max":16500}
-            kernel_threshold = {"min":16000, "max":16500}
-            hal_threshold = {"min":200, "max":350}          # API不一致
-            pta_threshold = {"min":8700, "max":8800}        # API不一致
-
-            if Event_counts.get('SYSTEM', None) is None:
-                logging.error("SYSTEM key not found in Event_counts")
-                return Result(False, ["SYSTEM key not found", -1], [-1])
-            if Event_counts['SYSTEM'] != system_num:
-                logging.error("the length of %s is error", file)
-                return Result(False, ["SYSTEM: ", system_num], [Event_counts['SYSTEM']])
-            
-            if Event_counts.get('MSTX', None) is None:
-                logging.error("MSTX key not found in Event_counts")
-                return Result(False, ["MSTX key not found", -1], [-1])
-            if Event_counts['MSTX'] != mstx_num:
-                logging.error("the length of %s is error", file)
-                return Result(False, ["MSTX: ", mstx_num], [Event_counts['MSTX']])
-
-            if Event_counts.get('KERNEL_LAUNCH', None) is None:
-                logging.error("KERNEL_LAUNCH key not found in Event_counts")
-                return Result(False, ["KERNEL_LAUNCH key not found", -1], [-1])
-            if Event_counts['KERNEL_LAUNCH'] < kernel_threshold['min'] or \
-                Event_counts['KERNEL_LAUNCH'] > kernel_threshold['max']:
-                logging.error("the length of %s is error", file)
-                return Result(False, ["KERNEL_LAUNCH min: ", kernel_threshold['min'],
-                    "KERNEL_LAUNCH max: ", kernel_threshold['max']], [Event_counts['KERNEL_LAUNCH']])
-
-            if Event_type_counts.get('HAL', None) is None:
-                logging.error("HAL key not found in Event_type_counts")
-                return Result(False, ["HAL key not found", -1], [-1])
-            if Event_type_counts['HAL'] < hal_threshold['min'] or Event_type_counts['HAL'] > hal_threshold['max']:
-                logging.error("the length of %s is error", file)
-                return Result(False, ["HAL min: ", hal_threshold['min'], "HAL max: ", hal_threshold['max']],
-                    [Event_type_counts['HAL']])
-
-            if Event_type_counts.get('PTA', None) is None:
-                logging.error("PTA key not found in Event_type_counts")
-                return Result(False, ["PTA key not found", -1], [-1])
-            if Event_type_counts['PTA'] < pta_threshold['min'] or Event_type_counts['PTA'] > pta_threshold['max']:
-                logging.error("the length of %s is error", file)
-                return Result(False, ["PTA min: ", pta_threshold['min'], "PTA max: ", pta_threshold['max']],
-                    [Event_type_counts['PTA']])
-
-            if Event_counts.get('OP_LAUNCH', None) is None:
-                logging.error("OP_LAUNCH key not found in Event_counts")
-                return Result(False, ["OP_LAUNCH key not found", -1], [-1])
-            if Event_counts['OP_LAUNCH'] < op_threshold['min'] or Event_counts['OP_LAUNCH'] > op_threshold['max']:
-                logging.error("the length of %s is error", file)
-                return Result(False, ["OP_LAUNCH min: ", op_threshold['min'], "OP_LAUNCH max: ", op_threshold['max']],
-                    [Event_counts['OP_LAUNCH']])
+        # 开始事件计数校验
+        event_counts = data['Event'].value_counts()
+        event_type_counts = data['Event Type'].value_counts()
+        
+        # 逐个校验事件类型
+        check_items = [
+            ("SYSTEM", self.thresholds["system_num"], event_counts),
+            ("MSTX", self.thresholds["mstx_num"], event_counts),
+        ]
+        for event_name, expected, counts in check_items:
+            result = self._check_event_count(counts, event_name, expected, file_paths)
+            if not result.success:
+                return result
+        
+        # 范围阈值校验
+        range_check_items = [
+            ("KERNEL_LAUNCH", self.thresholds["kernel_threshold"], event_counts),
+            ("HAL", self.thresholds["hal_threshold"], event_type_counts),
+            ("PTA", self.thresholds["pta_threshold"], event_type_counts),
+            ("OP_LAUNCH", self.thresholds["op_threshold"], event_counts),
+        ]
+        for name, threshold, counts in range_check_items:
+            count = counts.get(name, 0)
+            result = self._check_threshold_range(count, threshold, name, file_paths)
+            if not result.success:
+                return result
 
         return Result(True, [], [])
-    
+
+    def comp_memscope_csv_contents(self, file_paths, column):
+        return self.comp_memscope_contents(file_paths, is_db=False)
+
+    def comp_memscope_db_contents(self, file_paths):
+        return self.comp_memscope_contents(file_paths, is_db=True)
+
     @staticmethod
     def count_substring(data, phase, name) -> int:
         count = 0
@@ -201,54 +280,74 @@ class MultirankTestCase(BaseTest):
         return Result(True, [], [])
 
     def compare_memscope_csv(self):
-
-        FILE_GEN_COUNT = 3
-        FILE_GEN_DIR = os.path.join(self._real_path, 'memscopeDumpResults')
         logging.info("checking csv...")
-        if not os.path.exists(FILE_GEN_DIR):
-            logging.error("directory %s not exist", FILE_GEN_DIR)
-            return Result(False, [], [])
-
-        # 递归查找所有子目录中的 CSV 文件,保存名称和位置
-        new_csv_files_names = []
-        new_csv_files_paths = []
-        for root, dirs, files in os.walk(FILE_GEN_DIR):
-            for file in files:
-                if file.endswith('.csv') and file.startswith('memscope_dump'):
-                    # 构建完整文件路径并添加到列表
-                    full_path = os.path.join(root, file)
-                    new_csv_files_names.append(file)
-                    new_csv_files_paths.append(full_path)
-
-        # 多卡冒烟当前落盘3个csv文件
-        if len(new_csv_files_names) != FILE_GEN_COUNT:
-            logging.error("Failed to generate %d CSV files", FILE_GEN_COUNT)
-            return Result(False, [FILE_GEN_COUNT], [len(new_csv_files_names)])
+        FILE_GEN_DIR = os.path.join(self._real_path, 'memscopeDumpResults')
         
-        for i in range(FILE_GEN_COUNT):
-            if not re.match('memscope_dump_\d{1,20}\.csv', new_csv_files_names[i]):
-                logging.error("A CSV file matching naming convention memscope_dump could not be found")
+        # 查找CSV文件
+        file_patterns = [lambda f: f.endswith('.csv'), lambda f: f.startswith('memscope_dump')]
+        csv_files, csv_file_paths = self._find_files(FILE_GEN_DIR, file_patterns)
+        
+        # 校验文件数量
+        if len(csv_files) != MultirankConfig.FILE_GEN_COUNT_CSV_DB:
+            logging.error(f"Failed to generate {MultirankConfig.FILE_GEN_COUNT_CSV_DB} CSV files. Actual: {len(csv_files)}")
+            return Result(False, [MultirankConfig.FILE_GEN_COUNT_CSV_DB], [len(csv_files)])
+        
+        # 校验文件名格式
+        for csv_file in csv_files:
+            if not re.match('memscope_dump_\d{1,20}\.csv', csv_file):
+                logging.error(f"CSV file name {csv_file} does not match convention")
                 return Result(False, [], [])
 
-        column = ("ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,"
-                "Ptr,Attr,Call Stack(Python),Call Stack(C)")
-        
-        result = self.comp_memscope_csv_contents(new_csv_files_paths, column)
+        # 调用统一校验方法
+        result = self.comp_memscope_csv_contents(csv_file_paths, MultirankConfig.CSV_COLUMNS)
         if not result.success:
             return result
+        
+        logging.info("check finish")
+        return Result(True, [], [])
+
+    def compare_memscope_db(self):
+        logging.info("checking db...")
+        FILE_GEN_DIR = os.path.join(self._real_path, 'memscopeDumpResults')
+        
+        # 查找DB文件
+        file_patterns = [lambda f: f.endswith('.db'), lambda f: f.startswith('memscope_dump')]
+        db_files, db_file_paths = self._find_files(FILE_GEN_DIR, file_patterns)
+        
+        # 校验文件数量
+        if len(db_files) != MultirankConfig.FILE_GEN_COUNT_CSV_DB:
+            logging.error(f"Failed to generate {MultirankConfig.FILE_GEN_COUNT_CSV_DB} DB files. Actual: {len(db_files)}")
+            return Result(False, [MultirankConfig.FILE_GEN_COUNT_CSV_DB], [len(db_files)])
+        
+        # 校验文件名格式
+        for db_file in db_files:
+            if not re.match('memscope_dump_\d{1,20}\.db', db_file):
+                logging.error(f"DB file name {db_file} does not match convention")
+                return Result(False, [], [])
+
+        # 调用统一校验方法
+        result = self.comp_memscope_db_contents(db_file_paths)
+        if not result.success:
+            return result
+        
         logging.info("check finish")
         return Result(True, [], [])
 
     def run(self) -> Result:
+        """简化的run方法"""
         super().run()
         logging.debug(f"run {self}")
         print(f"{ColorText.run_test} {self}")
 
-        result = Result(False, [], [])
-        if self._name == "check_log":
-            result = self.compare_log()
-        elif self._name == "check_dump":
-            result = self.compare_memscope_csv()
+        result_map = {
+            "check_log": self.compare_log,
+            "check_dump_csv": self.compare_memscope_csv,
+            "check_dump_db": self.compare_memscope_db
+        }
+        # 执行对应校验方法
+        result_func = result_map.get(self._name, lambda: Result(False, [], []))
+        result = result_func()
+        
         self.report(result)
         return result
 

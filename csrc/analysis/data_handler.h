@@ -24,12 +24,12 @@
 #include <cstdio>
 #include <mutex>
 #include <unordered_map>
+#include "sqlite3.h"
 #include "config_info.h"
 #include "record_info.h"
 #include "utils.h"
 #include "file.h"
 #include "log.h"
-#include "sqlite_loader.h"
 #include "constant.h"
 #include "python_trace_event.h"
 #include "event.h"

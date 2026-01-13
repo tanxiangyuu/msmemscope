@@ -27,7 +27,6 @@
 #include "securec.h"
 #include "utility/log.h"
 #include "data_handler.h"
-#include "utility/sqlite_loader.h"
 
 using namespace MemScope;
 extern bool g_isDlsymNullptr;
@@ -94,9 +93,9 @@ TEST_F(DataHandlerTest, Sqlite3_open)
     g_isDlsymNullptr = false;
     sqlite3* db = nullptr;
     std::string path = "./testmsmemscope/test.db";
-    int rc = Sqlite3Open(path.c_str(), &db);
+    int rc = sqlite3_open(path.c_str(), &db);
     EXPECT_EQ(rc, 0);
-    Sqlite3Errmsg(db);
+    sqlite3_errmsg(db);
 }
 
 TEST_F(DataHandlerTest, DbHandler_Write_LeakRecord)

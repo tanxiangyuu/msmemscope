@@ -93,7 +93,7 @@ class TrainModel:
 
 
 if __name__ == '__main__':
-    train_signle = TrainModel()
-    train_signle.train()
+    model = TrainModel()
+    model.train()
     logging.basicConfig(level=logging.INFO)
     logging.info("tranning finshed.")

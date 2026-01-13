@@ -24,11 +24,11 @@
 #include <fstream>
 #include <vector>
 #include <linux/limits.h>
+#include "sqlite3.h"
 #include "path.h"
 #include "config_info.h"
 #include "umask_guard.h"
 #include "ustring.h"
-#include "sqlite_loader.h"
 
 namespace Utility {
     constexpr uint32_t DIRMOD = 0750;
