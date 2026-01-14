@@ -22,6 +22,7 @@ from src.test_suit.watch_test import WatchATBHashTestSuite, WatchATBBinTestSuite
     WatchATENHashTestSuite, WatchATENBinTestSuite
 from src.test_suit.llama2_7b_test import Llama2_7bTestSuite
 from src.test_suit.decompose_test import DecomposeTestSuite
+from src.test_suit.inefficient_test import InefficientTestSuite
 from src.utils.env_checker import EnvChecker
 from src.utils.symbol_checker import SymbolChecker
 
@@ -104,7 +105,10 @@ def run_tests(working_dir: str, params) -> bool:
     decompose_cmd_command = ["../../msmemscope/output/bin/msmemscope", "bash", "../../testfile/scripts/test_decompose_cmd.sh",
         "--log-level=info", "--analysis=decompose", "--level=0,1","--events=alloc,free,launch,access"]
     decompose_api_command = ["bash", "../../testfile/scripts/test_decompose_api.sh"]
-    
+    inefficient_cmd_command = ["../../msmemscope/output/bin/msmemscope", "bash", "../../testfile/scripts/test_inefficient_cmd.sh",
+        "--log-level=info", "--analysis=inefficient", "--level=0,1","--events=alloc,free,launch,access"]
+    inefficient_api_command = ["bash", "../../testfile/scripts/test_inefficient_api.sh"]
+
     test_suites = [
         MultirankCsvTestSuite("multirank_cmd_test", params, "check_multirank_cmd", multirank_cmd_command, 100),
         MultirankCsvTestSuite("multirank_api_test", params, "check_multirank_api", multirank_api_command, 100),
@@ -118,7 +122,9 @@ def run_tests(working_dir: str, params) -> bool:
         WatchATENHashTestSuite("watch_aten_test", params, "check_watch_aten_hash", watch_aten_hash_cmd, 100),
         WatchATENBinTestSuite("watch_aten_test", params, "check_watch_aten_bin", watch_aten_bin_cmd, 100),
         DecomposeTestSuite("msmemscope_decompose_cmd_test", params, "check_decompose_cmd", decompose_cmd_command, 100),
-        DecomposeTestSuite("msmemscope_decompose_api_test", params, "check_decompose_api", decompose_api_command, 100)
+        DecomposeTestSuite("msmemscope_decompose_api_test", params, "check_decompose_api", decompose_api_command, 100),
+        InefficientTestSuite("msmemscope_inefficient_cmd_test", params, "check_inefficient_cmd", inefficient_cmd_command, 100),
+        InefficientTestSuite("msmemscope_inefficient_api_test", params, "check_inefficient_api", inefficient_api_command, 100),
     ]
     
     if params.llama2_7b:
