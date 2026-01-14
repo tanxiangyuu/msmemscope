@@ -61,3 +61,15 @@ git commit -m "feat: concise description of your change"
 git push --force-with-lease origin your-branch-name
 
 ```
+
+## PR合入流程
+1. 提出PR后，评论`compile`，触发CI编译。
+2. 等待CI编译完成，检查是否有编译错误。
+3. 若编译通过，联系维护团队，请求检视合入。
+4. 维护团队会对PR进行审核，若符合要求，会合并PR。
+
+### 联系维护团队
+若您在合入PR过程中遇到任何问题或需要进一步的帮助，请联系维护团队。您可以通过以下方式联系：
+
+- 邮件：memscope@outlook.com
+- 群聊：扫码添加昇腾开源小助手，获取群链接，进入 MindStudio 社区技术交流群，获取更多帮助和支持。详情请查看[群聊介绍](../communication_guide/communication.md#3-开源小助手)。
