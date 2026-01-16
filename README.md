@@ -177,10 +177,13 @@ msMemScope工具docs目录下的文档适用CC-BY 4.0许可证，具体请参见
    8. 当您的PR获得足够数量的检视者批准后，Committer会进行最终审核。
    9. 审核和测试通过后，CI会将您的PR合并入项目的主干分支。
 6. 详细步骤请参见[开发者指南](./docs/zh/development_guide/development_guide.md)。
+7. 贡献规范请参见[贡献指南](./docs/zh/development_guide/contributing_guide.md)。
 
 ## 建议与交流
 
-欢迎大家为社区做贡献。如果有任何疑问或建议，请提交[Issues](https://gitcode.com/Ascend/msmemscope/issues)，我们会尽快回复。感谢您的支持。
+欢迎大家为社区做贡献。如果有任何疑问或建议，请参考[交流指南](./docs/zh/communication.md)获取详细的联系方式和支持渠道。
+
+感谢您的支持。
 
 ## 致谢
 
