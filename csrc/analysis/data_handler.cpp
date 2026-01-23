@@ -170,7 +170,7 @@ void DbHandler::InitSetParm()
                 LOG_ERROR("Sqlite create error: %s", sqlite3_errmsg(dataFileDb_));
                 break;
             }
-            std::string insertSql = BuildInsertStatement(DUMP_RECORD_TABLE, eventColumns_);
+            std::string insertSql = BuildInsertStatement(tableName_, eventColumns_);
             int resultCount1 = sqlite3_prepare_v2(dataFileDb_, insertSql.c_str(), -1, &insertEventStmt_, nullptr);
             if (resultCount1 != SQLITE_OK) {
                 LOG_ERROR("Sqlite prepare error: %s", sqlite3_errmsg(dataFileDb_));
@@ -179,7 +179,7 @@ void DbHandler::InitSetParm()
             break;
         }
         case DataType::PYTHON_TRACE_EVENT: {
-            tableName_ = "python_trace_" + std::to_string(Utility::GetPid());
+            tableName_ = PYTHON_TRACE_TABLE + std::to_string(Utility::GetPid());
             dbHeader_ = BuildCreateStatement(tableName_, PYTHON_TRACE_TABLE_SQL);
             traceColumns_ = ParserHeader(PYTHON_TRACE_TABLE_SQL);
             if (!Init()) {

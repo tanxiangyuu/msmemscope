@@ -122,6 +122,7 @@ const std::unordered_map<EventBaseType, std::string> EVENT_BASE_TYPE_MAP = {
     {EventBaseType::KERNEL_LAUNCH, "KERNEL_LAUNCH"},
     {EventBaseType::SYSTEM, "SYSTEM"},
     {EventBaseType::CLEAN_UP, "CLEAN_UP"},
+    {EventBaseType::SNAPSHOT, "SNAPSHOT"},
 };
 
 const std::unordered_map<EventSubType, std::string> EVENT_SUB_TYPE_MAP = {
@@ -155,6 +156,7 @@ const std::unordered_map<EventSubType, std::string> EVENT_SUB_TYPE_MAP = {
     {EventSubType::MSTX_RANGE_END, "Range_end"},
     {EventSubType::CLEAN_UP, "CLEAN_UP"},
     {EventSubType::STEP, "STEP"},
+    {EventSubType::SNAPSHOT, "SNAPSHOT"},
 };
 
 const std::vector<std::pair<std::string, std::string>> DUMP_RECORD_TABLE_SQL = {
@@ -179,7 +181,7 @@ const std::vector<std::pair<std::string, std::string>> PYTHON_TRACE_TABLE_SQL = 
 };
 
 const std::string DUMP_RECORD_TABLE = "memscope_dump";
-const std::string PYTHON_TRACE_TABLE = "python_trace";
+const std::string PYTHON_TRACE_TABLE = "python_trace_";
 
 }
 

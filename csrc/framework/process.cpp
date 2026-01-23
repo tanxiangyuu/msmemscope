@@ -122,6 +122,8 @@ std::shared_ptr<EventBase> Process::RecordToEvent(RecordBase* record)
             return std::make_shared<SystemEvent>(*(static_cast<TraceStatusRecord*>(r))); }},
         {RecordType::PY_STEP_RECORD, [](RecordBase* r) {
             return std::make_shared<SystemEvent>(*(static_cast<PyStepRecord*>(r))); }},
+        {RecordType::SNAPSHOT_EVENT, [](RecordBase* r) {
+            return std::make_shared<SnapshotEvent>(*(static_cast<MemorySnapshotRecord*>(r))); }},
     };
 
     if (record == nullptr) {

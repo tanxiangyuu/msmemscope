@@ -634,4 +634,38 @@ bool EventReport::ReportAtbAccessMemory(char* name, char* attr, uint64_t addr, u
     return true;
 }
 
+bool EventReport::ReportMemorySnapshot(const MemorySnapshotRecord& memory_info)
+{
+    int32_t devId = GD_INVALID_NUM;
+    if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
+        LOG_ERROR("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+    }
+
+    if (IsNeedSkip(devId)) {
+        return true;
+    }
+
+    // 创建内存快照记录
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemorySnapshotRecord>();
+    MemorySnapshotRecord* record = buffer.Cast<MemorySnapshotRecord>();
+    record->device = memory_info.device;
+    record->memory_reserved = memory_info.memory_reserved;
+    record->max_memory_reserved = memory_info.max_memory_reserved;
+    record->memory_allocated = memory_info.memory_allocated;
+    record->max_memory_allocated = memory_info.max_memory_allocated;
+    record->total_memory = memory_info.total_memory;
+    record->free_memory = memory_info.free_memory;
+
+    std::string snapshot_name = memory_info.name;
+    strncpy_s(record->name, sizeof(record->name), snapshot_name.c_str(), snapshot_name.length());
+
+    record->type = RecordType::SNAPSHOT_EVENT;
+    record->devId = devId;
+    record->recordIndex = ++recordIndex_;
+
+    ReportRecordEvent(buffer);
+
+    return true;
+}
+
 }

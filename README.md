@@ -181,7 +181,7 @@ msMemScope工具docs目录下的文档适用CC-BY 4.0许可证，具体请参见
 
 ## 建议与交流
 
-欢迎大家为社区做贡献。如果有任何疑问或建议，请参考[交流指南](./docs/zh/communication.md)获取详细的联系方式和支持渠道。
+欢迎大家为社区做贡献。如果有任何疑问或建议，请参考[交流指南](./docs/zh/development_guide/communication.md)获取详细的联系方式和支持渠道。
 
 感谢您的支持。
 

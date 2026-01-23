@@ -78,6 +78,7 @@ public:
     bool ReportAtenAccess(RecordBuffer &memAccessRecordBuffer);
     bool ReportAddrInfo(RecordBuffer &infoBuffer);
     bool ReportPyStepRecord();
+    bool ReportMemorySnapshot(const MemorySnapshotRecord& memory_info);
     void UpdateAnalysisType();
 private:
     void Init();

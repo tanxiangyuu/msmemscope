@@ -59,6 +59,7 @@ enum class RecordType {
     ADDR_INFO_RECORD,
     TRACE_STATUS_RECORD,
     PY_STEP_RECORD,
+    SNAPSHOT_EVENT,
     INVALID_RECORD,
 };
 
@@ -283,6 +284,17 @@ struct PyStepRecord : public RecordBase {
     /* TLVBlockType::ADDR_OWNER */
 };
 
+struct MemorySnapshotRecord : public RecordBase {
+    int device;               // 设备ID
+    uint64_t memory_reserved; // 当前保留的内存
+    uint64_t max_memory_reserved; // 最大保留的内存
+    uint64_t memory_allocated; // 当前分配的内存
+    uint64_t max_memory_allocated; // 最大分配的内存
+    uint64_t total_memory;    // 总内存
+    uint64_t free_memory;     // 空闲内存
+    char name[128];           // 快照名称
+};
+
 enum class MemOpSpace : uint8_t {
     SVM = 0U,
     DEVICE,
@@ -406,12 +418,12 @@ struct EventRecord {
         MemAccessRecord memAccessRecord;
         PyStepRecord pyStepRecord;
         AddrInfo addrInfo;
+        MemorySnapshotRecord memorySnapshotRecord;
     } record;
     uint64_t pyStackLen;
     uint64_t cStackLen;
     char buffer[0];
-    explicit EventRecord(RecordType type) : type(type), pyStackLen(0), cStackLen(0)
-    {}
+    explicit EventRecord(RecordType type) : type(type), pyStackLen(0), cStackLen(0) {}
     EventRecord() = default;
 };
 struct CallStackInfo {

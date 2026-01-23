@@ -14,20 +14,14 @@
 # See the Mulan PSL v2 for more details.
 # -------------------------------------------------------------------------
 
-import importlib
 import logging
+from .utils import check_packages
 
-check_packages = [
+check_packages([
     "numpy",
     "torch",
     "packaging",
-]
-
-for package in check_packages:
-    try:
-        importlib.import_module(package)
-    except ImportError:
-        logging.warning(f"[msmemscope]: Import {package} failed when enable aten collection! Please check it.")
+], "Please install required packages for aten collection!")
 
 import functools
 import re
