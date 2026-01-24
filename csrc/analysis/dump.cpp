@@ -117,7 +117,12 @@ void Dump::DumpMemoryEvent(std::shared_ptr<MemoryEvent>& event, MemoryState* sta
         attr += "inefficient_type:" + state->inefficientType + ",";
     }
     if (!attr.empty() && attr.back() == ',') {
-        attr.pop_back();
+        attr.pop_back(); 
+    }
+if (event->eventType == EventBaseType::MALLOC && event->eventSubType == EventSubType::HAL) {
+        std::string pageType = event->pageType == MemPageType::MEM_GIANT_PAGE_TYPE ? "giant" :
+            event->pageType == MemPageType::MEM_HUGE_PAGE_TYPE ? "huge" : "normal";
+        attr += "page_type:" + pageType + ",";
     }
     event->attr = "\"{" + attr + "}\"";
 

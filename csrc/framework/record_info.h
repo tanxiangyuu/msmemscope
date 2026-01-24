@@ -307,11 +307,19 @@ enum class PyTraceType : uint8_t {
     PYOPCODE,
 };
 
+enum class MemPageType : uint32_t {
+    MEM_NORMAL_PAGE_TYPE = 0, // 4K
+    MEM_HUGE_PAGE_TYPE, // 2M
+    MEM_GIANT_PAGE_TYPE, // 1G
+    MEM_MAX_PAGE_TYPE
+};
+
 struct MemOpRecord : public RecordBase {
     uint64_t kernelIndex;       // 当前所属kernellaunch索引
     unsigned long long flag;    // 内存属性
     int32_t modid;              // moduleID
     MemOpSpace space;           // 内存操作空间：device还是host
+    MemPageType pageType;       // 页表属性
     uint64_t addr;              // 地址
     uint64_t memSize;           // 操作大小
     /* TLVBlockType::MEM_OWNER */

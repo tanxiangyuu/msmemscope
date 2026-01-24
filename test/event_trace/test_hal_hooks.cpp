@@ -44,3 +44,23 @@ TEST(HalHooksTest, HalMemFreeTest) {
     drvError_t result = halMemFree(ptr);
     EXPECT_EQ(result, DRV_ERROR_NONE);
 }
+
+// 测试新的驱动接口
+TEST(HalHooksTest, HalMemCreate)
+{
+    drv_mem_handle_t* ptr = nullptr;
+    drv_mem_prop *prop = nullptr;
+    unsigned long long size = 1024;
+    unsigned long long flag = 0;
+ 
+    drvError_t result = halMemCreate(&ptr, size, prop, flag);
+    EXPECT_EQ(result, DRV_ERROR_RESERVED);
+}
+ 
+TEST(HalHooksTest, halMemReleaseInner)
+{
+    drv_mem_handle_t* ptr = nullptr;
+ 
+    drvError_t result = halMemRelease(ptr);
+    EXPECT_EQ(result, DRV_ERROR_RESERVED);
+}

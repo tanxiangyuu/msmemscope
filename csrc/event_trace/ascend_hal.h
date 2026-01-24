@@ -17,6 +17,9 @@
 #ifndef ASCEND_HAL_H
 #define ASCEND_HAL_H
 
+#include <cstdint>
+#include <cstddef>
+
 typedef enum tagDrvError {
     DRV_ERROR_NONE = 0,                /**< success */
     DRV_ERROR_NO_DEVICE = 1,           /**< no valid device */
@@ -124,12 +127,29 @@ typedef enum tagDrvError {
 
     DRV_ERROR_NOT_SUPPORT = 0xfffe,
     DRV_ERROR_RESERVED,
-} drvError_t;
+};
 
+using drvError_t = tagDrvError;
+ 
+struct drv_mem_prop {
+    uint32_t side;
+    uint32_t devid;
+    uint32_t module_id;
+ 
+    uint32_t pg_type;
+    uint32_t mem_type;
+    uint64_t reserve;
+};
+ 
+using drv_mem_handle_t = struct drv_mem_handle;
+ 
 /// HAL interfaces
 extern "C" {
 drvError_t halMemAllocInner(void **pp, unsigned long long size, unsigned long long flag);
 drvError_t halMemFreeInner(void *pp);
+drvError_t __attribute__((weak)) halMemCreateInner(drv_mem_handle_t **handle, size_t size,
+    const struct drv_mem_prop *prop, uint64_t flag);
+drvError_t __attribute__((weak)) halMemReleaseInner(drv_mem_handle_t *handle);
 }  // extern "C"
 
 #endif

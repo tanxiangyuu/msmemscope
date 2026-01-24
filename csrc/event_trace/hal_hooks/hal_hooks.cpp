@@ -42,7 +42,7 @@ drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long fl
     // report to memscope here
     uintptr_t addr = reinterpret_cast<uintptr_t>(*pp);
     if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY)
-             .ReportMalloc(reinterpret_cast<uint64_t>(addr), size, flag, stack)) {
+             .ReportHalMalloc(reinterpret_cast<uint64_t>(addr), size, flag, stack)) {
         LOG_ERROR("halMemAlloc report failed");
     }
 
@@ -65,8 +65,98 @@ drvError_t halMemFree(void *pp)
     Utility::GetCallstack(stack);
     
     uintptr_t addr = reinterpret_cast<uintptr_t>(pp);
-    if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportFree(reinterpret_cast<uint64_t>(addr), stack)) {
+    if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportHalFree(reinterpret_cast<uint64_t>(addr), stack)) {
         LOG_ERROR("halMemFree report failed");
+    }
+
+    return ret;
+}
+
+drvError_t halMemCreate(drv_mem_handle_t **handle, size_t size, const struct drv_mem_prop *prop, uint64_t flag)
+{
+    static auto inner_func = reinterpret_cast<drvError_t (*)(drv_mem_handle_t**, size_t, const struct drv_mem_prop *,
+        uint64_t)>(dlsym(RTLD_DEFAULT, "halMemCreateInner"));
+ 
+    drvError_t ret = DRV_ERROR_NONE;
+ 
+    if (inner_func) {
+        // 驱动新包，含有halMemCreateInner实现
+        ret = inner_func(handle, size, prop, flag);
+    } else {
+        // 老驱动包：查找原始halMemCreate
+        static auto original_func = reinterpret_cast<drvError_t (*)(drv_mem_handle_t**, size_t,
+            const struct drv_mem_prop *, uint64_t)>(dlsym(RTLD_NEXT, "halMemCreate"));
+        if (original_func == nullptr) {
+            ret = DRV_ERROR_RESERVED;
+        } else {
+            ret = original_func(handle, size, prop, flag);
+        }
+    }
+ 
+    if (ret != DRV_ERROR_NONE) {
+        LOG_ERROR("halMemCreate excute failed");
+        return ret;
+    }
+ 
+    if (!EventTraceManager::Instance().IsTracingEnabled() ||
+        !EventTraceManager::Instance().ShouldTraceType(RecordType::MEMORY_RECORD)) {
+        return ret;
+    }
+ 
+    if (prop == nullptr) {
+        LOG_ERROR("Driver memory property pointer is null");
+        return ret;
+    }
+ 
+    CallStackString stack;
+    Utility::GetCallstack(stack);
+ 
+    uintptr_t addr = reinterpret_cast<uintptr_t>(*handle);
+    if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY)
+             .ReportHalCreate(reinterpret_cast<uint64_t>(addr), size, *prop, stack)) {
+        LOG_ERROR("halMemCreate report failed");
+    }
+ 
+    return ret;
+}
+ 
+drvError_t halMemRelease(drv_mem_handle_t *handle)
+{
+    static auto inner_func = reinterpret_cast<drvError_t (*)(drv_mem_handle_t*)>(
+        dlsym(RTLD_DEFAULT, "halMemReleaseInner"));
+ 
+    drvError_t ret = DRV_ERROR_NONE;
+ 
+    if (inner_func) {
+        // 驱动新包，含有halMemReleaseInner实现
+        ret = inner_func(handle);
+    } else {
+        // 老驱动包：查找原始halMemRelease
+        static auto original_func = reinterpret_cast<drvError_t (*)(drv_mem_handle_t*)>(
+            dlsym(RTLD_NEXT, "halMemRelease"));
+        if (original_func == nullptr) {
+            ret = DRV_ERROR_RESERVED;
+        } else {
+            ret = original_func(handle);
+        }
+    }
+ 
+    if (ret != DRV_ERROR_NONE) {
+        LOG_ERROR("halMemRelease excute failed");
+        return ret;
+    }
+ 
+    if (!EventTraceManager::Instance().IsTracingEnabled() ||
+        !EventTraceManager::Instance().ShouldTraceType(RecordType::MEMORY_RECORD)) {
+        return ret;
+    }
+ 
+    CallStackString stack;
+    Utility::GetCallstack(stack);
+    
+    uintptr_t addr = reinterpret_cast<uintptr_t>(handle);
+    if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportHalRelease(reinterpret_cast<uint64_t>(addr), stack)) {
+        LOG_ERROR("halMemRelease report failed");
     }
 
     return ret;
