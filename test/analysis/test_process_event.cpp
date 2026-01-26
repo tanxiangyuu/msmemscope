@@ -704,7 +704,7 @@ TEST_F(TestProcess, process_hal_device_memory_event)
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
-"3,MALLOC,HAL,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,page_type:normal,alloc_type:alloc}\",,\n"
+"3,MALLOC,HAL,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,page_type:normal,alloc_type:create}\",,\n"
 "54,FREE,HAL,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10}\",,\n";
     std::string fileContent;
     Dump::GetInstance(config).handlerMap_[testdDevId].reset();
@@ -1005,8 +1005,8 @@ TEST_F(TestProcess, dump_event_before_malloc)
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
-"0,MALLOC,HAL,N/A,0,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,page_type:normal,alloc_type:alloc}\",,\n"
-"3,MALLOC,HAL,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:2,addr:0x0000000000003039,size:10,page_type:normal,alloc_type:alloc}\",,\n";
+"0,MALLOC,HAL,N/A,0,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,page_type:normal,alloc_type:create}\",,\n"
+"3,MALLOC,HAL,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:2,addr:0x0000000000003039,size:10,page_type:normal,alloc_type:create}\",,\n";
     std::string fileContent;
     Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -1032,9 +1032,9 @@ TEST_F(TestProcess, dump_two_malloc_event)
  
     std::string result = "ID,Event,Event Type,Name,Timestamp(ns),Process Id,Thread Id,Device Id,Ptr,Attr"
 ",Call Stack(Python),Call Stack(C)\n"
-"3,MALLOC,HAL,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,page_type:normal,alloc_type:alloc}\",,\n"
+"3,MALLOC,HAL,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10,page_type:normal,alloc_type:create}\",,\n"
 "54,FREE,HAL,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:1,addr:0x0000000000003039,size:10}\",,\n"
-"0,MALLOC,HAL,N/A,0,123,1234,0,0x0000000000003039,\"{allocation_id:2,addr:0x0000000000003039,size:10,page_type:normal,alloc_type:alloc}\",,\n";
+"0,MALLOC,HAL,N/A,0,123,1234,0,0x0000000000003039,\"{allocation_id:2,addr:0x0000000000003039,size:10,page_type:normal,alloc_type:create}\",,\n";
     std::string fileContent;
     Dump::GetInstance(config).handlerMap_[testdDevId].reset();
     bool hasReadFile = ReadFile(path, fileContent);
@@ -1207,7 +1207,7 @@ TEST_F(TestProcess, init_memory_owner)
 "54,FREE,ATB,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:3,addr:0x0000000000003039,size:10,total:0,used:0}\",,\n"
 "3,MALLOC,MINDSPORE,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:4,addr:0x0000000000003039,size:10,total:10,used:10,owner:MINDSPORE}\",,\n"
 "54,FREE,MINDSPORE,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:4,addr:0x0000000000003039,size:10,total:0,used:0}\",,\n"
-"3,MALLOC,HAL,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:5,addr:0x0000000000003039,size:10,owner:CANN@IDEDD,page_type:normal,alloc_type:alloc}\",,\n"
+"3,MALLOC,HAL,N/A,3,123,1234,0,0x0000000000003039,\"{allocation_id:5,addr:0x0000000000003039,size:10,owner:CANN@IDEDD,page_type:normal,alloc_type:create}\",,\n"
 "54,FREE,HAL,N/A,54,123,1234,0,0x0000000000003039,\"{allocation_id:5,addr:0x0000000000003039,size:10}\",,\n";
     std::string fileContent;
     Dump::GetInstance(config).handlerMap_[testdDevId].reset();
