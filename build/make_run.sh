@@ -13,7 +13,8 @@ NC='\033[0m' # 无颜色
 # 工具基本信息配置
 TOOL_NAME="memscope"
 ARCH=$(uname -m)  # 获取系统架构
-RUN_FILE="MindStudio_${TOOL_NAME}_linux-${ARCH}.run"  # 根据架构生成文件名
+VERSION="1.0.0"  # 版本号
+RUN_FILE="Ascend-mindstudio-memscope_${VERSION}_linux-${ARCH}.run"  # 根据架构生成文件名
 BUILD_DIR="$(cd "$(dirname "$0")" && pwd)"  # 获取脚本所在绝对路径
 TEMP_DIR="/tmp/${TOOL_NAME}_build_$$"      # 使用进程ID确保临时目录唯一性
 
@@ -118,7 +119,7 @@ copy_artifacts() {
     fi
 
     # 创建版本信息文件，放在msmemscope目录下
-    echo "version: 1.0.0" > "$TEMP_DIR/payload/msmemscope/version.txt"
+    echo "version: $VERSION" > "$TEMP_DIR/payload/msmemscope/version.txt"
     echo "build_date: $(date '+%Y-%m-%d %H:%M:%S')" >> "$TEMP_DIR/payload/msmemscope/version.txt"
     
     # 生成文件校验和
@@ -143,6 +144,7 @@ NC='\033[0m'
 # 安装配置
 TOOL_NAME="msmemscope"
 DEFAULT_INSTALL_PATH="."
+VERSION="VERSION_PLACEHOLDER"
 
 # 日志函数 - 所有用户输出都是英文
 log_info() {
@@ -780,9 +782,9 @@ show_version() {
         if [ -n "$payload_start" ]; then
             # 提取version.txt文件内容
             tail -n +$payload_start "$0" | tar -xz -O "msmemscope/version.txt" 2>/dev/null || \
-            echo "Version: 1.0.0 (build $(date '+%Y%m%d'))"
+            echo "Version: $VERSION (build $(date '+%Y%m%d'))"
         else
-            echo "Version: 1.0.0 (build $(date '+%Y%m%d'))"
+            echo "Version: $VERSION (build $(date '+%Y%m%d'))"
         fi
     fi
     echo ""
@@ -855,6 +857,9 @@ create_run_file() {
     # 复制安装脚本到run文件
     cp "$TEMP_DIR/install.sh" "$BUILD_DIR/$RUN_FILE"
     
+    # 替换版本号占位符为实际版本号
+    sed -i "s/VERSION_PLACEHOLDER/$VERSION/g" "$BUILD_DIR/$RUN_FILE"
+    
     # 打包payload并追加到run文件
     log_info "Packaging payload..."
     cd "$TEMP_DIR/payload"
@@ -917,6 +922,21 @@ show_build_info() {
 
 # 主构建函数
 main() {
+    # 解析命令行参数
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --version=*)
+                VERSION="${1#*=}"
+                RUN_FILE="Ascend-mindstudio-memscope_${VERSION}_linux-${ARCH}.run"  # 更新文件名
+                shift
+                ;;
+            *)
+                log_warn "Unknown parameter: $1"
+                shift
+                ;;
+        esac
+    done
+    
     log_info "Starting build process for $RUN_FILE ..."
     
     # 检查源目录
