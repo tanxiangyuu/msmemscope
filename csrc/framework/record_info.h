@@ -37,6 +37,7 @@ const size_t OP_NAME_MAX_SIZE = 128;
 const size_t ATB_PARAMS_MAX_SIZE = 128;
 const size_t MEM_ATTR_MAX_SIZE = 128;
 const size_t ADDR_OWNER_SIZE = 64;
+constexpr unsigned long long FLAG_INVALID = UINT64_MAX;
 
 enum class RecordType {
     MEMORY_RECORD = 0,

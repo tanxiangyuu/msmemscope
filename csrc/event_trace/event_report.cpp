@@ -95,8 +95,6 @@ inline int32_t GetMallocModuleId(unsigned long long flag)
     return (flag & 0xFF00000000000000) >> MEM_MODULE_ID_BIT;
 }
 
-constexpr unsigned long long FLAG_INVALID = UINT64_MAX;
-
 constexpr int32_t INVALID_MODID = -1;
 
 bool GetDevice(int32_t *devId)

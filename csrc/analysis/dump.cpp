@@ -120,6 +120,7 @@ void Dump::DumpMemoryEvent(std::shared_ptr<MemoryEvent>& event, MemoryState* sta
         std::string pageType = event->pageType == MemPageType::MEM_GIANT_PAGE_TYPE ? "giant" :
             event->pageType == MemPageType::MEM_HUGE_PAGE_TYPE ? "huge" : "normal";
         attr += "page_type:" + pageType + ",";
+        attr += event->flag != FLAG_INVALID ? "alloc_type:alloc," : "alloc_type:create,";
     }
     if (!attr.empty() && attr.back() == ',') {
         attr.pop_back(); 
