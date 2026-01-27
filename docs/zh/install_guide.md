@@ -17,7 +17,7 @@ msMemScope工具支持在Linux系统上使用，目前提供以下两种安装�
 
 点击[获取链接](https://gitcode.com/Ascend/msmemscope/releases)，下载msMemScope工具软件包。
 
-软件包名称：`MindStudio_memscope_linux-<arch>.run`，`arch`表示CPU架构。
+软件包名称：`Ascend-mindstudio-memscope_<version>_linux-<arch>.run`，`<version>`表示版本号，`<arch>`表示CPU架构。
 
 下载本软件即表示您同意[华为企业业务最终用户许可协议（EULA）](https://e.huawei.com/cn/about/eula)的条款和条件。
 
@@ -88,12 +88,12 @@ sudo yum install -y python3 git gcc gcc-c++ make cmake
    将工具的产物打包成一个run包，回显信息如下，表示打包成功，该包支持安装和升级的能力。
 
    ```bash
-   [INFO] Run file created successfully: xx/MindStudio_memscope_linux-<arch>.run
+   [INFO] Run file created successfully: xx/Ascend-mindstudio-memscope_<version>_linux-<arch>.run
    Usage instructions:
-     Install: bash MindStudio_memscope_linux-<arch>.run --install --install-path=/path
-     Upgrade: bash MindStudio_memscope_linux-<arch>.run --upgrade --install-path=/path
-     Version: bash MindStudio_memscope_linux-<arch>.run --version
-     Help:    bash MindStudio_memscope_linux-<arch>.run --help
+     Install: bash Ascend-mindstudio-memscope_<version>_linux-<arch>.run --install --install-path=/path
+     Upgrade: bash Ascend-mindstudio-memscope_<version>_linux-<arch>.run --upgrade --install-path=/path
+     Version: bash Ascend-mindstudio-memscope_<version>_linux-<arch>.run --version
+     Help:    bash Ascend-mindstudio-memscope_<version>_linux-<arch>.run --help
    ```
 
    注：其中`arch`表示CPU架构。
@@ -101,7 +101,7 @@ sudo yum install -y python3 git gcc gcc-c++ make cmake
 5. 在`./build`目录下执行以下命令，安装软件包。
 
    ```bash
-   bash MindStudio_memscope_linux-<arch>.run --install --install-path=<path>
+   bash Ascend-mindstudio-memscope_<version>_linux-<arch>.run --install --install-path=<path>
    ```
 
    注：其中`path`为安装目录。
@@ -145,7 +145,7 @@ msMemScope的软件包提供升级功能。
 2. 执行以下脚本升级软件。
 
    ```bash
-   bash MindStudio_memscope_linux-<arch>.run --upgrade --install-path=<path>
+   bash Ascend-mindstudio-memscope_<version>_linux-<arch>.run --upgrade --install-path=<path>
    ```
 
    其中参数说明如下。
@@ -191,11 +191,11 @@ msMemScope的软件包提供升级功能。
 
 本章节介绍了run格式（.run）软件包相关参数说明，run格式软件包支持通过命令行参数进行一键安装，各个命令之间可以配合使用，用户根据安装需要选择对应参数，所有参数都是可选参数。
 
-安装命令格式：`./MindStudio_memscope_linux-<arch>.run [options]`
+安装命令格式：`./Ascend-mindstudio-memscope_<version>_linux-<arch>.run [options]`
 
 详细参数请参见[表1](#cli-args-table)。
 
-> 如果通过./MindStudio_memscope_linux-{arch}.run --help命令查询出的参数未解释在如下表格，则说明该参数为预留参数或适用于其他产品类型，用户无需关注。
+  > 如果通过./Ascend-mindstudio-memscope_<version>_linux-{arch}.run --help命令查询出的参数未解释在如下表格，则说明该参数为预留参数或适用于其他产品类型，用户无需关注。
 
 **表 1**  参数说明
 
