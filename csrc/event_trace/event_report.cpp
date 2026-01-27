@@ -67,13 +67,33 @@ MemOpSpace GetMemOpSpace(unsigned long long flag)
     }
     return space;
 }
+
+constexpr unsigned long long MEM_PAGE_GIANT_BIT = 31;
+constexpr unsigned long long MEM_PAGE_GIANT = (0X1UL << MEM_PAGE_GIANT_BIT);
+ 
+constexpr unsigned long long MEM_PAGE_BIT = 17;
+constexpr unsigned long long MEM_PAGE_NORMAL = (0X0UL << MEM_PAGE_BIT);
+constexpr unsigned long long MEM_PAGE_HUGE = (0X1UL << MEM_PAGE_BIT);
+ 
+MemPageType GetMemPageType(unsigned long long flag)
+{
+    // bit17: page size(nomal\huge)
+    // bit31: page size(giant)
+ 
+    if (flag & MEM_PAGE_GIANT) {
+        return MemPageType::MEM_GIANT_PAGE_TYPE;
+    } else if (flag & MEM_PAGE_HUGE) {
+        return MemPageType::MEM_HUGE_PAGE_TYPE;
+    } else {
+        return MemPageType::MEM_NORMAL_PAGE_TYPE;
+    }
+}
+
 inline int32_t GetMallocModuleId(unsigned long long flag)
 {
     // bit56~63: model id
     return (flag & 0xFF00000000000000) >> MEM_MODULE_ID_BIT;
 }
-
-constexpr unsigned long long FLAG_INVALID = UINT64_MAX;
 
 constexpr int32_t INVALID_MODID = -1;
 
@@ -273,7 +293,82 @@ bool EventReport::ReportMemPoolRecord(RecordBuffer &memPoolRecordBuffer)
     return true;
 }
 
-bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag, CallStackString& stack)
+bool EventReport::ReportHalCreate(uint64_t addr, uint64_t size, const drv_mem_prop& prop, CallStackString& stack)
+{
+    if (IsNeedSkip(prop.devid)) {
+        return true;
+    }
+ 
+    std::string owner = DescribeTrace::GetInstance().GetDescribe();
+    TLVBlockType cStack = stack.cStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_C;
+    TLVBlockType pyStack = stack.pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemOpRecord>(
+        TLVBlockType::MEM_OWNER, owner, cStack, stack.cStack, pyStack, stack.pyStack);
+    MemOpRecord* record = buffer.Cast<MemOpRecord>();
+    record->type = RecordType::MEMORY_RECORD;
+    record->subtype = RecordSubType::MALLOC;
+    record->flag = FLAG_INVALID;
+    record->space = MemOpSpace::DEVICE;
+    record->pageType = static_cast<MemScope::MemPageType>(prop.pg_type);
+    record->addr = addr;
+    record->memSize = size;
+    record->devId = prop.devid;
+    record->modid = prop.module_id;
+    record->recordIndex = ++recordIndex_;
+    record->kernelIndex = kernelLaunchRecordIndex_;
+ 
+    {
+        if (!destroyed_.load()) {
+            std::lock_guard<std::mutex> lock(mutex_);
+            halPtrs_.insert(addr);
+        }
+    }
+ 
+    ReportRecordEvent(buffer);
+ 
+    return true;
+}
+ 
+bool EventReport::ReportHalRelease(uint64_t addr, CallStackString& stack)
+{
+    if (IsNeedSkip(GD_INVALID_NUM)) {
+        return true;
+    }
+ 
+    {
+        // 单例类析构之后不再访问其成员变量
+        if (destroyed_.load()) {
+            return true;
+        }
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = halPtrs_.find(addr);
+        if (it == halPtrs_.end()) {
+            return true;
+        }
+        halPtrs_.erase(it);
+    }
+ 
+    TLVBlockType cStack = stack.cStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_C;
+    TLVBlockType pyStack = stack.pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemOpRecord>(cStack, stack.cStack, pyStack, stack.pyStack);
+    MemOpRecord* record = buffer.Cast<MemOpRecord>();
+    record->type = RecordType::MEMORY_RECORD;
+    record->subtype = RecordSubType::FREE;
+    record->flag = FLAG_INVALID;
+    record->space = MemOpSpace::INVALID;
+    record->addr = addr;
+    record->memSize = 0;
+    record->devId = GD_INVALID_NUM;
+    record->modid = INVALID_MODID;
+    record->recordIndex = ++recordIndex_;
+    record->kernelIndex = kernelLaunchRecordIndex_;
+ 
+    ReportRecordEvent(buffer);
+ 
+    return true;
+}
+
+bool EventReport::ReportHalMalloc(uint64_t addr, uint64_t size, unsigned long long flag, CallStackString& stack)
 {
     // bit0~9 devId
     int32_t devId = (flag & 0x3FF);
@@ -316,7 +411,7 @@ bool EventReport::ReportMalloc(uint64_t addr, uint64_t size, unsigned long long 
     return true;
 }
 
-bool EventReport::ReportFree(uint64_t addr, CallStackString& stack)
+bool EventReport::ReportHalFree(uint64_t addr, CallStackString& stack)
 {
     if (IsNeedSkip(GD_INVALID_NUM)) {
         return true;

@@ -25,6 +25,8 @@
 extern "C" {
 drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long flag);
 drvError_t halMemFree(void *pp);
+drvError_t halMemCreate(drv_mem_handle_t **handle, size_t size, const struct drv_mem_prop *prop, uint64_t flag);
+drvError_t halMemRelease(drv_mem_handle_t *handle);
 }  // extern "C"
 
 #endif

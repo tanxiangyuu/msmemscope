@@ -31,6 +31,7 @@
 #include "kernel_hooks/acl_hooks.h"
 #include "kernel_hooks/kernel_event_trace.h"
 #include "trace_manager/event_trace_manager.h"
+#include "ascend_hal.h"
 
 #include "process.h"
 #include "dump.h"
@@ -60,8 +61,10 @@ struct MstxStepInfo {
 class EventReport {
 public:
     static EventReport& Instance(MemScopeCommType type);
-    bool ReportMalloc(uint64_t addr, uint64_t size, unsigned long long flag, CallStackString& stack);
-    bool ReportFree(uint64_t addr, CallStackString& stack);
+    bool ReportHalCreate(uint64_t addr, uint64_t size, const drv_mem_prop& prop, CallStackString& stack);
+    bool ReportHalRelease(uint64_t addr, CallStackString& stack);
+    bool ReportHalMalloc(uint64_t addr, uint64_t size, unsigned long long flag, CallStackString& stack);
+    bool ReportHalFree(uint64_t addr, CallStackString& stack);
     bool ReportHostMalloc(uint64_t addr, uint64_t size, CallStackString& stack);
     bool ReportHostFree(uint64_t addr);
     bool ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo);

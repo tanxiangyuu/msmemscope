@@ -125,7 +125,9 @@ public:
     int64_t total = 0;
     int64_t used = 0;
     uint64_t eventIndex = 0;
+    unsigned long long flag = FLAG_INVALID;
     int32_t moduleId = -1;
+    MemPageType pageType = MemPageType::MEM_MAX_PAGE_TYPE;
     std::string describeOwner;
  
     MemoryEvent() {}
@@ -150,6 +152,8 @@ public:
         // hal的free事件没有size信息
         size = record.subtype == RecordSubType::MALLOC ? static_cast<int64_t>(record.memSize) : 0;
         moduleId = record.modid;
+        pageType = record.pageType;
+        flag = record.flag;
         const TLVBlock* ownerBlock = GetTlvBlock(record, TLVBlockType::MEM_OWNER);
         describeOwner = ownerBlock == nullptr ? "" : std::string(ownerBlock->data);
     }

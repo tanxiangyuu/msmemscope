@@ -46,7 +46,7 @@ TEST_F(EventReportTest, EventReportInstanceTest)
     EXPECT_EQ(&instance1, &instance2);
 }
 
-TEST_F(EventReportTest, ReportMallocTestDEVICE)
+TEST_F(EventReportTest, ReportHalMallocTestDEVICE)
 {
     EventReport& instance = EventReport::Instance(MemScopeCommType::MEMORY_DEBUG);
 
@@ -71,7 +71,7 @@ TEST_F(EventReportTest, ReportMallocTestDEVICE)
     MemOpSpace space = MemOpSpace::DEVICE;
 
     CallStackString callStack;
-    EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
+    EXPECT_TRUE(instance.ReportHalMalloc(testAddr, testSize, 1, callStack));
 }
 
 TEST_F(EventReportTest, ReportAddrInfoTest)
@@ -148,7 +148,7 @@ TEST_F(EventReportTest, ReportTorchNpuConditionTest)
     EXPECT_TRUE(instance.ReportMemPoolRecord(buffer));
 }
 
-TEST_F(EventReportTest, ReportMallocTestHost)
+TEST_F(EventReportTest, ReportHalMallocTestHost)
 {
     EventReport& instance = EventReport::Instance(MemScopeCommType::MEMORY_DEBUG);
     Config config = MemScope::GetConfig();
@@ -167,10 +167,10 @@ TEST_F(EventReportTest, ReportMallocTestHost)
     unsigned long long testFlag = 504403158274934784;
     MemOpSpace space = MemOpSpace::HOST;
     CallStackString callStack;
-    EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, 1, callStack));
+    EXPECT_TRUE(instance.ReportHalMalloc(testAddr, testSize, 1, callStack));
 }
 
-TEST_F(EventReportTest, ReportFreeTest)
+TEST_F(EventReportTest, ReportHalFreeTest)
 {
     EventReport& instance = EventReport::Instance(MemScopeCommType::MEMORY_DEBUG);
     Config config = MemScope::GetConfig();
@@ -185,7 +185,7 @@ TEST_F(EventReportTest, ReportFreeTest)
     ConfigManager::Instance().SetConfig(config);
     uint64_t testAddr = 0x12345678;
     CallStackString callStack;
-    EXPECT_TRUE(instance.ReportFree(testAddr, callStack));
+    EXPECT_TRUE(instance.ReportHalFree(testAddr, callStack));
 }
 
 TEST_F(EventReportTest, ReportMarkTest)
@@ -496,8 +496,8 @@ TEST_F(EventReportTest, ReportTestWithNoReceiveServerInfo)
     config.collectAllNpu = true;
     ConfigManager::Instance().SetConfig(config);
 
-    EXPECT_TRUE(instance.ReportMalloc(testAddr, testSize, flag, callStack));
-    EXPECT_TRUE(instance.ReportFree(testAddr, callStack));
+    EXPECT_TRUE(instance.ReportHalMalloc(testAddr, testSize, flag, callStack));
+    EXPECT_TRUE(instance.ReportHalFree(testAddr, callStack));
 
     uint16_t devId = 1;
     uint16_t streamId = 1;
