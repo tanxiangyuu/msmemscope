@@ -52,7 +52,7 @@ if [ ! -d "$SQLITE_DIR" ] || [ ! -f "${SQLITE_DIR}/sqlite3.c" ]; then
     elif command -v python3 >/dev/null 2>&1; then
         python3 -m zipfile -e sqlite3.zip .
     else
-        echo "Error: Failed to unzip SQLite installation package." >&2
+        echo "Error: Failed to unzip SQLite installation package. Please install unzip or python. " >&2
         exit 1
     fi
     # The extracted folder is named like: sqlite-amalgamation-3460100
