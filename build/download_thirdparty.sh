@@ -47,7 +47,14 @@ if [ ! -d "$SQLITE_DIR" ] || [ ! -f "${SQLITE_DIR}/sqlite3.c" ]; then
     fi
 
     # Unzip and rename
-    unzip -q sqlite3.zip
+    if command -v unzip &> /dev/null; then
+        unzip -q sqlite3.zip
+    elif command -v python3 &> /dev/null; then
+        python3 -m zipfile -e sqlite3.zip .
+    else
+        echo "Error: Failed to unzip SQLite installation package." >&2
+        exit 1
+    fi
     # The extracted folder is named like: sqlite-amalgamation-3460100
     EXTRACTED_DIR="sqlite-amalgamation-${SQLITE_VERSION}"
     mkdir -p sqlite3
