@@ -48,6 +48,7 @@ private:
     void DumpOpLaunchEvent(std::shared_ptr<OpLaunchEvent>& event);
     void DumpKernelLaunchEvent(std::shared_ptr<KernelLaunchEvent>& event);
     void DumpSystemEvent(std::shared_ptr<SystemEvent>& event);
+    void DumpSnapshotEvent(std::shared_ptr<SnapshotEvent>& event);
 
     void WriteToFile(const std::shared_ptr<EventBase>& event);
 

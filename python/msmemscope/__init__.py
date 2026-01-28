@@ -20,6 +20,7 @@ import ctypes
 from ._msmemscope import _watcher
 from ._msmemscope import _tracer
 from ._msmemscope import start, stop, step, config
+from .utils import import_with_optional_deps
 
 tracer = _tracer
 watcher = _watcher
@@ -30,4 +31,11 @@ from .analyzer import (
     get_analyzer_config,
     check_leaks,
     check_inefficient
+)
+
+# 指定需要的依赖包
+take_snapshot = import_with_optional_deps(
+    "take_snapshot", 
+    "take_snapshot", 
+    ["torch", "torch_npu"]
 )

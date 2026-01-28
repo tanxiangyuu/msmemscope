@@ -42,6 +42,7 @@ enum class EventBaseType : uint8_t {
     KERNEL_LAUNCH,
     SYSTEM,
     CLEAN_UP,
+    SNAPSHOT,
     INVALID,
 };
  
@@ -88,6 +89,8 @@ enum class EventSubType : uint8_t {
     CLEAN_UP,
  
     STEP,
+
+    SNAPSHOT,
 
     INVALID,
 };
@@ -431,6 +434,39 @@ public:
         poolType = type;
         pid = pidKey;
         addr = addrKey;
+    }
+};
+
+class SnapshotEvent : public EventBase {
+public:
+    uint64_t memory_reserved = 0;
+    uint64_t max_memory_reserved = 0;
+    uint64_t memory_allocated = 0;
+    uint64_t max_memory_allocated = 0;
+    uint64_t total_memory = 0;
+    uint64_t free_memory = 0;
+
+    SnapshotEvent() {}
+
+    explicit SnapshotEvent(MemorySnapshotRecord& record)
+    {
+        eventType = EventBaseType::SNAPSHOT;
+        eventSubType = EventSubType::SNAPSHOT;
+        id = record.recordIndex;
+        timestamp = record.timestamp;
+        pid = record.pid;
+        tid = record.tid;
+        device = std::to_string(record.device);
+        name = record.name;
+        if (name.empty()) {
+            name = "Memory Snapshot";
+        }
+        memory_reserved = record.memory_reserved;
+        max_memory_reserved = record.max_memory_reserved;
+        memory_allocated = record.memory_allocated;
+        max_memory_allocated = record.max_memory_allocated;
+        total_memory = record.total_memory;
+        free_memory = record.free_memory;
     }
 };
  

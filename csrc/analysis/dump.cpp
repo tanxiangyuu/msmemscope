@@ -40,6 +40,7 @@ Dump::Dump(Config config)
         EventBaseType::OP_LAUNCH,
         EventBaseType::KERNEL_LAUNCH,
         EventBaseType::SYSTEM,
+        EventBaseType::SNAPSHOT,
         EventBaseType::CLEAN_UP};
     EventDispatcher::GetInstance().Subscribe(SubscriberId::DUMP, eventList, EventDispatcher::Priority::Lowest, func);
     return;
@@ -76,6 +77,11 @@ void Dump::EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state)
         case EventBaseType::CLEAN_UP:
             if (state) {
                 DumpMemoryState(state);
+            }
+            break;
+        case EventBaseType::SNAPSHOT:
+            if (auto snapshotEvent = std::dynamic_pointer_cast<SnapshotEvent>(event)) {
+                DumpSnapshotEvent(snapshotEvent);
             }
             break;
         default:
@@ -196,6 +202,40 @@ void Dump::WritePublicEventToFile()
         }
     }
     sharedEventLists_.clear();
+}
+
+void Dump::DumpSnapshotEvent(std::shared_ptr<SnapshotEvent>& snapshotEvent)
+{
+    if (!snapshotEvent) {
+        return;
+    }
+
+    // 计算利用率
+    double device_memory_usage_rate = 0.0;
+    if (snapshotEvent->total_memory > 0) {
+        uint64_t used_memory = snapshotEvent->total_memory - snapshotEvent->free_memory;
+        device_memory_usage_rate = (static_cast<double>(used_memory) / snapshotEvent->total_memory) * 100;
+    }
+
+    double torch_reserved_memory_usage_rate = 0.0;
+    if (snapshotEvent->memory_reserved > 0) {
+        torch_reserved_memory_usage_rate = (static_cast<double>(snapshotEvent->memory_allocated) / snapshotEvent->memory_reserved) * 100;
+    }
+
+    // 构建attr字符串，格式：{memory_reserved: ,max_memory_reserved:, memory_allocated:,max_memory_allocated:,total_memory:,free_memory:}
+    std::string attr;
+    attr += "reserved:" + std::to_string(snapshotEvent->memory_reserved) + ",";
+    attr += "max_reserved:" + std::to_string(snapshotEvent->max_memory_reserved) + ",";
+    attr += "allocated:" + std::to_string(snapshotEvent->memory_allocated) + ",";
+    attr += "max_allocated:" + std::to_string(snapshotEvent->max_memory_allocated) + ",";
+    attr += "total:" + std::to_string(snapshotEvent->total_memory) + ",";
+    attr += "free:" + std::to_string(snapshotEvent->free_memory) + ",";
+    attr += "device_rate:" + std::to_string(device_memory_usage_rate) + ",";
+    attr += "reserved_rate:" + std::to_string(torch_reserved_memory_usage_rate);
+    snapshotEvent->attr = "\"{" + attr + "}\"";
+
+    // 调用WriteToFile函数写入事件
+    WriteToFile(snapshotEvent);
 }
 
 void Dump::FflushEventToFile()

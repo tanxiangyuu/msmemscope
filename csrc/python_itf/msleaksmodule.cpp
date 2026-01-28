@@ -19,6 +19,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <cstring>
 #include "watcherobject.h"
 #include "tracerobject.h"
 #include "describerobject.h"
@@ -121,11 +122,61 @@ static PyObject* MsmemscopeConfig(PyObject* self, PyObject* args, PyObject* kwar
     Py_RETURN_NONE;
 }
 
+PyDoc_STRVAR(TakeSnapshotDoc,
+"take_snapshot(memory_info)\n--\n\n"
+"Take a memory snapshot and report it.\n\n"
+"Args:\n"
+"    memory_info: Memory information dictionary\n\n"
+"Examples:\n"
+"    msmemscope.take_snapshot({\"device\": 0, \"output\": \"/path/to/snapshot\", ...})");
+static PyObject* MsmemscopeTakeSnapshot(PyObject* self, PyObject* args)
+{
+    PyObject* memory_info = nullptr;
+    if (!PyArg_ParseTuple(args, "O", &memory_info)) {
+        PyErr_SetString(PyExc_TypeError, "Invalid argument: expected a dictionary");
+        return nullptr;
+    }
+    
+    if (!PyDict_Check(memory_info)) {
+        PyErr_SetString(PyExc_TypeError, "Invalid argument: expected a dictionary");
+        return nullptr;
+    }
+    
+    // 构建MemorySnapshotRecord结构体
+    MemorySnapshotRecord snapshot_info;
+    
+    // 从memory_info字典中提取信息
+    snapshot_info.device = PyLong_AsLong(PyDict_GetItemString(memory_info, "device"));
+    snapshot_info.memory_reserved = PyLong_AsUnsignedLongLong(PyDict_GetItemString(memory_info, "memory_reserved"));
+    snapshot_info.max_memory_reserved = PyLong_AsUnsignedLongLong(PyDict_GetItemString(memory_info, "max_memory_reserved"));
+    snapshot_info.memory_allocated = PyLong_AsUnsignedLongLong(PyDict_GetItemString(memory_info, "memory_allocated"));
+    snapshot_info.max_memory_allocated = PyLong_AsUnsignedLongLong(PyDict_GetItemString(memory_info, "max_memory_allocated"));
+    snapshot_info.total_memory = PyLong_AsUnsignedLongLong(PyDict_GetItemString(memory_info, "total_memory"));
+    snapshot_info.free_memory = PyLong_AsUnsignedLongLong(PyDict_GetItemString(memory_info, "free_memory"));
+    // 处理name参数
+    std::string name;
+    PyObject* name_obj = PyDict_GetItemString(memory_info, "name");
+    if (name_obj && PyUnicode_Check(name_obj)) {
+        name = PyUnicode_AsUTF8(name_obj);
+    }
+    
+    // 复制name到snapshot_info.name
+    strncpy_s(snapshot_info.name, sizeof(snapshot_info.name), name.c_str(), name.length());
+    
+    // 传递参数给ReportMemorySnapshot
+    if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportMemorySnapshot(snapshot_info)) {
+        PyErr_SetString(PyExc_TypeError, "Report Memory Snapshot Failed");
+    }
+    
+    Py_RETURN_NONE;
+}
+
 static PyMethodDef g_MsmemscopeMethods[] = {
     {"start", reinterpret_cast<PyCFunction>(MsmemscopeStart), METH_NOARGS, StartDoc},
     {"stop", reinterpret_cast<PyCFunction>(MsmemscopeStop), METH_NOARGS, StopDoc},
     {"step", reinterpret_cast<PyCFunction>(MsmemscopeStep), METH_NOARGS, StepDoc},
     {"config", reinterpret_cast<PyCFunction>(MsmemscopeConfig), METH_VARARGS | METH_KEYWORDS, ConfigDoc},
+    {"_take_snapshot", reinterpret_cast<PyCFunction>(MsmemscopeTakeSnapshot), METH_VARARGS, TakeSnapshotDoc},
     {nullptr, nullptr, 0, nullptr}
 };
 
