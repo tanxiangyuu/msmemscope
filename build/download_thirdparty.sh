@@ -47,9 +47,9 @@ if [ ! -d "$SQLITE_DIR" ] || [ ! -f "${SQLITE_DIR}/sqlite3.c" ]; then
     fi
 
     # Unzip and rename
-    if command -v unzip &> /dev/null; then
+    if command -v unzip >/dev/null 2>&1; then
         unzip -q sqlite3.zip
-    elif command -v python3 &> /dev/null; then
+    elif command -v python3 >/dev/null 2>&1; then
         python3 -m zipfile -e sqlite3.zip .
     else
         echo "Error: Failed to unzip SQLite installation package." >&2
