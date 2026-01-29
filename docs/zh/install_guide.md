@@ -15,18 +15,18 @@ msMemScope工具支持在Linux系统上使用，目前提供以下两种安装�
 
 **软件包下载**
 
-点击[获取链接](https://gitcode.com/Ascend/msmemscope/releases)，下载msMemScope工具软件包。
+单击[获取链接](https://www.openlibing.com/apps/obsDetails?bucketName=ascend-package)，选择相应版本下载msMemScope工具软件包。
 
-软件包名称：`Ascend-mindstudio-memscope_<version>_linux-<arch>.run`，`<version>`表示版本号，`<arch>`表示CPU架构。
+软件包名称：`MindStudio-memscope_<version>_linux-<arch>.run`，`<version>`表示版本号，`<arch>`表示CPU架构。
 
 下载本软件即表示您同意[华为企业业务最终用户许可协议（EULA）](https://e.huawei.com/cn/about/eula)的条款和条件。
 
 ### 准备工具
 
-使用msMemScope工具前，需要安装驱动固件和CANN软件包，并配置环境变量。
+使用msMemScope工具前，需要安装配套版本的NPU驱动、固件和CANN软件包，具体请参见《[CANN 软件安装指南](https://www.hiascend.com/document/detail/zh/canncommercial/850/softwareinst/instg/instg_0000.html?Mode=PmIns&InstallType=netconda&OS=openEuler)》安装，并配置环境变量。
 
-- 准备Atlas训练系列产品/Atlas推理产品的服务器，并安装对应的驱动和固件，具体安装过程请参见安装NPU驱动固件《[CANN 软件安装指南(CANN商用版)](https://www.hiascend.com/document/detail/zh/canncommercial/83RC1/softwareinst/instg/instg_0005.html?Mode=PmIns&InstallType=local&OS=openEuler&Software=cannToolKit)》或《[CANN软件安装指南(CANN社区版)](https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/850alpha001/softwareinst/instg/instg_0005.html?Mode=PmIns&OS=openEuler&Software=cannToolKit)》中的“安装NPU驱动固件”章节。
-- 安装CANN软件包，请参考安装CANN《[CANN软件安装指南(CANN商用版)](https://www.hiascend.com/document/detail/zh/canncommercial/83RC1/softwareinst/instg/instg_0008.html?Mode=PmIns&InstallType=local&OS=openEuler&Software=cannToolKit)》《[CANN 软件安装指南(CANN社区版)](https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/850alpha001/softwareinst/instg/instg_0008.html?Mode=PmIns&OS=openEuler&Software=cannToolKit)》中选择“训练&推理&开发调试”场景安装CANN软件包。请根据系统选择aarch64或x86_64对应版本的CANN-toolkit、CANN-ops。
+> [!NOTE] 说明  
+> 如果安装的是CANN 8.5.0之前版本，需安装CANN Toolkit开发套件包，选择“训练&推理&开发调试”场景安装；如果安装的是CANN 8.5.0以及之后版本，则需要安装CANN Toolkit开发套件包和ops算子包。请根据需求参见相应版本的资料安装。
 
 ### 数字签名
 
@@ -63,6 +63,7 @@ sudo yum install -y python3 git gcc gcc-c++ make cmake
    注：其中`remote-name`为远程仓库别名，需要指定。
 
 2. 执行以下命令下载Python三方依赖。注：`sqlite3`为离线功能使用依赖，可选安装。
+
    ```bash
    pip3 install -r ./requirements.txt
    ```
@@ -140,7 +141,7 @@ msmemscope environment setup completed
 
 msMemScope的软件包提供升级功能。
 
-1. 点击[获取链接](https://gitcode.com/Ascend/msmemscope/releases)，选择更新版本的软件包下载。
+1. 点击[获取链接](https://www.openlibing.com/apps/obsDetails?bucketName=ascend-package)，选择更新版本的软件包下载。
 
 2. 执行以下脚本升级软件。
 
@@ -195,7 +196,8 @@ msMemScope的软件包提供升级功能。
 
 详细参数请参见[表1](#cli-args-table)。
 
-  > 如果通过./Ascend-mindstudio-memscope_<version>_linux-{arch}.run --help命令查询出的参数未解释在如下表格，则说明该参数为预留参数或适用于其他产品类型，用户无需关注。
+  > [!NOTE] 说明  
+  > 如果通过./Ascend-mindstudio-memscope_\<version>_linux-{arch}.run --help命令查询出的参数没有在如下表格中解释，则说明该参数为预留参数或适用于其他产品类型，用户无需关注。
 
 **表 1**  参数说明
 

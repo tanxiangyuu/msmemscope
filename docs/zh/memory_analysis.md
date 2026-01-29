@@ -34,7 +34,7 @@ msMemScope工具的安装，请参见[《msMemScope工具安装说明》](./inst
 
 **在线方式**
 
-在进行内存分析时，需配合使用mstx打点功能进行问题定位，mstx打点详情参考[《MindStudio mstx API参考》](http://gitcode.com/Ascend/mstx)。
+在进行内存分析时，需配合使用mstx打点功能进行问题定位，mstx打点详情参考[MindStudio Tools Extension Library接口](https://gitcode.com/Ascend/mstx/blob/master/docs/zh/mstx_api_reference.md)。
 
 1. 使用msMemScope工具启动用户程序，Application为用户程序。
 
@@ -45,7 +45,8 @@ msMemScope工具的安装，请参见[《msMemScope工具安装说明》](./inst
 2. 执行完成后，会出现如下两种回显信息。
     - 如果出现如[**图 1**  memory leak](#leak)的回显信息，表示存在内存泄漏问题。回显信息中分别展示了每张卡内存泄漏的汇总信息，包括泄漏发生的Step数、关联的kernel、地址以及泄漏大小等信息。
 
-        **图 1**  memory leak <a id="leak"></a>
+        **图 1**  memory leak<a id="leak"></a>
+
         ![](./figures/memory_leak.png)
 
     - 如果出现如[**图 2**  memory fluctuation](#fluctuation)的回显信息，表示存在内存波动。回显信息中展示了单个Step内的内存波动（用最小和最大的内存池分配占用比值定义）以及最小的内存池分配占用，同时给出最小比值和最大比值作为参考，用户可根据该值判断是否存在内存泄漏风险。
@@ -53,14 +54,15 @@ msMemScope工具的安装，请参见[《msMemScope工具安装说明》](./inst
         > [!NOTE] 说明  
         > 在第一个Step时，内存尚未稳定，所以只支持分析从第二个Step开始的内存波动，第一个Step内存波动可忽略。
 
-        **图 2**  memory fluctuation <a id="fluctuation"></a>  
+        **图 2**  memory fluctuation <a id="fluctuation"></a>
+
         ![](./figures/memory_fluctuation.png)
 
 **离线方式**
 
 msMemScope支持对指定范围内的内存事件进行离线泄漏分析。使用mstx标识好泄漏分析的范围后，可以使用该功能对落盘文件进行分析。
 
-1. 对需要检测泄漏的范围进行mstx的mark打点。mstx打点详情参考[《MindStudio mstx API参考》](https://gitcode.com/Ascend/)。
+1. 对需要检测泄漏的范围进行mstx的mark打点。mstx打点详情参考[MindStudio Tools Extension Library接口](https://gitcode.com/Ascend/mstx/blob/master/docs/zh/mstx_api_reference.md)。
 
     > [!NOTE] 说明   
     > - 打点的mark信息将用于离线分析接口的输入。
@@ -87,7 +89,8 @@ msMemScope支持对指定范围内的内存事件进行离线泄漏分析。使�
 
     如果出现[**图 3**  offline leakage analysis](#analysis)的回显信息，表示存在内存泄漏问题。
 
-    **图 3**  offline leakage analysis <a id="analysis"></a>  
+    **图 3**  offline leakage analysis <a id="analysis"></a>
+
     ![](./figures/offline_leakage_analysis.png)
 
 ## 内存对比分析功能介绍
@@ -116,7 +119,7 @@ msMemScope支持对指定范围内的内存事件进行离线泄漏分析。使�
     ```
 
     其中参数信息如下：
-    - options：命令行参数，具体信息可参见内存采集中的“[命令行采集功能介绍](./memory_profile.md)”。
+    - options：命令行参数，具体信息可参见[命令行采集功能介绍](./memory_profile.md#命令行采集功能介绍)。
     - Application：用户程序。
     - steps：指定的Step编号。
 
@@ -225,7 +228,7 @@ Step间内存问题可通过输出文件查询定位，输出文件详解可参�
 
 4. 命令执行完成后，内存块监测生成的结果目录如下。
 
-    ```shell
+    ```text
     ├── memscopeDumpResults             
     │    └── watch_dump
           │    ├── {deviceid}_{tid}_{opName}_{调用次数}-{watchedOpName}_{outid}_{before/after}.bin        # 当输入full-content参数时，落盘bin文件
