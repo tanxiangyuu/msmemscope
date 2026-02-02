@@ -60,7 +60,7 @@ bool TensorDumper::DumpTensorBinary(const std::vector<uint8_t> &hostData, std::s
     CleanFileName(fileName);
 
     int32_t devId = GD_INVALID_NUM;
-    if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
+    if (!GetDeviceInfo::Instance().GetDeviceId(devId) || devId == GD_INVALID_NUM) {
         LOG_ERROR("DumpTensorBinary get device id failed, " + std::to_string(devId));
     }
     std::string binOutDir = dumpDir_ + "/" + "device_" + std::to_string(devId) + "/" + WATCH_DUMP_DIR;
@@ -96,7 +96,7 @@ bool TensorDumper::DumpTensorHashValue(const std::vector<uint8_t> &hostData, std
 {
     if (csvFile_ == nullptr) {
         int32_t devId = GD_INVALID_NUM;
-        if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
+        if (!GetDeviceInfo::Instance().GetDeviceId(devId) || devId == GD_INVALID_NUM) {
             LOG_ERROR("DumpTensorHashValue get device id failed, " + std::to_string(devId));
         }
         if (!Utility::FileCreateManager::GetInstance(GetConfig().outputDir).CreateCsvFile(&csvFile_,

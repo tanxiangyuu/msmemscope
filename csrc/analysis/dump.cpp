@@ -170,10 +170,10 @@ void Dump::DumpSystemEvent(std::shared_ptr<SystemEvent>& event)
 {
     // 在开始采集数据之前，落盘一次设备显存信息供可视化
     if (event->eventSubType == EventSubType::TRACE_START) {
-        size_t free = 0;
-        size_t total = 0;
-        if (GetDeviceMemInfo(free, total)) {
-            std::string attr = "free:" + std::to_string(free) + ",total:" + std::to_string(total);
+        size_t freeMem = 0;
+        size_t totalMem = 0;
+        if (GetDeviceInfo::Instance().GetDeviceMemInfo(freeMem, totalMem)) {
+            std::string attr = "free:" + std::to_string(freeMem) + ",total:" + std::to_string(totalMem);
             event->attr = "\"{" + attr + "}\"";
         }
     }

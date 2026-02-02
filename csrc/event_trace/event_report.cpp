@@ -97,7 +97,14 @@ inline int32_t GetMallocModuleId(unsigned long long flag)
 
 constexpr int32_t INVALID_MODID = -1;
 
-bool GetDevice(int32_t *devId)
+
+GetDeviceInfo& GetDeviceInfo::Instance()
+{
+    static GetDeviceInfo instance;
+    return instance;
+}
+
+bool GetDeviceInfo::GetDeviceId(int32_t &devId)
 {
     char const *sym = "aclrtGetDeviceImpl";
     using AclrtGetDevice = aclError (*)(int32_t*);
@@ -120,21 +127,31 @@ bool GetDevice(int32_t *devId)
             return false;
         }
 
-        rtError_t ret = l_vallina(devId);
+        rtError_t ret = l_vallina(&devId);
         if (ret == RT_ERROR_INVALID_VALUE) {
             return false;
         }
         return true;
     }
 
-    aclError ret = vallina(devId);
+    aclError ret = vallina(&devId);
     if (ret != ACL_SUCCESS) {
         return false;
+    }
+
+    // 新增可见卡选项
+    if(GetDeviceInfo::Instance().setVisibleDevice) {
+        auto it = GetDeviceInfo::Instance().visibleDeviceMap.find(devId);
+        if (it == GetDeviceInfo::Instance().visibleDeviceMap.end()) {
+            LOG_ERROR("Key {} not found in visibleDeviceMap!", devId);
+            return false;
+        }
+        devId = it->second;
     }
     return true;
 }
 
-bool GetDeviceMemInfo(size_t &free, size_t &total)
+bool GetDeviceInfo::GetDeviceMemInfo(size_t &freeMem, size_t &totalMem)
 {
     using func = decltype(&aclrtGetMemInfo);
     static auto vallina = VallinaSymbol<AclLibLoader>::Instance().Get<func>("aclrtGetMemInfo");
@@ -143,7 +160,7 @@ bool GetDeviceMemInfo(size_t &free, size_t &total)
         return false;
     }
 
-    int ret = vallina(ACL_HBM_MEM, &free, &total);
+    int ret = vallina(ACL_HBM_MEM, &freeMem, &totalMem);
     if (ret != ACL_SUCCESS) {
         LOG_ERROR("Get device mem info failed, ret is " + std::to_string(ret));
         return false;
@@ -243,7 +260,7 @@ bool EventReport::IsNeedSkip(int32_t devid)
 bool EventReport::ReportAddrInfo(RecordBuffer &infoBuffer)
 {
     int32_t devId = GD_INVALID_NUM;
-    GetDevice(&devId);
+    GetDeviceInfo::Instance().GetDeviceId(devId);
     if (IsNeedSkip(devId)) {
         return true;
     }
@@ -257,7 +274,7 @@ bool EventReport::ReportAddrInfo(RecordBuffer &infoBuffer)
 bool EventReport::ReportPyStepRecord()
 {
     int32_t devId = GD_INVALID_NUM;
-    GetDevice(&devId);
+    GetDeviceInfo::Instance().GetDeviceId(devId);
     if (IsNeedSkip(devId)) {
         return true;
     }
@@ -281,10 +298,10 @@ bool EventReport::ReportMemPoolRecord(RecordBuffer &memPoolRecordBuffer)
 
     MemPoolRecord* record = memPoolRecordBuffer.Cast<MemPoolRecord>();
     int32_t devId = static_cast<int32_t>(record->memoryUsage.deviceIndex);
+    GetDeviceInfo::Instance().GetDeviceId(devId);
     if (IsNeedSkip(devId)) {
         return true;
     }
-
     record->kernelIndex = kernelLaunchRecordIndex_;
     record->devId = devId;
     record->recordIndex = ++recordIndex_;
@@ -485,7 +502,7 @@ void EventReport::SetStepInfo(const MstxRecord &mstxRecord)
 bool EventReport::ReportMark(RecordBuffer &mstxRecordBuffer)
 {
     int32_t devId = GD_INVALID_NUM;
-    if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
+    if (!GetDeviceInfo::Instance().GetDeviceId(devId) || devId == GD_INVALID_NUM) {
         LOG_ERROR("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
@@ -510,7 +527,7 @@ bool EventReport::ReportMark(RecordBuffer &mstxRecordBuffer)
 bool EventReport::ReportAtenLaunch(RecordBuffer &atenOpLaunchRecordBuffer)
 {
     int32_t devId = GD_INVALID_NUM;
-    if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
+    if (!GetDeviceInfo::Instance().GetDeviceId(devId) || devId == GD_INVALID_NUM) {
         LOG_ERROR("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
@@ -531,7 +548,7 @@ bool EventReport::ReportAtenLaunch(RecordBuffer &atenOpLaunchRecordBuffer)
 bool EventReport::ReportAtenAccess(RecordBuffer &memAccessRecordBuffer)
 {
     int32_t devId = GD_INVALID_NUM;
-    if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
+    if (!GetDeviceInfo::Instance().GetDeviceId(devId) || devId == GD_INVALID_NUM) {
         LOG_ERROR("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
@@ -558,7 +575,7 @@ bool EventReport::ReportKernelLaunch(const AclnnKernelMapInfo &kernelLaunchInfo)
 
     int32_t devId = std::get<0>(kernelLaunchInfo.taskKey);
     if (devId < 0) {
-        if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
+        if (!GetDeviceInfo::Instance().GetDeviceId(devId) || devId == GD_INVALID_NUM) {
             LOG_ERROR("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
         }
     }
@@ -655,7 +672,7 @@ bool EventReport::ReportAtbOpExecute(char* name, uint32_t nameLength,
     char* attr, uint32_t attrLength, RecordSubType type)
 {
     int32_t devId = GD_INVALID_NUM;
-    if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
+    if (!GetDeviceInfo::Instance().GetDeviceId(devId) || devId == GD_INVALID_NUM) {
         LOG_ERROR("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
@@ -680,7 +697,7 @@ bool EventReport::ReportAtbKernel(char* name, uint32_t nameLength,
     char* attr, uint32_t attrLength, RecordSubType type)
 {
     int32_t devId = GD_INVALID_NUM;
-    if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
+    if (!GetDeviceInfo::Instance().GetDeviceId(devId) || devId == GD_INVALID_NUM) {
         LOG_ERROR("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
@@ -704,7 +721,7 @@ bool EventReport::ReportAtbKernel(char* name, uint32_t nameLength,
 bool EventReport::ReportAtbAccessMemory(char* name, char* attr, uint64_t addr, uint64_t size, AccessType type)
 {
     int32_t devId = GD_INVALID_NUM;
-    if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
+    if (!GetDeviceInfo::Instance().GetDeviceId(devId) || devId == GD_INVALID_NUM) {
         LOG_ERROR("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
 
@@ -731,15 +748,6 @@ bool EventReport::ReportAtbAccessMemory(char* name, char* attr, uint64_t addr, u
 
 bool EventReport::ReportMemorySnapshot(const MemorySnapshotRecord& memory_info)
 {
-    int32_t devId = GD_INVALID_NUM;
-    if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
-        LOG_ERROR("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
-    }
-
-    if (IsNeedSkip(devId)) {
-        return true;
-    }
-
     // 创建内存快照记录
     RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemorySnapshotRecord>();
     MemorySnapshotRecord* record = buffer.Cast<MemorySnapshotRecord>();

@@ -41,7 +41,7 @@ void PythonTrace::RecordPyCall(const std::string& funcHash, const std::string& f
         return;
     }
     int32_t devId = GD_INVALID_NUM;
-    if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
+    if (!GetDeviceInfo::Instance().GetDeviceId(devId) || devId == GD_INVALID_NUM) {
         LOG_ERROR("[trace] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
     std::shared_ptr<TraceEvent> event = std::make_shared<TraceEvent>();
@@ -78,7 +78,7 @@ void PythonTrace::RecordCCall(std::string funcHash, std::string funcInfo)
         return;
     }
     int32_t devId = GD_INVALID_NUM;
-    if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
+    if (!GetDeviceInfo::Instance().GetDeviceId(devId) || devId == GD_INVALID_NUM) {
         LOG_ERROR("[trace] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
     }
     std::shared_ptr<TraceEvent> event = std::make_shared<TraceEvent>();
@@ -103,7 +103,7 @@ void PythonTrace::RecordReturn(std::string funcHash, std::string funcInfo)
             frameStack_[tid].pop();
         } else if (throw_[tid] == false) {
             int32_t devId = GD_INVALID_NUM;
-            if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
+            if (!GetDeviceInfo::Instance().GetDeviceId(devId) || devId == GD_INVALID_NUM) {
                 LOG_ERROR("[trace] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
             }
             std::shared_ptr<TraceEvent> event = std::make_shared<TraceEvent>(

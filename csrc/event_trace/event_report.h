@@ -108,11 +108,73 @@ private:
 
     std::unordered_set<uint64_t> halPtrs_;
     std::atomic<bool> destroyed_{false};
+
+};
+
+class GetDeviceInfo {
+public:
+    static GetDeviceInfo& Instance();
+    void InitVisibleDevice();
+    bool GetDeviceId(int32_t &devId);
+    bool GetDeviceMemInfo(size_t &freeMem, size_t &totalMem);
+
+private:
+    GetDeviceInfo()
+    {
+        const char* visibleDeviceEnv = std::getenv("ASCEND_RT_VISIBLE_DEVICES");
+        if (!visibleDeviceEnv) {
+            LOG_INFO("ASCEND_RT_VISIBLE_DEVICES environment variable not found!");
+            return;
+        }
+
+        std::string visibleDeviceStr(visibleDeviceEnv);
+        std::vector<std::string> deviceTokens;
+        std::istringstream iss(visibleDeviceStr);
+        std::string token;
+
+        while (std::getline(iss, token, ',')) {
+            // 去除首尾空格
+            token.erase(0, token.find_first_not_of(" \t\n\r\f\v"));
+            token.erase(token.find_last_not_of(" \t\n\r\f\v") + 1);
+
+            if (!token.empty()) {
+                deviceTokens.push_back(token);
+            }
+        }
+
+        int32_t deviceId = 0;
+        for (const auto& dev : deviceTokens) {
+            size_t pos;
+            try {
+                int32_t id = std::stoi(dev, &pos);
+                if (pos != dev.length() || id < 0) {
+                    throw std::invalid_argument("Invalid format: '" + std::string(dev) + "'");
+                }
+                visibleDeviceMap[deviceId] = id;
+                deviceId++;
+            } catch (const std::invalid_argument& e) {
+                LOG_ERROR("Invalid format for ASCEND_RT_VISIBLE_DEVICES:", e.what());
+                visibleDeviceMap.clear();
+                return;
+            }
+        }
+        setVisibleDevice = true;
+        std::cout << "[msmemscope] Info: Set ASCEND_RT_VISIBLE_DEVICES successfully!"<< std::endl;
+    }
+
+private:
+    ~GetDeviceInfo() = default;
+
+    GetDeviceInfo(const GetDeviceInfo&) = delete;
+    GetDeviceInfo& operator=(const GetDeviceInfo&) = delete;
+    GetDeviceInfo(GetDeviceInfo&&) = delete;
+    GetDeviceInfo& operator=(GetDeviceInfo&&) = delete;
+
+    bool setVisibleDevice = false;              // 是否存在可见卡
+    std::unordered_map<int32_t, int32_t> visibleDeviceMap;
 };
 
 MemOpSpace GetMemOpSpace(unsigned long long flag);
-bool GetDevice(int32_t *devId);
-bool GetDeviceMemInfo(size_t &free, size_t &total);
 
 } // namespace MemScope
 #endif

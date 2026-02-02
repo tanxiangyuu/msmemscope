@@ -157,7 +157,7 @@ void StartDriverKernelInfoTrace(int32_t devId)
 void EndDriverKernelInfoTrace()
 {
     int32_t devId = MemScope::GD_INVALID_NUM;
-    if (!GetDevice(&devId) || devId == GD_INVALID_NUM) {
+    if (!GetDeviceInfo::Instance().GetDeviceId(devId) || devId == GD_INVALID_NUM) {
         LOG_ERROR("get device id failed");
     }
     using DriverProfEndFunc = int(*)(unsigned int, unsigned int);
