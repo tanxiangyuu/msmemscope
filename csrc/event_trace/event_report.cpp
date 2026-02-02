@@ -748,6 +748,15 @@ bool EventReport::ReportAtbAccessMemory(char* name, char* attr, uint64_t addr, u
 
 bool EventReport::ReportMemorySnapshot(const MemorySnapshotRecord& memory_info)
 {
+    int32_t devId = GD_INVALID_NUM;
+    if (!GetDeviceInfo::Instance().GetDeviceId(devId) || devId == GD_INVALID_NUM) {
+        LOG_ERROR("[mark] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+    }
+
+    if (IsNeedSkip(devId)) {
+        return true;
+    }
+    
     // 创建内存快照记录
     RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemorySnapshotRecord>();
     MemorySnapshotRecord* record = buffer.Cast<MemorySnapshotRecord>();
