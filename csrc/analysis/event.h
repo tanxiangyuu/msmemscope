@@ -188,7 +188,7 @@ public:
         eventType = record.memoryUsage.dataType == 0 ? EventBaseType::MALLOC : EventBaseType::FREE;
         addr = record.memoryUsage.ptr;
         name = "N/A";
-        device = std::to_string(record.memoryUsage.deviceIndex);
+        device = std::to_string(record.devId);
         size = record.memoryUsage.allocSize;
         total = record.memoryUsage.totalReserved;
         used = record.memoryUsage.totalAllocated;

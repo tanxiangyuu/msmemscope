@@ -348,7 +348,7 @@ bool StepInnerAnalyzer::Record(const ClientId &clientId, const RecordBase &recor
         return true;
     }
     auto memPoolRecord = static_cast<const MemPoolRecord&>(record);
-    DeviceId deviceId = memPoolRecord.memoryUsage.deviceIndex;
+    DeviceId deviceId = memPoolRecord.devId;
     if (!CreateTables(deviceId)) {
         LOG_ERROR("[device %ld]: Create npu Memory table failed.", deviceId);
         return false;
