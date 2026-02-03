@@ -56,25 +56,6 @@ msMemScope工具支持通过软件包和源码两种方式进行安装，可根�
 
 快速入门旨在帮助用户快速熟悉msMemScope工具的使用方式。具体操作请参见[msMemScope快速入门](./docs/zh/quick_start.md)。
 
-## 工具限制与注意事项
-
-请在使用工具前，仔细阅读以下安全使用说明，以防范潜在风险。
-
-- 权限约束
-  - 出于安全性及权限最小化考虑，msMemScope工具不建议使用root等高权限用户安装使用，推荐使用普通用户权限。
-  - 遵循最小权限原则（如禁止others用户可写，常见如禁止666、777）。
-  - 请确保执行用户的umask值大于等于0027，否则会导致获取的性能数据所在目录和文件权限过高。
-  - 请确保性能数据保存在当前用户目录下，且该目录不含软链接，以防止可能的安全问题。
-
-- 安装使用约束  
-  msMemScope为开发调测工具，不应在生产环境中使用。
-
-- 文件校验约束  
-  请对下载的文件（特别是模型权重等文件）使用SHA256等校验方法进行完整性校验，保证文件来源安全可信，从而有效避免潜在的安全风险。
-
-- 兼容性约束  
-  msMemScope工具在生成db格式文件时，需确保当前用户环境中已安装libsqlite3.so(SQLite库)等相关文件，并确保group和others用户组无修改权限。
-
 ## 功能介绍
 
 msMemScope工具提供内存采集、内存分析两大功能。
@@ -138,17 +119,19 @@ msMemScope工具提供内存采集、内存分析两大功能。
 
 msMemScope工具提供API接口，便于快速分析内存情况，具体使用方法请参见[API参考](./docs/zh/api.md)。
 
+## 安全声明
+
+msMemScope工具安全相关信息，请参见[msMemScope安全声明](./docs/zh/security_statement.md)。
+
 ## 免责声明
 
 ### 致msMemScope使用者
 
-1. msMemScope工具提供的所有内容仅供您用于非商业目的。
+1. 对于msMemScope测试用例以及示例文件中所涉及的数据，平台仅用于功能测试，华为不提供任何数据。
 
-2. 对于msMemScope测试用例以及示例文件中所涉及的数据，平台仅用于功能测试，华为不提供任何数据。
+2. 如您在使用msMemScope工具过程中，发现任何问题（包括但不限于功能问题、合规问题），请在GitCode提交Issues，我们将及时审视并解决。
 
-3. 如您在使用msMemScope工具过程中，发现任何问题（包括但不限于功能问题、合规问题），请在GitCode提交Issues，我们将及时审视并解决。
-
-4. msMemScope工具依赖的第三方开源软件，均由第三方社区提供和维护，因第三方开源软件导致的问题需依赖相关社区的贡献和反馈进行修复。您应理解，msMemScope仓库不保证对第三方开源软件本身的问题进行修复，也不保证会测试、纠正所有第三方开源软件的漏洞和错误。
+3. msMemScope工具依赖的第三方开源软件，均由第三方社区提供和维护，因第三方开源软件导致的问题需依赖相关社区的贡献和反馈进行修复。您应理解，msMemScope仓库不保证对第三方开源软件本身的问题进行修复，也不保证会测试、纠正所有第三方开源软件的漏洞和错误。
 
 ### 致数据所有者
 
@@ -176,13 +159,27 @@ msMemScope工具docs目录下的文档适用CC-BY 4.0许可证，具体请参见
    7. 代码检视：您需要根据评审意见修改代码，并再次推送更新。此流程可能涉及多轮迭代。
    8. 当您的PR获得足够数量的检视者批准后，Committer会进行最终审核。
    9. 审核和测试通过后，CI会将您的PR合并入项目的主干分支。
-6. 详细步骤请参见[开发者指南](./docs/zh/development_guide/development_guide.md)。
-7. 贡献规范请参见[贡献指南](./docs/zh/development_guide/contributing_guide.md)。
+
+   详细步骤请参见[开发者指南](./docs/zh/development_guide/development_guide.md)。
+6. 贡献规范请参见[贡献指南](./docs/zh/development_guide/contributing_guide.md)。
+7. 提交Issue相关操作请参见[Issue指南](./docs/zh/communication_guide/how_to_issue.md)。
 
 ## 建议与交流
 
-欢迎大家为社区做贡献。如果有任何疑问或建议，请参考[交流指南](./docs/zh/development_guide/communication.md)获取详细的联系方式和支持渠道。
+华为MindStuido全流程开发工具链团队致力于提供端到端的昇腾AI应用开发解决方案，使能开发者高效完成训练开发、推理开发和算子开发。您可以通过以下渠道更深入了解华为MindStudio团队：
+<div style="display: flex; align-items: center; gap: 10px;">
+    <span>昇腾论坛：</span>
+    <a href="https://www.hiascend.com/forum/" rel="nofollow">
+        <img src="https://camo.githubusercontent.com/dd0b7ef70793ab93ce46688c049386e0755a18faab780e519df5d7f61153655e/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f576562736974652d2532333165333766663f7374796c653d666f722d7468652d6261646765266c6f676f3d6279746564616e6365266c6f676f436f6c6f723d7768697465" data-canonical-src="https://img.shields.io/badge/Website-%231e37ff?style=for-the-badge&amp;logo=bytedance&amp;logoColor=white" style="max-width: 100%;">
+    </a>
+    <span style="margin-left: 20px;">昇腾小助手：</span>
+    <a href="https://gitcode.com/Ascend/msmemscope/blob/master/docs/zh/communication_guide/figures/ascend_assistant.jpg">
+        <img src="https://camo.githubusercontent.com/22bbaa8aaa1bd0d664b5374d133c565213636ae50831af284ef901724e420f8f/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f5765436861742d3037433136303f7374796c653d666f722d7468652d6261646765266c6f676f3d776563686174266c6f676f436f6c6f723d7768697465" data-canonical-src="./docs/zh/communication_guide/figures/ascend_assistant.jpg" style="max-width: 100%;">
+    </a>
+</div>
 
+
+欢迎大家为社区做贡献。如果有任何疑问或建议，请参考[交流指南](./docs/zh/communication_guide/communication.md)获取详细的联系方式和支持渠道。
 感谢您的支持。
 
 ## 致谢
