@@ -38,9 +38,9 @@ if [ ! -d "$SQLITE_DIR" ] || [ ! -f "${SQLITE_DIR}/sqlite3.c" ]; then
 
     # Try wget first, fall back to curl
     if command -v wget >/dev/null 2>&1; then
-        wget -O sqlite3.zip "${SQLITE_URL}"
+        wget --no-check-certificate -O sqlite3.zip "${SQLITE_URL}"
     elif command -v curl >/dev/null 2>&1; then
-        curl -L -o sqlite3.zip "${SQLITE_URL}"
+        curl -k -L -o sqlite3.zip "${SQLITE_URL}"
     else
         echo "Error: Neither wget nor curl is available. Please install one." >&2
         exit 1
