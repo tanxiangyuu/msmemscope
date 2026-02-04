@@ -190,10 +190,18 @@ void Dump::WriteToFile(const std::shared_ptr<EventBase>& event)
     if (it == handlerMap_.end()) {
         handlerMap_.insert({event->device, MakeDataHandler(config_, DataType::MEMORY_EVENT, event->device)});
     }
-    handlerMap_[event->device]->Write(event);
+    // 如果是db文件，需要获取设备级锁;csv暂不需要
+    if (config_.dataFormat == static_cast<uint8_t>(DataFormat::DB)) {
+        auto& lock = Utility::FileWriteManager::GetInstance().GetLock(event->device);
+        std::lock_guard<std::mutex> lock_guard(lock);
+        handlerMap_[event->device]->Write(event);
+    } else {
+        handlerMap_[event->device]->Write(event);
+    }
 }
 
 // 每一次结束采集,都需要将所有文件都存在的公共事件,写回到每个文件中,防止落盘文件缺失
+// 这里不涉及trace文件，只涉及memory_event,这里无需加锁
 void Dump::WritePublicEventToFile()
 {
     for (auto& event : sharedEventLists_) {

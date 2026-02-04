@@ -72,7 +72,6 @@ private:
     std::string prefix_;
     DataType dataType_;
     std::string devId_;
-    std::mutex csvFileMutex_;
     std::mutex dumpFileMutex_;
     std::mutex traceFileMutex_;
 };
@@ -98,7 +97,7 @@ private:
     std::string tableName_;
     DataType dataType_;
     std::string devId_;
-    std::mutex dbFileMutex_;
+    std::mutex dumpFileMutex_;
 };
 
 std::string Uint64ToHexString(uint64_t value);

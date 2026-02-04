@@ -23,6 +23,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <mutex>
 #include <linux/limits.h>
 #include "sqlite3.h"
 #include "path.h"
@@ -45,7 +46,7 @@ namespace Utility {
 
         explicit FileCreateManager(const std::string outputDir);
 
-        // 多线程情况下调用，需加锁保护
+        // 多线程情况下调用,需加锁保护,这里已经在内部进行加锁保护，外部调用无需加锁
         bool CreateCsvFile(FILE **filefp, std::string devId, std::string filePrefix, std::string taskDir,
             std::string headers);
         bool CreateDbFile(sqlite3 **filefp, std::string devId, std::string filePrefix, std::string taskDir,
@@ -64,6 +65,10 @@ namespace Utility {
     private:
         std::string projectDir_;
         std::string dbDateStr_{""};
+        std::mutex createCsvFileMutex_;
+        std::mutex createDbFileMutex_; 
+        std::mutex createLogFileMutex_; 
+        std::mutex createConfigFileMutex_; 
     };
 
     inline void SetDirPath(std::string& dirPath, const std::string& defaultDirPath)

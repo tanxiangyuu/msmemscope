@@ -138,6 +138,7 @@ namespace Utility {
     bool FileCreateManager::CreateCsvFile(FILE **filefp, std::string devId, std::string filePrefix, std::string taskDir,
         std::string headers)
     {
+        std::lock_guard<std::mutex> lock(createCsvFileMutex_);
         if (*filefp == nullptr) {
             std::string fileName = filePrefix + GetDateStr() + ".csv";
             std::string dirPath;
@@ -163,6 +164,7 @@ namespace Utility {
     bool FileCreateManager::CreateDbFile(sqlite3 **filefp, std::string devId, std::string filePrefix,
         std::string taskDir, std::string tableName, std::string tableCreateSql)
     {
+        std::lock_guard<std::mutex> lock(createDbFileMutex_);
         if (*filefp == nullptr) {
             if (dbDateStr_ == "") {
                 dbDateStr_ = GetDateStr();
@@ -208,6 +210,7 @@ namespace Utility {
 
     bool FileCreateManager::CreateLogFile(FILE **filefp, std::string taskDir, std::string& logFilePath)
     {
+        std::lock_guard<std::mutex> lock(createLogFileMutex_);
         if (*filefp == nullptr) {
             std::string fileName = "msmemscope_" + GetDateStr() + ".log";
             std::string dirPath = projectDir_ + "/" + taskDir;
@@ -226,6 +229,7 @@ namespace Utility {
 
     bool FileCreateManager::CreateConfigFile(FILE **filefp, std::string fileName, std::string& configFilePath)
     {
+        std::lock_guard<std::mutex> lock(createConfigFileMutex_);
         if (*filefp == nullptr) {
             std::string realName = fileName + ".json";
             configFilePath = projectDir_ + "/" + realName;

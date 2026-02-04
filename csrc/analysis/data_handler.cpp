@@ -50,11 +50,13 @@ void CsvHandler::InitSetParm()
             LOG_ERROR("Unsupported data type : %d\n", static_cast<int>(dataType_));
             break;
     }
+    if(!Init()){
+        LOG_ERROR("Create csv file failed.");
+    }
 }
 
 bool CsvHandler::Init()
 {
-    std::lock_guard<std::mutex> lock(csvFileMutex_);
     return Utility::FileCreateManager::GetInstance(config_.outputDir).CreateCsvFile(&file_, devId_, prefix_,
         DUMP_DIR, csvHeader_);
 }
@@ -66,7 +68,7 @@ bool CsvHandler::Write(std::shared_ptr<DataBase> data)
         return false;
     }
 
-    if (!Init()) {
+    if (!file_) {
         LOG_ERROR("Create csv file failed.");
         return false;
     }
@@ -202,7 +204,6 @@ void DbHandler::InitSetParm()
 
 bool DbHandler::Init()
 {
-    std::lock_guard<std::mutex> lock(dbFileMutex_);
     return Utility::FileCreateManager::GetInstance(config_.outputDir).CreateDbFile(&dataFileDb_, devId_,
         CSV_FILE_PREFIX, DUMP_DIR, tableName_, dbHeader_);
 }
@@ -214,7 +215,7 @@ bool DbHandler::Write(std::shared_ptr<DataBase> data)
         return false;
     }
 
-    if (!Init()) {
+    if (!dataFileDb_) {
         LOG_ERROR("Create db file failed.");
         return false;
     }
@@ -243,6 +244,7 @@ bool DbHandler::Write(std::shared_ptr<DataBase> data)
 
 bool DbHandler::WriteDumpRecord(std::shared_ptr<EventBase>& event)
 {
+    std::lock_guard<std::mutex> lock(dumpFileMutex_);
     std::string eventType = EVENT_BASE_TYPE_MAP.find(event->eventType) == EVENT_BASE_TYPE_MAP.end()
         ? "N/A" : EVENT_BASE_TYPE_MAP.at(event->eventType);
     std::string eventSubType = EVENT_SUB_TYPE_MAP.find(event->eventSubType) == EVENT_SUB_TYPE_MAP.end()
@@ -252,7 +254,6 @@ bool DbHandler::WriteDumpRecord(std::shared_ptr<EventBase>& event)
         || event->eventType == EventBaseType::ACCESS) ? Uint64ToHexString(event->addr) : "N/A";
     std::string attrJson = FixJson(event->attr);
     int paramIndex = 1;
-    std::lock_guard<std::mutex> lock(dbFileMutex_);
     if (!insertEventStmt_) {
         LOG_ERROR("Sqlite prepare failed.");
         return false;
@@ -282,7 +283,7 @@ bool DbHandler::WriteDumpRecord(std::shared_ptr<EventBase>& event)
 
 bool DbHandler::WriteTraceEvent(std::shared_ptr<TraceEvent>& event, const std::string &tableName)
 {
-    std::lock_guard<std::mutex> lock(dbFileMutex_);
+    std::lock_guard<std::mutex> lock(dumpFileMutex_);
     if (!insertTraceStmt_) {
         LOG_ERROR("Sqlite prepare failed.");
         return false;
