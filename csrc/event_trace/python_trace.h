@@ -30,6 +30,7 @@
 #include "file.h"
 #include "event_report.h"
 #include "../csrc/analysis/data_handler.h"
+#include "file_write_manager.h"
 
 namespace MemScope {
 

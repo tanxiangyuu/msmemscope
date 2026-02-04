@@ -43,6 +43,7 @@ void PythonTrace::RecordPyCall(const std::string& funcHash, const std::string& f
     int32_t devId = GD_INVALID_NUM;
     if (!GetDeviceInfo::Instance().GetDeviceId(devId) || devId == GD_INVALID_NUM) {
         LOG_ERROR("[trace] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+        return;
     }
     std::shared_ptr<TraceEvent> event = std::make_shared<TraceEvent>();
     event->startTs = timestamp ? timestamp : Utility::GetTimeNanoseconds();
@@ -61,14 +62,20 @@ void PythonTrace::RecordPyCall(const std::string& funcHash, const std::string& f
 void PythonTrace::DumpTraceEvent(std::shared_ptr<TraceEvent>& event)
 {
     if (event->device == "N/A") {
-        sharedEventLists_.push_back(event);
         return ;
     }
     auto it = handlerMap_.find(event->device);
     if (it == handlerMap_.end()) {
         handlerMap_.insert({event->device, MakeDataHandler(GetConfig(), DataType::PYTHON_TRACE_EVENT, event->device)});
     }
-    handlerMap_[event->device]->Write(event);
+    // db文件需要文件锁
+    if (GetConfig().dataFormat == static_cast<uint8_t>(DataFormat::DB)) {
+        auto& lock = Utility::FileWriteManager::GetInstance().GetLock(event->device);
+        std::lock_guard<std::mutex> lock_guard(lock);
+        handlerMap_[event->device]->Write(event);
+    } else {
+        handlerMap_[event->device]->Write(event);
+    }
 }
 
 void PythonTrace::RecordCCall(std::string funcHash, std::string funcInfo)
@@ -80,6 +87,7 @@ void PythonTrace::RecordCCall(std::string funcHash, std::string funcInfo)
     int32_t devId = GD_INVALID_NUM;
     if (!GetDeviceInfo::Instance().GetDeviceId(devId) || devId == GD_INVALID_NUM) {
         LOG_ERROR("[trace] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+        return;
     }
     std::shared_ptr<TraceEvent> event = std::make_shared<TraceEvent>();
     event->startTs = Utility::GetTimeNanoseconds();
@@ -105,6 +113,7 @@ void PythonTrace::RecordReturn(std::string funcHash, std::string funcInfo)
             int32_t devId = GD_INVALID_NUM;
             if (!GetDeviceInfo::Instance().GetDeviceId(devId) || devId == GD_INVALID_NUM) {
                 LOG_ERROR("[trace] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+                return;
             }
             std::shared_ptr<TraceEvent> event = std::make_shared<TraceEvent>(
                 0, Utility::GetTimeNanoseconds(), tid, Utility::GetPid(), std::to_string(devId), funcInfo, funcHash);

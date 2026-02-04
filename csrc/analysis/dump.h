@@ -24,6 +24,7 @@
 #include "analyzer_base.h"
 #include "config_info.h"
 #include "data_handler.h"
+#include "file_write_manager.h"
 
 namespace MemScope {
 
