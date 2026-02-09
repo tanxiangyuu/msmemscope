@@ -39,3 +39,5 @@ take_snapshot = import_with_optional_deps(
     "take_snapshot", 
     ["torch", "torch_npu"]
 )
+
+from .take_snapshot import TakeSnapshot
