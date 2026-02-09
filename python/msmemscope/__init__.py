@@ -39,5 +39,8 @@ take_snapshot = import_with_optional_deps(
     "take_snapshot", 
     ["torch", "torch_npu"]
 )
-
 from .take_snapshot import TakeSnapshot
+
+# 自定义打点trace事件
+from .record_function import RecordFunction
+

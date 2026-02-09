@@ -34,6 +34,16 @@ bool PythonTrace::IsIgnore(std::string funcName)
     return false;
 }
 
+bool PythonTrace::IsIgnoreRecordFunc(std::string funcHash)
+{
+    for (auto s : ignoreRecordFunc_) {
+        if (funcHash.find(s) != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void PythonTrace::RecordPyCall(const std::string& funcHash, const std::string& funcInfo, uint64_t timestamp)
 {
     uint64_t tid = Utility::GetTid();
@@ -122,9 +132,48 @@ void PythonTrace::RecordReturn(std::string funcHash, std::string funcInfo)
     }
 }
 
+// record_function的python_trace记录和回调函数
+void PythonTrace::RecordFuncPyCall(const std::string& funcHash, const std::string& funcInfo, uint64_t timestamp)
+{
+    // record_function不涉及throw_tid的操作
+    uint64_t tid = Utility::GetTid();
+    int32_t devId = GD_INVALID_NUM;
+    if (!GetDeviceInfo::Instance().GetDeviceId(devId) || devId == GD_INVALID_NUM) {
+        LOG_ERROR("[trace] RT_ERROR_INVALID_VALUE, " + std::to_string(devId));
+    }
+    std::shared_ptr<TraceEvent> event = std::make_shared<TraceEvent>();
+    event->startTs = timestamp ? timestamp : Utility::GetTimeNanoseconds();
+    event->hash = funcHash;
+    event->info = funcInfo;
+    event->pid = Utility::GetPid();
+    event->tid = tid;
+    event->device = std::to_string(devId);
+    std::string funcName = funcHash.substr(funcHash.find(":") + 1);
+    frameStackRecordFunc_[tid].push(event);
+}
+
+void PythonTrace::RecordFuncReturn(std::string funcHash, std::string funcInfo)
+{
+    uint64_t tid = Utility::GetTid();
+    if (!frameStackRecordFunc_[tid].empty()) {
+        auto event = frameStackRecordFunc_[tid].top();
+        if (funcHash == event->hash) {
+            event->endTs = Utility::GetTimeNanoseconds();
+            DumpTraceEvent(event);
+            frameStackRecordFunc_[tid].pop();
+        } else {
+            LOG_ERROR("[trace] ERROR RECORD EVENT" + funcHash);
+        }
+    } 
+}
+
 void callback(const std::string& hash, const std::string& info, PyTraceType what, uint64_t timestamp)
 {
     if (!EventTraceManager::Instance().IsTracingEnabled()) {
+        return;
+    }
+    // 忽略record_func调用过程中自身的python_trace事件
+    if (PythonTrace::GetInstance().IsIgnoreRecordFunc(hash)) {
         return;
     }
     switch (what) {

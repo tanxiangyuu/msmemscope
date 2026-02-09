@@ -29,54 +29,77 @@ msMemScope工具的安装，请参见[《msMemScope工具安装指南》](./inst
 
 **Python接口采集**<a id="Python接口采集"></a>
 
-1.设置环境变量。
-执行以下命令，设置LD_PRELOAD和LD_LIBRARY_PATH环境变量。
+1. 设置环境变量。
+    执行以下命令，设置LD_PRELOAD和LD_LIBRARY_PATH环境变量。
 
-```shell
-export LD_PRELOAD=${memscope_install_path}/lib64/{so_name}:${memscope_install_path}/lib64/{so_name}
-export LD_LIBRARY_PATH=${memscope_install_path}/lib64/:${LD_LIBRARY_PATH}
-```
+    ```shell
+    export LD_PRELOAD=${memscope_install_path}/lib64/{so_name}:${memscope_install_path}/lib64/{so_name}
+    export LD_LIBRARY_PATH=${memscope_install_path}/lib64/:${LD_LIBRARY_PATH}
+    ```
 
-其中的参数说明如[**表 1**  参数说明](#参数说明)。 
+    其中的参数说明如[**表 1**  参数说明](#参数说明)。 
 
-**表 1**  参数说明<a id="参数说明"></a>
+    **表 1**  参数说明<a id="参数说明"></a>
 
-|参数|说明|
-|--|--|
-|memscope_install_path|msMemScope工具的安装路径。|
-|so_name|需要配置的so包名称，每个so包之间以半角冒号分隔。需要配置的so包有libascend_kernel_hook.so、libascend_mstx_hook.so、libatb_abi_0_hook.so、libatb_abi_1_hook.so、libleaks_ascend_hal_hook.so，共5个so包。|
-|LD_LIBRARY_PATH|LD_LIBRARY_PATH环境变量。|
+    |参数|说明|
+    |--|--|
+    |memscope_install_path|msMemScope工具的安装路径。|
+    |so_name|需要配置的so包名称，每个so包之间以半角冒号分隔。需要配置的so包有libascend_kernel_hook.so、libascend_mstx_hook.so、libatb_abi_0_hook.so、libatb_abi_1_hook.so、libleaks_ascend_hal_hook.so，共5个so包。|
+    |LD_LIBRARY_PATH|LD_LIBRARY_PATH环境变量。|
 
-2.采集内存。
-执行以下示例代码，采集内存事件。需要注意的是，请根据需求自行配置`msmemscope.config`的参数。支持设置device、level、events、call_stack、analysis、watch、output和data_format参数，可根据需求自行设置，具体参数信息可参见[命令行采集功能介绍](#命令行采集功能介绍)。
+2. 采集内存。
+    执行以下示例代码，采集内存事件。需要注意的是，请根据需求自行配置`msmemscope.config`的参数。支持设置device、level、events、call_stack、analysis、watch、output和data_format参数，可根据需求自行设置，具体参数信息可参见[命令行采集功能介绍](#命令行采集功能介绍)。
 
-```python
-import msmemscope
+    ```python
+    import msmemscope
 
-msmemscope.config(call_stack="c:10,python:5", events="launch,alloc,free", level="0", device="npu", analysis="leaks,decompose", watch="op0,op1,full-content", data_format="db", output="/home/projects/output")
-msmemscope.start()   # 开启采集
-train()              # train()为用户代码
-msmemscope.stop()    # 退出采集
-```
+    msmemscope.config(call_stack="c:10,python:5", events="launch,alloc,free", level="0", device="npu", analysis="leaks,decompose", watch="op0,op1,full-content", data_format="db", output="/home/projects/output")
+    msmemscope.start()   # 开启采集
+    train()              # train()为用户代码
+    msmemscope.stop()    # 退出采集
+    ```
 
 **Python Trace采集**
 
-msMemScope工具支持通过Python接口采集Python代码的Trace数据，并与内存事件使用统一时间轴，帮助调优人员快速关联内存事件与全链路代码，精准定位问题。
+- 默认采集
 
-> [!NOTE] 说明  
-> Python Trace采集功能将于MindStudio 9.0.0版本下线，您可通过Python接口采集方式，自定义设置events="traceback"，采集Python Trace事件，可参见[Python接口采集](#Python接口采集)。
+    msMemScope工具支持通过Python接口采集Python代码的Trace数据，并与内存事件使用统一时间轴，帮助调优人员快速关联内存事件与全链路代码，精准定位问题。
 
-1.在msMemScope工具中，增加Python接口，用以开启和关闭Tracer功能，在start和stop之间的Python代码，会落盘Trace数据。代码示例如下：
+    > [!NOTE] 说明  
+    > Python Trace采集功能将于MindStudio 26.0.0版本下线，您可通过Python接口采集方式，自定义设置events="traceback"，采集Python Trace事件，可参见[Python接口采集](#Python接口采集)。
 
-```python
-import msmemscope
+    1. 在msMemScope工具中，增加Python接口，用以开启和关闭Tracer功能，在start和stop之间的Python代码，会落盘Trace数据。代码示例如下：
 
-msmemscope.tracer.start()  # 开启Tracer功能 
-train()                    # train()为用户代码
-msmemscope.tracer.stop()   # 关闭Tracer功能
-```
+        ```python
+        import msmemscope
 
-2.执行完成后，会生成名称为python_trace_{*TID*}_{*timestamp*}.csv的文件，具体文件信息可参见[输出文件说明](./output_file_spec.md)。
+        msmemscope.tracer.start()  # 开启Tracer功能 
+        train()                    # train()为用户代码
+        msmemscope.tracer.stop()   # 关闭Tracer功能
+        ```
+
+    2. 执行完成后，会生成名称为python_trace_{*TID*}_{*timestamp*}.csv的文件，具体文件信息可参见[输出文件说明](./output_file_spec.md)。
+
+- 自定义采集
+
+    msMemScope工具支持通过Python接口自定义Trace事件，可通过调用API接口自定义Trace事件，关注核心代码或代码块，避免落盘全量Trace事件，提高数据采集效率。自定义Trace事件可通过`msmemscope.RecordFunction`接口设置，支持上下文（标记函数）和装饰器两种模式（标记代码块）。
+
+    1. 在msMemScope工具中，使用`msmemscope.RecordFunction`接口，落盘自定义Trace事件数据。代码示例如下：
+
+        ```python
+        # 上下文模式，标记代码块
+        import msmemscope
+        with msmemscope.RecordFunction("forward_pass"):
+            output = model(input_data)
+
+        # 装饰器模式，标记函数
+        import msmemscope
+        @msmemscope.RecordFunction("forward_pass")
+            def forward_pass(data):
+                return model(data)
+        ```
+
+    2. 自定义Trace数据的落盘路径和默认采集的Trace数据落盘路径一致，具体文件信息可参见[输出文件说明](./output_file_spec.md)。
 
 **内存快照采集**
 

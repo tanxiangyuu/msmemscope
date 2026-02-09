@@ -24,6 +24,7 @@
 #include "tracerobject.h"
 #include "describerobject.h"
 #include "report_tensor.h"
+#include "recordfuncobject.h"
 #include "event_report.h"
 #include "trace_manager/event_trace_manager.h"
 
@@ -197,21 +198,22 @@ PyMODINIT_FUNC PyInit__msmemscope(void)
         return nullptr;
     }
 
-    size_t functionNum = 4;
     std::vector<PyObject*> functions{
         MemScope::PyMemScope_GetWatcher(),
         MemScope::PyMemScope_GetTracer(),
         MemScope::PyMemScope_GetDescriber(),
         MemScope::PyMemScope_GetReportTensor(),
+        MemScope::PyMemScope_GetRecordFunction(),
     };
     std::vector<std::string> functionNames{
         "_watcher",
         "_tracer",
         "_describer",
         "_report_tensor",
+        "_record_function",
     };
 
-    for (size_t i = 0; i < functionNum; i++) {
+    for (size_t i = 0; i < functions.size(); i++) {
         if (functions[i] == nullptr) {
             Py_DECREF(m);
             return nullptr;
