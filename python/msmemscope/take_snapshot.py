@@ -15,29 +15,17 @@
 # -------------------------------------------------------------------------
 
 import logging
+from functools import wraps
 from ._msmemscope import _take_snapshot
 
 import torch
 import torch_npu
 
-def get_device_memory_info(device=None):
-    """
-    Get memory information for the specified device.
-    
-    Args:
-        device: Device index or None for current device
-    
-    Returns:
-        dict: Memory information
-    """
-    if device is None:
-        device = torch.device('npu')
-    elif isinstance(device, int):
-        device = torch.device('npu', device)
-    
+# 此接口不对外，因此不设默认值
+def get_device_memory_info(device):    
     try:
         memory_info = {
-            "device": device.index if device.index is not None else 0,
+            "device": device,
             "memory_reserved": torch_npu.npu.memory_reserved(device),
             "max_memory_reserved": torch_npu.npu.max_memory_reserved(device),
             "memory_allocated": torch_npu.npu.memory_allocated(device),
@@ -54,42 +42,87 @@ def get_device_memory_info(device=None):
         logging.warning("[msmemscope]: Import torch_npu failed when get device memory info! Please check it.")
         return {}
 
-def take_snapshot(device=None, name="Memory Snapshot"):
+def take_snapshot(device_mask=None, name="Memory Snapshot"):
     """
-    Take a memory snapshot for the specified devices.
-    
-    Args:
-        device: Device index, list/tuple of device indices, or None for all devices
-        output: Output path for snapshot (default: C++ module's default path)
-        name: Custom name for the snapshot event
+    内存快照的裸接口
+    示例:
+    import msmemscope
+    msmemscope.take_snapshot(0,name="init")
+    如果device_mask不填,则会采集当前device的显存信息
+    name作为显存采集的事件信息,会随之落盘
     """
-    
-    # Determine devices to snapshot
-    if device is None:
-        # Get all available devices
-        device_count = torch_npu.npu.device_count()
-        devices = list(range(device_count))
-    elif isinstance(device, int):
+    if device_mask is None:
+        devices_mask = None
+    elif isinstance(device_mask, int):
         # Single device
-        devices = [device]
-    elif isinstance(device, (list, tuple)):
+        devices_mask = [device_mask]
+    elif isinstance(device_mask, (list, tuple)):
         # Multiple devices
-        devices = list(device)
+        devices_mask = list(device_mask)
     else:
-        logging.warning("[msmemscope]: Invalid device parameter, using current device!")
-        devices = [torch.device('npu').index if torch.device('npu').index is not None else 0]
+        logging.warning("[msmemscope]: Invalid device mask, using current device!")
     
-    # Take snapshot for each device
-    for dev in devices:
-        memory_info = get_device_memory_info(dev)
+    # Take snapshot for current device id
+    try:
+        current_device_id = torch_npu.npu.current_device()
+    except (RuntimeError, AttributeError, ImportError) as e:
+        print(f"Warning: Failed to get current device ID")
+
+    if devices_mask is None or current_device_id  in devices_mask:
+        memory_info = get_device_memory_info(current_device_id)
         if memory_info:
             # Add output and name to memory info
             memory_info["name"] = name
             _take_snapshot(memory_info)
         else:
-            logging.warning(f"[msmemscope]: Failed to get device {dev} memory info, snapshot skipped!")
+            logging.warning(f"[msmemscope]: Failed to get device: {current_device_id} memory info, snapshot skipped!")
 
 
+class TakeSnapshot:
+    """
+    内存快照的下文管理器/装饰器:
+    该类既可以通过Python上下文管理器协议,在代码块执行前后自动插入内存事件记录点,
+    也可以作为装饰器使用，记录函数执行的内存事件。
+    需要注意的是,此功能会在函数开始执行Start,结束时执行End
+    
+    示例:
+        作为上下文管理器:
+        import msmemscope
+        # 采集device为0的显存快照,并标记下面的代码块为forward_pass
+        with msmemscope.TakeSnapshot(0,"forward_pass"):
+            output = model(input_data)
+            
+        作为装饰器:
+        # 采集device为0的显存快照,并标记这里函数为forward_pass
+        @msmemscope.TakeSnapshot(0,"forward_pass")
+        def forward_pass(data):
+            return model(data)
+    """
+    def __init__(self, device_mask=None, name="Memory Snapshot"):
+        self.device_mask = device_mask
+        self.name = name
+    
+    def __enter__(self):
+        take_snapshot(self.device_mask, self.name + " Start")
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        take_snapshot(self.device_mask, self.name + " End")
+        return False
+    
+    def __call__(self, func):
+        
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            take_snapshot(self.device_mask, self.name + " Start")
+            
+            try:
+                result = func(*args, **kwargs)
+                return result
+            finally:
+                take_snapshot(self.device_mask, self.name + " End")
+        
+        return wrapper
 
 
 
