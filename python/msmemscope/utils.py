@@ -9,7 +9,6 @@
 # -------------------------------------------------------------------------#
 
 import importlib
-import logging
 
 
 def check_packages(packages, error_msg="Please check it."):
@@ -24,7 +23,7 @@ def check_packages(packages, error_msg="Please check it."):
         try:
             importlib.import_module(package)
         except ImportError:
-            logging.warning(f"[msmemscope]: Import {package} failed! {error_msg}")
+            print(f"[msmemscope]: Import {package} failed! {error_msg}")
 
 def import_with_optional_deps(module_name, func_name, required_packages, error_msg=None):
     """

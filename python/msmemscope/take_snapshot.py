@@ -14,7 +14,6 @@
 # See the Mulan PSL v2 for more details.
 # -------------------------------------------------------------------------
 
-import logging
 from functools import wraps
 from ._msmemscope import _take_snapshot
 
@@ -39,7 +38,7 @@ def get_device_memory_info(device):
         
         return memory_info
     except ImportError:
-        logging.warning("[msmemscope]: Import torch_npu failed when get device memory info! Please check it.")
+        print("[msmemscope]: Import torch_npu failed when get device memory info! Please check it.")
         return {}
 
 def take_snapshot(device_mask=None, name="Memory Snapshot"):
@@ -60,7 +59,7 @@ def take_snapshot(device_mask=None, name="Memory Snapshot"):
         # Multiple devices
         devices_mask = list(device_mask)
     else:
-        logging.warning("[msmemscope]: Invalid device mask, using current device!")
+        print("[msmemscope]: Invalid device mask, using current device!")
     
     # Take snapshot for current device id
     try:
@@ -75,7 +74,7 @@ def take_snapshot(device_mask=None, name="Memory Snapshot"):
             memory_info["name"] = name
             _take_snapshot(memory_info)
         else:
-            logging.warning(f"[msmemscope]: Failed to get device: {current_device_id} memory info, snapshot skipped!")
+            print(f"[msmemscope]: Failed to get device: {current_device_id} memory info, snapshot skipped!")
 
 
 class TakeSnapshot:
