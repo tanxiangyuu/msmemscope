@@ -21,14 +21,37 @@
 #include <iostream>
 #include "call_stack.h"
 #include "log.h"
+#include "record_info.h"
 #include "trace_manager/event_trace_manager.h"
+#include "oom_handler.h"
 
 using namespace MemScope;
+
+// 通用OOM错误处理函数
+void HandleOOM(size_t size, uint64_t flag, int ret) {
+
+    if (!EventTraceManager::Instance().IsTracingEnabled() ||
+        !EventTraceManager::Instance().ShouldTraceType(RecordType::MEMORY_RECORD)) {
+        return;
+    }
+    // 在OOM时直接获取C和Python调用栈，不依赖配置
+    CallStackString stack;
+    Utility::GetCCallstack(MemScope::DEFAULT_CALL_STACK_DEPTH, stack.cStack, MemScope::SKIP_DEPTH);
+    Utility::GetPythonCallstack(MemScope::DEFAULT_CALL_STACK_DEPTH, stack.pyStack);
+    
+    // 将调用栈保存到OOMHandler实例中，并触发OOM快照
+    OOMHandler::Instance().SetOOMStack(stack);
+    EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportMemorySnapshotOnOOM(stack);
+}
 
 drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long flag)
 {
     drvError_t ret = halMemAllocInner(pp, size, flag);
     if (ret != DRV_ERROR_NONE) {
+        // Check for OOM errors
+        if (ret == DRV_ERROR_OUT_OF_MEMORY) {
+            HandleOOM(size, flag, ret);
+        }
         return ret;
     }
     if (!EventTraceManager::Instance().IsTracingEnabled() ||
@@ -94,7 +117,12 @@ drvError_t halMemCreate(drv_mem_handle_t **handle, size_t size, const struct drv
     }
  
     if (ret != DRV_ERROR_NONE) {
-        LOG_ERROR("halMemCreate excute failed");
+        // Check for OOM errors
+        if (ret == DRV_ERROR_OUT_OF_MEMORY) {
+            HandleOOM(size, flag, ret);
+        } else {
+            LOG_ERROR("halMemCreate excute failed");
+        }
         return ret;
     }
  

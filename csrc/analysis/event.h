@@ -467,6 +467,12 @@ public:
         max_memory_allocated = record.max_memory_allocated;
         total_memory = record.total_memory;
         free_memory = record.free_memory;
+        
+        // Extract call stack information from TLV blocks
+        const TLVBlock* cStackBlock = GetTlvBlock(record, TLVBlockType::CALL_STACK_C);
+        const TLVBlock* pyStackBlock = GetTlvBlock(record, TLVBlockType::CALL_STACK_PYTHON);
+        cCallStack = cStackBlock == nullptr ? "" : std::string(cStackBlock->data);
+        pyCallStack = pyStackBlock == nullptr ? "" : std::string(pyStackBlock->data);
     }
 };
  
