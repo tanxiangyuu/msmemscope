@@ -32,6 +32,7 @@
 #include "decompose_analyzer.h"
 #include "inefficient_analyzer.h"
 #include "json_manager.h"
+#include "cpython.h"
 
 namespace MemScope {
 bool g_isReportHostMem = false;
@@ -746,7 +747,7 @@ bool EventReport::ReportAtbAccessMemory(char* name, char* attr, uint64_t addr, u
     return true;
 }
 
-bool EventReport::ReportMemorySnapshot(const MemorySnapshotRecord& memory_info)
+bool EventReport::ReportMemorySnapshot(const MemorySnapshotRecord& memory_info, const CallStackString& stack)
 {
     int32_t devId = GD_INVALID_NUM;
     if (!GetDeviceInfo::Instance().GetDeviceId(devId) || devId == GD_INVALID_NUM) {
@@ -757,8 +758,11 @@ bool EventReport::ReportMemorySnapshot(const MemorySnapshotRecord& memory_info)
         return true;
     }
     
-    // 创建内存快照记录
-    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemorySnapshotRecord>();
+    // 创建内存快照记录，支持包含调用栈信息
+    TLVBlockType cStack = stack.cStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_C;
+    TLVBlockType pyStack = stack.pyStack.empty() ? TLVBlockType::SKIP : TLVBlockType::CALL_STACK_PYTHON;
+    RecordBuffer buffer = RecordBuffer::CreateRecordBuffer<MemorySnapshotRecord>(
+        cStack, stack.cStack, pyStack, stack.pyStack);
     MemorySnapshotRecord* record = buffer.Cast<MemorySnapshotRecord>();
     record->device = memory_info.device;
     record->memory_reserved = memory_info.memory_reserved;
@@ -778,6 +782,57 @@ bool EventReport::ReportMemorySnapshot(const MemorySnapshotRecord& memory_info)
     ReportRecordEvent(buffer);
 
     return true;
+}
+
+
+
+void EventReport::ReportMemorySnapshotOnOOM(const CallStackString& stack)
+{
+    // Try to call Python's take_snapshot function to get accurate memory info
+    if (Utility::IsPyInterpRepeInited()) {
+        Utility::PyInterpGuard guard;
+        
+        try {
+            // Import msmemscope module
+            Utility::PythonObject msmemscope_module = Utility::PythonObject::Import("msmemscope", false, true);
+            if (msmemscope_module.IsBad()) {
+                LOG_ERROR("Failed to import msmemscope module for OOM snapshot");
+                return;
+            }
+            
+            // Get take_snapshot function
+            Utility::PythonObject take_snapshot_func = msmemscope_module.Get("take_snapshot");
+            if (take_snapshot_func.IsBad() || !take_snapshot_func.IsCallable()) {
+                LOG_ERROR("Failed to get take_snapshot function for OOM snapshot");
+                return;
+            }
+            
+            // Get current device ID
+            int32_t devId = GD_INVALID_NUM;
+            if (!GetDeviceInfo::Instance().GetDeviceId(devId) || devId == GD_INVALID_NUM) {
+                LOG_ERROR("Failed to get device ID for OOM snapshot");
+                return;
+            }
+            
+            // Prepare arguments for take_snapshot
+            Utility::PythonObject dev_arg = Utility::PythonObject(devId);
+            Utility::PythonObject name_arg = Utility::PythonObject("OOM_Snapshot");
+            
+            // Call take_snapshot function with arguments
+            Utility::PythonListObject args_list;
+            args_list.Append(dev_arg);
+            args_list.Append(name_arg);
+            Utility::PythonTupleObject tuple_args = args_list.ToTuple();
+            Utility::PythonObject result = take_snapshot_func.Call(tuple_args, true);
+            
+            if (!result.IsBad()) {
+                LOG_INFO("OOM memory snapshot created via Python take_snapshot");
+                return;
+            }
+        } catch (const std::exception& e) {
+            LOG_ERROR(std::string("Exception in Python take_snapshot: ") + e.what());
+        }
+    }
 }
 
 }

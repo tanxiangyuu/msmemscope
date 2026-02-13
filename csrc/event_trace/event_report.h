@@ -81,8 +81,10 @@ public:
     bool ReportAtenAccess(RecordBuffer &memAccessRecordBuffer);
     bool ReportAddrInfo(RecordBuffer &infoBuffer);
     bool ReportPyStepRecord();
-    bool ReportMemorySnapshot(const MemorySnapshotRecord& memory_info);
+    bool ReportMemorySnapshot(const MemorySnapshotRecord& memory_info, const CallStackString& stack = CallStackString());
+    void ReportMemorySnapshotOnOOM(const CallStackString& stack = CallStackString());
     void UpdateAnalysisType();
+
 private:
     void Init();
     explicit EventReport(MemScopeCommType type);

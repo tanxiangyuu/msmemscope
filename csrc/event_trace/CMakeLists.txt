@@ -1,4 +1,4 @@
-file(GLOB SOURCE "*.cpp, *.h"
+file(GLOB SOURCE "*.cpp" "*.h"
 ${EVENT_TRACE_INC_DIR}/describe_trace.cpp
 ${EVENT_TRACE_INC_DIR}/vallina_symbol.cpp
 )

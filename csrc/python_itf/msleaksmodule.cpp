@@ -26,7 +26,9 @@
 #include "report_tensor.h"
 #include "recordfuncobject.h"
 #include "event_report.h"
+#include "oom_handler.h"
 #include "trace_manager/event_trace_manager.h"
+#include "call_stack.h"
 
 namespace MemScope {
 
@@ -164,8 +166,15 @@ static PyObject* MsmemscopeTakeSnapshot(PyObject* self, PyObject* args)
     // 复制name到snapshot_info.name
     strncpy_s(snapshot_info.name, sizeof(snapshot_info.name), name.c_str(), name.length());
     
-    // 传递参数给ReportMemorySnapshot
-    if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportMemorySnapshot(snapshot_info)) {
+    // 检查是否是OOM快照，如果是则获取调用栈信息
+    CallStackString stack;
+    if (name.find("OOM") != std::string::npos || name.find("oom") != std::string::npos) {
+        // OOM快照，从OOMHandler实例获取调用栈
+        stack = OOMHandler::Instance().GetOOMStack();
+    }
+
+    // 传递参数给ReportMemorySnapshot，包含调用栈信息
+    if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportMemorySnapshot(snapshot_info, stack)) {
         PyErr_SetString(PyExc_TypeError, "Report Memory Snapshot Failed");
     }
     
