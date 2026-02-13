@@ -22,7 +22,7 @@
 
 namespace MemScope {
 
-const size_t MAX_DESCRIBE_OWNER_LENGTH = 64;
+const size_t MAX_DESCRIBE_OWNER_LENGTH = 128;
 
 /* 单例类，自定义new函数，避免重复构造 */
 static PyObject* PyMemScopeNewDescriber(PyTypeObject *type, PyObject *args, PyObject *kwds)

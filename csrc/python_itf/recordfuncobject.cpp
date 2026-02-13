@@ -23,7 +23,7 @@
 
 namespace MemScope {
 
-const size_t MAX_RECORD_FUNCTION_LENGTH = 64;
+const size_t MAX_RECORD_FUNCTION_LENGTH = 128;
 
 // 声明对应的实例化单例模式类（static）
 static PyObject* PyMemScopeNewRecordFunction(PyTypeObject *type, PyObject *args, PyObject *kwds)
