@@ -27,6 +27,7 @@ msMemScope工具的安装，请参见[《msMemScope工具安装说明》](./inst
 - 在使用内存分析功能时，如果需要设置--events参数，请确保--events参数中包含alloc和free。
 - 在使用内存分析功能时，请勿设置--steps参数。
 - 内存泄漏分析的离线方式目前仅支持HAL内存泄漏分析。
+- 内存泄漏分析暂不支持场景：VLLM-Ascend。
 
 ### 使用示例
 
@@ -154,6 +155,7 @@ Step间内存问题可通过输出文件查询定位，输出文件详解可参�
  - 内存块监测功能仅支持Aten单算子和ATB算子，且可以通过--level指定op维度和kernel维度的内存块监测。
  - Ascend Extension for PyTorch场景下，kernel算子的监测仅支持调用Python接口的方式，暂不支持watch命令行方式。调用Python接口的监测方式请参见[3](#3)。
  - 需控制内存监测算子的范围和内存块大小，避免由于设置过大，导致的dump数据耗时增加，以及磁盘空间占用过多的问题。
+ - 内存块监测功能暂不支持场景：VLLM-Ascend，原因为VLLM-Ascend不支持设置`ASCEND_LAUNCH_BLOCKING=1`环境变量。
 
 ### 使用示例
 
