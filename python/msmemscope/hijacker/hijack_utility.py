@@ -223,7 +223,6 @@ class HiJackerWrapperFunction(HiJackerWrapperObj):
     def __init__(self, name, record_call_data=False):
         super().__init__(name)
         self.mod_hijacker = None
-        self.record_call_data = record_call_data  # 新增记录参数调用开关，默认为 False
 
     def activate(self):
         def replace_closure(class_name, func_name, wrapper):
@@ -274,14 +273,6 @@ class HiJackerWrapperFunction(HiJackerWrapperObj):
                 raise RuntimeError(
                     "Original function object not found. Ensure activate() was called successfully."
                 )
-            call_index = None
-            if self.record_call_data:
-                # 记录调用信息
-                for unit in self.pre_hooks + self.replacement + self.post_hooks:
-                    if unit.handler:
-                        unit.handler.call_count += 1
-                        call_index = unit.handler.call_count
-                        unit.handler.call_data[call_index] = {"args": args, "kwargs": kws}
             # 执行前置钩子函数
             for unit in self.pre_hooks:
                 result = unit.stub(*args, **kws)
@@ -295,11 +286,6 @@ class HiJackerWrapperFunction(HiJackerWrapperObj):
             # 执行后置钩子
             for unit in self.post_hooks:
                 ret = unit.stub(ret, *args, **kws)
-            # 如果之前记录了调用信息，则补充返回值
-            if call_index is not None:
-                for unit in self.pre_hooks + self.replacement + self.post_hooks:
-                    if unit.handler:
-                        unit.handler.call_data[call_index]["return"] = ret
             return ret
 
         return wrapper
