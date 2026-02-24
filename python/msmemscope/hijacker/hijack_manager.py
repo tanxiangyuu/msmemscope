@@ -28,31 +28,31 @@ class MemScopeHijackManager:
         self.registered_handlers = []
 
     def init_framework_hooks(self, framework: str, version: str, component:str, hook_type: str):
-        # 所有函数的hijacker管理器
+        # 所有函数的hooklet管理器
         self.registered_handlers.clear()
-        hijack_unit_list = memscope_hijack_map.get_hijack_unit_list(framework, version, component, hook_type)
-        if not hijack_unit_list:
+        hooklet_list = memscope_hijack_map.get_hooklet_list(framework, version, component, hook_type)
+        if not hooklet_list:
             return
-        for idx, hijack_unit in enumerate(hijack_unit_list):
+        for idx, hooklet_unit in enumerate(hooklet_list):
             try:
                 # 调用hijacker注册劫持
                 pre_handler = hijacker(
-                    stub=hijack_unit.prehook_func,
-                    module=hijack_unit.module,
-                    cls=hijack_unit.class_name,
-                    function=hijack_unit.method_name,
+                    stub=hooklet_unit.prehook_func,
+                    module=hooklet_unit.module,
+                    cls=hooklet_unit.class_name,
+                    function=hooklet_unit.method_name,
                     action=PRE_HOOK,
-                    priority=hijack_unit.priority
+                    priority=hooklet_unit.priority
                 )
                 self.registered_handlers.append(pre_handler)
 
                 post_handler = hijacker(
-                    stub=hijack_unit.posthook_func,
-                    module=hijack_unit.module,
-                    cls=hijack_unit.class_name,
-                    function=hijack_unit.method_name,
+                    stub=hooklet_unit.posthook_func,
+                    module=hooklet_unit.module,
+                    cls=hooklet_unit.class_name,
+                    function=hooklet_unit.method_name,
                     action=POST_HOOK,
-                    priority=hijack_unit.priority
+                    priority=hooklet_unit.priority
                 )
                 self.registered_handlers.append(post_handler)
 
