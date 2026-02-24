@@ -705,13 +705,16 @@ install_main() {
             # 升级模式
             log_info "Starting upgrade process..."
         else
-            # 普通安装模式：已存在就报错退出
-            log_warn "Tool is already installed. Use upgrade mode or uninstall first."
-            exit 1
+            # 普通安装模式但已存在，自动转为升级模式
+            log_warn "Existing installation detected at: $install_path/msmemscope";
+            log_info "Current version: $(cat "$install_path/msmemscope/version.txt" 2>/dev/null || echo "unknown")";
+            log_info "Automatically upgrading to version: $VERSION";
+            log_info "Starting upgrade process..."
+            is_upgrade=true
         fi
     elif [ "$is_upgrade" = true ]; then
-        # 升级模式但目录无效
-        log_error "Target directory is not a valid installation for upgrade"
+        # 升级模式但目录无效，改为全新安装
+        log_error "Target directory is not a valid installation for upgrade."
         exit 1
     else
         # 全新安装
