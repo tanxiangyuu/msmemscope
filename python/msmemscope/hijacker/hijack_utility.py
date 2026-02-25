@@ -220,7 +220,7 @@ class HiJackerWrapperModule(HiJackerWrapperObj):
         HiJackerPathFinder.remove_mod(self.mod_name)
 
 class HiJackerWrapperFunction(HiJackerWrapperObj):
-    def __init__(self, name, record_call_data=False):
+    def __init__(self, name):
         super().__init__(name)
         self.mod_hijacker = None
 
