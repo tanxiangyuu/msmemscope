@@ -249,7 +249,7 @@ void Dump::DumpSnapshotEvent(std::shared_ptr<SnapshotEvent>& snapshotEvent)
 void Dump::FflushEventToFile()
 {
     // 刷新数据缓冲区数据,同步到落盘文件中,防止缺失
-    std::cout << "[msmemscope] INFO: Fflush temporary cache events to file!" << std::endl;
+    std::cout << "[msmemscope] Info: Fflush temporary cache events to file!" << std::endl;
     for (auto& handler : handlerMap_) {
         handler.second->FflushFile();
     }

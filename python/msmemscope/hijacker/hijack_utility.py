@@ -273,26 +273,19 @@ class HiJackerWrapperFunction(HiJackerWrapperObj):
                 raise RuntimeError(
                     "Original function object not found. Ensure activate() was called successfully."
                 )
-            call_index = None
-            for unit in self.pre_hooks + self.replacement + self.post_hooks:
-                if unit.handler:
-                    unit.handler.call_count += 1
-                    call_index = unit.handler.call_count
-                    unit.handler.call_data[call_index] = {"args": args, "kwargs": kws}
+            # 执行前置钩子函数
             for unit in self.pre_hooks:
                 result = unit.stub(*args, **kws)
                 if isinstance(result, tuple):
                     args, kws = result
                 else:
                     raise TypeError("Pre-hook must return a tuple of (args, kws)")
+            # 执行实际函数
             f = self.replacement[0].stub if self.replacement else self.ori_obj
             ret = f(*args, **kws)
+            # 执行后置钩子
             for unit in self.post_hooks:
                 ret = unit.stub(ret, *args, **kws)
-            if call_index:
-                for unit in self.pre_hooks + self.replacement + self.post_hooks:
-                    if unit.handler:
-                        unit.handler.call_data[call_index]["return"] = ret
             return ret
 
         return wrapper

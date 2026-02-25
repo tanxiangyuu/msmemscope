@@ -21,9 +21,9 @@ from ..take_snapshot import take_snapshot
 DEFAULT_PRIORITY = 100
 
 
-class MemScopeHijackUnit:
+class MemScopeHooklet:
     """
-    最小的Hook单元,封装单个劫持目标的前置/后置钩子逻辑
+    MemScope场景下最小的Hook单元,封装了单个劫持目标的前置和后置钩子逻辑,支持显存拆解和显存快照两种劫持方法
     """
     def __init__(self, hook_type: str, module: str, class_name: str, method_name: str, priority: int = DEFAULT_PRIORITY):
         """
@@ -109,7 +109,7 @@ class MemScopeHijackMap:
             
         }
 
-    def get_hijack_entries(self, framework: str, version: str, component: str, hook_type: str) -> List[List[str]]:
+    def get_hook_entries(self, framework: str, version: str, component: str, hook_type: str) -> List[List[str]]:
         """
         获取指定框架/版本/组件/钩子类型对应的劫持目标列表
         :param framework: 框架名(如 vllm_ascend/pytorch)
@@ -139,23 +139,23 @@ class MemScopeHijackMap:
 
         return hook_type_map[hook_type]
 
-    def get_hijack_unit_list(self, framework: str, version: str, component: str, hook_type: str) -> List[MemScopeHijackUnit]:
+    def get_hooklet_list(self, framework: str, version: str, component: str, hook_type: str) -> List[MemScopeHooklet]:
         """
-        生成指定框架/版本/组件/钩子类型对应的MemScopeHijackUnit列表
+        生成指定框架/版本/组件/钩子类型对应的MemScopeHooklet列表
         """
-        hijack_unit_list = []
-        hijack_entries = self.get_hijack_entries(framework, version, component, hook_type)
+        hooklet_list = []
+        hook_entries = self.get_hook_entries(framework, version, component, hook_type)
 
-        for module, class_name, method_name in hijack_entries:
-            hijack_unit = MemScopeHijackUnit(
+        for module, class_name, method_name in hook_entries:
+            hooklet_unit = MemScopeHooklet(
                 hook_type=hook_type,
                 module=module,
                 class_name=class_name,
                 method_name=method_name
             )
-            hijack_unit_list.append(hijack_unit)
+            hooklet_list.append(hooklet_unit)
 
-        return hijack_unit_list
+        return hooklet_list
 
 
 # 全局单例实例
