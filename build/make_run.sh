@@ -406,6 +406,75 @@ perform_installation() {
     # 创建环境变量设置脚本
     create_set_env_script "$install_path"
     
+    # 处理cann_uninstall.sh（如果存在）
+    local cann_uninstall_path="$install_path/cann_uninstall.sh"
+    if [ -f "$cann_uninstall_path" ]; then
+        log_info "Found cann_uninstall.sh at $cann_uninstall_path, configuring integration..."
+        
+        # 1. 注册卸载逻辑到cann_uninstall.sh - 先获取文件权限，添加可写权限，修改后恢复原权限
+        local script_right=$(stat -c '%a' "$cann_uninstall_path")
+        chmod u+w "$cann_uninstall_path"
+        sed -i "/^exit /i uninstall_package \"share\/info\/msmemscope\"" "$cann_uninstall_path"
+        chmod $script_right "$cann_uninstall_path"
+        log_info "Registered uninstallation logic to cann_uninstall.sh"
+        
+        # 2. 创建share/info/msmemscope目录
+        local share_info_dir="$install_path/share/info/msmemscope"
+        mkdir -p "$share_info_dir"
+        log_info "Created directory: $share_info_dir"
+        
+        # 3. 创建新的uninstall.sh到share/info/msmemscope目录
+        cat > "$share_info_dir/uninstall.sh" << 'CANN_UNINSTALL_EOF'
+#!/bin/bash
+
+set -e
+
+# 颜色定义
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+# 日志函数
+log_info() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# 设置安装目录
+CANN_INSTALL_DIR=../../../
+MEMSCOPE_INSTALL_DIR="$CANN_INSTALL_DIR/msmemscope"
+
+log_info "Uninstalling msmemscope from $MEMSCOPE_INSTALL_DIR"
+
+# 删除msmemscope安装目录下的所有内容
+if [ -d "$MEMSCOPE_INSTALL_DIR" ]; then
+    rm -rf "$MEMSCOPE_INSTALL_DIR"
+    log_info "Removed msmemscope installation directory"
+fi
+
+# 删除注册的卸载逻辑
+INSTALL_PARENT_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+if [ -f "$INSTALL_PARENT_DIR/cann_uninstall.sh" ]; then
+    sed -i "/uninstall_package \"share\/info\/msmemscope\"/d" "$INSTALL_PARENT_DIR/cann_uninstall.sh"
+    log_info "Removed uninstallation registration from cann_uninstall.sh"
+fi
+
+log_info "msmemscope uninstallation completed successfully"
+CANN_UNINSTALL_EOF
+        
+        # 设置执行权限
+        chmod +x "$share_info_dir/uninstall.sh"
+        log_info "Created uninstall.sh in $share_info_dir"
+    fi
+    
     log_info "File ${is_upgrade:-installation} completed"
 }
 
@@ -805,6 +874,7 @@ show_help() {
     echo "  --install               Install the tool"
     echo "  --install-path=PATH     Specify installation path (must be absolute)"
     echo "  --upgrade               Upgrade an existing installation"
+    echo "  --uninstall             Uninstall the tool"
     echo "  --version               Show version information"
     echo "  --help                  Show this help message"
     echo ""
@@ -812,9 +882,82 @@ show_help() {
     echo "  $0 --install                                    # Install to default path"
     echo "  $0 --install --install-path=/usr/local/msmemscope"
     echo "  $0 --upgrade --install-path=/opt/msmemscope"
+    echo "  $0 --uninstall --install-path=/opt/msmemscope"
     echo "  $0 --version                                    # Show version"
     echo "  $0 --help"
     echo ""
+}
+
+# 卸载模式的主函数
+uninstall_main() {
+    local install_path=""
+    
+    # 解析参数
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --install-path=*)
+                install_path="${1#*=}"
+                shift
+                ;;
+            *)
+                log_warn "Unknown parameter: $1"
+                shift
+                ;;
+        esac
+    done
+    
+    # 检查必须参数
+    if [ -z "$install_path" ]; then
+        log_error "Uninstall requires --install-path parameter"
+        echo "Usage: $0 --uninstall --install-path=<path>"
+        exit 1
+    fi
+    
+    # 检查目标目录是否存在
+    if [ ! -d "$install_path" ]; then
+        log_error "Target installation directory does not exist: $install_path"
+        exit 1
+    fi
+    
+    # 验证目标目录是否是有效的安装
+    local uninstall_script="$install_path/msmemscope/uninstall.sh"
+    if [ ! -f "$uninstall_script" ]; then
+        log_error "Target directory is not a valid $TOOL_NAME installation."
+        log_error "A valid installation directory must contain: $uninstall_script"
+        log_error "Please check the installation path and ensure you're pointing to an existing MSMemScope installation."
+        exit 1
+    fi
+    
+    log_info "Starting uninstallation for: $install_path"
+    
+    # 直接调用已安装软件包中的uninstall.sh，并自动输入多个y确认（支持多次确认提示）
+    echo -e "y\ny" | bash "$uninstall_script"
+    
+    # 删除cann_uninstall.sh中的注册信息
+    local cann_uninstall_path="$install_path/cann_uninstall.sh"
+    if [ -f "$cann_uninstall_path" ]; then
+        log_info "Removing uninstall registration from cann_uninstall.sh"
+        sed -i "/uninstall_package \"share\/info\/msmemscope\"/d" "$cann_uninstall_path"
+        log_info "Uninstall registration removed from cann_uninstall.sh"
+    fi
+    
+    # 删除share/info/msmemscope目录
+    local share_info_dir="$install_path/share/info/msmemscope"
+    if [ -d "$share_info_dir" ]; then
+        log_info "Removing share/info/msmemscope directory"
+        rm -rf "$share_info_dir"
+        log_info "share/info/msmemscope directory removed"
+    fi
+    
+    log_info "Uninstallation completed successfully"
+    
+    # 检查卸载是否成功
+    if [ $? -eq 0 ]; then
+        log_info "Uninstallation completed successfully"
+    else
+        log_error "Uninstallation failed"
+        exit 1
+    fi
 }
 
 # 主执行逻辑 - 根据参数调用不同的功能模块
@@ -833,6 +976,10 @@ main() {
         --upgrade)
             shift
             upgrade_main "$@"
+            ;;
+        --uninstall)
+            shift
+            uninstall_main "$@"
             ;;
         --version|-v)
             show_version
