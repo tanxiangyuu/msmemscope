@@ -406,6 +406,72 @@ perform_installation() {
     # 创建环境变量设置脚本
     create_set_env_script "$install_path"
     
+    # 处理cann_uninstall.sh（如果存在）
+    local cann_uninstall_path="$install_path/cann_uninstall.sh"
+    if [ -f "$cann_uninstall_path" ]; then
+        log_info "Found cann_uninstall.sh at $cann_uninstall_path, configuring integration..."
+        
+        # 1. 注册卸载逻辑到cann_uninstall.sh
+        sed -i "/^exit /i uninstall_package \"share\/info\/msmemscope\"" "$cann_uninstall_path"
+        log_info "Registered uninstallation logic to cann_uninstall.sh"
+        
+        # 2. 创建share/info/msmemscope目录
+        local share_info_dir="$install_path/share/info/msmemscope"
+        mkdir -p "$share_info_dir"
+        log_info "Created directory: $share_info_dir"
+        
+        # 3. 创建新的uninstall.sh到share/info/msmemscope目录
+        cat > "$share_info_dir/uninstall.sh" << 'CANN_UNINSTALL_EOF'
+#!/bin/bash
+
+set -e
+
+# 颜色定义
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+# 日志函数
+log_info() {
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# 设置安装目录
+CANN_INSTALL_DIR=../../../
+MEMSCOPE_INSTALL_DIR="$CANN_INSTALL_DIR/msmemscope"
+
+log_info "Uninstalling msmemscope from $MEMSCOPE_INSTALL_DIR"
+
+# 删除msmemscope安装目录下的所有内容
+if [ -d "$MEMSCOPE_INSTALL_DIR" ]; then
+    rm -rf "$MEMSCOPE_INSTALL_DIR"
+    log_info "Removed msmemscope installation directory"
+fi
+
+# 删除注册的卸载逻辑
+INSTALL_PARENT_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+if [ -f "$INSTALL_PARENT_DIR/cann_uninstall.sh" ]; then
+    sed -i "/uninstall_package \"share\/info\/msmemscope\"/d" "$INSTALL_PARENT_DIR/cann_uninstall.sh"
+    log_info "Removed uninstallation registration from cann_uninstall.sh"
+fi
+
+log_info "msmemscope uninstallation completed successfully"
+CANN_UNINSTALL_EOF
+        
+        # 设置执行权限
+        chmod +x "$share_info_dir/uninstall.sh"
+        log_info "Created uninstall.sh in $share_info_dir"
+    fi
+    
     log_info "File ${is_upgrade:-installation} completed"
 }
 
