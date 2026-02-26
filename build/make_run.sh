@@ -461,11 +461,19 @@ if [ -d "$MEMSCOPE_INSTALL_DIR" ]; then
 fi
 
 # 删除注册的卸载逻辑
-INSTALL_PARENT_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+INSTALL_PARENT_DIR="$CANN_INSTALL_DIR"
 if [ -f "$INSTALL_PARENT_DIR/cann_uninstall.sh" ]; then
     sed -i "/uninstall_package \"share\/info\/msmemscope\"/d" "$INSTALL_PARENT_DIR/cann_uninstall.sh"
     log_info "Removed uninstallation registration from cann_uninstall.sh"
 fi
+
+# 删除share/info/msmemscope目录内容
+share_info_dir="$INSTALL_PARENT_DIR/share/info/msmemscope"
+if [ -d "$share_info_dir" ]; then
+    rm -rf "$share_info_dir"
+    log_info "Removed share/info/msmemscope directory"
+fi
+
 
 log_info "msmemscope uninstallation completed successfully"
 CANN_UNINSTALL_EOF
