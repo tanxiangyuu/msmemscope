@@ -1,6 +1,20 @@
-# **msMemScope**
+<h1 align="center">MindStudio MemScope</h1>
+<div align="center">
+  <p>🚀 <b>昇腾 AI 内存调试调优利器</b></p>
+  
+  [![License](https://badgen.net/badge/License/MulanPSL-2.0/blue)](./License) [![Ascend](https://img.shields.io/badge/Hardware-Ascend-orange.svg)](https://www.hiascend.com/) 
+  <br><br>
+  [🌐项目主页](https://gitcode.com/Ascend/msmemscope) |
+  [📖工具文档](https://msmemscope.readthedocs.io/zh-cn/latest/) |
+  [🔥最新进展](#最新消息) |
+  [🤔报告问题](https://gitcode.com/Ascend/msmemscope/issues/new)
+  <br><br>
+</div>
+
 
 ## 最新消息
+
+- **[2026.2.02]** 🎉 **MindStudio Memscope 26.0.0-alpha.1版本上线！** 支持**Python API采集**方式使用、支持PyTorch框架下**采集内存快照**、支持**识别显存页表属性**并进行落盘、支持获取Driver新增的显存分配接口。
 
 - [2025.12.30]：msMemScope项目首次上线。
 
