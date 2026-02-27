@@ -423,7 +423,15 @@ perform_installation() {
         mkdir -p "$share_info_dir"
         log_info "Created directory: $share_info_dir"
         
-        # 3. 创建新的uninstall.sh到share/info/msmemscope目录
+        # 3. 创建version.info文件
+        cat > "$share_info_dir/version.info" << 'VERSION_EOF'
+[PACKAGE]
+Name=mindstudio-memscope
+Version=26.0.0
+VERSION_EOF
+        log_info "Created version.info in $share_info_dir"
+        
+        # 4. 创建新的uninstall.sh到share/info/msmemscope目录
         cat > "$share_info_dir/uninstall.sh" << 'CANN_UNINSTALL_EOF'
 #!/bin/bash
 
