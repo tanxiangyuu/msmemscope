@@ -407,7 +407,9 @@ perform_installation() {
     create_set_env_script "$install_path"
     
     # 处理cann_uninstall.sh（如果存在）
-    local cann_uninstall_path="$install_path/cann_uninstall.sh"
+    local cann_uninstall_path="$(dirname "$install_path")/cann_uninstall.sh"
+    
+    # 检查当前路径或父目录是否存在cann_uninstall.sh
     if [ -f "$cann_uninstall_path" ]; then
         log_info "Found cann_uninstall.sh at $cann_uninstall_path, configuring integration..."
         
@@ -418,8 +420,9 @@ perform_installation() {
         chmod $script_right "$cann_uninstall_path"
         log_info "Registered uninstallation logic to cann_uninstall.sh"
         
-        # 2. 创建share/info/msmemscope目录
-        local share_info_dir="$install_path/share/info/msmemscope"
+        # 2. 创建share/info/msmemscope目录 - 根据cann_uninstall.sh的位置确定目录
+        local base_dir=$(dirname "$cann_uninstall_path")
+        local share_info_dir="$base_dir/share/info/msmemscope"
         mkdir -p "$share_info_dir"
         log_info "Created directory: $share_info_dir"
         
@@ -458,7 +461,7 @@ log_error() {
 
 # 设置安装目录
 CANN_INSTALL_DIR=../../../
-MEMSCOPE_INSTALL_DIR="$CANN_INSTALL_DIR/msmemscope"
+MEMSCOPE_INSTALL_DIR="$CANN_INSTALL_DIR/tools/msmemscope"
 
 log_info "Uninstalling msmemscope from $MEMSCOPE_INSTALL_DIR"
 
@@ -780,6 +783,13 @@ install_main() {
     
     # 验证安装路径
     validate_install_path "$install_path" || exit 1
+    
+    # 检查是否存在cann_uninstall.sh文件，如果存在则在安装路径后添加/tools
+    if [ -f "$install_path/cann_uninstall.sh" ]; then
+        log_info "Found cann_uninstall.sh at $install_path, appending '/tools' to installation path"
+        install_path="$install_path/tools"
+        log_info "Updated installation path: $install_path"
+    fi
     
     # 检查磁盘空间
     check_disk_space "$install_path" || exit 1
