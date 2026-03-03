@@ -74,7 +74,7 @@ void ShowHelpInfo()
         << "                                             You can choose both separated by, or ，." << std::endl
         << "    --events=event1,event2                   Set the trace event type." << std::endl
         << "                                             You can combine any of the following options:" << std::endl
-        << "                                             alloc,free,launch,access (default:alloc,free,launch)."
+        << "                                             alloc,free,launch,access,traceback (default:alloc,free,launch)."
         << std::endl
         << "    --steps=1,2,3,...                        Select the steps to collect memory information." << std::endl
         << "                                             The input step numbers need to be separated by, or ，."
