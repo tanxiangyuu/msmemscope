@@ -36,6 +36,10 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+log_debug() {
+    echo -e "${BLUE}[DEBUG]${NC} $1"
+}
+
 # 检查源目录是否存在
 check_source_dirs() {
     local missing_dirs=()
@@ -157,6 +161,10 @@ log_warn() {
 
 log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+}
+
+log_debug() {
+    echo -e "${BLUE}[DEBUG]${NC} $1"
 }
 
 # 验证文件完整性
@@ -384,16 +392,30 @@ perform_installation() {
     local action="${is_upgrade:-Installing}"
     log_info "${action} to: $install_path/msmemscope"
     
-    # 创建安装目录，-p参数确保父目录也存在
     mkdir -p "$install_path"
     
     # 从run文件中提取payload部分并解压
     log_info "Extracting files..."
     # 找到payload起始行号
     PAYLOAD_START=$(awk '/^__PAYLOAD_BELOW__/ {print NR + 1; exit 0; }' "$0")
-    # 从payload起始行开始提取并解压到安装目录
+
+    # 检查并临时修改安装目录权限
+    local write_flag=false
+    if [ ! -w "$install_path" ]; then
+        log_info "Installation directory not writable, temporarily adding write permission"
+        chmod u+w "$install_path"
+        write_flag=true
+    fi
+    
+    # 从payload起始行开始提取并解压到安装目录（使用-C参数指定目录，避免cd操作）
     tail -n +$PAYLOAD_START "$0" | tar -xz -C "$install_path"
     
+    # 恢复安装目录权限
+    if [ "$write_flag" = true ]; then
+        log_info "Restoring installation directory permissions"
+        chmod u-w "$install_path"
+    fi
+
     # 验证文件完整性
     if ! verify_installation_integrity "$install_path"; then
         log_error "Installation integrity check failed"
