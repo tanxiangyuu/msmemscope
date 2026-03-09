@@ -100,7 +100,7 @@ void SetProfCommand(uint32_t devId)
         return;
     }
 
-    command.profSwitch = PROF_ACL_API | PROF_TASK_TIME | PROF_RUNTIME_TRACE;
+    command.profSwitch = PROF_TASK_TIME | PROF_RUNTIME_TRACE;
     command.profSwitchHi = 0;
     command.devNums = 1;
     command.devIdList[0] = devId;
