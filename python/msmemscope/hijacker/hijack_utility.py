@@ -256,25 +256,19 @@ class HiJackerWrapperFunction(HiJackerWrapperObj):
             self.mod_hijacker = None
         mod = sys.modules.get(self.mod_name)
         if not mod:
-            print(f"[msmemscope] Warning: 模块 '{self.mod_name}' 不在 sys.modules 中，无法恢复原始函数")
             self.ori_obj = None
             return
         if not self.ori_obj:
-            print(f"[msmemscope] Warning: 原始函数对象为空，无法恢复 '{self.func_name}'")
             return
         parent_obj = mod
         class_chain = self.class_name.split(".") if self.class_name else []
         for c in class_chain:
             if not hasattr(parent_obj, c):
-                print(f"[msmemscope] Warning: 在模块中找不到类 '{c}'，无法恢复原始函数")
                 self.ori_obj = None
                 return
             parent_obj = getattr(parent_obj, c)
         if parent_obj and hasattr(parent_obj, self.func_name):
             setattr(parent_obj, self.func_name, self.ori_obj)
-            print(f"[msmemscope] Info: 已恢复原始函数 '{self.mod_name}.{self.class_name}.{self.func_name}'")
-        else:
-            print(f"[msmemscope] Warning: 找不到函数 '{self.func_name}'，无法恢复")
         self.ori_obj = None
         return
 
@@ -371,17 +365,13 @@ class HiJackerManager:
     def remove_unit(cls, handler):
         unit = cls._hijacker_units.get(handler)
         if not unit:
-            print(f"[msmemscope] Warning: handler '{handler}' 不存在")
             return
         wrapper_obj = cls._hijacker_wrappers.get(unit.target)
         if not wrapper_obj:
-            print(f"[msmemscope] Warning: wrapper '{unit.target}' 不存在")
             del cls._hijacker_units[handler]
             return
         wrapper_obj.remove_unit(unit)
-        print(f"[msmemscope] Debug: remove_unit '{unit.target}', pre_hooks={len(wrapper_obj.pre_hooks)}, post_hooks={len(wrapper_obj.post_hooks)}, replacement={len(wrapper_obj.replacement)}, is_empty={wrapper_obj.is_empty}")
         if wrapper_obj.is_empty:
-            print(f"[msmemscope] Debug: 调用 deactivate() 恢复原始函数")
             wrapper_obj.deactivate()
             del cls._hijacker_wrappers[unit.target]
         del cls._hijacker_units[handler]
