@@ -347,6 +347,7 @@ bool StepInnerAnalyzer::Record(const ClientId &clientId, const RecordBase &recor
     if (!IsStepInnerAnalysisEnable()) {
         return true;
     }
+    std::lock_guard<std::mutex> lock(mutex_);
     auto memPoolRecord = static_cast<const MemPoolRecord&>(record);
     DeviceId deviceId = memPoolRecord.devId;
     if (!CreateTables(deviceId)) {
@@ -407,6 +408,7 @@ void StepInnerAnalyzer::ReceiveMstxMsg(const MstxRecord &mstxRecord)
     if (!IsStepInnerAnalysisEnable()) {
         return;
     }
+    std::lock_guard<std::mutex> lock(mutex_);
     MarkType markType = mstxRecord.markType;
     if (!CreateStepInfoTables(deviceId) || !CreateTables(deviceId)) {
         LOG_WARN("[device %ld]: Create StepInfo table failed.", deviceId);
@@ -453,6 +455,7 @@ void StepInnerAnalyzer::ReceiveStepMsg(const PyStepRecord &pyStepRecord)
     if (!IsStepInnerAnalysisEnable()) {
         return;
     }
+    std::lock_guard<std::mutex> lock(mutex_);
     if (!CreateStepInfoTables(deviceId) || !CreateTables(deviceId)) {
         LOG_WARN("[device %ld]: Create StepInfo table failed.", deviceId);
         return;
@@ -485,6 +488,7 @@ void StepInnerAnalyzer::ReceiveStepMsg(const PyStepRecord &pyStepRecord)
 
 void StepInnerAnalyzer::ReportLeak(const DeviceId &deviceId)
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     std::cout<< "====== ERROR: Detected memory leaks on device " <<
         deviceId << " ======" << std::endl;
 
@@ -517,6 +521,7 @@ void StepInnerAnalyzer::ReportLeak(const DeviceId &deviceId)
 
 void StepInnerAnalyzer::ReportGap(const DeviceId &deviceId)
 {
+    std::lock_guard<std::mutex> lock(mutex_);
     // 打屏为保持格式统一需调整小数精度，打屏结束后还原
     int currentPrecision = std::cout.precision();
     int outputPrecision = 4;

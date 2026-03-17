@@ -20,6 +20,7 @@
 
 #include <unordered_map>
 #include <atomic>
+#include <mutex>
 
 #include "config_info.h"
 #include "comm_def.h"
@@ -165,6 +166,7 @@ private:
     uint64_t durationThreshold_ = 1;  // 设置警告阈值, 可由用户更改
     uint64_t skipSteps_ = 1;
     Config config_;
+    mutable std::mutex mutex_;  // 保护共享数据的互斥锁
 };
 
 }
