@@ -1,4 +1,4 @@
-# 欢迎来到 MemScope 内存工具中文教程 ✨
+# 欢迎来到 MemScope 内存分析工具中文教程 ✨
 
 ## 🌟 最新动态
 
@@ -7,7 +7,8 @@
 - [2025.12.30]：MindStudio Memscope项目首次上线。
 
 ## 🌏 简介
-**MindStudio MemScope**（内存工具，msMemScope）是基于昇腾硬件的内存检测工具，用于模型训练与推理过程中的内存问题定位，提供内存泄漏检测、内存对比、内存块监测、内存拆解和低效内存识别等功能，帮助用户完成问题定位与处理。
+
+**MindStudio MemScope**（内存分析工具，msMemScope）是基于昇腾硬件开发，用于模型训练与推理过程中的内存问题定位的工具。该工具提供内存泄漏检测、内存对比、内存块监测、内存拆解和低效内存识别等功能，帮助用户完成问题定位与处理。
 
 ## 🚀 核心功能
 
@@ -26,7 +27,7 @@ msMemScope工具提供内存采集、内存分析两大功能。
     <!-- 内存采集 -->
     <tr>
       <td rowspan="2">
-        <a href="./docs/zh/memory_profile.md">内存采集</a>
+        <a href="../../docs/zh/memory_profile.md">内存采集</a>
       </td>
       <td rowspan="2">
         msMemScope工具提供内存事件的采集能力，允许自定义设置采集内存范围和采集项，为后续分析提供原始数据。
@@ -41,7 +42,7 @@ msMemScope工具提供内存采集、内存分析两大功能。
     <!-- 内存分析 -->
     <tr>
       <td rowspan="5">
-        <a href="./docs/zh/memory_analysis.md">内存分析</a>
+        <a href="../../docs/zh/memory_analysis.md">内存分析</a>
       </td>
       <td rowspan="5">
         msMemScope工具基于采集的内存数据，提供泄漏、对比、监测、拆解、低效识别五项分析能力，帮助开发者快速诊断和优化内存问题。
@@ -69,9 +70,10 @@ msMemScope工具提供内存采集、内存分析两大功能。
 </table>
 
 ## 👉 推荐上手路径
-为了帮助你快速上手 MemScope 内存工具，我们推荐按照以下顺序进行学习：
 
-* 对于想要使用 MemScope 内存工具的用户，建议先阅读 [安装指南](install_guide.md)，确保环境配置正确。
+为了帮助用户快速上手 MemScope 内存分析工具，我们推荐按照以下顺序进行学习：
+
+* 对于想要使用 MemScope 内存分析工具的用户，建议先阅读 [安装指南](install_guide.md)，确保环境配置正确。
 * 本教程提供的 [快速入门](quick_start.md) 将引导你完成基本的内存问题定位配置和运行。
 * 详细功能部分将介绍 [内存采集](memory_profile.md) 、[内存分析](memory_analysis.md) 以及 [输出文件说明](output_file_spec.md) 等内容，帮助你更好地理解内存问题定位的场景。
 * msMemScope工具提供API接口，便于快速分析内存情况，具体使用方法可以参考 [API使用](api.md)。

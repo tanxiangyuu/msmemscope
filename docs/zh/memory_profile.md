@@ -125,14 +125,14 @@ msMemScope工具的安装，请参见[《msMemScope工具安装指南》](./inst
 ```python
 import msmemscope
 
-msmemscope.take_snapshot(device=0)   # 采集一次内存快照
+msmemscope.take_snapshot(device_mask=0)   # 采集一次内存快照
 ```
 
 **表 2**  快照采集参数说明<a id="快照采集参数说明"></a>
 
 | 参数 | 说明 |
 | ----- | ----- |
-|device|指定设备，默认值为NONE，表示会采集所有设备的内存使用信息。支持以下三种形式的参数传入：<br> - **num**：指定采集某个device上的信息。示例：`msmemscope.take_snapshot(device=0)` <br> - **list**：指定采集多个device上的信息。示例：`msmemscope.take_snapshot(device=[0, 1])` <br> - **tuple**：指定采集多个device上的信息。示例：`msmemscope.take_snapshot(device=(0, 1))`|
+|device_mask|指定设备，默认值为NONE，表示会采集所有设备的内存使用信息。支持以下三种形式的参数传入：<br> - **num**：指定采集某个device_mask上的信息。示例：`msmemscope.take_snapshot(device_mask=0)` <br> - **list**：指定采集多个device_mask上的信息。示例：`msmemscope.take_snapshot(device_mask=[0, 1])` <br> - **tuple**：指定采集多个device_mask上的信息。示例：`msmemscope.take_snapshot(device_mask=(0, 1))`|
 |name|指定采集事件自定义名，默认值为"Memory Snapshot"。示例：`msmemscope.take_snapshot(name="test_tuple")`|
 
 采集完成后，结果会落盘至memscope_dump_{_timestamp_}.csv文件中。

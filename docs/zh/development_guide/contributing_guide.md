@@ -31,16 +31,16 @@
 
 1. 查看需要合并的最近几个commit（例如最近3个）。
 
-``` shell
-git log --online -n 3
-```
+    ``` shell
+    git log --online -n 3
+    ```
 
 2. 选中需要合并的几条commit记录的前一条commit ID，运行命令。
 
-```shell
-# commit_id 需要替换为实际值
-git rebase -i commit_id
-```
+    ```shell
+    # commit_id 需要替换为实际值
+    git rebase -i commit_id
+    ```
 
 3. 将要压缩的commits ID对应的pick改为squash，需要至少保留一个pick。
 4. 保存退出之后，跳入第二个编辑环境，需要调整commit messages。
@@ -48,10 +48,10 @@ git rebase -i commit_id
 6. 保存退出。
 7. 强制推送更新后的分支 (仅限于您自己的特性分支)。
 
-```shell
-# branch_name 替换为实际分支名
-git push -f origin branch_name
-```
+    ```shell
+    # branch_name 替换为实际分支名
+    git push -f origin branch_name
+    ```
 
 8. 最后对应的PR改变为我们需要的状态。
 

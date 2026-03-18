@@ -2,7 +2,7 @@
 
 ## 概述
 
-本案例介绍了内存工具msMemScope的低效内存识别功能，msMemScope针对op算子粒度支持过早申请（Early Allocation）、过迟释放（Late Deallocation）、临时闲置（Temporary Idleness）三种低效内存的识别，有助于用户优化显存使用。
+本案例介绍了内存分析工具msMemScope的低效内存识别功能，msMemScope针对op算子粒度支持过早申请（Early Allocation）、过迟释放（Late Deallocation）、临时闲置（Temporary Idleness）三种低效内存的识别，有助于用户优化显存使用。
 
 ## 前期准备
 
