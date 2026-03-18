@@ -33,6 +33,7 @@ _ALL_ACTION = [REPLACE, PRE_HOOK, POST_HOOK]
 class HijackHandler:
     def __init__(self, unit):
         self.unit = unit
+        self.handler_id = None  # 保存 hex 字符串
         self.call_count = 0
         self.call_data = defaultdict(dict)
         self.released = False
@@ -98,7 +99,7 @@ def hijacker(
     unit = HijackerUnit(stub, module, cls, function, action, priority)
     handler = HijackHandler(unit)
     unit.handler = handler
-    HiJackerManager.add_unit(unit)
+    handler.handler_id = HiJackerManager.add_unit(unit)  # 保存 hex 字符串
     return handler
 
 def release(handler):
@@ -107,7 +108,7 @@ def release(handler):
     """
     if isinstance(handler, HijackHandler):
         handler.released = True
-        HiJackerManager.remove_unit(handler.unit)
+        HiJackerManager.remove_unit(handler.handler_id)  # 使用 hex 字符串
     else:
         raise TypeError("Handler must be an instance of HijackHandler.")
 
@@ -254,16 +255,20 @@ class HiJackerWrapperFunction(HiJackerWrapperObj):
             release(self.mod_hijacker)
             self.mod_hijacker = None
         mod = sys.modules.get(self.mod_name)
-        if mod and self.ori_obj:
-            parent_obj = mod
-            class_chain = self.class_name.split(".") if self.class_name else []
-            for c in class_chain:
-                if not hasattr(parent_obj, c):
-                    self.ori_obj = None
-                    return
-                parent_obj = getattr(parent_obj, c)
-            if parent_obj and hasattr(parent_obj, self.func_name):
-                setattr(parent_obj, self.func_name, self.ori_obj)
+        if not mod:
+            self.ori_obj = None
+            return
+        if not self.ori_obj:
+            return
+        parent_obj = mod
+        class_chain = self.class_name.split(".") if self.class_name else []
+        for c in class_chain:
+            if not hasattr(parent_obj, c):
+                self.ori_obj = None
+                return
+            parent_obj = getattr(parent_obj, c)
+        if parent_obj and hasattr(parent_obj, self.func_name):
+            setattr(parent_obj, self.func_name, self.ori_obj)
         self.ori_obj = None
         return
 
@@ -362,6 +367,9 @@ class HiJackerManager:
         if not unit:
             return
         wrapper_obj = cls._hijacker_wrappers.get(unit.target)
+        if not wrapper_obj:
+            del cls._hijacker_units[handler]
+            return
         wrapper_obj.remove_unit(unit)
         if wrapper_obj.is_empty:
             wrapper_obj.deactivate()

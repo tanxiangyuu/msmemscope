@@ -105,8 +105,44 @@ class MemScopeHijackMap:
                         ]
                     }
                 }
+            },
+            "mindspeed_llm": {
+                "0.12.1": {
+                    "training": {
+                        "snapshot": [
+                            # 训练入口
+                            ["mindspeed_llm.training.training", "", "train"],
+                            ["mindspeed_llm.training.training", "", "train_step"],
+                            # 模型和优化器初始化
+                            ["megatron.training.training", "", "setup_model_and_optimizer"],            # 包含权重、梯度、优化器的显存申请
+                            ["megatron.training.training", "", "get_model"],                            # 申请权重的显存
+                            ["megatron.core.optimizer", "", "get_megatron_optimizer"],                  # 申请初始优化器的显存
+                            # 前向传播(常用类方法的forward)
+                            ["mindspeed_llm.core.models.gpt.gpt_model", "GPTModel", "forward"],
+                            ["mindspeed_llm.core.transformer.transformer_block", "TransformerBlock", "forward"],       # Block由多个layer组成
+                            ["mindspeed_llm.core.transformer.transformer_layer", "TransformerLayer", "forward"],
+                            ["mindspeed_llm.core.transformer.attention", "SelfAttention", "forward"],
+                            ["mindspeed_llm.core.transformer.mlp", "MLP", "forward"],
+                            ["mindspeed_llm.core.transformer.moe.moe_layer", "MoELayer", "forward"],
+                            ["mindspeed_llm.core.transformer.moe.router", "TopKRouter", "forward"],
+                            # 反向传播
+                            ["megatron.core.pipeline_parallel.schedules", "", "backward_step"],                       # 通用流水线并行
+                            ["mindspeed_llm.core.pipeline_parallel.dualpipe.gpt_model", "", "gpt_model_backward"],    # DualPipe 高性能训练
+                            # 损失函数
+                            ["mindspeed_llm.core.models.gpt.gpt_model", "GPTModel", "compute_language_model_loss"],
+                            ["megatron.core.tensor_parallel.cross_entropy", "", "vocab_parallel_cross_entropy"],
+                            # 优化器(optimizer.py)
+                            ["megatron.core.optimizer.optimizer", "MegatronOptimizer", "step"],
+                            ["megatron.core.optimizer.optimizer", "MixedPrecisionOptimizer", "step"],
+                            ["megatron.core.optimizer.optimizer", "Float16OptimizerWithFloat16Params", "step"],
+                            ["megatron.core.optimizer.optimizer", "FP32Optimizer", "step"],
+                            ["megatron.core.optimizer.optimizer", "ChainedOptimizer", "step"],
+                            # 优化器(distrib_optimizer.py, 继承MixedPrecisionOptimizer)
+                            ["megatron.core.optimizer.distrib_optimizer", "DistributedOptimizer", "step_with_ready_grads"],
+                        ]
+                    }
+                }
             }
-            
         }
 
     def get_hook_entries(self, framework: str, version: str, component: str, hook_type: str) -> List[List[str]]:
