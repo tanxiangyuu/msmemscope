@@ -154,7 +154,7 @@ private:
     bool CreateLeakSumTables(const DeviceId &deviceId);
     void RecordNpuMalloc(const ClientId &clientId, const DeviceId &deviceId, const MemPoolRecord &memPoolRecord);
     void RecordNpuFree(const ClientId &clientId, const DeviceId &deviceId, const MemPoolRecord &memPoolRecord);
-    bool SkipCheck(const NpuMemInfo &npuMemInfo);
+    bool SkipCheck(const NpuMemInfo &npuMemInfo) const;
     void ReportLeak(const DeviceId &deviceId);
     void ReportGap(const DeviceId &deviceId);
     bool IsStepInnerAnalysisEnable();

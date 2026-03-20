@@ -54,7 +54,7 @@ public:
     void KernelEndExcute(const TaskKey& key, uint64_t time); // kernel结束执行
 
     void StartKernelEventTrace();
-    void EndKernelEventTrace();
+    void EndKernelEventTrace() const;
 private:
     KernelEventTrace() = default;
     ~KernelEventTrace();

@@ -18,11 +18,6 @@
 #ifndef STATE_MANAGER_H
 #define STATE_MANAGER_H
 
-#include <unordered_map>
-#include <memory>
-
-#include "state.h"
-
 namespace MemScope {
 
 enum class PoolType : uint8_t {

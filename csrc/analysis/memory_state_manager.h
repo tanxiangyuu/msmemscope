@@ -21,9 +21,9 @@
 #include <unordered_map>
 #include <string>
 #include <vector>
-#include <mutex>
 
 #include "state_manager.h"
+#include "state.h"
 #include "event.h"
 
 namespace MemScope {

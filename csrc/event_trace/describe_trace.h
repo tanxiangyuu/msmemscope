@@ -17,9 +17,6 @@
 #ifndef DESCRIBE_TRACE_H
 #define DESCRIBE_TRACE_H
 
-#include <atomic>
-#include <cstdint>
-#include <mutex>
 #include <unordered_map>
 #include <iostream>
 #include <vector>

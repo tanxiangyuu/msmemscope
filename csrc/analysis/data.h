@@ -18,8 +18,6 @@
 #ifndef DATA_BASE_H
 #define DATA_BASE_H
 
-#include <cstdint>
-
 namespace MemScope {
 
 enum class DataType : uint8_t {
@@ -32,7 +30,7 @@ public:
     virtual ~DataBase() = default;
     explicit DataBase(DataType type) : dataType_(type) {}
 
-    const DataType GetDataType()
+    const DataType GetDataType() const
     {
         return dataType_;
     }

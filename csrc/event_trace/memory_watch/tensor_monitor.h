@@ -44,7 +44,7 @@ public:
     void AddWatchTensor(MonitoredTensor& tensorInfo);
     void AddWatchTensor(const std::vector<MonitoredTensor>& tensorInfoLists, uint32_t outputId);
     std::unordered_map<uint64_t, MonitoredTensor> GetCmdWatchedTensorsMap();
-    uint32_t GetCmdWatchedOutputId();
+    uint32_t GetCmdWatchedOutputId() const;
     std::unordered_map<uint64_t, MonitoredTensor> GetPythonWatchedTensorsMap();
     void DeleteWatchTensor(MonitoredTensor& tensorInfo);
     void ClearCmdWatchTensor();

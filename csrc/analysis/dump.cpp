@@ -246,7 +246,7 @@ void Dump::DumpSnapshotEvent(std::shared_ptr<SnapshotEvent>& snapshotEvent)
     WriteToFile(snapshotEvent);
 }
 
-void Dump::FflushEventToFile()
+void Dump::FflushEventToFile() const
 {
     // 刷新数据缓冲区数据,同步到落盘文件中,防止缺失
     std::cout << "[msmemscope] Info: Fflush temporary cache events to file!" << std::endl;

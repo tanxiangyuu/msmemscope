@@ -33,7 +33,7 @@ public:
     static Dump& GetInstance(Config config);
     void EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state) override;
     void WritePublicEventToFile();
-    void FflushEventToFile();
+    void FflushEventToFile() const;
 private:
     explicit Dump(Config config);
     ~Dump() override;
@@ -49,7 +49,7 @@ private:
     void DumpOpLaunchEvent(std::shared_ptr<OpLaunchEvent>& event);
     void DumpKernelLaunchEvent(std::shared_ptr<KernelLaunchEvent>& event);
     void DumpSystemEvent(std::shared_ptr<SystemEvent>& event);
-    void DumpSnapshotEvent(std::shared_ptr<SnapshotEvent>& event);
+    void DumpSnapshotEvent(std::shared_ptr<SnapshotEvent>& snapshotEvent);
 
     void WriteToFile(const std::shared_ptr<EventBase>& event);
 

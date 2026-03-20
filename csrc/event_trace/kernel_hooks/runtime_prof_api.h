@@ -18,6 +18,9 @@
 #ifndef RUNTIME_PROF_API_H
 #define RUNTIME_PROF_API_H
 
+#include <cstdint>
+#include <cstddef> 
+
 #include "vallina_symbol.h"
 #include "log.h"
 

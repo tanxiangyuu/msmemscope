@@ -18,10 +18,7 @@
 #ifndef TRACE_EVENT_H
 #define TRACE_EVENT_H
 
-#include <cstdint>
 #include <string>
-
-#include "data.h"
 
 namespace MemScope {
 

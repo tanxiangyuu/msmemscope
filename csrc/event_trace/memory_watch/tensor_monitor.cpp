@@ -52,7 +52,7 @@ std::unordered_map<uint64_t, MonitoredTensor> TensorMonitor::GetCmdWatchedTensor
     return cmdWatchedTensorsMap_;
 }
 
-uint32_t TensorMonitor::GetCmdWatchedOutputId()
+uint32_t TensorMonitor::GetCmdWatchedOutputId() const
 {
     return outputId_;
 }

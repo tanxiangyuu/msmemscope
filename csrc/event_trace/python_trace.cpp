@@ -24,7 +24,7 @@
 
 namespace MemScope {
 
-bool PythonTrace::IsIgnore(std::string funcName)
+bool PythonTrace::IsIgnore(std::string funcName) const
 {
     for (auto s : ignorePyFunc_) {
         if (s == funcName) {

@@ -51,7 +51,7 @@ private:
     TensorDumper();
     ~TensorDumper();
 
-    bool IsDumpFullContent();
+    bool IsDumpFullContent() const;
 
     bool DumpTensorBinary(const std::vector<uint8_t> &hostData, std::string& fileName);
     bool DumpTensorHashValue(const std::vector<uint8_t> &hostData, std::string& fileName);

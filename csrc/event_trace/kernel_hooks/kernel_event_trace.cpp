@@ -160,7 +160,7 @@ void KernelEventTrace::StartKernelEventTrace()
     CreateReadDataChannel(static_cast<uint32_t>(devId));
 }
 
-void KernelEventTrace::EndKernelEventTrace()
+void KernelEventTrace::EndKernelEventTrace() const
 {
     return EndDriverKernelInfoTrace();
 }
