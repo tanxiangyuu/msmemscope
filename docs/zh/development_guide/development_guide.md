@@ -1,4 +1,4 @@
-# MSMemScope开发指南
+# msMemScope开发指南
 
 ## 1. 开发环境配置
 

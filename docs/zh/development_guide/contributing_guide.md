@@ -1,4 +1,36 @@
-# contributing
+# 贡献指南
+
+感谢您考虑为 msMemScope 做贡献！
+
+## 提交错误报告
+
+如果您在msMemScope中发现了一个不存在安全问题的漏洞，请在msMemScope仓库中的Issues中搜索，以防该漏洞被重复提交，如果找不到漏洞可以创建一个新的Issues。如果发现了一个安全问题请不要将其公开，请参阅安全问题处理方式。提交错误报告时应该包含完整信息。
+
+## 安全问题处理
+
+本项目中对安全问题处理的形式，请通过邮箱通知项目核心人员确认并编辑。
+
+## 解决现有问题
+
+通过查看仓库的Issues列表可以发现需要处理的问题信息，可以尝试解决其中的某个问题。
+
+## 如何提出新功能
+
+请使用Issues的Feature标签进行标记，我们会定期处理和确认开发。
+
+## 开始贡献
+
+1. Fork本项目的仓库。
+2. Clone到本地。
+3. 创建开发分支。
+4. 本地测试：提交前请通过所有单元测试，包括新增的测试用例。
+5. 提交代码。
+6. 新建Pull Request。
+7. 代码检视：您需要根据评审意见修改代码，并再次推送更新。此流程可能涉及多轮迭代。
+8. 当您的PR获得足够数量的检视者批准后，Committer会进行最终审核。
+9. 审核和测试通过后，CI会将您的PR合并入项目的主干分支。
+
+详细步骤请参见[开发者指南](./development_guide.md)。
 
 ## 构建与测试
 
@@ -22,7 +54,7 @@
 
 ## Commits要求
 
-1. 每一次commit的message需要明确对应代码的功能，无效信息不会通过，如“添加适配文件”、“First commit”等。
+1. 每一次commit的message需要明确对应代码的功能，无效信息不会通过，如"添加适配文件"、"First commit"等。
 2. 对于多余无效的commits需要压缩，如连续的相同commit messages的commits、连续的codecheck修改等。
 
 若存在多次commit，请按照两种方式其一，压缩为一条commit记录(尽管GitCode在合并PR时提供了`Squash 合并`的选项, 提前将PR整理为单个简洁的commit仍然被视为最佳实践，并且深受commiter们的欢迎)。
@@ -85,3 +117,7 @@ git push --force-with-lease origin your-branch-name
 
 - 邮件：<memscope@outlook.com>
 - 群聊：扫码添加昇腾开源小助手，获取群链接，进入 MindStudio 社区技术交流群，获取更多帮助和支持。详情请查看[群聊介绍](../communication_guide/communication.md#3-开源小助手)。
+
+## 提交Issue
+
+提交Issue相关操作请参见[Issue指南](../communication_guide/how_to_issue.md)。
