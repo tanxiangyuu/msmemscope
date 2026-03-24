@@ -63,7 +63,7 @@ class OptimizerStepHook:
         self.enabled = False
     
     def __del__(self):
-        if (sys is not None) and (not sys.is_finalizing()) and self.enable:
+        if (sys is not None) and (not sys.is_finalizing()) and self.enabled:
             self.disable()
     
     def enable(self):
