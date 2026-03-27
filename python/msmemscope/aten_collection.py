@@ -14,7 +14,6 @@
 # See the Mulan PSL v2 for more details.
 # -------------------------------------------------------------------------
 
-import logging
 from .utils import check_packages
 
 check_packages([
@@ -26,7 +25,6 @@ check_packages([
 import functools
 import re
 import sys
-import logging
 from collections.abc import Iterator
 from typing import Any, Optional, TypeVar
 import numpy as np
@@ -36,10 +34,6 @@ from torch.utils import _pytree as pytree
 from torch.utils._python_dispatch import TorchDispatchMode
 from packaging import version
 
-# 配置日志
-logging.basicConfig(level=logging.INFO)
-
-
 def calculate_tensor_size(tensor: torch.Tensor):
     numel = np.prod(tensor.shape)
     element_size = tensor.itemsize
@@ -47,12 +41,10 @@ def calculate_tensor_size(tensor: torch.Tensor):
 
     return int(size)
 
-
 def zip_by_key(a: dict, b: dict) -> Iterator:
     for arg, value in a.items():
         if arg in b:
             yield arg, value, b[arg]
-
 
 def zip_arguments(
     schema: torch.FunctionSchema, args: tuple, kwargs: dict
@@ -227,8 +219,8 @@ current_pytorch_version = torch.__version__
 TARGET_VERSION = "2.3"
 
 if version.parse(current_pytorch_version) < version.parse(TARGET_VERSION):
-    logging.warning(f"[msmemscope]: Current Pytorch's version {current_pytorch_version} < 2.3, which doesn't support " \
+    print(f"[msmemscope]: Current Pytorch's version {current_pytorch_version} < 2.3, which doesn't support " \
      "aten collection.")
 else:
-    logging.info(f"[msmemscope]: Current Pytorch's version is {current_pytorch_version}, enable aten collection.")
+    print(f"[msmemscope]: Current Pytorch's version is {current_pytorch_version}, enable aten collection.")
     aten_collector = AtenCollector()
