@@ -50,7 +50,7 @@
 1. 编译阶段：编译前，请确保已source安装的cann包。在用户脚本可以通过mstx打点并使用信息"step start"标识step，详情可参考样例文件。执行如下命令完成用例编译：
 
     ```bash
-    cd ./example/collect/c
+    cd ./example/leaks/c
     make
     ```
 

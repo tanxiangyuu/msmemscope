@@ -83,7 +83,7 @@ sudo yum install -y python3 git gcc gcc-c++ make cmake
 3. 下载构建依赖以及编译。
 
    ```bash
-   cd ./msmemscope/build
+   cd ./<remote-name>/build
    python3 build.py local test
    ```
 
@@ -211,7 +211,7 @@ msMemScope的软件包提供升级功能。
 
 ### 参数说明
 
-本章节介绍了run格式（.run）软件包相关参数说明，run格式软件包支持通过命令行参数进行一键安装，各个命令之间可以配合使用，用户根据安装需要选择对应参数，所有参数都是可选参数。
+本章节介绍了run格式（.run）软件包相关参数说明，run格式软件包支持通过命令行参数进行一键安装，各个命令之间可以配合使用，用户根据安装需要选择对应参数。
 
 安装命令格式：`./mindstudio-memscope_<version>_linux-<arch>.run [options]`
 
