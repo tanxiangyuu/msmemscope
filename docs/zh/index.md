@@ -81,7 +81,7 @@ msMemScope工具提供内存采集、内存分析两大功能。
 
 ## 📬 建议与交流
 
-华为MindStuido全流程开发工具链团队致力于提供端到端的昇腾AI应用开发解决方案，使能开发者高效完成训练开发、推理开发和算子开发。您可以通过以下渠道更深入了解华为MindStudio团队：
+华为MindStudio全流程开发工具链团队致力于提供端到端的昇腾AI应用开发解决方案，使能开发者高效完成训练开发、推理开发和算子开发。您可以通过以下渠道更深入了解华为MindStudio团队：
 <div style="display: flex; align-items: center; gap: 10px;">
     <span>昇腾论坛：</span>
     <a href="https://www.hiascend.com/forum/" rel="nofollow">
