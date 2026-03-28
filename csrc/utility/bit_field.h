@@ -18,7 +18,6 @@
 #ifndef BIT_FIELD_H
 #define BIT_FIELD_H
 
-#include <type_traits>
 #include <climits>
 
 template <typename T>

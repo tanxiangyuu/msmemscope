@@ -18,11 +18,9 @@
 #ifndef CONFIG_INFO_H
 #define CONFIG_INFO_H
 
-#include <cstdint>
 #include <vector>
 #include <string>
 #include <linux/limits.h>
-#include <unordered_map>
 
 namespace MemScope {
 

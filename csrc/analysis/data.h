@@ -18,6 +18,8 @@
 #ifndef DATA_BASE_H
 #define DATA_BASE_H
 
+#include <cstdint>
+
 namespace MemScope {
 
 enum class DataType : uint8_t {
