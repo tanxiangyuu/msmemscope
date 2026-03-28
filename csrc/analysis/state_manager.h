@@ -18,6 +18,8 @@
 #ifndef STATE_MANAGER_H
 #define STATE_MANAGER_H
 
+#include <cstdint>
+
 namespace MemScope {
 
 enum class PoolType : uint8_t {

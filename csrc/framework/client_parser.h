@@ -18,7 +18,6 @@
 #ifndef CLINET_PARSER_H
 #define CLINET_PARSER_H
 
-#include <cstdint>
 #include "config_info.h"
 
 namespace MemScope {

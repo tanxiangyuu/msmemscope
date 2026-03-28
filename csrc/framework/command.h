@@ -18,9 +18,6 @@
 #ifndef FRAMEWORK_COMMAND_H
 #define FRAMEWORK_COMMAND_H
 
-#include <vector>
-#include <string>
-#include <memory>
 #include "config_info.h"
 
 namespace MemScope {

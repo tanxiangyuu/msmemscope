@@ -256,7 +256,7 @@ namespace Utility {
         return true;
     }
 
-    std::string FileCreateManager::GetProjectDir()
+    std::string FileCreateManager::GetProjectDir() const
     {
         return projectDir_;
     }

@@ -15,10 +15,12 @@
  * -------------------------------------------------------------------------
  */
 
+#include "cpython.h"
+#include <mutex>
 #include <Python.h>
 #include <frameobject.h>
+#include "log.h"
 #include "utils.h"
-#include "cpython.h"
 
 extern "C" {
 int Py_IsInitialized(void) __attribute__((weak));
@@ -79,7 +81,7 @@ Version GetPyVersion()
 
 bool IsPyInterpRepeInited()
 {
-    if (Py_IsInitialized != nullptr && Py_IsInitialized()) {
+    if (Py_IsInitialized != nullptr && Py_IsInitialized() != 0) {
         return true;
     }
     return false;

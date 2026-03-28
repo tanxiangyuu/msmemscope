@@ -20,9 +20,7 @@
 
 #include <memory>
 #include <string>
-#include <map>
-#include <set>
-#include <thread>
+#include <vector>
 #include "event.h"
 #include "comm_def.h"
 
@@ -52,7 +50,7 @@ public:
     void RecordHandler(const RecordBuffer& record);
 private:
     void SetPreloadEnv();
-    void DoLaunch(const ExecCmd &cmd);
+    void DoLaunch(const ExecCmd &cmd) const;
 
     std::shared_ptr<EventBase> RecordToEvent(RecordBase* record);
     void MemoryRecordPreprocess(const ClientId &clientId, const RecordBase &record);

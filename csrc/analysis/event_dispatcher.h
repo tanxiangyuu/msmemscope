@@ -18,8 +18,11 @@
 #ifndef EVENT_DISPATCHER_H
 #define EVENT_DISPATCHER_H
 
+#include <cstdint>
+#include <vector>
 #include <unordered_map>
 #include <functional>
+#include <memory>
 
 #include "event.h"
 #include "memory_state_manager.h"

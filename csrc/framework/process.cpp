@@ -223,7 +223,7 @@ void Process::SetPreloadEnv()
     setenv(envName.c_str(), preloadEnv.c_str(), 1);
 }
 
-void Process::DoLaunch(const ExecCmd &cmd)
+void Process::DoLaunch(const ExecCmd &cmd) const
 {
     // pass all env-vars from global variable "environ"
     execvpe(cmd.ExecPath().c_str(), cmd.ExecArgv(), environ);

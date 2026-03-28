@@ -14,9 +14,7 @@
  * See the Mulan PSL v2 for more details.
  * -------------------------------------------------------------------------
  */
-#include <iostream>
-#include <string>
-#include <vector>
+
 #include <gtest/gtest.h>
 #include "bit_field.h"
 #include "framework/command.h"
