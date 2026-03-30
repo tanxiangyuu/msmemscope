@@ -206,30 +206,26 @@ class InefficientAnalyzer(BaseAnalyzer):
         print(f"INFO: CSV file read successfully")
         return csv_events
         
-    def _read_db_file(self, input_path: Path, db_table: str = "leaks_dump") -> List[OriginEvent]:
-        ALLOWED_TABLES = {"leaks_dump"}
-        if db_table not in ALLOWED_TABLES:
-            raise ValueError(f"Invalid table name: {db_table}")
-        # 数据库会保存原始数据类型 这里需要额外转化为str（与 CSV 格式对齐）
+    def _read_db_file(self, input_path: Path) -> List[OriginEvent]:
         db_events = []
         conn = None             # 数据库连接（后续需确保关闭）
         cursor = None           # 游标
         try:
-            conn = sqlite3.connect(str(input_path))                   # 连接 SQLite 数据库
+            conn = sqlite3.connect(str(input_path))
             cursor = conn.cursor()
-            print(f"INFO: Connected to {input_path.name} (table: {db_table})")
+            print(f"INFO: Connected to {input_path.name} (table: memscope_dump)")
 
-            cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{db_table}'")
+            cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='memscope_dump'")
             if not cursor.fetchone():
-                raise ValueError(f"Table '{db_table}' not found in database {input_path}")
+                raise ValueError(f"Table 'memscope_dump' not found in database {input_path}")
 
-            cursor.execute(f"PRAGMA table_info({db_table})")            
+            cursor.execute(f"PRAGMA table_info(memscope_dump)")            
             db_columns = [col[1] for col in cursor.fetchall()]          
             missing_headers = [h for h in self.headers if h not in db_columns]
             if missing_headers:
                 raise ValueError(f"ERROR: DB format error: missing headers {missing_headers}")
 
-            cursor.execute(f"SELECT * FROM {db_table}")
+            cursor.execute(f"SELECT * FROM memscope_dump")
             db_rows = cursor.fetchall()  
             column_names = [desc[0] for desc in cursor.description]  
             row_dict_list = [dict(zip(column_names, row)) for row in db_rows]  # 转换为字典列表（与 CSV 格式对齐）
@@ -535,7 +531,7 @@ class InefficientAnalyzer(BaseAnalyzer):
     def _write_back_db(self, input_path: Path, db_table: str = "leaks_dump"):
         ALLOWED_TABLES = {"leaks_dump"}
         if db_table not in ALLOWED_TABLES:
-            raise ValueError(f"Invalid table name: {db_table}")
+            raise ValueError(f"Invalid table name: memscope_dump")
         conn = None
         cursor = None
         try:
@@ -556,7 +552,7 @@ class InefficientAnalyzer(BaseAnalyzer):
 
                 # 数据库数据不推荐使用行号写入 这里用pid + id定位唯一行
                 cursor.execute(
-                    f"SELECT Attr FROM {db_table} WHERE ID = ? AND `Process Id` = ?",  
+                    f"SELECT Attr FROM memscope_dump WHERE ID = ? AND `Process Id` = ?",  
                     (target_id, target_pid) 
                 )
 
@@ -570,7 +566,7 @@ class InefficientAnalyzer(BaseAnalyzer):
                 
                 # 执行数据库更新（使用参数化查询避免SQL注入）
                 cursor.execute(
-                    f"UPDATE {db_table} SET Attr = ? WHERE ID = ? AND `Process Id` = ?",
+                    f"UPDATE memscope_dump SET Attr = ? WHERE ID = ? AND `Process Id` = ?",
                     (updated_attr_str, target_id, target_pid)
                 )
 

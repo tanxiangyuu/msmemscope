@@ -60,7 +60,7 @@ namespace Utility {
         bool CreateDbTable(sqlite3 *filefp, std::string tableCreateSql);
         bool CreateDir();
         
-        std::string GetProjectDir();
+        std::string GetProjectDir() const;
         void SetProjectDir(std::string dirPath);
     private:
         std::string projectDir_;
@@ -136,7 +136,8 @@ namespace Utility {
             std::cout << "[msmemscope] Error: Fail to write data to file, fp is NULL" << std::endl;
             return false;
         }
-        if (int fpRes = fprintf(fp, format.c_str(), args...) < 0) {
+        int fpRes = fprintf(fp, format.c_str(), args...);
+        if (fpRes < 0) {
             std::cout << "[msmemscope] Error: Fail to write data to file, errno: " << fpRes << std::endl;
             return false;
         }

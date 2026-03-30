@@ -17,18 +17,12 @@
 
 #pragma once
 
-#include <string>
-#include <vector>
 #include <map>
-#include <stdexcept>
-#include <type_traits>
 #include <Python.h>
 #include <frameobject.h>
-#include <mutex>
 #include <functional>
 #include "ustring.h"
 #include "record_info.h"
-#include "log.h"
 
 namespace Utility {
 

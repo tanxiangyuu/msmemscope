@@ -40,7 +40,7 @@ public:
         bool isOpStart;
     };
     void Subscribe();
-    void UnSubscribe();
+    void UnSubscribe() const;
 private:
     explicit InefficientAnalyzer();
     ~InefficientAnalyzer() override = default;

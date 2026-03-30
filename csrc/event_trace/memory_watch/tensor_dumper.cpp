@@ -50,7 +50,7 @@ TensorDumper::~TensorDumper()
     }
 }
 
-bool TensorDumper::IsDumpFullContent()
+bool TensorDumper::IsDumpFullContent() const
 {
     return fullContent_;
 }

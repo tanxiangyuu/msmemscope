@@ -81,9 +81,9 @@ MemPageType GetMemPageType(unsigned long long flag)
     // bit17: page size(nomal\huge)
     // bit31: page size(giant)
  
-    if (flag & MEM_PAGE_GIANT) {
+    if ((flag & MEM_PAGE_GIANT) != 0) {
         return MemPageType::MEM_GIANT_PAGE_TYPE;
-    } else if (flag & MEM_PAGE_HUGE) {
+    } else if ((flag & MEM_PAGE_HUGE) != 0) {
         return MemPageType::MEM_HUGE_PAGE_TYPE;
     } else {
         return MemPageType::MEM_NORMAL_PAGE_TYPE;

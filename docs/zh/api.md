@@ -115,7 +115,7 @@ get_analyzer_config(analyzer_type: str) -> Dict[str, Any]
 
 **返回值说明**
 
-无返回值。
+所有参数的字典，支持直接打印。
 
 运行后会直接输出对应内存分析类型所需的入参信息。
 

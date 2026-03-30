@@ -32,7 +32,7 @@ public:
     virtual ~DataBase() = default;
     explicit DataBase(DataType type) : dataType_(type) {}
 
-    const DataType GetDataType()
+    const DataType GetDataType() const
     {
         return dataType_;
     }

@@ -15,15 +15,11 @@
 # -------------------------------------------------------------------------
 
 import sys
-import logging
 from typing import List, Tuple, Dict, Any
 import torch
 from torch.optim import Optimizer
 from torch.optim.optimizer import register_optimizer_step_post_hook
 from ._msmemscope import _report_tensor
-
-# 配置日志
-logging.basicConfig(level=logging.INFO)
 
 
 def append_tensor_info(
@@ -63,7 +59,7 @@ class OptimizerStepHook:
         self.enabled = False
     
     def __del__(self):
-        if (sys is not None) and (not sys.is_finalizing()) and self.enable:
+        if (sys is not None) and (not sys.is_finalizing()) and self.enabled:
             self.disable()
     
     def enable(self):
@@ -84,5 +80,5 @@ def disable_optimizer_step_hook():
     optimizer_step_hook.disable()
 
 
-logging.info(f"[msmemscope]: Enable optimizer step hook.")
+print(f"[msmemscope]: Enable optimizer step hook.")
 optimizer_step_hook = OptimizerStepHook()

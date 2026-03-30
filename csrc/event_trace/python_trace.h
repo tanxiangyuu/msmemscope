@@ -55,7 +55,7 @@ public:
     bool IsIgnoreRecordFunc(std::string funcHash);
 private:
     void DumpTraceEvent(std::shared_ptr<TraceEvent>& event);
-    bool IsIgnore(std::string funcName);
+    bool IsIgnore(std::string funcName) const;
     PythonTrace() = default;
     ~PythonTrace() = default;
     std::unordered_map<uint64_t, std::stack<std::shared_ptr<TraceEvent>>> frameStack_;

@@ -236,7 +236,7 @@ bool Path::IsPermissionValid(void) const
         return true;
     }
     // 检查 group 和 other 是否有写权限
-    if ((st.st_mode & S_IWGRP) || (st.st_mode & S_IWOTH)) {
+    if ((st.st_mode & S_IWGRP) != 0 || (st.st_mode & S_IWOTH) != 0) {
         std::cout << "[msmemscope] Error: Permission is not valid: Group or others have write permission." << std::endl;
         return false;
     }

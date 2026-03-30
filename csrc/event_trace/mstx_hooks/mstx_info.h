@@ -18,6 +18,8 @@
 #ifndef MSTX_INFO_H
 #define MSTX_INFO_H
 
+#include <cstdint>
+#include <cstddef>
 
 typedef enum mstxFuncModule {
     MSTX_API_MODULE_INVALID = 0,

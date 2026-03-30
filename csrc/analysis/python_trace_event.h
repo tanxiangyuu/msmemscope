@@ -20,7 +20,6 @@
 
 #include <cstdint>
 #include <string>
-
 #include "data.h"
 
 namespace MemScope {

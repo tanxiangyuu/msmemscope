@@ -18,12 +18,16 @@
 #ifndef MEMORY_STATE_MANAGER_H
 #define MEMORY_STATE_MANAGER_H
 
+#include <cstdint>
+#include <mutex>
+#include <functional>
+#include <memory>
 #include <unordered_map>
 #include <string>
 #include <vector>
-#include <mutex>
 
 #include "state_manager.h"
+#include "state.h"
 #include "event.h"
 
 namespace MemScope {

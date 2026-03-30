@@ -15,10 +15,12 @@
  * -------------------------------------------------------------------------
  */
 
+#include "cpython.h"
+#include <mutex>
 #include <Python.h>
 #include <frameobject.h>
+#include "log.h"
 #include "utils.h"
-#include "cpython.h"
 
 extern "C" {
 int Py_IsInitialized(void) __attribute__((weak));
@@ -79,7 +81,7 @@ Version GetPyVersion()
 
 bool IsPyInterpRepeInited()
 {
-    if (Py_IsInitialized != nullptr && Py_IsInitialized()) {
+    if (Py_IsInitialized != nullptr && Py_IsInitialized() != 0) {
         return true;
     }
     return false;
@@ -99,7 +101,8 @@ bool IsPythonThread()
     char name[THREAD_NAME_LEN] = {0};
     pthread_getname_np(pthread_self(), name, sizeof(name));
     std::string threadName = std::string(name);
-    if (threadName.find("python") != std::string::npos || threadName.find("VLLM") != std::string::npos) {
+    if (threadName.find("python") != std::string::npos ||threadName.find("VLLM") != std::string::npos ||
+        threadName.find("mindie") != std::string::npos) {
         return true;
     }
     return false;

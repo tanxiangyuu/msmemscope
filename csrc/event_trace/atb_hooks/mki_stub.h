@@ -18,7 +18,6 @@
 #define MKI_STUB_H
 
 #include <vector>
-#include <exception>
 #include <stdexcept>
 
 namespace Mki {

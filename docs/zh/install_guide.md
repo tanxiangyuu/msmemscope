@@ -4,37 +4,49 @@
 
 msMemScope工具是基于昇腾硬件的内存检测工具，用于模型训练与推理过程中的内存问题定位。工具提供内存泄漏检测、内存对比、内存块监测、内存拆解和低效内存识别等功能，帮助用户高效定位和快速处理内存问题。
 
-msMemScope工具支持在Linux系统上使用，目前提供以下两种安装使用方式。
+msMemScope工具支持在Linux系统上使用，目前提供以下两种方式获取软件包。
 
-1. 稳定版本：提供安装软件包。
-2. 最新版本：从源码安装，msMemScope提供编译打包功能，以便您可以快速安装使用或开发工具。
+1. 稳定版本：releases页面下载软件包。
+2. 最新版本：从源码编译构建软件包。
 
 ## 安装前准备
-
-### 准备软件包 
-
-**软件包下载**
-
-单击[获取链接](https://gitcode.com/Ascend/msmemscope/releases)，选择相应版本下载msMemScope工具软件包。
-
-软件包名称：`MindStudio-memscope_<version>_linux-<arch>.run`，`<version>`表示版本号，`<arch>`表示CPU架构。
-
-下载本软件即表示您同意[华为企业业务最终用户许可协议（EULA）](https://e.huawei.com/cn/about/eula)的条款和条件。
-
-### 准备工具
 
 使用msMemScope工具前，需要安装配套版本的NPU驱动、固件和CANN软件包，具体请参见《[CANN 软件安装指南](https://www.hiascend.com/document/detail/zh/canncommercial/850/softwareinst/instg/instg_0000.html?Mode=PmIns&InstallType=netconda&OS=openEuler)》安装，并配置环境变量。
 
 > [!NOTE] 说明  
 > 如果安装的是CANN 8.5.0之前版本，需安装CANN Toolkit开发套件包，选择“训练&推理&开发调试”场景安装；如果安装的是CANN 8.5.0以及之后版本，则需要安装CANN Toolkit开发套件包和ops算子包。请根据需求参见相应版本的资料安装。
 
-### 数字签名
+## 方式一：获取稳定版本
 
-为了防止软件包在传递过程或存储期间被恶意篡改，下载软件包时需下载对应的数字签名文件用于完整性验证。
+**软件包下载**
 
-请点击[PGP数字签名工具包](https://support.huawei.com/enterprise/zh/tool/pgp-verify-TL1000000054)获取工具包，将工具包解压后，请参考文件夹中的《OpenPGP签名验证指南》，对下载的软件包进行PGP数字签名校验。如果校验失败，请不要使用该软件包，访问支持与服务在论坛求助或提交技术工单。
+单击[获取链接](https://gitcode.com/Ascend/msmemscope/releases)，选择相应版本下载msMemScope工具软件包。
 
-## 安装步骤
+软件包名称：`mindstudio-memscope_<version>_linux-<arch>.run`，`<version>`表示版本号，`<arch>`表示CPU架构。
+
+下载本软件即表示您同意[华为企业业务最终用户许可协议（EULA）](https://e.huawei.com/cn/about/eula)的条款和条件。
+
+**软件包校验**
+
+下载后建议先执行以下命令进行完整性校验（SHA256），再安装。
+
+```bash
+sha256sum mindstudio-memscope_<version>_linux-<arch>.run
+echo "<expected-sha256> mindstudio-memscope_<version>_linux-<arch>.run" | sha256sum -c
+```
+
+**说明：**
+
+- 校验命令中，`<expected-sha256>`为下载软件包时获取的SHA256值。
+- 各版本安装包 SHA256 清单请参见[版本说明](./release_note.md)。
+
+SHA256 校验不一致处理建议：
+
+若 sha256sum -c - 输出 FAILED，请勿继续安装。
+请先删除当前文件并重新下载，再次执行 SHA256 校验。
+仍无法通过校验时，请在 releases 页面核对文件名与版本是否一致，并通过 Issues 反馈问题。
+
+## 方式二：获取最新版本
 
 ### 安装依赖
 
@@ -52,7 +64,7 @@ openEuler系列：
 sudo yum install -y python3 git gcc gcc-c++ make cmake
 ```
 
-### 安装msMemScope
+### 编译构建软件包
 
 1. 在终端执行以下git命令，克隆(clone)msMemScope源码。
 
@@ -71,7 +83,7 @@ sudo yum install -y python3 git gcc gcc-c++ make cmake
 3. 下载构建依赖以及编译。
 
    ```bash
-   cd ./msmemscope/build
+   cd ./<remote-name>/build
    python3 build.py local test
    ```
 
@@ -89,20 +101,29 @@ sudo yum install -y python3 git gcc gcc-c++ make cmake
    将工具的产物打包成一个run包，回显信息如下，表示打包成功，该包支持安装和升级的能力。
 
    ```bash
-   [INFO] Run file created successfully: xx/Ascend-mindstudio-memscope_<version>_linux-<arch>.run
+   [INFO] Run file created successfully: xx/mindstudio-memscope_<version>_linux-<arch>.run
    Usage instructions:
-     Install: bash Ascend-mindstudio-memscope_<version>_linux-<arch>.run --install --install-path=/path
-     Upgrade: bash Ascend-mindstudio-memscope_<version>_linux-<arch>.run --upgrade --install-path=/path
-     Version: bash Ascend-mindstudio-memscope_<version>_linux-<arch>.run --version
-     Help:    bash Ascend-mindstudio-memscope_<version>_linux-<arch>.run --help
+     Install: bash mindstudio-memscope_<version>_linux-<arch>.run --install --install-path=/path
+     Upgrade: bash mindstudio-memscope_<version>_linux-<arch>.run --upgrade --install-path=/path
+     Version: bash mindstudio-memscope_<version>_linux-<arch>.run --version
+     Help:    bash mindstudio-memscope_<version>_linux-<arch>.run --help
    ```
 
    注：其中`arch`表示CPU架构。
+   编译完成后，会在`./build`目录下生成软件包。
 
-5. 在`./build`目录下执行以下命令，安装软件包。
+## 安装软件包
+
+1. 增加对run包的可执行权限。
+
+    ```shell
+    chmod +x mindstudio-memscope_<version>_linux-<arch>.run
+    ```
+
+2. 执行以下命令，安装软件包。
 
    ```bash
-   bash Ascend-mindstudio-memscope_<version>_linux-<arch>.run --install --install-path=<path>
+   bash mindstudio-memscope_<version>_linux-<arch>.run --install --install-path=<path>
    ```
 
    注：其中`path`为安装目录。
@@ -146,7 +167,7 @@ msMemScope的软件包提供升级功能。
 2. 执行以下脚本升级软件。
 
    ```bash
-   bash Ascend-mindstudio-memscope_<version>_linux-<arch>.run --upgrade --install-path=<path>
+   bash mindstudio-memscope_<version>_linux-<arch>.run --upgrade --install-path=<path>
    ```
 
    其中参数说明如下。
@@ -190,14 +211,14 @@ msMemScope的软件包提供升级功能。
 
 ### 参数说明
 
-本章节介绍了run格式（.run）软件包相关参数说明，run格式软件包支持通过命令行参数进行一键安装，各个命令之间可以配合使用，用户根据安装需要选择对应参数，所有参数都是可选参数。
+本章节介绍了run格式（.run）软件包相关参数说明，run格式软件包支持通过命令行参数进行一键安装，各个命令之间可以配合使用，用户根据安装需要选择对应参数。
 
-安装命令格式：`./Ascend-mindstudio-memscope_<version>_linux-<arch>.run [options]`
+安装命令格式：`./mindstudio-memscope_<version>_linux-<arch>.run [options]`
 
 详细参数请参见[表1](#cli-args-table)。
 
   > [!NOTE] 说明  
-  > 如果通过./Ascend-mindstudio-memscope_\<version>_linux-{arch}.run --help命令查询出的参数没有在如下表格中解释，则说明该参数为预留参数或适用于其他产品类型，用户无需关注。
+  > 如果通过./mindstudio-memscope_\<version>_linux-{arch}.run --help命令查询出的参数没有在如下表格中解释，则说明该参数为预留参数或适用于其他产品类型，用户无需关注。
 
 **表 1**  参数说明
 

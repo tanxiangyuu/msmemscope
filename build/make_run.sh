@@ -438,6 +438,9 @@ perform_installation() {
         # 1. 注册卸载逻辑到cann_uninstall.sh - 先获取文件权限，添加可写权限，修改后恢复原权限
         local script_right=$(stat -c '%a' "$cann_uninstall_path")
         chmod u+w "$cann_uninstall_path"
+        # 先删除已有的 msmemscope 卸载逻辑，避免重复注册
+        sed -i "/uninstall_package \"share\/info\/msmemscope\"/d" "$cann_uninstall_path"
+        # 在 exit 之前添加新的卸载逻辑
         sed -i "/^exit /i uninstall_package \"share\/info\/msmemscope\"" "$cann_uninstall_path"
         chmod $script_right "$cann_uninstall_path"
         log_info "Registered uninstallation logic to cann_uninstall.sh"

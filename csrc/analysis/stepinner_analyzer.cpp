@@ -138,7 +138,7 @@ void StepInnerAnalyzer::SetStepId(const DeviceId &deviceId, const uint64_t &step
     npuMemUsages_[deviceId].duringStep = stepId;
 }
 
-bool StepInnerAnalyzer::SkipCheck(const NpuMemInfo &npuMemInfo)
+bool StepInnerAnalyzer::SkipCheck(const NpuMemInfo &npuMemInfo) const
 {
     // stepId为0和1，即step 1及之前申请的内存，风险低暂不告警
     if (npuMemInfo.stepId <= skipSteps_) {

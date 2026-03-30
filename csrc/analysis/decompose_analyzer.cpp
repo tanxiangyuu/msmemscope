@@ -149,7 +149,7 @@ void DecomposeAnalyzer::Subscribe()
         SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func);
 }
 
-void DecomposeAnalyzer::UnSubscribe()
+void DecomposeAnalyzer::UnSubscribe() const
 {
     EventDispatcher::GetInstance().UnSubscribe(SubscriberId::DECOMPOSE_ANALYZER);
 }

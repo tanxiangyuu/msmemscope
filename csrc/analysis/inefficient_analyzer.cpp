@@ -286,7 +286,7 @@ void InefficientAnalyzer::Subscribe()
 }
 
 
-void InefficientAnalyzer::UnSubscribe()
+void InefficientAnalyzer::UnSubscribe() const
 {
     EventDispatcher::GetInstance().UnSubscribe(SubscriberId::INEFFICIENT_ANALYZER);
 }
