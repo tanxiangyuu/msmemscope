@@ -2,21 +2,36 @@
 
 ## 安装说明
 
-msMemScope工具是基于昇腾硬件的内存检测工具，用于模型训练与推理过程中的内存问题定位。工具提供内存泄漏检测、内存对比、内存块监测、内存拆解和低效内存识别等功能，帮助用户高效定位和快速处理内存问题。
+本文档主要介绍msMemScope工具的安装方式：使用**CANN软件包安装**和**run软件包安装**。
 
-msMemScope工具支持在Linux系统上使用，目前提供以下两种方式获取软件包。
-
-1. 稳定版本：releases页面下载软件包。
-2. 最新版本：从源码编译构建软件包。
-
-## 安装前准备
-
-使用msMemScope工具前，需要安装配套版本的NPU驱动、固件和CANN软件包，具体请参见《[CANN 软件安装指南](https://www.hiascend.com/document/detail/zh/canncommercial/850/softwareinst/instg/instg_0000.html?Mode=PmIns&InstallType=netconda&OS=openEuler)》安装，并配置环境变量。
+msMemScope工具完整功能集成在CANN软件包中，且msMemScope依赖CANN软件包，因此使用msMemScope工具需要先[安装CANN软件包](#使用cann软件包安装)，若需要升级安装本工具代码仓中的最新功能，可以通过[run软件包安装](#可选使用run软件包安装)，在已安装CANN软件包的环境下覆盖安装msMemScope软件包。
 
 > [!NOTE] 说明  
 > 如果安装的是CANN 8.5.0之前版本，需安装CANN Toolkit开发套件包，选择“训练&推理&开发调试”场景安装；如果安装的是CANN 8.5.0以及之后版本，则需要安装CANN Toolkit开发套件包和ops算子包。请根据需求参见相应版本的资料安装。
 
-## 方式一：获取稳定版本
+## 使用CANN软件包安装
+
+msMemScope工具完整功能已集成在CANN软件包中发布，可通过以下方式完成安装：
+
+- 方式一：依据CANN官方文档安装
+
+  请参见《[CANN安装官方文档](https://www.hiascend.com/document/detail/zh/canncommercial/850/softwareinst/instg/instg_0000.html?Mode=PmIns&InstallType=netyum&OS=openEuler)》，按文档逐步完成安装与配置。
+
+- 方式二：使用CANN官方容器镜像
+
+  请参见《[CANN官方镜像仓库](https://www.hiascend.com/developer/ascendhub/detail/17da20d1c2b6493cb38765adeba85884)》，按仓库中的指引完成镜像拉取及容器启动。
+
+## （可选）使用run软件包安装
+
+msMemScope工具支持在Linux系统上使用，目前提供以下两种方式获取run软件包。
+
+1. 稳定版本：releases页面下载run软件包。
+2. 最新版本：从源码编译构建run软件包。
+
+> [!NOTE] 说明  
+> run软件包需要在已安装CANN的环境中覆盖安装才能使用。
+
+### 方式一：获取稳定版本run软件包
 
 **软件包下载**
 
@@ -46,9 +61,9 @@ SHA256 校验不一致处理建议：
 请先删除当前文件并重新下载，再次执行 SHA256 校验。
 仍无法通过校验时，请在 releases 页面核对文件名与版本是否一致，并通过 Issues 反馈问题。
 
-## 方式二：获取最新版本
+### 方式二：获取最新版本run软件包
 
-### 安装依赖
+#### 安装依赖
 
 安装前需确保Git、Python等环境可用，请满足[版本依赖](./development_guide/development_guide.md#1-开发环境配置)限制，若不满足可执行以下命令安装。
 
@@ -64,7 +79,7 @@ openEuler系列：
 sudo yum install -y python3 git gcc gcc-c++ make cmake
 ```
 
-### 编译构建软件包
+#### 编译构建软件包
 
 1. 在终端执行以下git命令，克隆(clone)msMemScope源码。
 
@@ -112,7 +127,7 @@ sudo yum install -y python3 git gcc gcc-c++ make cmake
    注：其中`arch`表示CPU架构。
    编译完成后，会在`./build`目录下生成软件包。
 
-## 安装软件包
+### 安装run软件包
 
 1. 增加对run包的可执行权限。
 
@@ -135,11 +150,11 @@ sudo yum install -y python3 git gcc gcc-c++ make cmake
    [INFO] Installation completed successfully
    ```
 
-### 安装后检查
+#### 安装后检查
 
 请检查并确认安装目录：`<path>/msmemscope`下已生成`set_env.sh`文件。
 
-## 安装后配置
+### 安装后配置
 
 在使用msMemScope工具前，需执行以下命令，配置PYTHONPATH和PATH环境变量。
 
