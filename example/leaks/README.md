@@ -26,7 +26,7 @@
 
 在python场景下，推荐使用接口方式进行泄漏分析。
 
-1. 配置阶段：使用接口方式需要提前配置环境变量，需要用户根据内存工具的安装目录相应更改LD_PRELOAD和LD_LIBRARY_PATH的路径。请在`test_decompose.sh`脚本中修改以下'msmemscope_path'的值。
+1. 配置阶段：使用接口方式需要提前配置环境变量，需要用户根据内存工具的安装目录相应更改LD_PRELOAD和LD_LIBRARY_PATH的路径。请在`test_leaks.sh`脚本中修改以下'msmemscope_path'的值。
 
     ```bash
     TOOL_PATH='msmemscope_path'
