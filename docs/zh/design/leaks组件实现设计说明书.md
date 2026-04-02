@@ -77,7 +77,7 @@
 ![image](./figures/96abcebd-f98d-4594-9856-17ea7aac212c.png)
 整个类图分为三大块：数据采集（绿色部分）、数据分析（红色部分）、框架（黄色部分）。
 
-* 数据采集：数据采集当前有LD_PREALOD劫持（Hooks）、MSTX打点（MstxManager）、runtime和driver（Hooks中的kernel数据）上报等方式。通过EventTraceManger类来判断数据是否需要采集，如果需要上报，调用EventReport的接口上报到框架侧。可以通过msleaks_python模块来设置采集的范围和采集项。
+* 数据采集：数据采集当前有LD_PRELOAD劫持（Hooks）、MSTX打点（MstxManager）、runtime和driver（Hooks中的kernel数据）上报等方式。通过EventTraceManager类来判断数据是否需要采集，如果需要上报，调用EventReport的接口上报到框架侧。可以通过msleaks_python模块来设置采集的范围和采集项。
 * 数据分析：分析模块目前主要包括泄漏分析（LeakAnalyzer）、内存比对（StepInterAnalyzer）、显存块监控（OpExcuteWatch）、显存拆解（DecomposeAnalyzer）、低效模式识别（InefficientAnalyzer）。
 * 框架模块：负责解析linux通用命令行（ClientParser）、串联数据采集模块和分析模块（Process、EventDispatcher）以及通信模块（server和client）。
 * 工具模块：没有在图中展示，主要是一些LOG模块、字符串处理、数值计算、文件读写等。
@@ -135,7 +135,7 @@ NA
 
    ```tex
    接口名：void Process::Launch(const std::vector<std::string> &execParams)
-   接口功能：fork进程，配合execvpe拉起客户脚本。（在此之前需要设置LD_PRELAOD变量）
+   接口功能：fork进程，配合execvpe拉起客户脚本。（在此之前需要设置LD_PRELOAD变量）
    接口方向：框架模块内部重要接口
    输入参数名：客户脚本的命令和入参
    输出参数名：NA。
@@ -175,7 +175,7 @@ NA
 
    ```tex
    接口名：void EventDispatcher::DispatchEvent(std::shared_ptr<EventBase>& event, MemoryState* state)
-   接口功能：对client传给server的数据包进第二层分发，专门处理数据记录事件。
+   接口功能：对client传给server的数据包进行第二层分发，专门处理数据记录事件。
    接口方向：从框架模块到分析模块。
    输入参数名：数据记录事件、内存块缓存。
    输出参数名：NA。
@@ -391,7 +391,7 @@ NA
 > 工具的北向主要是客户输入的命令行、python接口以及文件的输入输出，对于python和命令行，在入口处均有校验参数有效性，对于文件的输入输出，按照安全要求进行防护。
 > 工具的南向主要涉及runtime、driver、pta、mindspore、atb等组件，对其内存行为进行trace，对获取的数据进行合法化处理后向客户暴露。
 
-#### 4.4.3 高风险模块识别
+#### 4.4.3 高风险识别
 
 ##### 4.4.3.1 高风险模块识别
 

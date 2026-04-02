@@ -179,21 +179,13 @@ msmemscope.stop()  # 退出采集
 
 通过执行以下命令，可以启动msMemScope工具，采集内存数据。
 
-- 用户不需要使用命令行指定参数
-
-    ```shell
-    msmemscope [options] <prog_name> 
-    ```
-
-- 用户需要使用命令行指定参数
-
-    - 方式一（推荐使用此方式）：_user_.sh为用户脚本
+- 方式一（推荐使用此方式）：_user_.sh为用户脚本
 
         ```shell
         msmemscope [options] bash user.sh
         ```
 
-    - 方式二
+- 方式二
 
         ```shell
         msmemscope [options] -- <prog_name> [prog_options]

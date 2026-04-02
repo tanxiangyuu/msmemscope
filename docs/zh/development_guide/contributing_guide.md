@@ -34,7 +34,7 @@
 
 ## 构建与测试
 
-在提交PR之前，建议您先在本地搭建开发环境，构建`msmemscope`并运行相关测试。
+在提交PR之前，建议您先在本地搭建开发环境，构建`msMemScope`并运行相关测试。
 [搭建开发及测试环境](./development_guide.md)。
 
 ## PR标题与分类
@@ -64,7 +64,7 @@
 1. 查看需要合并的最近几个commit（例如最近3个）。
 
     ``` shell
-    git log --online -n 3
+    git log --oneline -n 3
     ```
 
 2. 选中需要合并的几条commit记录的前一条commit ID，运行命令。

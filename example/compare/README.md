@@ -8,7 +8,7 @@
 
 请参见[安装指南](../../docs/zh/install_guide.md)安装msMemScope工具。
 
-此外，使用对比功能前，需要关闭环境变量task_queue算子下发队列优化后，再使用msMemScope工具采集两个不同step的数据。
+此外，使用对比功能前，需要将环境变量关闭task_queue算子下发队列优化后，再使用msMemScope工具采集两个不同step的数据。
 
 ```bash
 export TASK_QUEUE_ENABLE=0
