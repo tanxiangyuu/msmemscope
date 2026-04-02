@@ -7,11 +7,13 @@ msmemscope冒烟工程
 针对该软件仓，整体目录设计思路如下：
 
 ```tex
-|-- msmemscope // 存放msmemscope可执行文件  (msmemscope中的output目录以及python目录)
-|-- scripts // 存放测试脚本
-|-- src
-   |-- test_suit // 测试套件与测试用例
-   |-- utils // 工具模块
-
-run_st.py // 执行冒烟脚本
+|--msmemscope // 存放msmemscope可执行文件  (msmemscope中的output目录以及python目录)
+ 	|--run_st.py
+ 	|--run_st.sh
+ 	|-- src
+ 	   |-- test_suit // 测试套件与测试用例
+ 	   |-- utils // 工具模块
+ 	|-- testfile // 存放测试脚本
+ 	   |--csvfile
+ 	   |--scripts
 ```
