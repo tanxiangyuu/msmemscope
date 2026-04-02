@@ -1,4 +1,4 @@
-# output/bin/msmemsocpe
+# output/bin/msmemscope
 
 编译msmemscope，软连接msmemscope编译后的产物output文件夹到这里，或者自行复制bin和lib64文件夹到这里
 全量冒烟一般包含api接口场景测试，因此还需要将python组件一并拖入，并且将lib64里面的_msmemscope.so拖入到python目录中
