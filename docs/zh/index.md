@@ -27,7 +27,7 @@ msMemScope工具提供内存采集、内存分析两大功能。
     <!-- 内存采集 -->
     <tr>
       <td rowspan="2">
-        <a href="memory_profile.html">内存采集</a>
+        <a>内存采集</a>
       </td>
       <td rowspan="2">
         msMemScope工具提供内存事件的采集能力，允许自定义设置采集内存范围和采集项，为后续分析提供原始数据。
@@ -42,7 +42,7 @@ msMemScope工具提供内存采集、内存分析两大功能。
     <!-- 内存分析 -->
     <tr>
       <td rowspan="5">
-        <a href="memory_analysis.html">内存分析</a>
+        <a>内存分析</a>
       </td>
       <td rowspan="5">
         msMemScope工具基于采集的内存数据，提供泄漏、对比、监测、拆解、低效识别五项分析能力，帮助开发者快速诊断和优化内存问题。

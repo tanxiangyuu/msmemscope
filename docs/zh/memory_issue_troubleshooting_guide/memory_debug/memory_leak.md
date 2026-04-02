@@ -32,7 +32,7 @@
 | 场景                                                      | 环境变量                                                   |
 | --------------------------------------------------------- | ---------------------------------------------------------- |
 | 使用PTA进行内存分配的场景，开启虚拟内存优化内存池空闲内存 | **export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True** |
-| GE优化内存池空闲内存占用：cann更新至24年930商发           | **export GE_USE_STATIC_MEMORY=3**                          |
+| GE优化内存池空闲内存占用：CANN 8.0.RC3.beta1 及以上版本           | **export GE_USE_STATIC_MEMORY=3**                          |
 | ATB场景优化算子workspace内存复用                          | **export ATB_WORKSPACE_MEM_ALLOC_GLOBAL=1**                |
 
 ## 排查方法
@@ -81,7 +81,7 @@ torch_npu.npu.empty_cache()
 
 3. 使用snapshot采集数据并可视化，在state history页签选择一个内存占用总量较高的时间点，查看内存池状态图，存在大量白色\(未分配\)小块内存
 
-以shapshot数据为例，未开虚拟内存场景，内存碎片堆积情况呈下图状：
+以snapshot数据为例，未开虚拟内存场景，内存碎片堆积情况呈下图状：
 
 ![alt text](./figures/snapshot-1.png)
 

@@ -47,7 +47,7 @@ python build.py local test
 
 ### 2.3 开发功能
 
-Memscope的实现代码分为三个主要模块：csrc、python、test，目录如下。
+msMemScope的实现代码分为三个主要模块：csrc、python、test，目录如下。
 
 ```shell
 |-- csrc                 # c++ 源码
@@ -74,7 +74,7 @@ cmake ..
 make
 ```
 
-在编译时指定`-j`参数即可开启并行编译比，如想要开启8个线程并行编译，可执行如下命令。
+在编译时指定`-j`参数即可开启并行编译，如想要开启8个线程并行编译，可执行如下命令。
 
 ```shell
 make -j8
