@@ -2,26 +2,19 @@
 
 ## 安装说明
 
-本文档主要介绍msMemScope工具的安装方式：使用**CANN软件包安装**和**run软件包安装**。
+本文档主要介绍msMemScope工具的安装方式，包括：
 
-msMemScope工具完整功能集成在CANN软件包中，且msMemScope依赖CANN软件包，因此使用msMemScope工具需要先[安装CANN软件包](#使用cann软件包安装)，若需要升级安装本工具代码仓中的最新功能，可以通过[run软件包安装](#可选使用run软件包安装)，在已安装CANN软件包的环境下覆盖安装msMemScope软件包。
+- **使用CANN包安装**：msMemScope工具完整功能已集成在CANN软件包中发布，可直接安装CANN软件包，具体请参见[CANN快速安装](https://www.hiascend.com/cann/download)。
+
+- **使用msTT或msIT总软件包安装**：msTT或msIT代码仓会在每个版本集成msMemScope工具，具体安装方式请参见《[msTT安装指南](https://gitcode.com/Ascend/mstt/blob/master/docs/zh/install_guide/mstt_install_guide.md)》或《[msIT安装指南](https://gitcode.com/Ascend/msit/blob/master/docs/zh/install_guide/msit_install_guide.md)》。<br>
+若已安装msTT或msIT总软件包，那么无需重复安装msMemScope工具的run软件包，但由于msMemScope工具依赖CANN软件，因此需要**先完成CANN软件包的安装**。
+
+- **[使用run软件包安装](#使用run软件包安装)**：msMemScope工具完整功能集成在CANN软件包中且依赖CANN软件，因此使用msMemScope工具需要**先完成CANN包的安装**，若需要升级安装本工具代码仓中的最新功能，可以通过源码编译方式编译最新的msMemScope工具run软件包覆盖安装，具体操作见本安装方式中的[方式二获取最新版本run软件包](#方式二获取最新版本run软件包)。
 
 > [!NOTE] 说明  
 > 如果安装的是CANN 8.5.0之前版本，需安装CANN Toolkit开发套件包，选择“训练&推理&开发调试”场景安装；如果安装的是CANN 8.5.0以及之后版本，则需要安装CANN Toolkit开发套件包和ops算子包。请根据需求参见相应版本的资料安装。
 
-## 使用CANN软件包安装
-
-msMemScope工具完整功能已集成在CANN软件包中发布，可通过以下方式完成安装：
-
-- 方式一：依据CANN官方文档安装
-
-  请参见《[CANN安装官方文档](https://www.hiascend.com/document/detail/zh/canncommercial/850/softwareinst/instg/instg_0000.html?Mode=PmIns&InstallType=netyum&OS=openEuler)》，按文档逐步完成安装与配置。
-
-- 方式二：使用CANN官方容器镜像
-
-  请参见《[CANN官方镜像仓库](https://www.hiascend.com/developer/ascendhub/detail/17da20d1c2b6493cb38765adeba85884)》，按仓库中的指引完成镜像拉取及容器启动。
-
-## （可选）使用run软件包安装
+## 使用run软件包安装
 
 msMemScope工具支持在Linux系统上使用，目前提供以下两种方式获取run软件包。
 
