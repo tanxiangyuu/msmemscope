@@ -6,9 +6,6 @@
 
 - **使用CANN包安装**：msMemScope工具完整功能已集成在CANN软件包中发布，可直接安装CANN软件包，具体请参见[CANN快速安装](https://www.hiascend.com/cann/download)。
 
-- **使用msTT或msIT总软件包安装**：msTT或msIT代码仓会在每个版本集成msMemScope工具，具体安装方式请参见《[msTT安装指南](https://gitcode.com/Ascend/mstt/blob/master/docs/zh/install_guide/mstt_install_guide.md)》或《[msIT安装指南](https://gitcode.com/Ascend/msit/blob/master/docs/zh/install_guide/msit_install_guide.md)》。<br>
-若已安装msTT或msIT总软件包，那么无需重复安装msMemScope工具的run软件包，但由于msMemScope工具依赖CANN软件，因此需要**先完成CANN软件包的安装**。
-
 - **[使用run软件包安装](#使用run软件包安装)**：msMemScope工具完整功能集成在CANN软件包中且依赖CANN软件，因此使用msMemScope工具需要**先完成CANN包的安装**，若需要升级安装本工具代码仓中的最新功能，可以通过源码编译方式编译最新的msMemScope工具run软件包覆盖安装，具体操作见本安装方式中的[方式二获取最新版本run软件包](#方式二获取最新版本run软件包)。
 
 > [!NOTE] 说明  
