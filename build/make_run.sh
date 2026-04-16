@@ -14,7 +14,7 @@ NC='\033[0m' # 无颜色
 TOOL_NAME="memscope"
 ARCH=$(uname -m)  # 获取系统架构
 VERSION="26.0.0"  # 版本号
-RUN_FILE="mindstudio-memscope_${VERSION}_linux-${ARCH}.run"  # 根据架构生成文件名
+RUN_FILE="mindstudio-memscope_${VERSION}_linux_${ARCH}.run"  # 根据架构生成文件名
 BUILD_DIR="$(cd "$(dirname "$0")" && pwd)"  # 获取脚本所在绝对路径
 TEMP_DIR="/tmp/${TOOL_NAME}_build_$$"      # 使用进程ID确保临时目录唯一性
 
@@ -452,10 +452,10 @@ perform_installation() {
         log_info "Created directory: $share_info_dir"
         
         # 3. 创建version.info文件
-        cat > "$share_info_dir/version.info" << 'VERSION_EOF'
+        cat > "$share_info_dir/version.info" << VERSION_EOF
 [PACKAGE]
 Name=mindstudio-memscope
-Version=26.0.0
+Version=$VERSION
 VERSION_EOF
         log_info "Created version.info in $share_info_dir"
         
@@ -1156,13 +1156,25 @@ show_build_info() {
 
 # 主构建函数
 main() {
+    # 环境变量优先级最高
+    if [ -n "$BUILD_VERSION" ]; then
+        VERSION="$BUILD_VERSION"
+    fi
+    
     # 解析命令行参数
     while [[ $# -gt 0 ]]; do
         case $1 in
-            --version=*)
-                VERSION="${1#*=}"
-                RUN_FILE="Ascend-mindstudio-memscope_${VERSION}_linux-${ARCH}.run"  # 更新文件名
+            --build-version=*)
+                if [ -z "$BUILD_VERSION" ]; then
+                    VERSION="${1#*=}"
+                fi
                 shift
+                ;;
+            --build-version)
+                if [ -z "$BUILD_VERSION" ]; then
+                    VERSION="$2"
+                fi
+                shift 2
                 ;;
             *)
                 log_warn "Unknown parameter: $1"
@@ -1170,6 +1182,9 @@ main() {
                 ;;
         esac
     done
+    
+    # 更新 RUN_FILE
+    RUN_FILE="mindstudio-memscope_${VERSION}_linux_${ARCH}.run"
     
     log_info "Starting build process for $RUN_FILE ..."
     
