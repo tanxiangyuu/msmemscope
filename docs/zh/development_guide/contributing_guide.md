@@ -8,7 +8,7 @@
 
 ## 安全问题处理
 
-本项目中对安全问题处理的形式，请通过邮箱通知项目核心人员确认并编辑。
+本项目中对安全问题处理的方式，请通过邮箱通知项目核心人员确认并编辑。
 
 ## 解决现有问题
 
@@ -54,10 +54,10 @@
 
 ## Commits要求
 
-1. 每一次commit的message需要明确对应代码的功能，无效信息不会通过，如"添加适配文件"、"First commit"等。
+1. 每一次commit的message需要明确对应代码的功能，无效信息不会通过，如“添加适配文件”、“First commit”等。
 2. 对于多余无效的commits需要压缩，如连续的相同commit messages的commits、连续的codecheck修改等。
 
-若存在多次commit，请按照两种方式其一，压缩为一条commit记录(尽管GitCode在合并PR时提供了`Squash 合并`的选项, 提前将PR整理为单个简洁的commit仍然被视为最佳实践，并且深受commiter们的欢迎)。
+若存在多次commit，请按照两种方式其一，压缩为一条commit记录（尽管GitCode在合并PR时提供了`Squash 合并`的选项, 提前将PR整理为单个简洁的commit仍然被视为最佳实践，并且深受commiter们的欢迎）。
 
 ### 方式一：交互式变基（推荐）
 
