@@ -117,7 +117,7 @@ void ShowVersion()
 {
     ShowDescription();
     std::cout <<
-        std::endl << "msmemscope version " << "1.0" << "-" << __MSLEAKS_COMMIT_ID__ << std::endl;
+        std::endl << "msmemscope version " << __BUILD_VERSION__ << "-" << __MSLEAKS_COMMIT_ID__ << std::endl;
 }
 
 bool UserCommandPrecheck(const UserCommand &userCommand)

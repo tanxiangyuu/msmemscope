@@ -14,7 +14,7 @@ NC='\033[0m' # 无颜色
 TOOL_NAME="memscope"
 ARCH=$(uname -m)  # 获取系统架构
 VERSION="26.0.0"  # 版本号
-RUN_FILE="mindstudio-memscope_${VERSION}_linux_${ARCH}.run"  # 根据架构生成文件名
+RUN_FILE="mindstudio-memscope_${VERSION}_${ARCH}.run"  # 根据架构生成文件名
 BUILD_DIR="$(cd "$(dirname "$0")" && pwd)"  # 获取脚本所在绝对路径
 TEMP_DIR="/tmp/${TOOL_NAME}_build_$$"      # 使用进程ID确保临时目录唯一性
 
@@ -1184,7 +1184,7 @@ main() {
     done
     
     # 更新 RUN_FILE
-    RUN_FILE="mindstudio-memscope_${VERSION}_linux_${ARCH}.run"
+    RUN_FILE="mindstudio-memscope_${VERSION}_${ARCH}.run"
     
     log_info "Starting build process for $RUN_FILE ..."
     
