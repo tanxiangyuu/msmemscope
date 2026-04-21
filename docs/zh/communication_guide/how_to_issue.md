@@ -17,8 +17,8 @@
 
 本仓库遵守Ascend社区的Issue提交指南和Issue处理流程，具体请参见：
 
-- [Ascend社区Issue提交指南](https://gitcode.com/Ascend/community/blob/master/docs/contributor/issue-guide.md)
-- [Ascend社区Issue处理流程](https://gitcode.com/Ascend/community/blob/master/docs/contributor/issue-workflow-guidelines.md)
+- [Ascend社区Issue提交指南](https://gitcode.com/Ascend/community/blob/26.0.0/docs/contributor/issue-guide.md)
+- [Ascend社区Issue处理流程](https://gitcode.com/Ascend/community/blob/26.0.0/docs/contributor/issue-workflow-guidelines.md)
 
 ## 新建Issue流程
 
