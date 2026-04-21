@@ -242,7 +242,7 @@ msMemScope工具可以结合mstx打点能力进行内存采集，同时msMemScop
 
 ### 注意事项
 
-- 对于C脚本和Python脚本，mstx打点方式略有不同，具体信息可参考《[MindStudio Tools Extension Library接口文档]https://gitcode.com/Ascend/mstx/blob/26.0.0/docs/zh/api_reference/mstx_api_reference.md）》。
+- 对于C脚本和Python脚本，mstx打点方式略有不同，具体信息可参考《[MindStudio Tools Extension Library接口文档](https://gitcode.com/Ascend/mstx/blob/26.0.0/docs/zh/api_reference/mstx_api_reference.md)》。
 - 推荐使用C脚本示例进行mstx打点采集。
 
 ### 使用示例
