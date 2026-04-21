@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
  
-project(msmemscope VERSION 0.1.0)
+project(msmemscope VERSION 26.0.0)
  
 set(CMAKE_VERBOSE_MAKEFILE ON)
  
@@ -34,6 +34,14 @@ find_package(Git REQUIRED)
 execute_process(COMMAND "${GIT_EXECUTABLE}" rev-parse HEAD
   OUTPUT_VARIABLE MSLEAKS_COMMIT_ID OUTPUT_STRIP_TRAILING_WHITESPACE)
 add_definitions(-D__MSLEAKS_COMMIT_ID__="${MSLEAKS_COMMIT_ID}")
+
+# 设置版本号，优先从环境变量BUILD_VERSION读取，默认使用项目版本
+if(DEFINED ENV{BUILD_VERSION})
+  set(BUILD_VERSION "$ENV{BUILD_VERSION}")
+else()
+  set(BUILD_VERSION "${PROJECT_VERSION}")
+endif()
+add_definitions(-D__BUILD_VERSION__="${BUILD_VERSION}")
 
 add_subdirectory(opensource)
 add_subdirectory(platform)
