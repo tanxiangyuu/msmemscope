@@ -88,7 +88,7 @@ msMemScope工具提供内存采集、内存分析两大功能。
         <img src="https://camo.githubusercontent.com/dd0b7ef70793ab93ce46688c049386e0755a18faab780e519df5d7f61153655e/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f576562736974652d2532333165333766663f7374796c653d666f722d7468652d6261646765266c6f676f3d6279746564616e6365266c6f676f436f6c6f723d7768697465" data-canonical-src="https://img.shields.io/badge/Website-%231e37ff?style=for-the-badge&amp;logo=bytedance&amp;logoColor=white" style="max-width: 100%;">
     </a>
     <span style="margin-left: 20px;">昇腾小助手：</span>
-    <a href="../../docs/zh/communication_guide/figures/ascend_assistant.jpg">
+    <a href="https://gitcode.com/Ascend/msmemscope/blob/26.0.0/docs/zh/communication_guide/figures/ascend_assistant.jpg">
         <img src="https://camo.githubusercontent.com/22bbaa8aaa1bd0d664b5374d133c565213636ae50831af284ef901724e420f8f/68747470733a2f2f696d672e736869656c64732e696f2f62616467652f5765436861742d3037433136303f7374796c653d666f722d7468652d6261646765266c6f676f3d776563686174266c6f676f436f6c6f723d7768697465" data-canonical-src="./docs/zh/communication_guide/figures/ascend_assistant.jpg" style="max-width: 100%;">
     </a>
 </div>
