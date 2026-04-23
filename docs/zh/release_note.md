@@ -2,7 +2,7 @@
 
 | 发布版本 | 发布时间        | 发布Tag       | 兼容性说明    |
   | ------- | --------------- | ------------- | ------------- |
-  | 26.0.0-alpha.1 | 2026/02/04  | tag_MindStudio_26.0.0-alpha.1 | 兼容昇腾CANN 8.5.0及以前版本。请参考[CANN安装指南](https://www.hiascend.com/cann)获取CANN安装包。 |
+  | 26.0.0-alpha.1 | 2026/02/04  | tag_MindStudio_26.0.0-alpha.1 | 兼容昇腾CANN 8.5.0及以前版本。请参见[CANN快速安装](https://www.hiascend.com/cann/download)获取CANN安装包。 |
 
 ## 安装包 SHA256 校验值
 
