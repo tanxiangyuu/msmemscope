@@ -34,6 +34,7 @@
 #include "string_validator.h"
 #include "event_trace/trace_manager/event_trace_manager.h"
 #include "event_trace/python_trace.h"
+#include "cli_logo.h"
 
 namespace MemScope {
 
@@ -192,6 +193,7 @@ void DoUserCommand(UserCommand userCommand)
     }
 
     if (userCommand.printVersionInfo) {
+        PrintLogo();
         ShowVersion();
         return ;
     }
@@ -201,6 +203,7 @@ void DoUserCommand(UserCommand userCommand)
         return;
     }
 
+    PrintLogo();
     ConfigManager::Instance().SetConfig(userCommand.config);
 
     Command command {userCommand};
