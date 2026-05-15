@@ -1,59 +1,26 @@
 # **msMemScope安装指南**
 
-## 安装说明
+## 1. 安装说明
 
-本文档主要介绍msMemScope工具的安装方式，包括：
+本工具已集成于CANN中，若已安装CANN且无需更新此工具，可直接使用，无需按本文档安装。
 
-- **使用CANN包安装**：msMemScope工具完整功能已集成在CANN软件包中发布，可直接安装CANN软件包，具体请参见[CANN快速安装](https://www.hiascend.com/cann/download)。
+若您的环境尚未安装CANN，请参见《[CANN 快速安装](https://www.hiascend.com/cann/download)》安装昇腾NPU驱动和CANN软件（包含Toolkit和ops包），并配置环境变量。
 
-- **[使用run软件包安装](#使用run软件包安装)**：msMemScope工具完整功能集成在CANN软件包中且依赖CANN软件，因此使用msMemScope工具需要**先完成CANN包的安装**，若需要升级安装本工具代码仓中的最新功能，可以通过源码编译方式编译最新的msMemScope工具run软件包覆盖安装，具体操作见本安装方式中的[方式二获取最新版本run软件包](#方式二获取最新版本run软件包)。
+如需单独升级本工具或使用最新版本，您可通过以下三种方式进行安装：[在线安装](#21-在线安装)、[离线安装](#22-离线安装)、[源码安装](#23-源码安装)。
 
-> [!NOTE] 说明  
-> 如果安装的是CANN 8.5.0之前版本，需安装CANN Toolkit开发套件包，选择“训练&推理&开发调试”场景安装；如果安装的是CANN 8.5.0以及之后版本，则需要安装CANN Toolkit开发套件包和ops算子包。请根据需求参见相应版本的资料安装。
+## 2. 安装方式
 
-## 使用run软件包安装
+### 2.1 在线安装
 
-msMemScope工具支持在Linux系统上使用，目前提供以下两种方式获取run软件包。
+若您的设备具备互联网访问能力，可通过一条命令自动完成工具的下载与安装。请参见昇腾社区MindStudio[下载](https://www.hiascend.com/developer/software/mindstudio/download)页面，选择对应的CANN版本，并在安装方式中选择“在线安装”，系统将引导您完成后续操作。
 
-1. 稳定版本：releases页面下载run软件包。
-2. 最新版本：从源码编译构建run软件包。
+### 2.2 离线安装
 
-> [!NOTE] 说明  
-> run软件包需要在已安装CANN的环境中覆盖安装才能使用。
+对处于企业内网等无外网环境的设备，请先在可联网的机器上下载完整的离线安装包，再将其传输至目标设备进行安装。请参见昇腾社区MindStudio[下载](https://www.hiascend.com/developer/software/mindstudio/download)页面，选择对应的CANN版本，并在安装方式中选择“离线安装”，获取对应的安装包及操作指引。
 
-### 方式一：获取稳定版本run软件包
+### 2.3 源码安装
 
-**软件包下载**
-
-单击[获取链接](https://gitcode.com/Ascend/msmemscope/releases)，选择相应版本下载msMemScope工具软件包。
-
-软件包名称：`mindstudio-memscope_<version>_linux-<arch>.run`，`<version>`表示版本号，`<arch>`表示CPU架构。
-
-下载本软件即表示您同意[华为企业业务最终用户许可协议（EULA）](https://e.huawei.com/cn/about/eula)的条款和条件。
-
-**软件包校验**
-
-下载后建议先执行以下命令进行完整性校验（SHA256），再安装。
-
-```bash
-sha256sum mindstudio-memscope_<version>_linux-<arch>.run
-echo "<expected-sha256> mindstudio-memscope_<version>_linux-<arch>.run" | sha256sum -c
-```
-
-**说明：**
-
-- 校验命令中，`<expected-sha256>`为下载软件包时获取的SHA256值。
-- 各版本安装包 SHA256 清单请参见[版本说明](./release_note.md)。
-
-SHA256 校验不一致处理建议：
-
-若 sha256sum -c - 输出 FAILED，请勿继续安装。
-请先删除当前文件并重新下载，再次执行 SHA256 校验。
-仍无法通过校验时，请在 releases 页面核对文件名与版本是否一致，并通过 Issues 反馈问题。
-
-### 方式二：获取最新版本run软件包
-
-#### 安装依赖
+#### 2.3.1 安装依赖
 
 安装前需确保Git、Python等环境可用，请满足[版本依赖](./development_guide/development_guide.md#1-开发环境配置)限制，若不满足可执行以下命令安装。
 
@@ -69,9 +36,9 @@ openEuler系列：
 sudo yum install -y python3 git gcc gcc-c++ make cmake
 ```
 
-#### 编译构建软件包
+#### 2.3.2 编译构建run包
 
-1. 在终端执行以下git命令，克隆(clone)msMemScope源码。
+1. 在终端执行以下git命令，克隆（clone）msMemScope源码。
 
    ```bash
    git clone https://gitcode.com/Ascend/msmemscope.git <remote-name>
@@ -117,7 +84,7 @@ sudo yum install -y python3 git gcc gcc-c++ make cmake
    注：其中`arch`表示CPU架构。
    编译完成后，会在`./build`目录下生成软件包。
 
-### 安装run软件包
+#### 2.3.3 安装run包
 
 1. 增加对run包的可执行权限。
 
@@ -140,11 +107,11 @@ sudo yum install -y python3 git gcc gcc-c++ make cmake
    [INFO] Installation completed successfully
    ```
 
-#### 安装后检查
+#### 2.3.4 安装后检查
 
 请检查并确认安装目录：`<path>/msmemscope`下已生成`set_env.sh`文件。
 
-### 安装后配置
+#### 2.3.5 安装后配置
 
 在使用msMemScope工具前，需执行以下命令，配置PYTHONPATH和PATH环境变量。
 
@@ -163,66 +130,55 @@ bash: local: can only be used in a function
 msmemscope environment setup completed
 ```
 
-## 升级
+## 3. 卸载
 
-msMemScope的软件包提供升级功能。
+> [!NOTE]
+> 
+> 如果您在使用**内存采集功能**时按照《[**内存采集**](./memory_profile.md#使用示例)》文档中的介绍已设置`LD_PRELOAD`环境变量，为避免卸载失败，在卸载前需要执行命令：`unset LD_PRELOAD` 重置环境变量。
 
-1. 点击[获取链接](https://www.openlibing.com/apps/obsDetails?bucketName=ascend-package)，选择更新版本的软件包下载。
+可通过如下步骤卸载：
 
-2. 执行以下脚本升级软件。
-
-   ```bash
-   bash mindstudio-memscope_<version>_linux-<arch>.run --upgrade --install-path=<path>
-   ```
-
-   其中参数说明如下。
-
-   - `--upgrade`指定升级操作。
-   - `--install-path`指定目标目录，只升级选定的目录。
-
-   升级完成后，若打印如下信息，则说明软件升级成功。
+1. 下载脚本。
 
    ```bash
-   [INFO] Upgrade completed successfully
+   curl -O https://inst.obs.cn-north-4.myhuaweicloud.com/26.0.0/ms_install.py
    ```
 
-## 卸载
+   > [!NOTE]
+   >
+   > - 需要联网环境才能下载，若环境不允许联网或离线状态，请先在可联网的环境下载该脚本后拷贝到目标设备。
+   > - 若执行命令无响应或出现连接失败、SSL证书错误等问题，请参见[FAQ](https://www.hiascend.com/developer/blog/details/02176213671719317003)。
 
-**脚本卸载**
-
-1. 进入安装msmemscope的路径。
+2. 执行卸载。
 
    ```bash
-   cd <path>/msmemscope
+   python ms_install.py uninstall {tools_name}
    ```
 
-   注：其中`path`为软件包的安装路径，请根据实际情况替换。
+   其中{tools_name}配置为需要卸载的工具名称，可通过`python ms_install.py help`命令查询，在打印信息中的Available Tools字段下显示工具名称。
 
-2. 执行以下命令运行卸载脚本，完成卸载。
+   卸载成功打印如下信息：
 
-   ```bash
-   ./uninstall.sh
+   ```ColdFusion
+   Successfully uninstalled 1 tool ({tools_name})
    ```
 
-   卸载程序会提示用户是否确定卸载，若确定则输入y，不卸载输入n。
+## 4. 升级
 
-   卸载完成后，若打印如下信息，则说明软件卸载成功。
+升级即“先卸后装”。直接执行安装命令，工具将自动卸载旧版本，并引导您完成覆盖安装。
 
-   ```tex
-   [INFO] Uninstallation completed successfully
-   ```
-
-## 附录A：参考信息
+## 5. 附录
 
 ### 参数说明
 
-本章节介绍了run格式（.run）软件包相关参数说明，run格式软件包支持通过命令行参数进行一键安装，各个命令之间可以配合使用，用户根据安装需要选择对应参数。
+本章节介绍了run格式（.run）软件包相关参数说明，run格式软件包支持通过命令行参数进行一键安装，各个参数之间可以配合使用，用户根据安装需要选择对应参数。
 
 安装命令格式：`./mindstudio-memscope_<version>_linux-<arch>.run [options]`
 
 详细参数请参见[表1](#cli-args-table)。
 
-  > [!NOTE] 说明  
+  > [!NOTE]
+  > 
   > 如果通过./mindstudio-memscope_\<version>_linux-{arch}.run --help命令查询出的参数没有在如下表格中解释，则说明该参数为预留参数或适用于其他产品类型，用户无需关注。
 
 **表 1**  参数说明
