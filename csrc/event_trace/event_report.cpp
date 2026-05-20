@@ -326,7 +326,7 @@ bool EventReport::ReportMemPoolRecord(EventSubType type, const MemoryUsage& info
         event->poolType = PoolType::MINDSPORE;
         event->eventSubType = EventSubType::MINDSPORE;
     }
-    
+
     event->addr = info.ptr;
     event->name = "N/A";
     event->device = realDevice;
