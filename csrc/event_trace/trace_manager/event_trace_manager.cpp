@@ -16,24 +16,21 @@
  */
 
 #include "event_trace_manager.h"
-#include "event_report.h"
-#include "cpython.h"
+
 #include "bit_field.h"
 #include "client_parser.h"
-#include "json_manager.h"
+#include "cpython.h"
 #include "dump.h"
+#include "event_report.h"
+#include "json_manager.h"
 
-namespace MemScope {
+namespace MemScope
+{
 
-const std::unordered_map<std::string, std::function<void(const std::string&, Config&, bool&)>> parserConfigTable = {
-    {"call_stack", ParseCallstack},
-    {"level", ParseDataLevel},
-    {"events", ParseEventTraceType},
-    {"device", ParseDevice},
-    {"data_format", ParseDataFormat},
-    {"output", ParseOutputPath},
-    {"analysis", ParseAnalysis},
-    {"watch", ParseWatchConfig},
+const std::unordered_map<std::string, std::function<void(const std::string &, Config &, bool &)>> parserConfigTable = {
+    {"call_stack", ParseCallstack}, {"level", ParseDataLevel},        {"events", ParseEventTraceType},
+    {"device", ParseDevice},        {"data_format", ParseDataFormat}, {"output", ParseOutputPath},
+    {"analysis", ParseAnalysis},    {"watch", ParseWatchConfig},
 };
 
 // 只允许设置一次的config参数
@@ -43,19 +40,19 @@ const std::vector<std::string> configPolicyTable = {
     "watch",
 };
 
-ConfigManager::ConfigManager()
-{
-    InitConfig();
-}
+ConfigManager::ConfigManager() { InitConfig(); }
 
 void ConfigManager::InitConfig()
 {
     Config config;
     // 命令行与python接口并存
-    if (firstConfig && Utility::JsonConfig::GetInstance().ReadJsonConfig(config)) {
+    if (firstConfig && Utility::JsonConfig::GetInstance().ReadJsonConfig(config))
+    {
         firstConfig = false;
         config_ = config;
-    } else {
+    }
+    else
+    {
         // 单独python接口
         ClientParser parser;
         parser.InitialConfig(config);
@@ -73,8 +70,8 @@ void ConfigManager::GetConfigAfterInit(Config &config)
     config.dataFormat = config_.dataFormat;
     config.watchConfig = config_.watchConfig;
 
-    if (strncpy_s(config.outputDir, sizeof(config.outputDir),
-        config_.outputDir, sizeof(config.outputDir) - 1) != EOK) {
+    if (strncpy_s(config.outputDir, sizeof(config.outputDir), config_.outputDir, sizeof(config.outputDir) - 1) != EOK)
+    {
         std::cout << "[msmemscope] Error: strncpy dirpath FAILED" << std::endl;
         return;
     }
@@ -87,7 +84,7 @@ void ConfigManager::InitStartConfig()
     Utility::JsonConfig::GetInstance().SaveConfigToJson(config_);
 }
 
-Config ConfigManager::GetConfig()
+const Config &ConfigManager::GetConfig()
 {
     std::lock_guard<std::mutex> lock(mutex_);
     return config_;
@@ -122,22 +119,27 @@ bool ConfigManager::SetConfig(const std::unordered_map<std::string, std::string>
     Config config;
     GetConfigAfterInit(config);
 
-    for (auto &p : pythonConfig) {
-        const std::string& key = p.first;
-        const std::string& value = p.second;
+    for (auto &p : pythonConfig)
+    {
+        const std::string &key = p.first;
+        const std::string &value = p.second;
         auto itr = parserConfigTable.find(key);
-        if (itr == parserConfigTable.end()) {
+        if (itr == parserConfigTable.end())
+        {
             return false;
         }
 
         auto policyItr = std::find(configPolicyTable.begin(), configPolicyTable.end(), key);
-        if (policyItr != configPolicyTable.end() && config.isEffective) {
-            std::cout << "[msmemscope] Warn: Config:\"output\",\"data_format\",\"watch\" cannot be set twice." << std::endl;
+        if (policyItr != configPolicyTable.end() && config.isEffective)
+        {
+            std::cout << "[msmemscope] Warn: Config:\"output\",\"data_format\",\"watch\" cannot be set twice."
+                      << std::endl;
             continue;
         }
         bool parseFail = false;
         itr->second(value, config, parseFail);
-        if (parseFail) {
+        if (parseFail)
+        {
             return false;
         }
     }
@@ -154,50 +156,15 @@ bool ConfigManager::SetConfig(const std::unordered_map<std::string, std::string>
     return true;
 }
 
-bool IsNeedTraceOp()
-{
-    return BitPresent(GetConfig().levelType, static_cast<size_t>(LevelType::LEVEL_OP));
-}
-
-bool IsNeedTraceKernel()
-{
-    return BitPresent(GetConfig().levelType, static_cast<size_t>(LevelType::LEVEL_KERNEL));
-}
-
-bool IsNeedTraceAccess()
-{
-    return BitPresent(GetConfig().eventType, static_cast<size_t>(EventType::ACCESS_EVENT));
-}
-
-bool IsNeedTraceLaunch()
-{
-    return BitPresent(GetConfig().eventType, static_cast<size_t>(EventType::LAUNCH_EVENT));
-}
-
-bool IsNeedTraceAlloc()
-{
-    return BitPresent(GetConfig().eventType, static_cast<size_t>(EventType::ALLOC_EVENT));
-}
-
-bool IsNeedTraceFree()
-{
-    return BitPresent(GetConfig().eventType, static_cast<size_t>(EventType::FREE_EVENT));
-}
-
-bool IsNeedTraceKernelLaunch()
-{
-    return IsNeedTraceKernel() && IsNeedTraceLaunch();
-}
-
-bool IsNeedTraceOpLaunch()
-{
-    return IsNeedTraceOp() && IsNeedTraceLaunch();
-}
-
-bool IsNeedTraceMemory()
-{
-    return IsNeedTraceAlloc() && IsNeedTraceFree();
-}
+bool IsNeedTraceOp() { return BitPresent(GetConfig().levelType, static_cast<size_t>(LevelType::LEVEL_OP)); }
+bool IsNeedTraceKernel() { return BitPresent(GetConfig().levelType, static_cast<size_t>(LevelType::LEVEL_KERNEL)); }
+bool IsNeedTraceAccess() { return BitPresent(GetConfig().eventType, static_cast<size_t>(EventType::ACCESS_EVENT)); }
+bool IsNeedTraceLaunch() { return BitPresent(GetConfig().eventType, static_cast<size_t>(EventType::LAUNCH_EVENT)); }
+bool IsNeedTraceAlloc() { return BitPresent(GetConfig().eventType, static_cast<size_t>(EventType::ALLOC_EVENT)); }
+bool IsNeedTraceFree() { return BitPresent(GetConfig().eventType, static_cast<size_t>(EventType::FREE_EVENT)); }
+bool IsNeedTraceKernelLaunch() { return IsNeedTraceKernel() && IsNeedTraceLaunch(); }
+bool IsNeedTraceOpLaunch() { return IsNeedTraceOp() && IsNeedTraceLaunch(); }
+bool IsNeedTraceMemory() { return IsNeedTraceAlloc() && IsNeedTraceFree(); }
 
 void EventTraceManager::InitJudgeFuncTable()
 {
@@ -214,17 +181,20 @@ void EventTraceManager::InitJudgeFuncTable()
 // 2、判断当前的采集项是否需要采集
 bool EventTraceManager::IsNeedTrace(EventBaseType type)
 {
-    if (status_ != EventTraceStatus::IN_TRACING) {
+    if (status_ != EventTraceStatus::IN_TRACING)
+    {
         return false;
     }
 
     // 单例类析构之后不再访问其成员变量
-    if (destroyed_.load()) {
+    if (destroyed_.load())
+    {
         return false;
     }
- 
+
     auto itr = judgeFuncTable_.find(type);
-    if (itr == judgeFuncTable_.end()) {
+    if (itr == judgeFuncTable_.end())
+    {
         return true;
     }
 
@@ -233,31 +203,35 @@ bool EventTraceManager::IsNeedTrace(EventBaseType type)
 
 bool EventTraceManager::IsTracingEnabled()
 {
-    if (status_ != EventTraceStatus::IN_TRACING) {
+    if (status_ != EventTraceStatus::IN_TRACING)
+    {
         return false;
     }
 
     return true;
 }
 
-
 void EventTraceManager::InitTraceStatus()
 {
-    auto status = (GetConfig().collectMode == static_cast<uint8_t>(CollectMode::IMMEDIATE)) &&
-        GetConfig().isEffective ?
-        EventTraceStatus::IN_TRACING : EventTraceStatus::NOT_IN_TRACING;
+    auto status = (GetConfig().collectMode == static_cast<uint8_t>(CollectMode::IMMEDIATE)) && GetConfig().isEffective
+                      ? EventTraceStatus::IN_TRACING
+                      : EventTraceStatus::NOT_IN_TRACING;
     status_ = status;
     return;
 }
 
 void EventTraceManager::SetTraceStatus(const EventTraceStatus status)
 {
-    if (status == EventTraceStatus::IN_TRACING) {
+    if (status == EventTraceStatus::IN_TRACING)
+    {
         std::cout << "[msmemscope] Info: Start tracing.\n";
-    } else if (status == EventTraceStatus::NOT_IN_TRACING) {
+    }
+    else if (status == EventTraceStatus::NOT_IN_TRACING)
+    {
         std::cout << "[msmemscope] Info: Stop tracing.\n";
     }
-    if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportTraceStatus(status)) {
+    if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY).ReportTraceStatus(status))
+    {
         std::cout << "[msmemscope] Error: Report trace status failed.\n";
     }
 
@@ -272,7 +246,8 @@ void EventTraceManager::SetTraceStatus(const EventTraceStatus status)
 
 void EventTraceManager::HandleWithATenCollect()
 {
-    if ((status_ == EventTraceStatus::IN_TRACING) && IsNeedTraceOp() && aclInit_) {
+    if ((status_ == EventTraceStatus::IN_TRACING) && IsNeedTraceOp() && aclInit_)
+    {
         Utility::MemScopePythonCall("msmemscope.aten_collection", "enable_aten_collector");
         return;
     }
@@ -285,7 +260,8 @@ void EventTraceManager::HandleWithATenCollect()
 void EventTraceManager::HandleWithDecompose()
 {
     if ((status_ == EventTraceStatus::IN_TRACING) &&
-        BitPresent(GetConfig().analysisType, static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS)) && aclInit_) {
+        BitPresent(GetConfig().analysisType, static_cast<size_t>(AnalysisType::DECOMPOSE_ANALYSIS)) && aclInit_)
+    {
         Utility::MemScopePythonCall("msmemscope.optimizer_step_hook", "enable_optimizer_step_hook");
         return;
     }
@@ -310,4 +286,4 @@ void EventTraceManager::CleanUpEventTraceManager()
     Dump::GetInstance(config).WritePublicEventToFile();
     Dump::GetInstance(config).FflushEventToFile();
 }
-}
+}  // namespace MemScope

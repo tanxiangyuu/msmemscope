@@ -86,3 +86,9 @@ TEST(Utils, StrToUInt32_Failed_Test)
     ret = StrToUint32(dest, str);
     EXPECT_FALSE(ret);
 }
+
+TEST(Utils, GetProcessVmRss_Test)
+{
+    uint64_t vmrss = GetProcessVmRss();
+    EXPECT_GT(vmrss);
+}

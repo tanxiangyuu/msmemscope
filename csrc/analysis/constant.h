@@ -19,30 +19,30 @@
 #define CONSTANT_H
 
 #include <string>
+
 #include "event.h"
 
-namespace MemScope {
+namespace MemScope
+{
 
 const std::unordered_map<PoolType, std::string> PoolTypeMap = {
-    {PoolType::PTA_CACHING, "PTA"},
-    {PoolType::PTA_WORKSPACE, "PTA_WORKSPACE"},
-    {PoolType::ATB, "ATB"},
-    {PoolType::MINDSPORE, "MINDSPORE"},
+    {PoolType::PTA_CACHING, "PTA"}, {PoolType::PTA_WORKSPACE, "PTA_WORKSPACE"},
+    {PoolType::ATB, "ATB"},         {PoolType::MINDSPORE, "MINDSPORE"},
     {PoolType::HAL, "HAL"},
 };
 
 // Module id
 const std::unordered_map<int, std::string> MODULE_HASH_TABLE = {
-    {0, "SLOG"},          /**< Slog */
-    {1, "IDEDD"},         /**< IDE daemon device */
-    {2, "IDEDH"},         /**< IDE daemon host */
-    {3, "HCCL"},          /**< HCCL */
-    {4, "FMK"},           /**< Adapter */
-    {5, "HIAIENGINE"},    /**< Matrix */
-    {6, "DVPP"},          /**< DVPP */
-    {7, "RUNTIME"},       /**< Runtime */
-    {8, "CCE"},           /**< CCE */
-    {9, "HDC"},           /**< HDC */
+    {0, "SLOG"},           /**< Slog */
+    {1, "IDEDD"},          /**< IDE daemon device */
+    {2, "IDEDH"},          /**< IDE daemon host */
+    {3, "HCCL"},           /**< HCCL */
+    {4, "FMK"},            /**< Adapter */
+    {5, "HIAIENGINE"},     /**< Matrix */
+    {6, "DVPP"},           /**< DVPP */
+    {7, "RUNTIME"},        /**< Runtime */
+    {8, "CCE"},            /**< CCE */
+    {9, "HDC"},            /**< HDC */
     {10, "DRV"},           /**< Driver */
     {11, "MDCFUSION"},     /**< Mdc fusion */
     {12, "MDCLOCATION"},   /**< Mdc location */
@@ -87,7 +87,7 @@ const std::unordered_map<int, std::string> MODULE_HASH_TABLE = {
     {51, "SIS"},
     {52, "HSM"},
     {53, "DSS"},
-    {54, "PROCMGR"},     // Process Manager, Base Platform
+    {54, "PROCMGR"},  // Process Manager, Base Platform
     {55, "BBOX"},
     {56, "AIVECTOR"},
     {57, "TBE"},
@@ -108,18 +108,14 @@ const std::unordered_map<int, std::string> MODULE_HASH_TABLE = {
     {72, "RTC"},
     {73, "SYSMONITOR"},
     {74, "AML"},
-    {75, "INVLID_MOUDLE_ID"}    // add new module before INVLID_MOUDLE_ID
+    {75, "INVLID_MOUDLE_ID"}  // add new module before INVLID_MOUDLE_ID
 };
 
 const std::unordered_map<EventBaseType, std::string> EVENT_BASE_TYPE_MAP = {
-    {EventBaseType::MALLOC, "MALLOC"},
-    {EventBaseType::ACCESS, "ACCESS"},
-    {EventBaseType::FREE, "FREE"},
-    {EventBaseType::MSTX, "MSTX"},
-    {EventBaseType::OP_LAUNCH, "OP_LAUNCH"},
-    {EventBaseType::KERNEL_LAUNCH, "KERNEL_LAUNCH"},
-    {EventBaseType::SYSTEM, "SYSTEM"},
-    {EventBaseType::CLEAN_UP, "CLEAN_UP"},
+    {EventBaseType::MALLOC, "MALLOC"},       {EventBaseType::ACCESS, "ACCESS"},
+    {EventBaseType::FREE, "FREE"},           {EventBaseType::MSTX, "MSTX"},
+    {EventBaseType::OP_LAUNCH, "OP_LAUNCH"}, {EventBaseType::KERNEL_LAUNCH, "KERNEL_LAUNCH"},
+    {EventBaseType::SYSTEM, "SYSTEM"},       {EventBaseType::CLEAN_UP, "CLEAN_UP"},
     {EventBaseType::SNAPSHOT, "SNAPSHOT"},
 };
 
@@ -130,6 +126,7 @@ const std::unordered_map<EventSubType, std::string> EVENT_SUB_TYPE_MAP = {
     {EventSubType::MINDSPORE, "MINDSPORE"},
     {EventSubType::HAL, "HAL"},
     {EventSubType::HOST, "HOST"},
+    {EventSubType::HOST_PINNED, "HOST_PINNED"},
     {EventSubType::ATB_READ, "READ"},
     {EventSubType::ATB_WRITE, "WRITE"},
     {EventSubType::ATB_READ_OR_WRITE, "UNKNOWN"},
@@ -157,30 +154,26 @@ const std::unordered_map<EventSubType, std::string> EVENT_SUB_TYPE_MAP = {
     {EventSubType::SNAPSHOT, "SNAPSHOT"},
 };
 
-const std::vector<std::pair<std::string, std::string>> DUMP_RECORD_TABLE_SQL = {
-    {"ID", "INTEGER"},
-    {"Event", "TEXT"},
-    {"Event Type", "TEXT"},
-    {"Name", "TEXT"},
-    {"Timestamp(ns)", "INTEGER"},
-    {"Process Id", "INTEGER"},
-    {"Thread Id", "INTEGER"},
-    {"Device Id", "TEXT"},
-    {"Ptr", "TEXT"},
-    {"Attr", "TEXT"}
-};
+const std::vector<std::pair<std::string, std::string>> DUMP_RECORD_TABLE_SQL = {{"ID", "INTEGER"},
+                                                                                {"Event", "TEXT"},
+                                                                                {"Event Type", "TEXT"},
+                                                                                {"Name", "TEXT"},
+                                                                                {"Timestamp(ns)", "INTEGER"},
+                                                                                {"Process Id", "INTEGER"},
+                                                                                {"Thread Id", "INTEGER"},
+                                                                                {"Device Id", "TEXT"},
+                                                                                {"Ptr", "TEXT"},
+                                                                                {"Attr", "TEXT"}};
 
-const std::vector<std::pair<std::string, std::string>> PYTHON_TRACE_TABLE_SQL = {
-    {"FuncInfo", "TEXT"},
-    {"StartTime(ns)", "TEXT"},
-    {"EndTime(ns)", "TEXT"},
-    {"Thread Id", "INTEGER"},
-    {"Process Id", "INTEGER"}
-};
+const std::vector<std::pair<std::string, std::string>> PYTHON_TRACE_TABLE_SQL = {{"FuncInfo", "TEXT"},
+                                                                                 {"StartTime(ns)", "TEXT"},
+                                                                                 {"EndTime(ns)", "TEXT"},
+                                                                                 {"Thread Id", "INTEGER"},
+                                                                                 {"Process Id", "INTEGER"}};
 
 const std::string DUMP_RECORD_TABLE = "memscope_dump";
 const std::string PYTHON_TRACE_TABLE = "python_trace_";
 
-}
+}  // namespace MemScope
 
 #endif

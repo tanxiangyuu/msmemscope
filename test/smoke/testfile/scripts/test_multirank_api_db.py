@@ -97,7 +97,7 @@ if __name__ == '__main__':
     msmemscope.config(
         events='launch,access,free,alloc',
         level='kernel,op',
-        device='npu',
+        device='npu,cpu',
         data_format='db'
     )
     msmemscope.start()

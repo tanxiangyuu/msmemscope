@@ -20,7 +20,9 @@ from ..utils.utils import ColorText
 class MultirankConfig:
     """多Rank测试配置常量，集中管理便于维护"""
     # 文件生成数量配置
-    FILE_GEN_COUNT_CSV_DB = 3
+    FILE_GEN_COUNT_CSV_DB = 5
+    FILE_GEN_COUNT_NPU = 3
+    FILE_GEN_COUNT_CPU = 2
     FILE_GEN_COUNT_LOG = 1
     # CSV列名配置
     CSV_COLUMNS = (
@@ -36,20 +38,22 @@ class MultirankConfig:
     # 数据校验阈值（按模式区分）
     DATA_THRESHOLDS = {
         "multirank_cmd_test": {
-            "system_num": 6,
+            "system_num": 10,
             "mstx_num": 202,
             "op_threshold": {"min": 16000, "max": 16500},
             "kernel_threshold": {"min": 16000, "max": 16500},
             "hal_threshold": {"min": 200, "max": 360},
-            "pta_threshold": {"min": 9200, "max": 9300}
+            "pta_threshold": {"min": 9200, "max": 9300},
+            "host_threshold": {"min": 40, "max": 70}
         },
         "default": {  # API模式
-            "system_num": 9,
+            "system_num": 15,
             "mstx_num": 202,
             "op_threshold": {"min": 16000, "max": 16500},
             "kernel_threshold": {"min": 16000, "max": 16500},
             "hal_threshold": {"min": 200, "max": 360},
-            "pta_threshold": {"min": 8700, "max": 8800}
+            "pta_threshold": {"min": 8700, "max": 8800},
+            "host_threshold": {"min": 35, "max": 65}
         }
     }
     # Torch版本阈值
@@ -224,6 +228,7 @@ class MultirankTestCase(BaseTest):
             ("HAL", self.thresholds["hal_threshold"], event_type_counts),
             ("PTA", self.thresholds["pta_threshold"], event_type_counts),
             ("OP_LAUNCH", self.thresholds["op_threshold"], event_counts),
+            ("HOST_PINNED", self.thresholds["host_threshold"], event_type_counts),
         ]
         for name, threshold, counts in range_check_items:
             count = counts.get(name, 0)
@@ -234,10 +239,10 @@ class MultirankTestCase(BaseTest):
         return Result(True, [], [])
 
     def comp_memscope_csv_contents(self, file_paths, column):
-        return self.comp_memscope_contents(file_paths, is_db=False)
+            return self.comp_memscope_contents(file_paths, is_db=False)
 
     def comp_memscope_db_contents(self, file_paths):
-        return self.comp_memscope_contents(file_paths, is_db=True)
+            return self.comp_memscope_contents(file_paths, is_db=True)
 
     @staticmethod
     def count_substring(data, phase, name) -> int:
@@ -293,10 +298,20 @@ class MultirankTestCase(BaseTest):
             return Result(False, [MultirankConfig.FILE_GEN_COUNT_CSV_DB], [len(csv_files)])
         
         # 校验文件名格式
+        npu_files_num = 0
+        cpu_files_num = 0
         for csv_file in csv_files:
             if not re.match('memscope_dump_\d{1,20}\.csv', csv_file):
                 logging.error(f"CSV file name {csv_file} does not match convention")
                 return Result(False, [], [])
+        for csv_file_path in csv_file_paths:
+            if re.search(r'device_\d+', csv_file_path):
+                npu_files_num += 1
+            if re.search(r'device_cpu', csv_file_path):
+                cpu_files_num += 1
+        if npu_files_num != MultirankConfig.FILE_GEN_COUNT_NPU or cpu_files_num != MultirankConfig.FILE_GEN_COUNT_CPU:
+                logging.error(f"CSV file count does not match")
+                return Result(False, [MultirankConfig.FILE_GEN_COUNT_NPU, MultirankConfig.FILE_GEN_COUNT_CPU], [npu_files_num, cpu_files_num])
 
         # 调用统一校验方法
         result = self.comp_memscope_csv_contents(csv_file_paths, MultirankConfig.CSV_COLUMNS)
@@ -320,11 +335,21 @@ class MultirankTestCase(BaseTest):
             return Result(False, [MultirankConfig.FILE_GEN_COUNT_CSV_DB], [len(db_files)])
         
         # 校验文件名格式
+        npu_files_num = 0
+        cpu_files_num = 0
         for db_file in db_files:
             if not re.match('memscope_dump_\d{1,20}\.db', db_file):
                 logging.error(f"DB file name {db_file} does not match convention")
                 return Result(False, [], [])
-
+        for db_file_path in db_file_paths:
+            if re.search(r'device_\d+', db_file_path):
+                npu_files_num += 1
+            if re.search(r'device_cpu', db_file_path):
+                cpu_files_num += 1
+        if npu_files_num != MultirankConfig.FILE_GEN_COUNT_NPU or cpu_files_num != MultirankConfig.FILE_GEN_COUNT_CPU:
+                logging.error(f"CSV file count does not match")
+                return Result(False, [MultirankConfig.FILE_GEN_COUNT_NPU, MultirankConfig.FILE_GEN_COUNT_CPU], [npu_files_num, cpu_files_num])
+    
         # 调用统一校验方法
         result = self.comp_memscope_db_contents(db_file_paths)
         if not result.success:

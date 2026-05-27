@@ -74,7 +74,7 @@ def run_tests(working_dir: str, params) -> bool:
     
     chmod_recursive("msmemscope", 0o777)
     multirank_cmd_command = ["../../msmemscope/output/bin/msmemscope", "bash", "../../testfile/scripts/test_multirank_cmd.sh",
-        "--log-level=info", "--call-stack=c,python", "--level=0,1"]
+        "--device=npu,cpu", "--log-level=info", "--call-stack=c,python", "--level=0,1"]
     multirank_api_command = ["bash", "../../testfile/scripts/test_multirank_api.sh"]
     multirank_api_db_command = ["bash", "../../testfile/scripts/test_multirank_api_db.sh"]
     # llama2_7b_cmd = ["../../msmemscope/output/bin/msmemscope", "bash", config.get('llama2_7b_sh_path'), "--log-level=info"]

@@ -18,18 +18,22 @@
 #ifndef RECORD_INFO_H
 #define RECORD_INFO_H
 
+#include <sys/types.h>
+
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <unordered_map>
-#include <sys/types.h>
-#include <memory>
 
 #include "securec.h"
 #include "utils.h"
 
-namespace MemScope {
+namespace MemScope
+{
 
 constexpr int32_t GD_INVALID_NUM = 9999;
+constexpr int32_t DEVICE_ID_CPU = 10000;
+
 const size_t KERNELNAME_MAX_SIZE = 128;
 const size_t ATB_NAME_MAX_SIZE = 64;
 const size_t ATEN_NAME_MAX_SIZE = 128;
@@ -39,7 +43,8 @@ const size_t MEM_ATTR_MAX_SIZE = 128;
 const size_t ADDR_OWNER_SIZE = 64;
 constexpr unsigned long long FLAG_INVALID = UINT64_MAX;
 
-enum class RecordSubType {
+enum class RecordSubType
+{
     MALLOC = 0,
     FREE,
     USER_DEFINED,
@@ -57,24 +62,27 @@ enum class RecordSubType {
     ATB_END,
 };
 
-enum class MemoryDataType {
+enum class MemoryDataType
+{
     MEMORY_MALLOC = 0,
     MEMORY_FREE,
     MEMORY_BLOCK_FREE,
     MEMORY_INVALID
 };
 
-enum class MemoryAllocatorType {
+enum class MemoryAllocatorType
+{
     ALLOCATOR_INNER = 0,
     ALLOCATOR_EXTERNAL,
     ALLOCATOR_INVALID,
 };
 
-struct MemoryUsage {
-    int8_t deviceType;          // 20-npu
+struct MemoryUsage
+{
+    int8_t deviceType;  // 20-npu
     int8_t deviceIndex;
-    uint8_t dataType;           // 0-malloc, 1-free, 2-block_free
-    uint8_t allocatorType;      // 0-Inner(for PTA), 1-external(for GE)
+    uint8_t dataType;       // 0-malloc, 1-free, 2-block_free
+    uint8_t allocatorType;  // 0-Inner(for PTA), 1-external(for GE)
     uint64_t ptr;
     int64_t allocSize;
     int64_t totalAllocated;
@@ -83,18 +91,20 @@ struct MemoryUsage {
     int64_t streamPtr;
 };
 
-struct MemorySnapshotInfo {
-    int device;               // 设备ID
-    uint64_t memory_reserved; // 当前保留的内存
-    uint64_t max_memory_reserved; // 最大保留的内存
-    uint64_t memory_allocated; // 当前分配的内存
-    uint64_t max_memory_allocated; // 最大分配的内存
-    uint64_t total_memory;    // 总内存
-    uint64_t free_memory;     // 空闲内存
-    std::string name;           // 快照名称
+struct MemorySnapshotInfo
+{
+    int device;                     // 设备ID
+    uint64_t memory_reserved;       // 当前保留的内存
+    uint64_t max_memory_reserved;   // 最大保留的内存
+    uint64_t memory_allocated;      // 当前分配的内存
+    uint64_t max_memory_allocated;  // 最大分配的内存
+    uint64_t total_memory;          // 总内存
+    uint64_t free_memory;           // 空闲内存
+    std::string name;               // 快照名称
 };
 
-enum class MemOpSpace : uint8_t {
+enum class MemOpSpace : uint8_t
+{
     SVM = 0U,
     DEVICE,
     HOST,
@@ -102,7 +112,8 @@ enum class MemOpSpace : uint8_t {
     INVALID,
 };
 
-enum class PyTraceType : uint8_t {
+enum class PyTraceType : uint8_t
+{
     PYCALL = 0,
     PYEXCEPTION,
     PYLINE,
@@ -113,37 +124,42 @@ enum class PyTraceType : uint8_t {
     PYOPCODE,
 };
 
-enum class MemPageType : uint32_t {
-    MEM_NORMAL_PAGE_TYPE = 0, // 4K
-    MEM_HUGE_PAGE_TYPE, // 2M
-    MEM_GIANT_PAGE_TYPE, // 1G
+enum class MemPageType : uint32_t
+{
+    MEM_NORMAL_PAGE_TYPE = 0,  // 4K
+    MEM_HUGE_PAGE_TYPE,        // 2M
+    MEM_GIANT_PAGE_TYPE,       // 1G
     MEM_MAX_PAGE_TYPE
 };
 
-enum class MarkType : int32_t {
+enum class MarkType : int32_t
+{
     MARK_A = 0,
     RANGE_START_A,
     RANGE_END,
 };
 
-enum class AccessType : uint8_t {
+enum class AccessType : uint8_t
+{
     READ = 0,
     WRITE,
     UNKNOWN,
 };
 
-struct CallStackInfo {
+struct CallStackInfo
+{
     uint64_t pyLen;
     uint64_t cLen;
-    char *pyStack;
-    char *cStack;
+    char* pyStack;
+    char* cStack;
 };
-struct CallStackString {
+struct CallStackString
+{
     std::string cStack;
     std::string pyStack;
     CallStackString() {}
     CallStackString(std::string& c, std::string& python) : cStack(c), pyStack(python) {}
 };
 
-}
+}  // namespace MemScope
 #endif
