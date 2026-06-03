@@ -974,6 +974,7 @@ TEST(ClientParser, test_valid_device_case)
     ClientParser cliParser;
     UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_TRUE(cmd.config.collectAllNpu);
+    ASSERT_FALSE(cmd.config.collectCpu);
 
     argv = {
         "msmemscope",
@@ -984,6 +985,7 @@ TEST(ClientParser, test_valid_device_case)
     optind = 1;
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_TRUE(cmd.config.collectAllNpu);
+    ASSERT_FALSE(cmd.config.collectCpu);
 
     argv = {
         "msmemscope",
@@ -994,5 +996,18 @@ TEST(ClientParser, test_valid_device_case)
     optind = 1;
     cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
     ASSERT_FALSE(cmd.config.collectAllNpu);
+    ASSERT_FALSE(cmd.config.collectCpu);
     ASSERT_EQ(cmd.config.npuSlots, 5);
+
+    argv = {
+        "msmemscope",
+        "--device=npu:0,cpu"
+    };
+ 
+    /// Reset getopt states
+    optind = 1;
+    cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_FALSE(cmd.config.collectAllNpu);
+    ASSERT_TRUE(cmd.config.collectCpu);
+    ASSERT_EQ(cmd.config.npuSlots, 1);
 }

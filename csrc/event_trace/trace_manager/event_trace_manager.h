@@ -17,19 +17,22 @@
 #ifndef EVENT_TRACE_MANAGER_H
 #define EVENT_TRACE_MANAGER_H
 
+#include <atomic>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <unordered_map>
-#include <functional>
-#include <atomic>
+
 #include "config_info.h"
-#include "record_info.h"
 #include "event.h"
+#include "record_info.h"
 
-namespace MemScope {
+namespace MemScope
+{
 
-class ConfigManager {
-public:
+class ConfigManager
+{
+   public:
     ConfigManager(const ConfigManager&) = delete;
     ConfigManager& operator=(const ConfigManager&) = delete;
 
@@ -39,37 +42,36 @@ public:
         return instance;
     }
 
-    Config GetConfig();
+    const Config& GetConfig();
     void InitConfig();
     void InitStartConfig();
-    bool SetConfig(const std::unordered_map<std::string, std::string> &config);
-    void SetConfig(const Config &config);
+    bool SetConfig(const std::unordered_map<std::string, std::string>& config);
+    void SetConfig(const Config& config);
 
-private:
+   private:
     ConfigManager();
 
     ~ConfigManager() = default;
 
-    void SetConfigImpl(const Config &config);
-    void GetConfigAfterInit(Config &config);
+    void SetConfigImpl(const Config& config);
+    void GetConfigAfterInit(Config& config);
 
     std::mutex mutex_;
     Config config_;
     bool firstConfig = true;
 };
 
-inline Config GetConfig()
-{
-    return ConfigManager::Instance().GetConfig();
-}
+inline const Config& GetConfig() { return ConfigManager::Instance().GetConfig(); }
 
-enum class EventTraceStatus : uint8_t {
+enum class EventTraceStatus : uint8_t
+{
     IN_TRACING = 0,
     NOT_IN_TRACING,
 };
 
-class EventTraceManager {
-public:
+class EventTraceManager
+{
+   public:
     EventTraceManager(const EventTraceManager&) = delete;
     EventTraceManager& operator=(const EventTraceManager&) = delete;
 
@@ -78,36 +80,34 @@ public:
         static EventTraceManager instance;
         return instance;
     }
-    
+
     bool IsNeedTrace(EventBaseType type);
     bool IsTracingEnabled();
-    void SetTraceStatus(const EventTraceStatus status); // 通过python接口在运行时动态修改
+    void SetTraceStatus(const EventTraceStatus status);  // 通过python接口在运行时动态修改
     void InitJudgeFuncTable();
     void SetAclInitStatus(bool isInit);
     void HandleWithATenCollect();
     void HandleWithDecompose();
     void CleanUpEventTraceManager();
-private:
+
+   private:
     EventTraceManager()
     {
         InitTraceStatus();
         InitJudgeFuncTable();
     }
-    ~EventTraceManager()
-    {
-        destroyed_.store(true);
-    }
+    ~EventTraceManager() { destroyed_.store(true); }
 
-    void InitTraceStatus(); // 命令行拉起时有一个初始化状态
+    void InitTraceStatus();  // 命令行拉起时有一个初始化状态
 
     std::mutex mutex_;
     EventTraceStatus status_ = EventTraceStatus::NOT_IN_TRACING;
 
-    std::atomic<bool> aclInit_{ false };
+    std::atomic<bool> aclInit_{false};
     std::unordered_map<EventBaseType, std::function<bool()>> judgeFuncTable_;
     std::atomic<bool> destroyed_{false};
 };
 
-}
+}  // namespace MemScope
 
 #endif

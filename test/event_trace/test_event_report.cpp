@@ -178,6 +178,48 @@ TEST_F(EventReportTest, ReportHalFreeTest)
     EXPECT_TRUE(instance.ReportHalFree(testAddr, std::move(callStack)));
 }
 
+TEST_F(EventReportTest, ReportHostRegisterTest)
+{
+    EventReport& instance = EventReport::Instance(MemScopeCommType::MEMORY_DEBUG);
+    Config config = MemScope::GetConfig();
+    config.collectAllNpu = true;
+
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
+    config.eventType = eventBit.getValue();
+    config.enableCStack = true;
+    config.enablePyStack = true;
+    config.collectCpu = true;
+    ConfigManager::Instance().SetConfig(config);
+    uint64_t testAddr = 0x12345678;
+    uint64_t testSize = 1024;
+    CallStackString callStack;
+    EXPECT_TRUE(instance.ReportHostRegister(testAddr, testSize, std::move(callStack)));
+}
+
+TEST_F(EventReportTest, ReportHostUnregisterTest)
+{
+    EventReport& instance = EventReport::Instance(MemScopeCommType::MEMORY_DEBUG);
+    Config config = MemScope::GetConfig();
+    config.collectAllNpu = true;
+
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
+    eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
+    config.eventType = eventBit.getValue();
+    config.enableCStack = true;
+    config.enablePyStack = true;
+    config.collectCpu = true;
+    ConfigManager::Instance().SetConfig(config);
+    uint64_t testAddr = 0x12345678;
+    uint64_t testSize = 1024;
+    CallStackString callStack;
+    EXPECT_TRUE(instance.ReportHostUnregister(testAddr, std::move(callStack)));
+}
+
 TEST_F(EventReportTest, ReportMarkTest)
 {
     EventReport& instance = EventReport::Instance(MemScopeCommType::MEMORY_DEBUG);
@@ -343,6 +385,7 @@ TEST_F(EventReportTest, TestReportSkipStepsNormal)
     EventReport& instance = EventReport::Instance(MemScopeCommType::MEMORY_DEBUG);
     Config config = MemScope::GetConfig();
     config.collectAllNpu = true;
+    config.collectCpu = true;
     config.stepList.stepCount = 3;
     config.stepList.stepIdList[0] = 1;
     config.stepList.stepIdList[1] = 2;
@@ -351,21 +394,27 @@ TEST_F(EventReportTest, TestReportSkipStepsNormal)
 
     instance.SetStepInfo(MarkType::RANGE_START_A, "step start", 8);
     EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), false);
+    EXPECT_EQ(instance.IsNeedSkip(DEVICE_ID_CPU), false);
 
     instance.SetStepInfo(MarkType::RANGE_END, "step end", 8);
     EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), true);
+    EXPECT_EQ(instance.IsNeedSkip(DEVICE_ID_CPU), true);
 
     instance.SetStepInfo(MarkType::RANGE_START_A, "step start", 9);
     EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), false);
+    EXPECT_EQ(instance.IsNeedSkip(DEVICE_ID_CPU), false);
 
     instance.SetStepInfo(MarkType::RANGE_END, "step end", 9);
     EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), true);
+    EXPECT_EQ(instance.IsNeedSkip(DEVICE_ID_CPU), true);
 
     instance.SetStepInfo(MarkType::RANGE_START_A, "step start", 10);
     EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), true);
+    EXPECT_EQ(instance.IsNeedSkip(DEVICE_ID_CPU), true);
 
     instance.SetStepInfo(MarkType::RANGE_END, "step end", 10);
     EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), true);
+    EXPECT_EQ(instance.IsNeedSkip(DEVICE_ID_CPU), true);
 
     ResetEventReportStepInfo();
 }
@@ -375,6 +424,7 @@ TEST_F(EventReportTest, TestReportSkipStepsWithNoMstx)
     EventReport& instance = EventReport::Instance(MemScopeCommType::MEMORY_DEBUG);
     Config config = MemScope::GetConfig();
     config.collectAllNpu = true;
+    config.collectCpu = true;
     config.stepList.stepCount = 3;
     config.stepList.stepIdList[0] = 1;
     config.stepList.stepIdList[1] = 2;
@@ -382,6 +432,7 @@ TEST_F(EventReportTest, TestReportSkipStepsWithNoMstx)
     ConfigManager::Instance().SetConfig(config);
 
     EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), true);
+    EXPECT_EQ(instance.IsNeedSkip(DEVICE_ID_CPU), true);
 
     ResetEventReportStepInfo();
 }
@@ -391,6 +442,7 @@ TEST_F(EventReportTest, TestReportSkipStepsWithOtherMessageMstx)
     EventReport& instance = EventReport::Instance(MemScopeCommType::MEMORY_DEBUG);
     Config config = MemScope::GetConfig();
     config.collectAllNpu = true;
+    config.collectCpu = true;
     config.stepList.stepCount = 3;
     config.stepList.stepIdList[0] = 1;
     config.stepList.stepIdList[1] = 2;
@@ -398,6 +450,7 @@ TEST_F(EventReportTest, TestReportSkipStepsWithOtherMessageMstx)
     ConfigManager::Instance().SetConfig(config);
     instance.SetStepInfo(MarkType::RANGE_START_A, "report host memory info start", 8);
     EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), true);
+    EXPECT_EQ(instance.IsNeedSkip(DEVICE_ID_CPU), true);
 
     ResetEventReportStepInfo();
 }
@@ -407,6 +460,7 @@ TEST_F(EventReportTest, TestReportSkipStepsWithMstxEndMismatch)
     EventReport& instance = EventReport::Instance(MemScopeCommType::MEMORY_DEBUG);
     Config config = MemScope::GetConfig();
     config.collectAllNpu = true;
+    config.collectCpu = true;
     config.stepList.stepCount = 3;
     config.stepList.stepIdList[0] = 1;
     config.stepList.stepIdList[1] = 2;
@@ -415,6 +469,10 @@ TEST_F(EventReportTest, TestReportSkipStepsWithMstxEndMismatch)
 
     instance.SetStepInfo(MarkType::RANGE_START_A, "step start", 8);
     EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), false);
+    EXPECT_EQ(instance.IsNeedSkip(DEVICE_ID_CPU), false);
+    config.collectCpu = false;
+    ConfigManager::Instance().SetConfig(config);
+    EXPECT_EQ(instance.IsNeedSkip(DEVICE_ID_CPU), true);
 
     instance.SetStepInfo(MarkType::RANGE_END, "step end", 9);
     EXPECT_EQ(instance.IsNeedSkip(GD_INVALID_NUM), false);

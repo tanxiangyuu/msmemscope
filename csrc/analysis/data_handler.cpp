@@ -15,29 +15,44 @@
  * -------------------------------------------------------------------------
  */
 
-#include <sstream>
-#include "file.h"
-#include "utils.h"
 #include "data_handler.h"
 
-namespace MemScope {
+#include <sstream>
 
-DataHandler::DataHandler(const Config config)
+#include "file.h"
+#include "utils.h"
+
+namespace MemScope
 {
-    config_ = config;
+
+inline std::string DevID2String(int32_t dev)
+{
+    if (dev == GD_INVALID_NUM)
+    {
+        return "N/A";
+    }
+    if (dev == DEVICE_ID_CPU)
+    {
+        return "cpu";
+    }
+    return std::to_string(dev);
 }
 
+DataHandler::DataHandler(const Config config) { config_ = config; }
+
 // csv handler
-CsvHandler::CsvHandler(const Config config, DataType dataType, int32_t devId) : DataHandler(config),
-    dataType_(dataType), devId_(devId)
+CsvHandler::CsvHandler(const Config config, DataType dataType, int32_t devId)
+    : DataHandler(config), dataType_(dataType), devId_(devId)
 {
     InitSetParm();
 }
 
 void CsvHandler::InitSetParm()
 {
-    switch (dataType_) {
-        case DataType::MEMORY_EVENT: {
+    switch (dataType_)
+    {
+        case DataType::MEMORY_EVENT:
+        {
             prefix_ = CSV_FILE_PREFIX;
             csvHeader_ = MEMSCOPE_HEADERS;
             break;
@@ -50,40 +65,48 @@ void CsvHandler::InitSetParm()
             LOG_ERROR("Unsupported data type : %d\n", static_cast<int>(dataType_));
             break;
     }
-    if(!Init()){
+    if (!Init())
+    {
         LOG_ERROR("Create csv file failed.");
     }
 }
 
 bool CsvHandler::Init()
 {
-    return Utility::FileCreateManager::GetInstance(config_.outputDir).CreateCsvFile(&file_, devId_, prefix_,
-        DUMP_DIR, csvHeader_);
+    return Utility::FileCreateManager::GetInstance(config_.outputDir)
+        .CreateCsvFile(&file_, devId_, prefix_, DUMP_DIR, csvHeader_);
 }
 
 bool CsvHandler::Write(std::shared_ptr<DataBase> data)
 {
-    if (!data) {
+    if (!data)
+    {
         LOG_ERROR("Null data pointer");
         return false;
     }
 
-    if (!file_) {
+    if (!file_)
+    {
         LOG_ERROR("Create csv file failed.");
         return false;
     }
 
-    switch (data->GetDataType()) {
-        case DataType::MEMORY_EVENT: {
+    switch (data->GetDataType())
+    {
+        case DataType::MEMORY_EVENT:
+        {
             auto event = std::dynamic_pointer_cast<EventBase>(data);
-            if (event) {
+            if (event)
+            {
                 return WriteDumpRecord(event);
             }
             break;
         }
-        case DataType::PYTHON_TRACE_EVENT: {
+        case DataType::PYTHON_TRACE_EVENT:
+        {
             auto event = std::dynamic_pointer_cast<TraceEvent>(data);
-            if (event) {
+            if (event)
+            {
                 return WriteTraceEvent(event);
             }
             break;
@@ -101,24 +124,30 @@ bool CsvHandler::WriteDumpRecord(std::shared_ptr<EventBase>& event)
     std::string pid = event->pid == INVALID_PROCESSID ? "N/A" : std::to_string(event->pid);
     std::string tid = event->tid == INVALID_THREADID ? "N/A" : std::to_string(event->tid);
     std::string eventType = EVENT_BASE_TYPE_MAP.find(event->eventType) == EVENT_BASE_TYPE_MAP.end()
-        ? "N/A" : EVENT_BASE_TYPE_MAP.at(event->eventType);
+                                ? "N/A"
+                                : EVENT_BASE_TYPE_MAP.at(event->eventType);
     std::string eventSubType = EVENT_SUB_TYPE_MAP.find(event->eventSubType) == EVENT_SUB_TYPE_MAP.end()
-        ? "N/A" : EVENT_SUB_TYPE_MAP.at(event->eventSubType);
-    std::string addr = (event->eventType == EventBaseType::MALLOC
-        || event->eventType == EventBaseType::FREE
-        || event->eventType == EventBaseType::ACCESS) ? Uint64ToHexString(event->addr) : "N/A";
-    std::string devId = event->device == GD_INVALID_NUM ? "N/A" : std::to_string(event->device);
-    if (event->eventType == EventBaseType::MSTX) {
+                                   ? "N/A"
+                                   : EVENT_SUB_TYPE_MAP.at(event->eventSubType);
+    std::string addr = (event->eventType == EventBaseType::MALLOC || event->eventType == EventBaseType::FREE ||
+                        event->eventType == EventBaseType::ACCESS)
+                           ? Uint64ToHexString(event->addr)
+                           : "N/A";
+    std::string devId = DevID2String(event->device);
+    if (event->eventType == EventBaseType::MSTX)
+    {
         event->name = "\"" + event->name + "\"";
     }
-    if (!Utility::Fprintf(file_, "%lu,%s,%s,%s,%lu,%s,%s,%s,%s,%s,%s,%s",
-        event->id, eventType.c_str(), eventSubType.c_str(), event->name.c_str(), event->timestamp,
-        pid.c_str(), tid.c_str(), devId.c_str(), addr.c_str(), event->attr.c_str(),
-        event->pyCallStack.c_str(), event->cCallStack.c_str())) {
+    if (!Utility::Fprintf(file_, "%lu,%s,%s,%s,%lu,%s,%s,%s,%s,%s,%s,%s", event->id, eventType.c_str(),
+                          eventSubType.c_str(), event->name.c_str(), event->timestamp, pid.c_str(), tid.c_str(),
+                          devId.c_str(), addr.c_str(), event->attr.c_str(), event->pyCallStack.c_str(),
+                          event->cCallStack.c_str()))
+    {
         return false;
     }
 
-    if (!Utility::Fprintf(file_, "\n")) {
+    if (!Utility::Fprintf(file_, "\n"))
+    {
         return false;
     }
     return true;
@@ -129,8 +158,9 @@ bool CsvHandler::WriteTraceEvent(std::shared_ptr<TraceEvent>& event)
     std::lock_guard<std::mutex> lock(traceFileMutex_);
     std::string startTime = event->startTs ? std::to_string(event->startTs) : "N/A";
     std::string endTime = event->endTs ? std::to_string(event->endTs) : "N/A";
-    if (!Utility::Fprintf(file_, "%s,%s,%s,%lu,%lu\n", event->info.c_str(), startTime.c_str(),
-        endTime.c_str(), event->tid, event->pid)) {
+    if (!Utility::Fprintf(file_, "%s,%s,%s,%lu,%lu\n", event->info.c_str(), startTime.c_str(), endTime.c_str(),
+                          event->tid, event->pid))
+    {
         return false;
     }
     return true;
@@ -138,7 +168,8 @@ bool CsvHandler::WriteTraceEvent(std::shared_ptr<TraceEvent>& event)
 
 void CsvHandler::FflushFile()
 {
-    if (file_ != nullptr) {
+    if (file_ != nullptr)
+    {
         fflush(file_);
     }
 }
@@ -146,22 +177,25 @@ void CsvHandler::FflushFile()
 CsvHandler::~CsvHandler()
 {
     FflushFile();
-    if (file_ != nullptr) {
+    if (file_ != nullptr)
+    {
         std::fclose(file_);
         file_ = nullptr;
     }
 }
 
-DbHandler::DbHandler(const Config config, DataType dataType, int32_t devId) : DataHandler(config),
-    dataType_(dataType), devId_(devId)
+DbHandler::DbHandler(const Config config, DataType dataType, int32_t devId)
+    : DataHandler(config), dataType_(dataType), devId_(devId)
 {
     InitSetParm();
 }
 
 void DbHandler::InitSetParm()
 {
-    switch (dataType_) {
-        case DataType::MEMORY_EVENT: {
+    switch (dataType_)
+    {
+        case DataType::MEMORY_EVENT:
+        {
             std::vector<std::pair<std::string, std::string>> schema = DUMP_RECORD_TABLE_SQL;
             eventColumns_ = ParserHeader(DUMP_RECORD_TABLE_SQL);
 
@@ -172,29 +206,34 @@ void DbHandler::InitSetParm()
 
             tableName_ = DUMP_RECORD_TABLE;
             dbHeader_ = BuildCreateStatement(tableName_, schema);
-            if (!Init()) {
+            if (!Init())
+            {
                 LOG_ERROR("Sqlite create error: %s", sqlite3_errmsg(dataFileDb_));
                 break;
             }
             std::string insertSql = BuildInsertStatement(tableName_, eventColumns_);
             int resultCount1 = sqlite3_prepare_v2(dataFileDb_, insertSql.c_str(), -1, &insertEventStmt_, nullptr);
-            if (resultCount1 != SQLITE_OK) {
+            if (resultCount1 != SQLITE_OK)
+            {
                 LOG_ERROR("Sqlite prepare error: %s", sqlite3_errmsg(dataFileDb_));
                 insertEventStmt_ = nullptr;
             }
             break;
         }
-        case DataType::PYTHON_TRACE_EVENT: {
+        case DataType::PYTHON_TRACE_EVENT:
+        {
             tableName_ = PYTHON_TRACE_TABLE + std::to_string(Utility::GetPid());
             dbHeader_ = BuildCreateStatement(tableName_, PYTHON_TRACE_TABLE_SQL);
             traceColumns_ = ParserHeader(PYTHON_TRACE_TABLE_SQL);
-            if (!Init()) {
+            if (!Init())
+            {
                 LOG_ERROR("Sqlite create error: %s", sqlite3_errmsg(dataFileDb_));
                 break;
             }
             std::string insertSql = BuildInsertStatement(tableName_, traceColumns_);
             int resultCount2 = sqlite3_prepare_v2(dataFileDb_, insertSql.c_str(), -1, &insertTraceStmt_, nullptr);
-            if (resultCount2 != SQLITE_OK) {
+            if (resultCount2 != SQLITE_OK)
+            {
                 LOG_ERROR("Sqlite prepare error: %s", sqlite3_errmsg(dataFileDb_));
                 insertTraceStmt_ = nullptr;
             }
@@ -208,33 +247,40 @@ void DbHandler::InitSetParm()
 
 bool DbHandler::Init()
 {
-    return Utility::FileCreateManager::GetInstance(config_.outputDir).CreateDbFile(&dataFileDb_, devId_,
-        CSV_FILE_PREFIX, DUMP_DIR, tableName_, dbHeader_);
+    return Utility::FileCreateManager::GetInstance(config_.outputDir)
+        .CreateDbFile(&dataFileDb_, devId_, CSV_FILE_PREFIX, DUMP_DIR, tableName_, dbHeader_);
 }
 
 bool DbHandler::Write(std::shared_ptr<DataBase> data)
 {
-    if (!data) {
+    if (!data)
+    {
         LOG_ERROR("Null data pointer");
         return false;
     }
 
-    if (!dataFileDb_) {
+    if (!dataFileDb_)
+    {
         LOG_ERROR("Create db file failed.");
         return false;
     }
 
-    switch (data->GetDataType()) {
-        case DataType::MEMORY_EVENT: {
+    switch (data->GetDataType())
+    {
+        case DataType::MEMORY_EVENT:
+        {
             auto event = std::dynamic_pointer_cast<EventBase>(data);
-            if (event) {
+            if (event)
+            {
                 return WriteDumpRecord(event);
             }
             break;
         }
-        case DataType::PYTHON_TRACE_EVENT: {
+        case DataType::PYTHON_TRACE_EVENT:
+        {
             auto event = std::dynamic_pointer_cast<TraceEvent>(data);
-            if (event) {
+            if (event)
+            {
                 return WriteTraceEvent(event, tableName_);
             }
             break;
@@ -250,20 +296,25 @@ bool DbHandler::WriteDumpRecord(std::shared_ptr<EventBase>& event)
 {
     std::lock_guard<std::mutex> lock(dumpFileMutex_);
     std::string eventType = EVENT_BASE_TYPE_MAP.find(event->eventType) == EVENT_BASE_TYPE_MAP.end()
-        ? "N/A" : EVENT_BASE_TYPE_MAP.at(event->eventType);
+                                ? "N/A"
+                                : EVENT_BASE_TYPE_MAP.at(event->eventType);
     std::string eventSubType = EVENT_SUB_TYPE_MAP.find(event->eventSubType) == EVENT_SUB_TYPE_MAP.end()
-        ? "N/A" : EVENT_SUB_TYPE_MAP.at(event->eventSubType);
-    std::string addr = (event->eventType == EventBaseType::MALLOC
-        || event->eventType == EventBaseType::FREE
-        || event->eventType == EventBaseType::ACCESS) ? Uint64ToHexString(event->addr) : "N/A";
+                                   ? "N/A"
+                                   : EVENT_SUB_TYPE_MAP.at(event->eventSubType);
+    std::string addr = (event->eventType == EventBaseType::MALLOC || event->eventType == EventBaseType::FREE ||
+                        event->eventType == EventBaseType::ACCESS)
+                           ? Uint64ToHexString(event->addr)
+                           : "N/A";
     std::string attrJson = FixJson(event->attr);
-    std::string devId = event->device == GD_INVALID_NUM ? "N/A" : std::to_string(event->device);
+    std::string devId = DevID2String(event->device);
     int paramIndex = 1;
-    if (!insertEventStmt_) {
+    if (!insertEventStmt_)
+    {
         LOG_ERROR("Sqlite prepare failed.");
         return false;
     }
-    if (event->eventType == EventBaseType::MSTX) {
+    if (event->eventType == EventBaseType::MSTX)
+    {
         event->name = "\"" + event->name + "\"";
     }
     sqlite3_bind_int64(insertEventStmt_, paramIndex++, event->id);
@@ -280,7 +331,8 @@ bool DbHandler::WriteDumpRecord(std::shared_ptr<EventBase>& event)
     sqlite3_bind_text(insertEventStmt_, paramIndex++, event->cCallStack.c_str(), -1, SQLITE_STATIC);
     sqlite3_busy_timeout(dataFileDb_, SQLITE_TIME_OUT);
     int rc = sqlite3_step(insertEventStmt_);
-    if (rc != SQLITE_DONE) {
+    if (rc != SQLITE_DONE)
+    {
         LOG_ERROR("Sqlite insert error in memscope dump: %s  %d", sqlite3_errmsg(dataFileDb_), getpid());
         sqlite3_reset(insertEventStmt_);
         return false;
@@ -289,10 +341,11 @@ bool DbHandler::WriteDumpRecord(std::shared_ptr<EventBase>& event)
     return true;
 }
 
-bool DbHandler::WriteTraceEvent(std::shared_ptr<TraceEvent>& event, const std::string &tableName)
+bool DbHandler::WriteTraceEvent(std::shared_ptr<TraceEvent>& event, const std::string& tableName)
 {
     std::lock_guard<std::mutex> lock(dumpFileMutex_);
-    if (!insertTraceStmt_) {
+    if (!insertTraceStmt_)
+    {
         LOG_ERROR("Sqlite prepare failed.");
         return false;
     }
@@ -307,7 +360,8 @@ bool DbHandler::WriteTraceEvent(std::shared_ptr<TraceEvent>& event, const std::s
 
     sqlite3_busy_timeout(dataFileDb_, SQLITE_TIME_OUT);
     int rc = sqlite3_step(insertTraceStmt_);
-    if (rc != SQLITE_DONE) {
+    if (rc != SQLITE_DONE)
+    {
         LOG_ERROR("Sqlite insert error in python trace: %s", sqlite3_errmsg(dataFileDb_));
         sqlite3_reset(insertTraceStmt_);
         return false;
@@ -318,7 +372,8 @@ bool DbHandler::WriteTraceEvent(std::shared_ptr<TraceEvent>& event, const std::s
 
 void DbHandler::FflushFile()
 {
-    if (dataFileDb_ != nullptr) {
+    if (dataFileDb_ != nullptr)
+    {
         sqlite3_exec(dataFileDb_, "PRAGMA wal_checkpoint(FULL);", nullptr, nullptr, nullptr);
         // 提交任何未完成的事务
         sqlite3_exec(dataFileDb_, "COMMIT;", nullptr, nullptr, nullptr);
@@ -328,17 +383,21 @@ void DbHandler::FflushFile()
 DbHandler::~DbHandler()
 {
     FflushFile();
-    if (dataFileDb_ != nullptr) {
-        if (insertEventStmt_ != nullptr) {
+    if (dataFileDb_ != nullptr)
+    {
+        if (insertEventStmt_ != nullptr)
+        {
             sqlite3_finalize(insertEventStmt_);
             insertEventStmt_ = nullptr;
         }
-        if (insertTraceStmt_ != nullptr) {
+        if (insertTraceStmt_ != nullptr)
+        {
             sqlite3_finalize(insertTraceStmt_);
             insertTraceStmt_ = nullptr;
         }
         int rc = sqlite3_close(dataFileDb_);
-        if (rc != SQLITE_OK) {
+        if (rc != SQLITE_OK)
+        {
             LOG_ERROR("Sqlite close error: %s", sqlite3_errmsg(dataFileDb_));
         }
         dataFileDb_ = nullptr;
@@ -349,12 +408,14 @@ std::string BuildInsertStatement(const std::string& table, const std::vector<std
 {
     std::ostringstream oss;
     oss << "INSERT INTO " << table << " (";
-    for (size_t i = 0; i < columns.size(); ++i) {
+    for (size_t i = 0; i < columns.size(); ++i)
+    {
         if (i > 0) oss << ",";
         oss << "\"" << columns[i] << "\"";
     }
     oss << ") VALUES (";
-    for (size_t i = 0; i < columns.size(); ++i) {
+    for (size_t i = 0; i < columns.size(); ++i)
+    {
         if (i > 0) oss << ",";
         oss << "?";
     }
@@ -363,12 +424,13 @@ std::string BuildInsertStatement(const std::string& table, const std::vector<std
 }
 
 std::string BuildCreateStatement(const std::string& table,
-    const std::vector<std::pair<std::string, std::string>>& columns)
+                                 const std::vector<std::pair<std::string, std::string>>& columns)
 {
     std::ostringstream oss;
     oss << "CREATE TABLE IF NOT EXISTS " << table << " (";
 
-    for (size_t i = 0; i < columns.size(); ++i) {
+    for (size_t i = 0; i < columns.size(); ++i)
+    {
         if (i > 0) oss << ", ";
         oss << "\"" << columns[i].first << "\" " << columns[i].second;
     }
@@ -379,7 +441,8 @@ std::string BuildCreateStatement(const std::string& table,
 
 std::unique_ptr<DataHandler> MakeDataHandler(Config config, DataType data, int32_t devId)
 {
-    switch (config.dataFormat) {
+    switch (config.dataFormat)
+    {
         case static_cast<uint8_t>(DataFormat::CSV):
             return std::unique_ptr<DataHandler>(new CsvHandler(config, data, devId));
             break;
@@ -397,23 +460,29 @@ std::string FixJson(const std::string& input)
 {
     std::string str = input;
     uint32_t minSize = 4;
-    if (str.size() >= minSize) {
+    if (str.size() >= minSize)
+    {
         str = str.substr(2, str.length() - minSize);
     }
     size_t pos = 0;
     std::vector<std::string> parts;
 
-    while (pos < str.length()) {
+    while (pos < str.length())
+    {
         size_t colonPos = str.find(':', pos);
-        if (colonPos == std::string::npos) {
+        if (colonPos == std::string::npos)
+        {
             parts.push_back(str.substr(pos, str.length() - pos));
             break;
         }
         size_t lastCommaPos = str.rfind(',', colonPos);
-        if (lastCommaPos == std::string::npos || lastCommaPos < pos) {
+        if (lastCommaPos == std::string::npos || lastCommaPos < pos)
+        {
             // 没有找到逗号或者逗号在pos之前
             parts.push_back(str.substr(pos, colonPos - pos));
-        } else {
+        }
+        else
+        {
             parts.push_back(str.substr(pos, lastCommaPos - pos));
             parts.push_back(str.substr(lastCommaPos + 1, colonPos - lastCommaPos - 1));
         }
@@ -423,15 +492,18 @@ std::string FixJson(const std::string& input)
     std::ostringstream oss;
     auto partsNum = parts.size();
     oss << "{";
-    for (size_t i = 0; i < partsNum; i++) {
+    for (size_t i = 0; i < partsNum; i++)
+    {
         oss << "\"" << parts[i] << "\":";
         i++;
-        if (i >= partsNum) {
+        if (i >= partsNum)
+        {
             oss << "\"\"";
             break;
         }
         oss << "\"" << parts[i] << "\"";
-        if (i != partsNum - 1) {
+        if (i != partsNum - 1)
+        {
             oss << ",";
         }
     }
@@ -443,7 +515,8 @@ std::vector<std::string> ParserHeader(const std::vector<std::pair<std::string, s
 {
     std::vector<std::string> result;
     result.reserve(header.size());
-    for (const auto& item : header) {
+    for (const auto& item : header)
+    {
         result.push_back(item.first);
     }
     return result;
@@ -455,4 +528,4 @@ std::string Uint64ToHexString(uint64_t value)
     ss << "0x" << std::hex << std::setw(16) << std::setfill('0') << value;
     return ss.str();
 }
-};
+};  // namespace MemScope

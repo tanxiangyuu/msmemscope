@@ -18,10 +18,12 @@
 #include "json_manager.h"
 
 #include <fstream>
-#include "securec.h"
-#include "client_parser.h"
 
-namespace Utility {
+#include "client_parser.h"
+#include "securec.h"
+
+namespace Utility
+{
 
 JsonManager& JsonManager::GetInstance()
 {
@@ -31,17 +33,24 @@ JsonManager& JsonManager::GetInstance()
 
 bool JsonManager::SaveToFile(const std::string& configOutputDir)
 {
-    if (!FileCreateManager::GetInstance(configOutputDir).CreateConfigFile(&fp_, MemScope::CONFIG_FILE, jsonFilePath_)) {
+    if (!FileCreateManager::GetInstance(configOutputDir).CreateConfigFile(&fp_, MemScope::CONFIG_FILE, jsonFilePath_))
+    {
         return false;
     }
     std::ofstream ofs(jsonFilePath_);
-    if (!ofs.is_open()) {
+    if (!ofs.is_open())
+    {
         std::cout << "[msmemscope] Error: Failed to save json file: " << jsonFilePath_ << std::endl;
         return false;
-    } else {
-        try {
+    }
+    else
+    {
+        try
+        {
             ofs << jsonConfig_.dump(JSON_INDENT);
-        } catch (const std::exception& e) {
+        }
+        catch (const std::exception& e)
+        {
             std::cout << "[msmemscope] Error: Exception during dump: " << e.what() << std::endl;
             ofs.close();
             return false;
@@ -54,10 +63,13 @@ bool JsonManager::SaveToFile(const std::string& configOutputDir)
 bool JsonManager::LoadFromFile(std::string filePath)
 {
     std::ifstream ifs(filePath);
-    if (!ifs.is_open()) {
+    if (!ifs.is_open())
+    {
         std::cout << "[msmemscope] Error: Failed to open json file: " << filePath << std::endl;
         return false;
-    } else {
+    }
+    else
+    {
         ifs >> jsonConfig_;
         ifs.close();
     }
@@ -69,13 +81,16 @@ bool JsonManager::CheckKeyIsValid(const std::string& key, nlohmann::json& curren
     std::vector<std::string> parts;
     Split(key, std::back_inserter(parts), ".");
 
-    if (parts.empty()) {
+    if (parts.empty())
+    {
         std::cout << "[msmemscope] Error: Empty key path provided!" << std::endl;
         return false;
     }
 
-    for (auto& part : parts) {
-        if (!current.contains(part)) {
+    for (auto& part : parts)
+    {
+        if (!current.contains(part))
+        {
             std::cout << "[msmemscope] Error: Key path: " << part << "keyword not exist!" << std::endl;
             return false;
         }
@@ -88,111 +103,136 @@ bool JsonManager::CheckKeyIsValid(const std::string& key, nlohmann::json& curren
 void JsonManager::GetStringValue(const std::string& key, std::string& value)
 {
     nlohmann::json current = jsonConfig_;
-    if (!CheckKeyIsValid(key, current)) {
-        return ;
+    if (!CheckKeyIsValid(key, current))
+    {
+        return;
     }
 
-    try {
+    try
+    {
         value = current.get<std::string>();
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         std::cout << "[msmemscope] Error: Exception while reading nested key " << key << ": " << e.what() << std::endl;
-        return ;
+        return;
     }
 }
 
 void JsonManager::GetCharListValue(const std::string& key, char* buffer, size_t bufferSize)
 {
-    if (!buffer || bufferSize == 0) {
+    if (!buffer || bufferSize == 0)
+    {
         std::cout << "[msmemscope] Error: Invalid buffer or buffer size!" << std::endl;
-        return ;
+        return;
     }
     std::string str;
     GetStringValue(key, str);
-    if (str.empty()) {
+    if (str.empty())
+    {
         buffer[0] = '\0';
-        return ;
+        return;
     }
 
-    if (strncpy_s(buffer, bufferSize, str.c_str(), bufferSize - 1) != EOK) {
+    if (strncpy_s(buffer, bufferSize, str.c_str(), bufferSize - 1) != EOK)
+    {
         std::cout << "[msmemscope] Error: strncpy_s FAILED" << std::endl;
-        return ;
+        return;
     }
 }
 
 void JsonManager::GetUint8Value(const std::string& key, uint8_t& value)
 {
     nlohmann::json current = jsonConfig_;
-    if (!CheckKeyIsValid(key, current)) {
-        return ;
+    if (!CheckKeyIsValid(key, current))
+    {
+        return;
     }
-    
-    try {
+
+    try
+    {
         value = current.get<uint8_t>();
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         std::cout << "[msmemscope] Error: Exception while reading nested key " << key << ": " << e.what() << std::endl;
-        return ;
+        return;
     }
 }
 
 void JsonManager::GetUint32Value(const std::string& key, uint32_t& value)
 {
     nlohmann::json current = jsonConfig_;
-    if (!CheckKeyIsValid(key, current)) {
-        return ;
+    if (!CheckKeyIsValid(key, current))
+    {
+        return;
     }
-    
-    try {
+
+    try
+    {
         value = current.get<uint32_t>();
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         std::cout << "[msmemscope] Error: Exception while reading nested key " << key << ": " << e.what() << std::endl;
-        return ;
+        return;
     }
 }
 
 void JsonManager::GetBoolValue(const std::string& key, bool& value)
 {
     nlohmann::json current = jsonConfig_;
-    if (!CheckKeyIsValid(key, current)) {
-        return ;
+    if (!CheckKeyIsValid(key, current))
+    {
+        return;
     }
-    
-    try {
+
+    try
+    {
         value = current.get<bool>();
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         std::cout << "[msmemscope] Error: Exception while reading nested key " << key << ": " << e.what() << std::endl;
-        return ;
+        return;
     }
 }
 
 void JsonManager::GetVectorIntValue(const std::string& key, std::vector<int>& value)
 {
     nlohmann::json current = jsonConfig_;
-    if (!CheckKeyIsValid(key, current)) {
-        return ;
+    if (!CheckKeyIsValid(key, current))
+    {
+        return;
     }
-    
-    try {
+
+    try
+    {
         value = current.get<std::vector<int>>();
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e)
+    {
         std::cout << "[msmemscope] Error: Exception while reading nested key " << key << ": " << e.what() << std::endl;
-        return ;
+        return;
     }
 }
 
 void JsonManager::GetUint32ListsValue(const std::string& key, uint32_t* lists, size_t length)
 {
-    if (!lists || length == 0) {
+    if (!lists || length == 0)
+    {
         std::cout << "[msmemscope] Error: Invalid lists or lists size!" << std::endl;
-        return ;
+        return;
     }
 
     std::vector<int> valueLists;
     GetVectorIntValue(key, valueLists);
-    if (valueLists.empty()) {
-        return ;
+    if (valueLists.empty())
+    {
+        return;
     }
 
-    std::copy(valueLists.begin(), valueLists.begin()+std::min(length, valueLists.size()), lists);
+    std::copy(valueLists.begin(), valueLists.begin() + std::min(length, valueLists.size()), lists);
 }
 
 JsonConfig& JsonConfig::GetInstance()
@@ -205,26 +245,29 @@ bool JsonConfig::EnsureConfigPathConsistency(const std::string& configOutputDir)
 {
     const char* envPath = std::getenv(MSMEMSCOPE_CONFIG_ENV);
     std::string currentEnvPath = envPath ? std::string(envPath) : "";
- 
+
     // 创建 FileCreateManager 实例并获取实际配置路径
     auto& fileManager = FileCreateManager::GetInstance(configOutputDir);
     std::string actualConfigPath = fileManager.GetProjectDir() + '/' + MemScope::CONFIG_FILE + ".json";
- 
+
     bool needUpdate = false;
-    if (currentEnvPath.empty() || currentEnvPath != actualConfigPath) {
+    if (currentEnvPath.empty() || currentEnvPath != actualConfigPath)
+    {
         needUpdate = true;
     }
- 
-    if (needUpdate) {
-        if (setenv(MSMEMSCOPE_CONFIG_ENV, actualConfigPath.c_str(), 1) != 0) {
+
+    if (needUpdate)
+    {
+        if (setenv(MSMEMSCOPE_CONFIG_ENV, actualConfigPath.c_str(), 1) != 0)
+        {
             std::cout << "[msmemscope] Error: Failed to set MSMEMSCOPE_CONFIG_ENV to " << actualConfigPath << std::endl;
             return false;
         }
     }
- 
+
     return true;
 }
- 
+
 void JsonConfig::SaveConfigToJson(const MemScope::Config& config)
 {
     Utility::JsonManager::GetInstance().SetValue("enableCStack", config.enableCStack);
@@ -239,12 +282,13 @@ void JsonConfig::SaveConfigToJson(const MemScope::Config& config)
     Utility::JsonManager::GetInstance().SetValue("outputDir", config.outputDir);
     Utility::JsonManager::GetInstance().SetValue("dataFormat", config.dataFormat);
     Utility::JsonManager::GetInstance().SetValue("collectAllNpu", config.collectAllNpu);
+    Utility::JsonManager::GetInstance().SetValue("collectCpu", config.collectCpu);
     Utility::JsonManager::GetInstance().SetValue("npuSlots", config.npuSlots);
     Utility::JsonManager::GetInstance().SetValue("logLevel", config.logLevel);
     Utility::JsonManager::GetInstance().SetValue("isEffective", config.isEffective);
 
-    std::vector<uint32_t> stepIdList{config.stepList.stepIdList, config.stepList.stepIdList +
-        MemScope::SELECTED_STEP_MAX_NUM};
+    std::vector<uint32_t> stepIdList{config.stepList.stepIdList,
+                                     config.stepList.stepIdList + MemScope::SELECTED_STEP_MAX_NUM};
     Utility::JsonManager::GetInstance().SetNestedValue("SelectedStepList.stepIdList", stepIdList);
     Utility::JsonManager::GetInstance().SetNestedValue("SelectedStepList.stepCount", config.stepList.stepCount);
     Utility::JsonManager::GetInstance().SetNestedValue("watchConfig.isWatched", config.watchConfig.isWatched);
@@ -252,26 +296,30 @@ void JsonConfig::SaveConfigToJson(const MemScope::Config& config)
     Utility::JsonManager::GetInstance().SetNestedValue("watchConfig.start", config.watchConfig.start);
     Utility::JsonManager::GetInstance().SetNestedValue("watchConfig.end", config.watchConfig.end);
     Utility::JsonManager::GetInstance().SetNestedValue("watchConfig.outputId", config.watchConfig.outputId);
- 
-    if (!EnsureConfigPathConsistency(config.outputDir)) {
+
+    if (!EnsureConfigPathConsistency(config.outputDir))
+    {
         std::cout << "[msmemscope] Error: Failed to ensure config path consistency." << std::endl;
-        return ;
+        return;
     }
 
-    if (!Utility::JsonManager::GetInstance().SaveToFile(config.outputDir)) {
+    if (!Utility::JsonManager::GetInstance().SaveToFile(config.outputDir))
+    {
         std::cout << "[msmemscope] Error: Save Json config to file failed!" << std::endl;
-        return ;
+        return;
     }
 }
 
 bool JsonConfig::ReadJsonConfig(MemScope::Config& config)
 {
     const char* path = std::getenv(MSMEMSCOPE_CONFIG_ENV);
-    if (!path) {
+    if (!path)
+    {
         return false;
     }
 
-    if (!Utility::JsonManager::GetInstance().LoadFromFile(path)) {
+    if (!Utility::JsonManager::GetInstance().LoadFromFile(path))
+    {
         std::cout << "[msmemscope] Error: Failed to load json config file: " << path << std::endl;
         return false;
     }
@@ -289,24 +337,25 @@ bool JsonConfig::ReadJsonConfig(MemScope::Config& config)
     Utility::JsonManager::GetInstance().GetUint32Value("npuSlots", config.npuSlots);
 
     Utility::JsonManager::GetInstance().GetBoolValue("collectAllNpu", config.collectAllNpu);
+    Utility::JsonManager::GetInstance().GetBoolValue("collectCpu", config.collectCpu);
     Utility::JsonManager::GetInstance().GetBoolValue("enableCStack", config.enableCStack);
     Utility::JsonManager::GetInstance().GetBoolValue("enablePyStack", config.enablePyStack);
     Utility::JsonManager::GetInstance().GetBoolValue("enableCompare", config.enableCompare);
     Utility::JsonManager::GetInstance().GetBoolValue("isEffective", config.isEffective);
 
     Utility::JsonManager::GetInstance().GetUint32ListsValue("SelectedStepList.stepIdList", config.stepList.stepIdList,
-        sizeof(config.stepList.stepIdList));
+                                                            sizeof(config.stepList.stepIdList));
     Utility::JsonManager::GetInstance().GetUint8Value("SelectedStepList.stepCount", config.stepList.stepCount);
 
     Utility::JsonManager::GetInstance().GetBoolValue("watchConfig.isWatched", config.watchConfig.isWatched);
     Utility::JsonManager::GetInstance().GetBoolValue("watchConfig.fullContent", config.watchConfig.fullContent);
     Utility::JsonManager::GetInstance().GetUint32Value("watchConfig.outputId", config.watchConfig.outputId);
     Utility::JsonManager::GetInstance().GetCharListValue("watchConfig.start", config.watchConfig.start,
-        sizeof(config.watchConfig.start));
+                                                         sizeof(config.watchConfig.start));
     Utility::JsonManager::GetInstance().GetCharListValue("watchConfig.end", config.watchConfig.end,
-        sizeof(config.watchConfig.end));
+                                                         sizeof(config.watchConfig.end));
 
     return true;
 }
 
-}
+}  // namespace Utility

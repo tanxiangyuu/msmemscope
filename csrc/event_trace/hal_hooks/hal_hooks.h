@@ -22,11 +22,14 @@
 #include "event_report.h"
 
 /// Interfaces to be hooked use C ABI
-extern "C" {
-drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long flag);
-drvError_t halMemFree(void *pp);
-drvError_t halMemCreate(drv_mem_handle_t **handle, size_t size, const struct drv_mem_prop *prop, uint64_t flag);
-drvError_t halMemRelease(drv_mem_handle_t *handle);
+extern "C"
+{
+    drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long flag);
+    drvError_t halMemFree(void *pp);
+    drvError_t halMemCreate(drv_mem_handle_t **handle, size_t size, const struct drv_mem_prop *prop, uint64_t flag);
+    drvError_t halMemRelease(drv_mem_handle_t *handle);
+    aclError aclrtHostRegisterV2(void *ptr, uint64_t size, uint32_t flag);
+    aclError aclrtHostUnregister(void *ptr);
 }  // extern "C"
 
 #endif
