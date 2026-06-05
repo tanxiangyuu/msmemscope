@@ -133,7 +133,7 @@ msmemscope environment setup completed
 ## 3. 卸载
 
 > [!NOTE]
-> 
+>
 > 如果您在使用**内存采集功能**时按照《[**内存采集**](./memory_profile.md#使用示例)》文档中的介绍已设置`LD_PRELOAD`环境变量，为避免卸载失败，在卸载前需要执行命令：`unset LD_PRELOAD` 重置环境变量。
 
 可通过如下步骤卸载：
@@ -178,7 +178,7 @@ msmemscope environment setup completed
 详细参数请参见[表1](#cli-args-table)。
 
   > [!NOTE]
-  > 
+  >
   > 如果通过./mindstudio-memscope_\<version>_linux-{arch}.run --help命令查询出的参数没有在如下表格中解释，则说明该参数为预留参数或适用于其他产品类型，用户无需关注。
 
 **表 1**  参数说明
