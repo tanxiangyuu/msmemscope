@@ -22,7 +22,7 @@
 
 #### 2.3.1 安装依赖
 
-安装前需确保Git、Python等环境可用，请满足[版本依赖](./development_guide/development_guide.md#1-开发环境配置)限制，若不满足可执行以下命令安装。
+安装前需确保Git、Python等环境可用，请满足[版本依赖](../development_guide/development_guide.md#1-开发环境配置)限制，若不满足可执行以下命令安装。
 
 Debian系列：
 

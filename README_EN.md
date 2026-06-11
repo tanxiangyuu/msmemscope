@@ -74,11 +74,11 @@ msMemScope supports memory collection of CANN, Ascend Extension for PyTorch, Min
 
 ## 🛠️ Environment Setup
 
-msMemScope can be installed using either the software package or source code. Select an appropriate installation method based on your requirements. For details, see [msMemScope Installation Guide](./docs/en/install_guide.md).
+msMemScope can be installed using either the software package or source code. Select an appropriate installation method based on your requirements. For details, see [msMemScope Installation Guide](./docs/en/install_guide/install_guide.md).
 
 ## 🚀 Quick Start
 
-This section helps you quickly get started with msMemScope. For details, see [msMemScope Quick Start](./docs/en/quick_start.md).
+This section helps you quickly get started with msMemScope. For details, see [msMemScope Quick Start](./docs/en/quick_start/quick_start.md).
 
 ## 📖 Features
 
@@ -112,7 +112,7 @@ msMemScope provides memory collection and analysis functions.
     <!--Memory analysis-->
     <tr>
       <td rowspan="5">
-        <a href="./docs/en/memory_analysis.md">Memory Analysis</a>
+        <a href="./docs/en/user_guide/memory_analysis.md">Memory Analysis</a>
       </td>
       <td rowspan="5">
         msMemScope provides analysis capabilities such as leak detection, comparison, monitoring, decomposition, and identification of inefficient memory based on the collected memory data, helping you quickly diagnose and optimize memory problems.
@@ -141,7 +141,7 @@ msMemScope provides memory collection and analysis functions.
 
 ## 📚 API Reference
 
-msMemScope provides APIs to quickly analyze memory usage. For details, see [API Reference](./docs/en/api.md).
+msMemScope provides APIs to quickly analyze memory usage. For details, see [API Reference](./docs/en/api_reference/api.md).
 
 ## 📝 References
 
