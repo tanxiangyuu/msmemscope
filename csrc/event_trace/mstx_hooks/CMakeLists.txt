@@ -1,4 +1,4 @@
-add_library(ascend_mstx_hook SHARED mstx_manager.cpp mstx_inject.cpp aten_manager.cpp)
+add_library(ascend_mstx_hook SHARED mstx_manager.cpp mstx_inject.cpp aten_manager.cpp op_handler.cpp)
 
 target_include_directories(ascend_mstx_hook PUBLIC
   ${FRAMEWORK_INC_DIR}

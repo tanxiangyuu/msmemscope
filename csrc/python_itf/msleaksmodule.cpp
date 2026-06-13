@@ -28,6 +28,7 @@
 #include "event_report.h"
 #include "oom_handler.h"
 #include "trace_manager/event_trace_manager.h"
+#include "mstx_hooks/op_handler.h"
 #include "call_stack.h"
 
 namespace MemScope {
@@ -173,12 +174,24 @@ static PyObject* MsmemscopeTakeSnapshot(PyObject* self, PyObject* args)
     Py_RETURN_NONE;
 }
 
+PyDoc_STRVAR(EnableNpuSanitizerDoc,
+"_enable_npu_sanitizer()\n--\n\nEnable the NPU Sanitizer op handler flag.\n"
+"This is called internally by msmemscope.enable_npu_sanitizer() to notify the C++ layer\n"
+"that the sanitizer is active and sanitizer-op MSTX marks should be processed.");
+static PyObject* MsmemscopeEnableNpuSanitizer(PyObject* self, PyObject* args)
+{
+    SanitizerOpHandler::SetEnabled(true);
+    Py_RETURN_NONE;
+}
+
 static PyMethodDef g_MsmemscopeMethods[] = {
     {"start", reinterpret_cast<PyCFunction>(MsmemscopeStart), METH_NOARGS, StartDoc},
     {"stop", reinterpret_cast<PyCFunction>(MsmemscopeStop), METH_NOARGS, StopDoc},
     {"step", reinterpret_cast<PyCFunction>(MsmemscopeStep), METH_NOARGS, StepDoc},
     {"config", reinterpret_cast<PyCFunction>(MsmemscopeConfig), METH_VARARGS | METH_KEYWORDS, ConfigDoc},
     {"_take_snapshot", reinterpret_cast<PyCFunction>(MsmemscopeTakeSnapshot), METH_VARARGS, TakeSnapshotDoc},
+    {"_enable_npu_sanitizer", reinterpret_cast<PyCFunction>(MsmemscopeEnableNpuSanitizer), METH_NOARGS,
+     EnableNpuSanitizerDoc},
     {nullptr, nullptr, 0, nullptr}
 };
 

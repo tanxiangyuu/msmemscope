@@ -20,6 +20,7 @@ import ctypes
 from ._msmemscope import _watcher
 from ._msmemscope import _tracer
 from ._msmemscope import start, stop, step, config
+from ._msmemscope import _enable_npu_sanitizer
 from .utils import import_with_optional_deps
 
 tracer = _tracer
@@ -61,4 +62,25 @@ def cleanup_framework_hooks():
     """
     cleanup_framework_hooks:清除对应framework的所有默认hook函数钩子
     """
-    return memscope_hijack_manager.cleanup_framework_hooks() 
+    return memscope_hijack_manager.cleanup_framework_hooks()
+
+
+def enable_npu_sanitizer():
+    """
+    通过 msmemscope 联动使能 NPU Sanitizer。
+
+    该接口内部会：
+    1. 调用 torch_npu 原生的 _sanitizer.enable_npu_sanitizer() 使能原生 sanitizer
+    2. 通知 C++ 层 SanitizerOpHandler 进入激活状态，
+       开始识别并处理 sanitizer-op: 前缀的 MSTX 打点消息
+
+    使用方式：
+        import msmemscope
+        msmemscope.enable_npu_sanitizer()
+
+    使能后，开发者在自定义算子调用处通过 mstx.mark("sanitizer-op: ...") 上报的
+    信息将被截获并转换为 kernel launch 事件，送入原生 sanitizer 分析管线。
+    """
+    from torch_npu.npu import _sanitizer
+    _sanitizer.enable_npu_sanitizer()
+    _enable_npu_sanitizer()

@@ -196,6 +196,12 @@ PyObject *PyDict_New(void) __attribute__((weak));
 int PyDict_SetItem(PyObject *op, PyObject *key, PyObject *value) __attribute__((weak));
 int PyDict_DelItem(PyObject *op, PyObject *key) __attribute__((weak));
 PyObject *PyDict_GetItem(PyObject *op, PyObject *key) __attribute__((weak));
+PyObject *PySet_New(PyObject *iterable) __attribute__((weak));
+int PySet_Add(PyObject *set, PyObject *key) __attribute__((weak));
+PyObject *PyObject_CallObject(PyObject *callable, PyObject *args) __attribute__((weak));
+PyObject *PyLong_FromUnsignedLongLong(unsigned long long v) __attribute__((weak));
+PyObject *PyLong_FromLong(long v) __attribute__((weak));
+PyObject *PyUnicode_FromString(const char *u) __attribute__((weak));
 }
 
 namespace Utility {

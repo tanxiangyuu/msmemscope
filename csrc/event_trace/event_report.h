@@ -44,6 +44,7 @@ constexpr char ATEN_MSG[] = "memscope-aten-";
 constexpr char ATEN_BEGIN_MSG[] = "b:";
 constexpr char ATEN_END_MSG[] = "e:";
 constexpr char ACCESS_MSG[] = "ac:";
+constexpr char SANITIZER_OP_MSG[] = "sanitizer-op:";
 
 struct MstxStepInfo
 {

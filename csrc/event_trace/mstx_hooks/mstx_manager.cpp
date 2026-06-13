@@ -23,6 +23,7 @@
 #include "log.h"
 #include "bit_field.h"
 #include "aten_manager.h"
+#include "op_handler.h"
 #include "memory_pool_trace/memory_pool_trace_manager.h"
 #include "memory_pool_trace/atb_memory_pool_trace.h"
 #include "memory_pool_trace/mindspore_memory_pool_trace.h"
@@ -34,6 +35,13 @@ namespace MemScope {
 // 组装普通打点信息
 void MstxManager::ReportMarkA(const char* msg, int32_t streamId, MemScopeCommType type)
 {
+    // 处理sanitizer-op算子上报信息
+    if (msg && strncmp(msg, SANITIZER_OP_MSG, strlen(SANITIZER_OP_MSG)) == 0) {
+        const char* opMsg = msg + strlen(SANITIZER_OP_MSG);
+        SanitizerOpHandler::GetInstance().Handle(opMsg, streamId);
+        return ;
+    }
+
     // 处理aten算子上报信息
     if (msg && strncmp(msg, ATEN_MSG, strlen(ATEN_MSG)) == 0) {
         const char* atenMsg = msg + strlen(ATEN_MSG);
