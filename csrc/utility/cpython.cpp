@@ -58,6 +58,8 @@ PyThreadState *PyThreadState_Swap(PyThreadState *newts) __attribute__((weak));
 void PyEval_SetProfile(Py_tracefunc func, PyObject *arg) __attribute__((weak));
 PyInterpreterState *PyInterpreterState_Get(void) __attribute__((weak));
 PyThreadState *PyThreadState_Get(void) __attribute__((weak));
+void PyErr_SetObject(PyObject* exception, PyObject* value) __attribute__((weak));
+Py_ssize_t PySet_Size(PyObject* anyset) __attribute__((weak));
 }
 
 namespace Utility {
@@ -214,6 +216,8 @@ PythonObject& PythonObject::operator=(const PythonObject &obj)
 PythonObject::PythonObject(const int32_t& input)
     : PythonObject(static_cast<PyObject*>(PythonNumberObject(input))) {};
 PythonObject::PythonObject(const uint32_t& input)
+    : PythonObject(static_cast<PyObject*>(PythonNumberObject(input))) {};
+PythonObject::PythonObject(const uint64_t& input)
     : PythonObject(static_cast<PyObject*>(PythonNumberObject(input))) {};
 PythonObject::PythonObject(const double& input)
     : PythonObject(static_cast<PyObject*>(PythonNumberObject(input))) {};
@@ -707,6 +711,15 @@ PythonNumberObject::PythonNumberObject(const uint32_t& input)
     }
 }
 
+PythonNumberObject::PythonNumberObject(const uint64_t& input)
+{
+    PyObject* o = PyLong_FromUnsignedLongLong(input);
+    SetPtr(o);
+    if (o != nullptr) {
+        Py_DecRef(o);
+    }
+}
+
 PythonNumberObject::PythonNumberObject(const double& input)
 {
     PyObject* o = PyFloat_FromDouble(input);
@@ -870,6 +883,34 @@ PythonDictObject::PythonDictObject(PyObject* o)
         return;
     }
     SetPtr(o);
+}
+
+PythonSetObject::PythonSetObject()
+{
+    PyObject* o = PySet_New(nullptr);
+    SetPtr(o);
+    if (o != nullptr) {
+        Py_DecRef(o);
+    }
+}
+
+PythonSetObject::PythonSetObject(PyObject* o)
+{
+    if (o == nullptr || !PythonObject(o).IsInstance("set")) {
+        return;
+    }
+    SetPtr(o);
+}
+
+size_t PythonSetObject::Size() const
+{
+    if (IsBad()) {
+        return 0;
+    }
+    if (PySet_Size == nullptr) {
+        return 0;
+    }
+    return PySet_Size(ptr);
 }
 
 void MemScopePythonCall(const std::string& module, const std::string& function)

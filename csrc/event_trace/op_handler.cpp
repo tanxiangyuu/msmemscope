@@ -17,6 +17,7 @@
 #include "op_handler.h"
 
 #include <cstring>
+#include <iostream>
 #include <map>
 #include <set>
 
@@ -142,49 +143,66 @@ std::vector<MemoryAccessItem> SanitizerOpHandler::ParseAccessList(const std::str
     return result;
 }
 
-void SanitizerOpHandler::TriggerKernelLaunch(const std::string& name, int32_t streamId,
-                                             const std::vector<MemoryAccessItem>& reads,
-                                             const std::vector<MemoryAccessItem>& writes)
+// ---------------------------------------------------------------------------
+// 静态辅助函数
+// ---------------------------------------------------------------------------
+
+// 获取 _handle_kernel_launch 可调用对象及版本标识
+// 返回 true 表示成功，handleFunc / hasStroge 为输出参数
+static bool GetLaunchHandler(Utility::PythonObject& handleFunc, bool& hasStroge)
 {
-    if (!Utility::IsPyInterpRepeInited())
-    {
-        LOG_ERROR("[SanitizerOpHandler] Python Interpreter initialization FAILED, skip kernel launch");
-        return;
-    }
-
-    Utility::PyInterpGuard stat;
-
-    // 导入 torch_npu.npu._sanitizer 模块
     Utility::PythonObject sanitizerMod = Utility::PythonObject::Import("torch_npu.npu._sanitizer", false);
     if (sanitizerMod.IsBad())
     {
         LOG_ERROR("[SanitizerOpHandler] Failed to import torch_npu.npu._sanitizer");
-        return;
+        return false;
     }
 
-    // 获取 npu_sanitizer.event_handler
+    Utility::PythonObject streamCheckMod = Utility::PythonObject::Import("torch_npu.npu._stream_check", false);
+    if (streamCheckMod.IsBad())
+    {
+        LOG_ERROR("[SanitizerOpHandler] Failed to import torch_npu.npu._stream_check");
+        return false;
+    }
+
+    // 有 NPURecordStreamHandler 类为 v26.1 以上新版本，_handle_kernel_launch 函数增加 storage 参数
+    if (!streamCheckMod.Get("NPURecordStreamHandler").IsBad())
+    {
+        hasStroge = true;
+    }
+
     Utility::PythonObject npuSanitizer = sanitizerMod.Get("npu_sanitizer");
     if (npuSanitizer.IsBad())
     {
         LOG_ERROR("[SanitizerOpHandler] Failed to get npu_sanitizer instance");
-        return;
+        return false;
     }
 
     Utility::PythonObject eventHandler = npuSanitizer.Get("event_handler");
-    if (eventHandler.IsBad() || eventHandler.GetPtr() == Py_None)
+    if (eventHandler.IsBad())
     {
-        LOG_WARN("[SanitizerOpHandler] event_handler not initialized, skip kernel launch for op '%s'", name.c_str());
-        return;
+        LOG_WARN("[SanitizerOpHandler] event_handler not initialized, skip kernel launch");
+        return false;
     }
 
-    Utility::PythonObject handleFunc = eventHandler.Get("_handle_kernel_launch");
+    handleFunc = eventHandler.Get("_handle_kernel_launch");
     if (handleFunc.IsBad())
     {
         LOG_ERROR("[SanitizerOpHandler] Failed to get _handle_kernel_launch method");
-        return;
+        return false;
     }
 
-    // 构建 read / write 的地址集合和 tensor_aliases 字典
+    return true;
+}
+
+// 根据读写内存访问信息构建 Python args 元组
+static Utility::PythonTupleObject BuildLaunchArgs(
+    const std::string& name, uint64_t stream,
+    const std::vector<MemoryAccessItem>& reads,
+    const std::vector<MemoryAccessItem>& writes,
+    bool hasStroge)
+{
+    // 收集地址集合和 tensor_aliases 映射
     std::set<uint64_t> readPtrs;
     std::set<uint64_t> writePtrs;
     std::map<uint64_t, std::vector<std::string>> tensorAliases;
@@ -200,7 +218,7 @@ void SanitizerOpHandler::TriggerKernelLaunch(const std::string& name, int32_t st
         tensorAliases[item.ptr].push_back(std::string(item.alias));
     }
 
-    // read_only = readPtrs - writePtrs (in-place 视为 write)
+    // read_only = read - write（in-place 视为 write）
     std::set<uint64_t> readOnly;
     for (auto p : readPtrs)
     {
@@ -210,92 +228,138 @@ void SanitizerOpHandler::TriggerKernelLaunch(const std::string& name, int32_t st
         }
     }
 
-    // 构建 Python set: read_only
-    PyObject* pyReadOnly = PySet_New(nullptr);
-    if (pyReadOnly == nullptr)
+    // 构建 Python 对象
+    Utility::PythonSetObject pyReadOnly(readOnly);
+    if (pyReadOnly.IsBad())
     {
         LOG_ERROR("[SanitizerOpHandler] Failed to create read_only set");
-        return;
-    }
-    for (auto p : readOnly)
-    {
-        PyObject* pyVal = PyLong_FromUnsignedLongLong(p);
-        PySet_Add(pyReadOnly, pyVal);
-        Py_DecRef(pyVal);
+        return Utility::PythonTupleObject();
     }
 
-    // 构建 Python set: read_write
-    PyObject* pyReadWrite = PySet_New(nullptr);
-    if (pyReadWrite == nullptr)
+    Utility::PythonSetObject pyReadWrite(writePtrs);
+    if (pyReadWrite.IsBad())
     {
-        Py_DecRef(pyReadOnly);
         LOG_ERROR("[SanitizerOpHandler] Failed to create read_write set");
-        return;
-    }
-    for (auto p : writePtrs)
-    {
-        PyObject* pyVal = PyLong_FromUnsignedLongLong(p);
-        PySet_Add(pyReadWrite, pyVal);
-        Py_DecRef(pyVal);
+        return Utility::PythonTupleObject();
     }
 
-    // outputs 和 storage_dataptrs_accessed 传空集合
-    PyObject* pyOutputs = PySet_New(nullptr);
-    PyObject* pyStorageDataptrs = PySet_New(nullptr);
+    Utility::PythonSetObject pyOutputs;
+    Utility::PythonSetObject pyStorageDataptrs;
 
-    // 构建 tensor_aliases: {ptr: [alias, ...]}
-    PyObject* pyTensorAliases = PyDict_New();
+    Utility::PythonDictObject pyTensorAliases;
     for (const auto& kv : tensorAliases)
     {
-        PyObject* pyAliases = PyList_New(kv.second.size());
-        for (size_t i = 0; i < kv.second.size(); ++i)
-        {
-            PyList_SetItem(pyAliases, i, PyUnicode_FromString(kv.second[i].c_str()));
-        }
-        PyObject* pyKey = PyLong_FromUnsignedLongLong(kv.first);
-        PyDict_SetItem(pyTensorAliases, pyKey, pyAliases);
-        Py_DecRef(pyKey);
-        Py_DecRef(pyAliases);
+        Utility::PythonListObject pyAliases(kv.second);
+        pyTensorAliases.Add(kv.first, pyAliases);
     }
 
-    // 组装 args 元组: (stream, read_only, read_write, outputs, operator, tensor_aliases,
-    //                    storage_dataptrs_accessed)
-    PyObject* args = PyTuple_New(7);
-    if (args == nullptr)
+    // 组装 args 元组: (stream, read_only, read_write, outputs, operator,
+    //                    tensor_aliases, storage_dataptrs_accessed)
+    std::vector<Utility::PythonObject> argsVec;
+    argsVec.push_back(Utility::PythonObject(stream));
+    argsVec.push_back(pyReadOnly);
+    argsVec.push_back(pyReadWrite);
+    argsVec.push_back(pyOutputs);
+    argsVec.push_back(Utility::PythonObject(name));
+    argsVec.push_back(pyTensorAliases);
+    if (hasStroge) {
+        argsVec.push_back(pyStorageDataptrs);
+    }
+
+    Utility::PythonTupleObject args(argsVec);
+    if (args.IsBad())
     {
-        Py_DecRef(pyReadOnly);
-        Py_DecRef(pyReadWrite);
-        Py_DecRef(pyOutputs);
-        Py_DecRef(pyStorageDataptrs);
-        Py_DecRef(pyTensorAliases);
         LOG_ERROR("[SanitizerOpHandler] Failed to create args tuple");
+    }
+    return args;
+}
+
+// 处理 _handle_kernel_launch 返回的错误列表：打印到 stderr 并抛出 CUDASanitizerErrors
+static void HandleLaunchErrors(const Utility::PythonObject& result)
+{
+    if (!result.IsInstance("list"))
+    {
+        return;
+    }
+    Utility::PythonListObject resultList(static_cast<PyObject*>(result));
+    if (resultList.Size() == 0)
+    {
         return;
     }
 
-    PyTuple_SetItem(args, 0, PyLong_FromLong(streamId));
-    PyTuple_SetItem(args, 1, pyReadOnly);
-    PyTuple_SetItem(args, 2, pyReadWrite);
-    PyTuple_SetItem(args, 3, pyOutputs);
-    PyTuple_SetItem(args, 4, PyUnicode_FromString(name.c_str()));
-    PyTuple_SetItem(args, 5, pyTensorAliases);
-    PyTuple_SetItem(args, 6, pyStorageDataptrs);
-
-    // 调用 _handle_kernel_launch
-    PyObject* result = PyObject_CallObject(handleFunc, args);
-    if (result == nullptr)
+    // 打印每个错误到 stderr
+    for (size_t i = 0; i < resultList.Size(); ++i)
     {
-        PyErr_Clear();
-        LOG_WARN("[SanitizerOpHandler] _handle_kernel_launch call failed for op '%s'", name.c_str());
-    }
-    else
-    {
-        Py_DecRef(result);
+        std::cerr << resultList.GetItem<std::string>(i) << std::endl;
     }
 
-    Py_DecRef(args);
+    // 导入异常类
+    Utility::PythonObject cudaSanitizerMod = Utility::PythonObject::Import("torch.cuda._sanitizer", false);
+    if (cudaSanitizerMod.IsBad())
+    {
+        LOG_ERROR("[SanitizerOpHandler] Failed to import torch.cuda._sanitizer for CUDASanitizerErrors");
+        return;
+    }
+    Utility::PythonObject cudaErrorsClass = cudaSanitizerMod.Get("CUDASanitizerErrors");
+    if (cudaErrorsClass.IsBad())
+    {
+        LOG_ERROR("[SanitizerOpHandler] Failed to get CUDASanitizerErrors class");
+        return;
+    }
+
+    // raise CUDASanitizerErrors(result)
+    Utility::PythonTupleObject errorArgs(std::vector<Utility::PythonObject>{result});
+    Utility::PythonObject errorInstance = cudaErrorsClass.Call(errorArgs);
+    if (!errorInstance.IsBad())
+    {
+        PyErr_SetObject(static_cast<PyObject*>(cudaErrorsClass), static_cast<PyObject*>(errorInstance));
+    }
 }
 
-void SanitizerOpHandler::Handle(const char* msg, int32_t streamId)
+// ---------------------------------------------------------------------------
+// TriggerKernelLaunch
+// ---------------------------------------------------------------------------
+
+void SanitizerOpHandler::TriggerKernelLaunch(const std::string& name, uint64_t stream,
+                                             const std::vector<MemoryAccessItem>& reads,
+                                             const std::vector<MemoryAccessItem>& writes)
+{
+    if (!Utility::IsPyInterpRepeInited())
+    {
+        LOG_ERROR("[SanitizerOpHandler] Python Interpreter initialization FAILED, skip kernel launch");
+        return;
+    }
+
+    Utility::PyInterpGuard stat;
+
+    // 1. 获取 Python 侧 handler
+    Utility::PythonObject handleFunc;
+    bool hasStroge = false;
+    if (!GetLaunchHandler(handleFunc, hasStroge))
+    {
+        return;
+    }
+
+    // 2. 构建 Python args
+    Utility::PythonTupleObject args = BuildLaunchArgs(name, stream, reads, writes, hasStroge);
+    if (args.IsBad())
+    {
+        return;
+    }
+
+    // 3. 调用 _handle_kernel_launch
+    Utility::PythonObject result = handleFunc.Call(args);
+    if (result.IsBad())
+    {
+        LOG_WARN("[SanitizerOpHandler] _handle_kernel_launch call failed for op '%s'", name.c_str());
+        return;
+    }
+
+    // 4. 处理返回的错误列表
+    HandleLaunchErrors(result);
+}
+
+void SanitizerOpHandler::Handle(const char* msg, uint64_t stream)
 {
     if (msg == nullptr)
     {
@@ -329,11 +393,11 @@ void SanitizerOpHandler::Handle(const char* msg, int32_t streamId)
     auto reads = ParseAccessList(readStr);
     auto writes = ParseAccessList(writeStr);
 
-    LOG_INFO("[SanitizerOpHandler] Op: %s, stream: %d, reads: %zu, writes: %zu", name.c_str(), streamId, reads.size(),
+    LOG_INFO("[SanitizerOpHandler] Op: %s, stream: %lu, reads: %zu, writes: %zu", name.c_str(), stream, reads.size(),
              writes.size());
 
     // 触发 kernel launch 事件
-    TriggerKernelLaunch(name, streamId, reads, writes);
+    TriggerKernelLaunch(name, stream, reads, writes);
 }
 
 }  // namespace MemScope

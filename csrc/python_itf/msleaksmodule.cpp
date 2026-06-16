@@ -25,7 +25,7 @@
 #include "call_stack.h"
 #include "describerobject.h"
 #include "event_report.h"
-#include "mstx_hooks/op_handler.h"
+#include "op_handler.h"
 #include "oom_handler.h"
 #include "recordfuncobject.h"
 #include "report_tensor.h"

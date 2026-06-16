@@ -22,6 +22,7 @@
 
 #include <functional>
 #include <map>
+#include <set>
 
 #include "record_info.h"
 #include "ustring.h"
@@ -51,6 +52,7 @@ class PythonObject
     explicit PythonObject(const PyObject* o);
     explicit PythonObject(const int32_t& input);
     explicit PythonObject(const uint32_t& input);
+    explicit PythonObject(const uint64_t& input);
     explicit PythonObject(const double& input);
     explicit PythonObject(const std::string& input);
     explicit PythonObject(const char* input);
@@ -104,6 +106,7 @@ class PythonNumberObject : public PythonObject
     explicit PythonNumberObject(PyObject* o);
     explicit PythonNumberObject(const int32_t& input);
     explicit PythonNumberObject(const uint32_t& input);
+    explicit PythonNumberObject(const uint64_t& input);
     explicit PythonNumberObject(const double& input);
 };
 
@@ -184,6 +187,19 @@ class PythonDictObject : public PythonObject
     }
 };
 
+class PythonSetObject : public PythonObject
+{
+   public:
+    PythonSetObject();
+    explicit PythonSetObject(PyObject* o);
+    template <typename T>
+    explicit PythonSetObject(const std::set<T>& input);
+
+    size_t Size() const;
+    template <typename T>
+    PythonSetObject& Add(const T& value, bool ignore = true);
+};
+
 class PyInterpGuard
 {
    public:
@@ -223,6 +239,8 @@ extern "C"
     PyObject* PyLong_FromUnsignedLongLong(unsigned long long v) __attribute__((weak));
     PyObject* PyLong_FromLong(long v) __attribute__((weak));
     PyObject* PyUnicode_FromString(const char* u) __attribute__((weak));
+    Py_ssize_t PySet_Size(PyObject* anyset) __attribute__((weak));
+    void PyErr_SetObject(PyObject* exception, PyObject* value) __attribute__((weak));
 }
 
 namespace Utility
@@ -464,5 +482,47 @@ PythonObject PythonDictObject::GetItem(T key, bool ignore)
         PyErr_Clear();
     }
     return PythonObject(item);
+}
+
+template <typename T>
+PythonSetObject::PythonSetObject(const std::set<T>& input)
+{
+    PyObject* s = PySet_New(nullptr);
+    if (s == nullptr)
+    {
+        return;
+    }
+
+    for (const T& ele : input)
+    {
+        PythonObject o(ele);
+        if (o.IsBad() || PySet_Add(s, o) != 0)
+        {
+            Py_DecRef(s);
+            return;
+        }
+    }
+
+    SetPtr(s);
+}
+
+template <typename T>
+PythonSetObject& PythonSetObject::Add(const T& value, bool ignore)
+{
+    if (IsBad())
+    {
+        throw std::runtime_error("Set is invalid");
+    }
+
+    PythonObject o(value);
+    if (o.IsBad() || PySet_Add(ptr, o) != 0)
+    {
+        if (ignore)
+        {
+            PyErr_Clear();
+        }
+        return *this;
+    }
+    return *this;
 }
 }  // namespace Utility

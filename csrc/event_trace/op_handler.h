@@ -37,7 +37,7 @@ class SanitizerOpHandler
     static SanitizerOpHandler& GetInstance();
 
     // 处理一条 sanitizer-op: 消息，直接触发 kernel launch 事件
-    void Handle(const char* msg, int32_t streamId);
+    void Handle(const char* msg, uint64_t streamId);
 
     // 设置/获取 sanitizer 使能状态
     static void SetEnabled(bool enabled);
@@ -56,7 +56,7 @@ class SanitizerOpHandler
     // 解析单项 "alias:addr:size"
     bool ParseAccessItem(const std::string& item, MemoryAccessItem& out);
     // 组装数据并调用 Python 侧 _handle_kernel_launch
-    void TriggerKernelLaunch(const std::string& name, int32_t streamId, const std::vector<MemoryAccessItem>& reads,
+    void TriggerKernelLaunch(const std::string& name, uint64_t stream, const std::vector<MemoryAccessItem>& reads,
                              const std::vector<MemoryAccessItem>& writes);
 
     static bool sanitizerEnabled_;

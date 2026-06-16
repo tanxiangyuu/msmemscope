@@ -35,16 +35,44 @@
 namespace MemScope
 {
 
+aclError GetStreamID(aclrtStream stream, int32_t *streamId)
+{
+    char const *sym = "aclrtStreamGetIdImpl";
+    using AclrtGetStreamID = decltype(&GetStreamID);
+    static AclrtGetStreamID vallina = nullptr;
+    if (vallina == nullptr) {
+        vallina = VallinaSymbol<ACLImplLibLoader>::Instance().Get<AclrtGetStreamID>(sym);
+    }
+    if (vallina == nullptr) {
+        LOG_ERROR("vallina func get FAILED: %s", __func__);
+        return ACL_ERROR_RT_FAILURE;
+    }
+    aclError ret = vallina(stream, streamId);
+    return ret;
+}
+
 // 组装普通打点信息
-void MstxManager::ReportMarkA(const char* msg, int32_t streamId, MemScopeCommType type)
+void MstxManager::ReportMarkA(const char* msg, aclrtStream stream, MemScopeCommType type)
 {
     // 处理sanitizer-op算子上报信息
     if (msg && strncmp(msg, SANITIZER_OP_MSG, strlen(SANITIZER_OP_MSG)) == 0)
     {
+        if (!SanitizerOpHandler::IsEnabled())
+        {
+            return;
+        }
         const char* opMsg = msg + strlen(SANITIZER_OP_MSG);
-        SanitizerOpHandler::GetInstance().Handle(opMsg, streamId);
+        SanitizerOpHandler::GetInstance().Handle(opMsg, static_cast<uint64_t>(reinterpret_cast<uintptr_t>(stream)));
         return;
     }
+
+    if (!EventTraceManager::Instance().IsTracingEnabled())
+    {
+        return;
+    }
+
+    int32_t streamId = -1;
+    GetStreamID(stream, &streamId);
 
     // 处理aten算子上报信息
     if (msg && strncmp(msg, ATEN_MSG, strlen(ATEN_MSG)) == 0)
@@ -62,10 +90,12 @@ void MstxManager::ReportMarkA(const char* msg, int32_t streamId, MemScopeCommTyp
 }
 
 // 组装Range开始打点信息
-uint64_t MstxManager::ReportRangeStart(const char* msg, int32_t streamId)
+uint64_t MstxManager::ReportRangeStart(const char* msg, aclrtStream stream)
 {
     uint64_t rangeId = GetRangeId();
     std::string markMsg = std::string(msg);
+    int32_t streamId = -1;
+    GetStreamID(stream, &streamId);
     if (!EventReport::Instance(MemScopeCommType::SHARED_MEMORY)
              .ReportMark(MarkType::RANGE_START_A, markMsg, streamId, rangeId))
     {

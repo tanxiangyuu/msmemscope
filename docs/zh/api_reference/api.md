@@ -292,13 +292,13 @@ import msmemscope
 msmemscope.enable_npu_sanitizer()
 
 # 使能后，在自定义算子调用处通过 mstx.mark() 按规范上报算子信息，
-# 第二个参数传入 torch_npu.npu.current_stream() 指定执行打点的stream
+# 第二个参数传入 torch_npu.npu.current_stream().npu_stream 指定执行打点的stream
 import mstx
 import torch_npu
 mstx.mark(
     "sanitizer-op: name=my_ext.my_op;"
     "read=input:0x7f00:1024;"
     "write=output:0x7f08:2048",
-    torch_npu.npu.current_stream()
+    torch_npu.npu.current_stream().npu_stream
 )
 ```

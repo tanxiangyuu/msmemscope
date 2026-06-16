@@ -19,33 +19,16 @@
 #include "log.h"
 #include "mstx_manager.h"
 #include "event_report.h"
+#include "op_handler.h"
 
 namespace MemScope {
 
-aclError GetStreamID(aclrtStream stream, int32_t *streamId)
-{
-    char const *sym = "aclrtStreamGetIdImpl";
-    using AclrtGetStreamID = decltype(&GetStreamID);
-    static AclrtGetStreamID vallina = nullptr;
-    if (vallina == nullptr) {
-        vallina = VallinaSymbol<ACLImplLibLoader>::Instance().Get<AclrtGetStreamID>(sym);
-    }
-    if (vallina == nullptr) {
-        LOG_ERROR("vallina func get FAILED: %s", __func__);
-        return ACL_ERROR_RT_FAILURE;
-    }
-    aclError ret = vallina(stream, streamId);
-    return ret;
-}
-
 void MstxMarkAFunc(const char* msg, aclrtStream stream)
 {
-    if (!EventTraceManager::Instance().IsTracingEnabled()) {
+    if (!EventTraceManager::Instance().IsTracingEnabled() && !SanitizerOpHandler::IsEnabled()) {
         return;
     }
-    int32_t streamId = -1;
-    GetStreamID(stream, &streamId);
-    MstxManager::GetInstance().ReportMarkA(msg, streamId);
+    MstxManager::GetInstance().ReportMarkA(msg, stream);
 }
 
 uint64_t MstxRangeStartAFunc(const char* msg, aclrtStream stream)
@@ -53,9 +36,7 @@ uint64_t MstxRangeStartAFunc(const char* msg, aclrtStream stream)
     if (!EventTraceManager::Instance().IsTracingEnabled()) {
         return 0;
     }
-    int32_t streamId = -1;
-    GetStreamID(stream, &streamId);
-    return MstxManager::GetInstance().ReportRangeStart(msg, streamId);
+    return MstxManager::GetInstance().ReportRangeStart(msg, stream);
 }
 
 void  MstxRangeEndFunc(uint64_t id)
