@@ -35,15 +35,17 @@
 namespace MemScope
 {
 
-aclError GetStreamID(aclrtStream stream, int32_t *streamId)
+aclError GetStreamID(aclrtStream stream, int32_t* streamId)
 {
-    char const *sym = "aclrtStreamGetIdImpl";
+    char const* sym = "aclrtStreamGetIdImpl";
     using AclrtGetStreamID = decltype(&GetStreamID);
     static AclrtGetStreamID vallina = nullptr;
-    if (vallina == nullptr) {
+    if (vallina == nullptr)
+    {
         vallina = VallinaSymbol<ACLImplLibLoader>::Instance().Get<AclrtGetStreamID>(sym);
     }
-    if (vallina == nullptr) {
+    if (vallina == nullptr)
+    {
         LOG_ERROR("vallina func get FAILED: %s", __func__);
         return ACL_ERROR_RT_FAILURE;
     }

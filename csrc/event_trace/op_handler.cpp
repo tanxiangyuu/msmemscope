@@ -1,6 +1,6 @@
 /* -------------------------------------------------------------------------
  * This file is part of the MindStudio project.
- * Copyright (c) 2025 Huawei Technologies Co.,Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co.,Ltd.
  *
  * MindStudio is licensed under Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
@@ -196,11 +196,9 @@ static bool GetLaunchHandler(Utility::PythonObject& handleFunc, bool& hasStroge)
 }
 
 // 根据读写内存访问信息构建 Python args 元组
-static Utility::PythonTupleObject BuildLaunchArgs(
-    const std::string& name, uint64_t stream,
-    const std::vector<MemoryAccessItem>& reads,
-    const std::vector<MemoryAccessItem>& writes,
-    bool hasStroge)
+static Utility::PythonTupleObject BuildLaunchArgs(const std::string& name, uint64_t stream,
+                                                  const std::vector<MemoryAccessItem>& reads,
+                                                  const std::vector<MemoryAccessItem>& writes, bool hasStroge)
 {
     // 收集地址集合和 tensor_aliases 映射
     std::set<uint64_t> readPtrs;
@@ -262,7 +260,8 @@ static Utility::PythonTupleObject BuildLaunchArgs(
     argsVec.push_back(pyOutputs);
     argsVec.push_back(Utility::PythonObject(name));
     argsVec.push_back(pyTensorAliases);
-    if (hasStroge) {
+    if (hasStroge)
+    {
         argsVec.push_back(pyStorageDataptrs);
     }
 

@@ -37,7 +37,7 @@ def init_framework_hooks(framework: str, version: str, component: str, hook_type
 
     framework:支持框架(当前支持vllm_ascend,后续将支持verl/fsdp)
     version:框架对应版本
-    component:指定要hook的组件或模块 vllm_ascend对应的worker,verl对应的actor_rollout\ref\critic\reward等
+    component:指定要hook的组件或模块 vllm_ascend对应的worker,verl对应的actor_rollout\\ref\\critic\\reward等
     hook_type:对应的hook函数(decompose:显存拆解,sanpshot:显存快照)
     """
     return memscope_hijack_manager.init_framework_hooks(framework, version, component, hook_type)
