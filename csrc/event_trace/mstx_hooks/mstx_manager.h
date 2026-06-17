@@ -19,19 +19,25 @@
 
 #include <atomic>
 #include <cstdint>
+#include <iostream>
 #include <mutex>
 #include <unordered_map>
-#include <iostream>
-#include "record_info.h"
-#include "mstx_info.h"
-#include "comm_def.h"
 
-namespace MemScope {
+#include "comm_def.h"
+#include "mstx_info.h"
+#include "record_info.h"
+
+namespace MemScope
+{
 /*
-* mstx_inject仅仅做接口的转发调用，实际的上报信息组装由Manager来完成，避免接口变动时改动过大
-*/
-class MstxManager {
-public:
+ * mstx_inject仅仅做接口的转发调用，实际的上报信息组装由Manager来完成，避免接口变动时改动过大
+ */
+
+using aclrtStream = void*;
+
+class MstxManager
+{
+   public:
     static MstxManager& GetInstance()
     {
         static MstxManager instance;
@@ -40,27 +46,24 @@ public:
     MstxManager(const MstxManager&) = delete;
     MstxManager& operator=(const MstxManager&) = delete;
 
-    void ReportMarkA(const char* msg, int32_t streamId, MemScopeCommType type = MemScopeCommType::SHARED_MEMORY);
-    uint64_t ReportRangeStart(const char* msg, int32_t streamId);
+    void ReportMarkA(const char* msg, aclrtStream stream, MemScopeCommType type = MemScopeCommType::SHARED_MEMORY);
+    uint64_t ReportRangeStart(const char* msg, aclrtStream stream);
     void ReportRangeEnd(uint64_t id);
-    mstxDomainHandle_t ReportDomainCreateA(char const *domainName);
-    mstxMemHeapHandle_t ReportHeapRegister(mstxDomainHandle_t domain, mstxMemHeapDesc_t const *desc);
+    mstxDomainHandle_t ReportDomainCreateA(char const* domainName);
+    mstxMemHeapHandle_t ReportHeapRegister(mstxDomainHandle_t domain, mstxMemHeapDesc_t const* desc);
     void ReportHeapUnregister(mstxDomainHandle_t domain, mstxMemHeapHandle_t heap);
-    void ReportRegionsRegister(mstxDomainHandle_t domain, mstxMemRegionsRegisterBatch_t const *desc);
-    void ReportRegionsUnregister(mstxDomainHandle_t domain, mstxMemRegionsUnregisterBatch_t const *desc);
+    void ReportRegionsRegister(mstxDomainHandle_t domain, mstxMemRegionsRegisterBatch_t const* desc);
+    void ReportRegionsUnregister(mstxDomainHandle_t domain, mstxMemRegionsUnregisterBatch_t const* desc);
 
-private:
-    MstxManager()
-    {
-        rangeId_ = 1;
-    }
+   private:
+    MstxManager() { rangeId_ = 1; }
     uint64_t GetRangeId();
 
-private:
+   private:
     std::atomic<uint64_t> rangeId_;
     const int onlyMarkId_ = 0;
 };
 
-}
+}  // namespace MemScope
 
 #endif
