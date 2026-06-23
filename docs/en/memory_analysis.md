@@ -11,7 +11,7 @@ msMemScope provides analysis capabilities such as leak detection, comparison, mo
 |Memory block monitoring|In foundation model scenarios, if it is difficult to locate memory corruption, msMemScope can monitor the specified memory blocks before and after operator execution through Python APIs and CLIs. Based on changes in the memory block data, it can quickly determine the scope or exact location of memory corruption between operators.|
 |Memory decomposition|msMemScope supports memory decomposition to analyze the memory usage of the CANN layer and Ascend Extension for PyTorch framework and outputs model weights, activations, gradients, and optimizer and other component memory usage.|
 |Identification of inefficient memory|During model training and inference, some memory blocks may not be used immediately after being allocated or may not be deallocated in a timely manner after being used. msMemScope identifies the inefficient memory usage to optimize model training and inference.|
-|One-click analysis|msMemScope supports on-click memory decomposition and memory snapshot to improve memory analysis usability, allowing core functions of vLLM, FSDP, and verl to be automatically dotted for quick analysis.|
+|One-click analysis|msMemScope supports one-click memory decomposition and memory snapshot to improve memory analysis usability, allowing core functions of vLLM, FSDP, and verl to be automatically dotted for quick analysis.|
 
 ## Preparations
 
@@ -36,7 +36,7 @@ Memory leak analysis supports both online and offline modes.
 
 **Online Mode**
 
-During memory analysis, use the mstx instrumentation function to locate issues. For details about mstx instrumentation, see [MindStudio Tools Extension Library Interfaces](<>).
+During memory analysis, use the mstx instrumentation function to locate issues. For details about mstx instrumentation, see [MindStudio Tools Extension Library Interfaces](https://gitcode.com/Ascend/mstx/blob/26.0.0/docs/en/api_reference/README.md).
 
 1. Use msMemScope to start the user program (represented by **Application**).
 
@@ -63,7 +63,7 @@ During memory analysis, use the mstx instrumentation function to locate issues. 
 
 msMemScope supports offline leak analysis of memory events in a specified range. After using mstx to mark the memory leak analysis range, you can use this function to analyze the dumped files.
 
-1. Apply the mstx mark function to the range where leak detection is required. For details about mstx instrumentation, see [MindStudio Tools Extension Library Interfaces](<>).
+1. Apply the mstx mark function to the range where leak detection is required. For details about mstx instrumentation, see [MindStudio Tools Extension Library Interfaces](https://gitcode.com/Ascend/mstx/blob/26.0.0/docs/en/api_reference/README.md).
 
     > [!NOTE]Note  
     > - The mark information is used as the input of the offline analysis interfaces.
@@ -378,7 +378,7 @@ The one-click analysis function contains two APIs.
 
 The following describes how to enable one-click memory decomposition in the vLLM inference framework.
 
-1. Set the configuration file to importing msMemScopre, clear historical records through `cleanup_framework_hooks`, and use `init_framework_hooks` to configure the required framework type, version, component, and feature.
+1. Set the configuration file to importing msMemScope, clear historical records through `cleanup_framework_hooks`, and use `init_framework_hooks` to configure the required framework type, version, component, and feature.
 
     The following is an example:
 

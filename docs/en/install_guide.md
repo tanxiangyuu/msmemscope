@@ -4,7 +4,7 @@
 
 This document describes msMemScope installation methods, including:
 
-- **Using the CANN package**: The complete functions of msMemScope are integrated into the CANN package. You can directly install the CANN package by referring to [CANN Quick Installation](<>).
+- **Using the CANN package**: The complete functions of msMemScope are integrated into the CANN package. You can directly install the CANN package by referring to [CANN Quick Installation](https://www.hiascend.com/cann/download).
 
 - **Using the RUN package**: The complete functions of msMemScope are integrated into the CANN package and depend on CANN. Therefore, you need to install the CANN package before using msMemScope. To upgrade msMemScope to the latest version, you can compile the latest msMemScope RUN package using the source code to overwrite the existing package. For details, see [Method 2: Obtain the latest RUN package](#method-2-obtain-the-latest-run-package).
 
