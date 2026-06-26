@@ -5,7 +5,7 @@
   [![License](https://badgen.net/badge/License/MulanPSL-2.0/blue)](./License) [![Ascend](https://img.shields.io/badge/Hardware-Ascend-orange.svg)](https://www.hiascend.com/)
   <br><br>
   [🌐 Project home page](https://gitcode.com/Ascend/msmemscope) |
-  [📖 Documentation](<>) |
+  [📖 Documentation](https://msmemscope.readthedocs.io/zh-cn/latest/) |
   [🔥 Latest updates](#- Latest news) |
   [🤔 Issue](https://gitcode.com/Ascend/msmemscope/issues/new)
   <br><br>
@@ -46,7 +46,7 @@ The key directories are as follows:
 
 | Release Version| Release Date       | Release Tag      | Compatibility   |
   | ------- | --------------- | ------------- | ------------- |
-  | 26.0.0-alpha.1 | 2026/02/04  | tag_MindStudio_26.0.0-alpha.1 | Compatible with Ascend CANN 8.5.0 and earlier versions. For details about how to obtain the CANN installation package, see the [CANN Installation Guide](<>).|
+  | 26.0.0-alpha.1 | 2026/02/04  | tag_MindStudio_26.0.0-alpha.1 | Compatible with Ascend CANN 8.5.0 and earlier versions. For details about how to obtain the CANN installation package, see the [CANN Installation Guide](https://www.hiascend.com/cann).|
 
 **What's New**
 
