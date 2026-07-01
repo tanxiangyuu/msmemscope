@@ -120,7 +120,7 @@ You are welcome to contribute to the project. See [Contributing Guide](./docs/en
 
 ## ⚖️ References
 
-🔹 [Release Notes](./docs/en/changelog.md)
+🔹 [Release Notes](./docs/en/release_notes/release_note.md)
 
 | Release Version | Release Date | Release Tag | Compatibility |
 |-----------------|-------------|-------------|---------------|
@@ -137,7 +137,7 @@ You are welcome to contribute to the project. See [Contributing Guide](./docs/en
 <details>
 <summary>📖 View historical versions</summary>
 
-For more information about historical versions, see [Historical Versions](./docs/en/changelog.md).
+For more information about historical versions, see [Historical Versions](./docs/en/release_notes/release_note.md).
 
 </details>
 
