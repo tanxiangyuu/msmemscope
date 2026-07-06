@@ -38,7 +38,11 @@ msMemScope工具的安装，请参见[《msMemScope工具安装指南》](../ins
     export LD_LIBRARY_PATH=${memscope_install_path}/lib64/:${LD_LIBRARY_PATH}
     ```
 
-    其中的参数说明如[**表 1**  参数说明](#参数说明)。 
+    > [!NOTE]
+    >
+    > 设置LD_PRELOAD环境变量可能与MindStudio系列其他工具能力存在冲突，因此当使用完毕msMemScope工具后，请及时使用命令`unset LD_PRELOAD`清除该环境变量。
+
+    其中的参数说明如[**表 1**  参数说明](#参数说明)。
 
     **表 1**  参数说明<a id="参数说明"></a>
 
@@ -80,7 +84,7 @@ msMemScope工具的安装，请参见[《msMemScope工具安装指南》](../ins
         ```python
         import msmemscope
 
-        msmemscope.tracer.start()  # 开启Tracer功能 
+        msmemscope.tracer.start()  # 开启Tracer功能
         train()                    # train()为用户代码
         msmemscope.tracer.stop()   # 关闭Tracer功能
         ```
@@ -255,7 +259,7 @@ msMemScope工具可以结合mstx打点能力进行内存采集，同时msMemScop
 
     ```python
     import mstx
-    for epoch in range(15): 
+    for epoch in range(15):
         id = mstx.range_start("step start", None) # 标识Step开始并开启内存分析功能
         ....
         ....
@@ -283,6 +287,6 @@ msMemScope工具可以结合mstx打点能力进行内存采集，同时msMemScop
 > - 仅支持采集单卡局部的内存数据。
 > - 在目标用户程序前可配置PYTHONMALLOC=malloc。PYTHONMALLOC=malloc是Python的环境变量，表示不采用Python的默认内存分配器，所有的内存分配均使用malloc，该配置对小内存申请有一定影响。
 
-### 输出说明  
+### 输出说明
 
 内存采集的输出结果请参见[输出文件说明](./output_file_spec.md)。
