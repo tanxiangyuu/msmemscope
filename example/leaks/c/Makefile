@@ -1,14 +1,14 @@
 ASCEND_HOME_PATH	    ?= /usr/local/Ascend/ascend-toolkit/latest
 
-COMPILER                    := ${ASCEND_HOME_PATH}/compiler/ccec_compiler/bin/ccec
-HOST_COMPILER               := g++ 
+COMPILER                    := $(if $(wildcard ${ASCEND_HOME_PATH}/compiler/ccec_compiler/bin/ccec),${ASCEND_HOME_PATH}/compiler/ccec_compiler/bin/ccec,${ASCEND_HOME_PATH}/bin/ccec)
+HOST_COMPILER               := g++
 COMPILER_FLAG               := -xcce -O2 -std=c++17 --cce-enable-sanitizer -g
 HOST_COMPILER_FLAG          := -O2 -std=c++17
 LINK_FLAG                   := --cce-fatobj-link --cce-enable-sanitizer
 DAV_FLAG                    := --cce-aicore-arch=dav-c220-vec
 ASCENDC_INC_FLAG            := -I${ASCEND_HOME_PATH}/compiler/tikcpp/tikcfw -I${ASCEND_HOME_PATH}/compiler/tikcpp/tikcfw/impl -I${ASCEND_HOME_PATH}/compiler/tikcpp/tikcfw/interface -I${ASCEND_HOME_PATH}/include
 HOST_INC_FLAG               := -I${ASCEND_HOME_PATH}/include
-LINK_LIBS                   := -L${ASCEND_HOME_PATH}/lib64 -lruntime -lascendcl -lstdc++
+LINK_LIBS                   := -L${ASCEND_HOME_PATH}/lib64 -lruntime -lascendcl -lms_tools_ext -lstdc++
 
 all: build
 
