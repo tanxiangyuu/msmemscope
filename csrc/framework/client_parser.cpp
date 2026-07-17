@@ -71,6 +71,10 @@ void ShowHelpInfo()
         << std::endl
         << "Usage: msmemscope <option(s)> prog-and-args" << std::endl
         << std::endl
+        << "  environment setup (run from shell, must be sourced):" << std::endl
+        << "    source msmemscope --load-api-env          Set env variables for API usage." << std::endl
+        << "    source msmemscope --unload-api-env        Clear msmemscope env entries." << std::endl
+        << std::endl
         << "  basic user options, with default in [ ]:" << std::endl
         << "    -h --help                                Show this message." << std::endl
         << "    -v --version                             Show version." << std::endl

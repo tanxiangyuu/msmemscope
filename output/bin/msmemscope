@@ -1,10 +1,309 @@
 #!/bin/bash
-  
-REAL_PATH=$(realpath "$0")
-BIN_PATH=$(dirname ${REAL_PATH})
-TOOL_PATH=$(realpath ${BIN_PATH}/../)
-LIB_PATH=$(realpath ${TOOL_PATH}/lib64)
-export LD_LIBRARY_PATH=${LIB_PATH}:${LD_LIBRARY_PATH}
-export LD_PRELOAD_PATH=${LIB_PATH}
 
-${BIN_PATH}/msmemscope.bin "$@"
+# msmemscope - MindStudio MemScope unified launcher
+#
+# Usage:
+#   source msmemscope --load-api-env    # Set env variables for Python API collection
+#   source msmemscope --unload-api-env  # Clear msmemscope env entries
+#   msmemscope [args...]                # Normal mode: launch msmemscope.bin with given arguments
+#
+# The --load-api-env / --unload-api-env subcommands must be sourced so
+# environment variable changes apply to the current shell.
+
+REAL_PATH=$(realpath "${BASH_SOURCE[0]}")
+BIN_PATH=$(dirname "${REAL_PATH}")
+TOOL_PATH=$(realpath "${BIN_PATH}/../")
+LIB_PATH=$(realpath "${TOOL_PATH}/lib64")
+
+# realpath returns an empty string when the target directory does not
+# exist.  An empty LIB_PATH causes two downstream faults:
+#   A) --load-api-env prepends ":" to LD_LIBRARY_PATH (stray empty entry).
+#   B) --unload-api-env's glob  "/*"  matches every absolute path, silently
+#      removing all LD_PRELOAD entries — not just msmemscope's.
+# Guard both by bailing out early when lib64 is missing.
+if [[ -z "${LIB_PATH}" || ! -d "${LIB_PATH}" ]]; then
+    echo "[msmemscope] ERROR: lib64 directory not found (expected: ${TOOL_PATH}/lib64)." >&2
+    echo "[msmemscope] Please verify your msmemscope installation." >&2
+    return 1 2>/dev/null || exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# Hook .so file list -- centralised definition so adding or removing a hook
+# requires changes in this one place only.
+#
+# Order mirrors the documented LD_PRELOAD sequence:
+#   libleaks_ascend_hal_hook.so
+#   libascend_mstx_hook.so
+#   libascend_kernel_hook.so
+#   libatb_abi_0_hook.so
+#   libatb_abi_1_hook.so
+# ---------------------------------------------------------------------------
+MSMEMSCOPE_HOOK_SOS=(
+    "libleaks_ascend_hal_hook.so"
+    "libascend_mstx_hook.so"
+    "libascend_kernel_hook.so"
+    "libatb_abi_0_hook.so"
+    "libatb_abi_1_hook.so"
+)
+
+# ---------------------------------------------------------------------------
+# msmemscope_source_detected
+#
+# Returns 0 (true) when the script is being sourced, non-zero otherwise.
+# Must be called before any shift / argument consumption.
+# ---------------------------------------------------------------------------
+msmemscope_is_sourced() {
+    [[ "${BASH_SOURCE[0]}" != "${0}" ]]
+}
+
+# ---------------------------------------------------------------------------
+# msmemscope_validate_lib_path
+#
+# Prints a warning to stderr when LIB_PATH does not exist or does not look
+# like a msmemscope lib64 directory (missing all hook .so files).
+# Returns 0 when everything looks fine; 1 otherwise.
+# ---------------------------------------------------------------------------
+msmemscope_validate_lib_path() {
+    if [[ ! -d "${LIB_PATH}" ]]; then
+        echo "[msmemscope] WARNING: lib64 directory not found: ${LIB_PATH}" >&2
+        echo "[msmemscope] Please verify your msmemscope installation." >&2
+        return 1
+    fi
+
+    local all_missing=true
+    for so in "${MSMEMSCOPE_HOOK_SOS[@]}"; do
+        if [[ -f "${LIB_PATH}/${so}" ]]; then
+            all_missing=false
+            break
+        fi
+    done
+
+    if $all_missing; then
+        echo "[msmemscope] WARNING: No hook .so files found in ${LIB_PATH}" >&2
+        echo "[msmemscope] LD_PRELOAD will not be set. Please verify your installation." >&2
+        return 1
+    fi
+
+    return 0
+}
+
+# ---------------------------------------------------------------------------
+# msmemscope_path_contains
+#
+# Checks whether $1 appears as a colon-separated entry in $2.
+# Returns 0 if found, 1 otherwise.
+# ---------------------------------------------------------------------------
+msmemscope_path_contains() {
+    local needle="$1"
+    local haystack="$2"
+    local saved_ifs="${IFS}"
+    IFS=':'
+    for entry in ${haystack}; do
+        if [[ "${entry}" == "${needle}" ]]; then
+            IFS="${saved_ifs}"
+            return 0
+        fi
+    done
+    IFS="${saved_ifs}"
+    return 1
+}
+
+# ---------------------------------------------------------------------------
+# msmemscope_load_api_env
+#
+# Idempotent: running multiple times does not duplicate entries.
+# Must be called inside a sourced script context.
+# ---------------------------------------------------------------------------
+msmemscope_load_api_env() {
+    # Guard: must be sourced
+    if ! msmemscope_is_sourced; then
+        echo "[msmemscope] ERROR: This command must be sourced so that environment" >&2
+        echo "[msmemscope]        variable changes apply to the current shell." >&2
+        echo "[msmemscope]" >&2
+        echo "[msmemscope] Usage:  source msmemscope --load-api-env" >&2
+        return 1
+    fi
+
+    local changed=false
+
+    # -- LD_LIBRARY_PATH --------------------------------------------------
+    if [[ -z "${LIB_PATH}" ]]; then
+        echo "[msmemscope] ERROR: lib64 path is empty, cannot set LD_LIBRARY_PATH." >&2
+        return 1
+    fi
+    if ! msmemscope_path_contains "${LIB_PATH}" "${LD_LIBRARY_PATH}"; then
+        if [[ -z "${LD_LIBRARY_PATH}" ]]; then
+            export LD_LIBRARY_PATH="${LIB_PATH}"
+        else
+            export LD_LIBRARY_PATH="${LIB_PATH}:${LD_LIBRARY_PATH}"
+        fi
+        echo "[msmemscope] LD_LIBRARY_PATH + ${LIB_PATH}"
+        changed=true
+    else
+        echo "[msmemscope] LD_LIBRARY_PATH already contains ${LIB_PATH} -- skipped"
+    fi
+
+    # -- LD_PRELOAD -------------------------------------------------------
+    if ! msmemscope_validate_lib_path; then
+        # lib64 missing or empty -- still set LD_LIBRARY_PATH (done above) but
+        # skip LD_PRELOAD.
+        if $changed; then
+            echo "[msmemscope] Environment setup completed (LD_PRELOAD skipped)."
+        fi
+        return 0
+    fi
+
+    local preload_added=0
+    for so in "${MSMEMSCOPE_HOOK_SOS[@]}"; do
+        local so_path="${LIB_PATH}/${so}"
+        if [[ -f "${so_path}" ]]; then
+            if ! msmemscope_path_contains "${so_path}" "${LD_PRELOAD}"; then
+                if [[ -z "${LD_PRELOAD}" ]]; then
+                    export LD_PRELOAD="${so_path}"
+                else
+                    export LD_PRELOAD="${so_path}:${LD_PRELOAD}"
+                fi
+                echo "[msmemscope] LD_PRELOAD   + ${so_path}"
+                preload_added=$((preload_added + 1))
+                changed=true
+            else
+                echo "[msmemscope] LD_PRELOAD   already contains ${so_path} -- skipped"
+            fi
+        else
+            echo "[msmemscope] LD_PRELOAD   WARNING: ${so_path} not found -- skipped" >&2
+        fi
+    done
+
+    if ! $changed; then
+        echo "[msmemscope] Environment already set up -- nothing to do."
+    else
+        echo "[msmemscope] Environment setup completed (LD_PRELOAD: ${preload_added} .so(s) added)."
+    fi
+
+    # Export helper variable so that msmemscope_unload_api_env can identify which
+    # lib64 directory was registered (robust against path changes).
+    export MSMEMSCOPE_LIB_PATH="${LIB_PATH}"
+}
+
+# ---------------------------------------------------------------------------
+# msmemscope_unload_api_env
+#
+# Removes every entry that starts with LIB_PATH from LD_LIBRARY_PATH and
+# LD_PRELOAD.  Other tools' entries are left untouched.
+# Idempotent: running multiple times produces the same result.
+# Must be called inside a sourced script context.
+# ---------------------------------------------------------------------------
+msmemscope_unload_api_env() {
+    # Guard: must be sourced
+    if ! msmemscope_is_sourced; then
+        echo "[msmemscope] ERROR: This command must be sourced so that environment" >&2
+        echo "[msmemscope]        variable changes apply to the current shell." >&2
+        echo "[msmemscope]" >&2
+        echo "[msmemscope] Usage:  source msmemscope --unload-api-env" >&2
+        return 1
+    fi
+
+    # Determine the lib64 prefix to filter.  Use the tracking variable if
+    # available; otherwise fall back to the derived LIB_PATH.
+    local filter_path="${MSMEMSCOPE_LIB_PATH:-${LIB_PATH}}"
+    local changed=false
+
+    if [[ -z "${filter_path}" ]]; then
+        echo "[msmemscope] ERROR: unable to determine lib64 path for cleanup." >&2
+        return 1
+    fi
+
+    # -- LD_LIBRARY_PATH --------------------------------------------------
+    if [[ -n "${LD_LIBRARY_PATH}" ]]; then
+        local new_ld_library_path=""
+        local removed_lib=0
+        local saved_ifs="${IFS}"
+        IFS=':'
+        for entry in ${LD_LIBRARY_PATH}; do
+            if [[ "${entry}" == "${filter_path}" ]]; then
+                removed_lib=$((removed_lib + 1))
+            else
+                if [[ -z "${new_ld_library_path}" ]]; then
+                    new_ld_library_path="${entry}"
+                else
+                    new_ld_library_path="${new_ld_library_path}:${entry}"
+                fi
+            fi
+        done
+        IFS="${saved_ifs}"
+
+        if [[ ${removed_lib} -gt 0 ]]; then
+            if [[ -z "${new_ld_library_path}" ]]; then
+                unset LD_LIBRARY_PATH
+                echo "[msmemscope] LD_LIBRARY_PATH unset (was only ${filter_path})"
+            else
+                export LD_LIBRARY_PATH="${new_ld_library_path}"
+                echo "[msmemscope] LD_LIBRARY_PATH removed ${filter_path}"
+            fi
+            changed=true
+        fi
+    fi
+
+    # -- LD_PRELOAD -------------------------------------------------------
+    if [[ -n "${LD_PRELOAD}" ]]; then
+        local new_ld_preload=""
+        local removed_preload=0
+        local saved_ifs="${IFS}"
+        IFS=':'
+        for entry in ${LD_PRELOAD}; do
+            # Remove entries whose path starts with the msmemscope lib64
+            # directory (prefix match so it catches all hook .so files).
+            if [[ "${entry}" == "${filter_path}/"* ]]; then
+                removed_preload=$((removed_preload + 1))
+            else
+                if [[ -z "${new_ld_preload}" ]]; then
+                    new_ld_preload="${entry}"
+                else
+                    new_ld_preload="${new_ld_preload}:${entry}"
+                fi
+            fi
+        done
+        IFS="${saved_ifs}"
+
+        if [[ ${removed_preload} -gt 0 ]]; then
+            if [[ -z "${new_ld_preload}" ]]; then
+                unset LD_PRELOAD
+                echo "[msmemscope] LD_PRELOAD unset (all entries were from ${filter_path})"
+            else
+                export LD_PRELOAD="${new_ld_preload}"
+                echo "[msmemscope] LD_PRELOAD removed ${removed_preload} entry/entries from ${filter_path}"
+            fi
+            changed=true
+        fi
+    fi
+
+    # Clean up tracking variable
+    unset MSMEMSCOPE_LIB_PATH 2>/dev/null || true
+
+    if ! $changed; then
+        echo "[msmemscope] No msmemscope entries found in LD_PRELOAD or LD_LIBRARY_PATH -- nothing to unset."
+    else
+        echo "[msmemscope] Environment cleanup completed."
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
+
+case "${1:-}" in
+    --load-api-env)
+        msmemscope_load_api_env
+        ;;
+    --unload-api-env)
+        msmemscope_unload_api_env
+        ;;
+    *)
+        # Normal mode: existing behaviour unchanged.
+        # Set LD_LIBRARY_PATH so that msmemscope.bin can find its own .so
+        # files at runtime, then forward all arguments.
+        export LD_LIBRARY_PATH="${LIB_PATH}:${LD_LIBRARY_PATH}"
+        export LD_PRELOAD_PATH="${LIB_PATH}"
+        "${BIN_PATH}/msmemscope.bin" "$@"
+        ;;
+esac

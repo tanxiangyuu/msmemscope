@@ -23,6 +23,7 @@ from src.test_suit.watch_test import WatchATBHashTestSuite, WatchATBBinTestSuite
 from src.test_suit.llama2_7b_test import Llama2_7bTestSuite
 from src.test_suit.decompose_test import DecomposeTestSuite
 from src.test_suit.inefficient_test import InefficientTestSuite
+from src.test_suit.cli_base_test import CliBaseTestSuite
 from src.utils.env_checker import EnvChecker
 from src.utils.symbol_checker import SymbolChecker
 
@@ -125,6 +126,7 @@ def run_tests(working_dir: str, params) -> bool:
         DecomposeTestSuite("msmemscope_decompose_api_test", params, "check_decompose_api", decompose_api_command, 100),
         InefficientTestSuite("msmemscope_inefficient_cmd_test", params, "check_inefficient_cmd", inefficient_cmd_command, 100),
         InefficientTestSuite("msmemscope_inefficient_api_test", params, "check_inefficient_api", inefficient_api_command, 100),
+        CliBaseTestSuite("cli_base_test", params, "cli_base", [], 100),
     ]
     
     if params.llama2_7b:

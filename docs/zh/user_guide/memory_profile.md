@@ -31,26 +31,22 @@ msMemScope工具的安装，请参见[《msMemScope工具安装指南》](../ins
 
 1. 设置环境变量。
 
-    执行以下命令，设置LD_PRELOAD和LD_LIBRARY_PATH环境变量。
+    执行以下命令，设置Python接口方式使用所需的环境变量。
 
     ```shell
-    export LD_PRELOAD=${memscope_install_path}/lib64/{so_name}:${memscope_install_path}/lib64/{so_name}
-    export LD_LIBRARY_PATH=${memscope_install_path}/lib64/:${LD_LIBRARY_PATH}
+    source msmemscope --load-api-env
     ```
 
     > [!NOTE]
     >
-    > 设置LD_PRELOAD环境变量可能与MindStudio系列其他工具能力存在冲突，因此当使用完毕msMemScope工具后，请及时使用命令`unset LD_PRELOAD`清除该环境变量。
-
-    其中的参数说明如[**表 1**  参数说明](#参数说明)。
+    > 当使用完毕msMemScope工具后，请及时使用命令`source msmemscope --unload-api-env`清除该环境变量。该命令仅移除msMemScope相关的条目，不会影响其他工具的配置。
 
     **表 1**  参数说明<a id="参数说明"></a>
 
     |参数|说明|
     |--|--|
-    |memscope_install_path|msMemScope工具的安装路径。|
-    |so_name|需要配置的so包名称，每个so包之间以半角冒号分隔。需要配置的so包有libascend_kernel_hook.so、libascend_mstx_hook.so、libatb_abi_0_hook.so、libatb_abi_1_hook.so、libleaks_ascend_hal_hook.so，共5个so包。|
-    |LD_LIBRARY_PATH|LD_LIBRARY_PATH环境变量。|
+    |--load-api-env|设置 API 方式使用所需的环境变量，必须通过`source`方式执行。|
+    |--unload-api-env|清除 msmemScope 相关的环境变量条目，保留其他工具的值，必须通过`source`方式执行。|
 
 2. 采集内存。
 

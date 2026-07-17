@@ -31,22 +31,24 @@ Python APIs can be used to collect memory events and Python Trace events, while 
 
 1. Set environment variables.
 
-    Run the following commands to set **LD_PRELOAD** and **LD_LIBRARY_PATH**.
+    Run the following command to set environment variables required for Python APIs usage.
 
     ```shell
-    export LD_PRELOAD=${memscope_install_path}/lib64/{so_name}:${memscope_install_path}/lib64/{so_name}
-    export LD_LIBRARY_PATH=${memscope_install_path}/lib64/:${LD_LIBRARY_PATH}
+    source msmemscope --load-api-env
     ```
 
-    For details about the parameters, see [**Table 1** Parameter description](#parameter-description).
+    > [!NOTE]
+    >
+    > After you finish using msMemScope, run `source msmemscope --unload-api-env` to remove only the msMemScope-related entries without affecting other tools' configurations.
+
+    For details about the subcommands, see [**Table 1** Parameter description](#parameter-description).
 
     **Table 1** Parameter description <a id="Parameter description "></a>
 
     |Parameter|Description|
     |--|--|
-    |memscope_install_path|Installation path of msMemScope|
-    |so_name|Name of the SO package to be configured. SO packages are separated by half-width colons (:). The SO packages to be configured include **libascend_kernel_hook.so**, **libascend_mstx_hook.so**, **libatb_abi_0_hook.so**, **libatb_abi_1_hook.so**, and **libleaks_ascend_hal_hook.so**.|
-    |LD_LIBRARY_PATH|Environment variable|
+    |--load-api-env|Sets environment variables required for API usage. Must be executed via `source`.|
+    |--unload-api-env|Removes msMemScope-related entries, preserving other tools' values. Must be executed via `source`.|
 
 2. Collect the memory.
 
@@ -61,7 +63,7 @@ Python APIs can be used to collect memory events and Python Trace events, while 
     msmemscope.stop()    # Stop collection.
     ```
 
-    > [!NOTE]NOTE 
+    > [!NOTE]NOTE
     > OOM usually occurs in the memory collection scope. Once OOM occurs, the snapshot information before and after OOM is flushed to the drive. For details about the flushed information, see [memscope_dump_{timestamp}.csv](./output_file_spec.md#memory_compare_{_timestamp_}.csv-fields) in *Output File Specifications*. If **Event** is **SNAPSHOT**, check the **Attr** and **Call Stack** fields.
 
 **Python Trace Collection**
@@ -70,7 +72,7 @@ Python APIs can be used to collect memory events and Python Trace events, while 
 
     msMemScope can collect Trace data of Python code through Python APIs and align the data with memory events on a unified timeline. This helps optimization personnel quickly associate memory events with full-link code and accurately locate problems.
 
-    > [!NOTE]NOTE 
+    > [!NOTE]NOTE
     > The Python Trace collection will be removed from MindStudio 26.0.0. You can set **events="traceback"** to collect Python Trace events. For details, see [Collection via Python APIs](#collection-via-python-apis).
 
     1. Python APIs are added to msMemScope to enable and disable the **Tracer** function. Python code executed between **start** and **stop** will have its Trace data written to the specified path. The code example is as follows:
@@ -138,7 +140,7 @@ msmemscope.take_snapshot(device_mask=0)   # Collect a memory snapshot.
 After the collection is complete, the result is flushed to the **memscope_dump_{_timestamp_}.csv** file.
 
 > [!NOTE]NOTE
-> 
+>
 > - `msmemscope.take_snapshot` can be called independently to collect data, without depending on `msmemscope.start` and `msmemscope.stop`.
 > - `msmemscope.take_snapshot` can be used together with `msmemscope.config`. When they are used together, the path for saving the result file is the value of the first call and does not change.
 
@@ -222,7 +224,7 @@ Refer to the following to start msMemScope and collect memory data.
 |--input|Specifies the absolute directory of the comparison files. You need to enter the directories of the baseline file and comparison file and separate them with a full-width or half-width comma (,). This parameter is valid only when the **compare** function is enabled. The maximum length of the path is 4,096 characters. Example: **--input=/home/projects/input1,/home/projects/input2**.<br> This parameter is mandatory only when memory comparison is enabled.|No|
 
 > [!NOTE]NOTE
-> 
+>
 > - When **--events** is set to **launch** and Aten operator dispatch and access events need to be collected, this function can be used only when the PyTorch version under Ascend Extension for PyTorch framework is 2.3.1 or later.
 > - If **--analysis** contains **decompose**, the **Attr** parameter in the **memscope\_dump\_\{_timestamp_\}.csv** file contains the memory type and component name.
 > - If **--analysis** contains **decompose**, memory decomposition is enabled. Currently, the memory pools of Ascend Extension for PyTorch, MindSpore, and ATB operator frameworks can be classified, and the memory pools of MindSpore framework and ATB operator frameworks do not support fine-grained classification. In the Ascend Extension for PyTorch framework, **aten**, **weight, gradient**, and **optimizer_state** can be classified finely. **weight**, **gradient**, and **optimizer_state** are used only in PyTorch training scenarios (that is, the **optimizer.step\(\)** API call scenario). **aten** is the memory allocated in Aten operators. The PyTorch version must be 2.3.1 or later, and the value of **--level** must contain **0**.
@@ -253,7 +255,7 @@ The following uses a Python script and a C script as examples to describe how to
 
     ```python
     import mstx
-    for epoch in range(15): 
+    for epoch in range(15):
         id = mstx.range_start("step start", None) # Mark the start of a step and enable memory analysis.
         ....
         ....
@@ -277,7 +279,7 @@ The following uses a Python script and a C script as examples to describe how to
     ```
 
 > [!NOTE]NOTE
-> 
+>
 > - Only the memory data of a single card can be collected.
 > - You can configure **PYTHONMALLOC=malloc** before running the target user program. **PYTHONMALLOC=malloc** is a Python environment variable, which indicates that the default memory allocator of Python is not used. All memory allocations are performed using **malloc**. This configuration has some impact on small memory allocations.
 
