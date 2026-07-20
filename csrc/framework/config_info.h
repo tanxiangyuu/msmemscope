@@ -126,6 +126,7 @@ struct Config
     WatchConfig watchConfig;
     uint8_t levelType;
     uint8_t eventType;
+    uint8_t dumpEventType;
     uint8_t analysisType;
     uint8_t logLevel;
     uint8_t collectMode;

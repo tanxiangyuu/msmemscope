@@ -23,6 +23,7 @@
 #define private public
 #include "client_parser.h"
 #include "log.h"
+#include "bit_field.h"
 #undef private
 
 using namespace MemScope;
@@ -1010,4 +1011,153 @@ TEST(ClientParser, test_valid_device_case)
     ASSERT_FALSE(cmd.config.collectAllNpu);
     ASSERT_TRUE(cmd.config.collectCpu);
     ASSERT_EQ(cmd.config.npuSlots, 1);
+}
+
+// ==================== RFC: Precise Event Filtering Tests ====================
+
+TEST(ClientParser, set_event_default_config_only_extends_eventType)
+{
+    Config config;
+    memset(&config, 0, sizeof(config));
+    BitField<decltype(config.eventType)> eventBit;
+    eventBit.setBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+    config.eventType = eventBit.getValue();
+    config.dumpEventType = eventBit.getValue();
+
+    SetEventDefaultConfig(config);
+
+    // eventType: ALLOC_EVENT → ALLOC + FREE
+    ASSERT_TRUE(BitPresent(config.eventType, static_cast<size_t>(EventType::ALLOC_EVENT)));
+    ASSERT_TRUE(BitPresent(config.eventType, static_cast<size_t>(EventType::FREE_EVENT)));
+
+    // dumpEventType: 仅 ALLOC_EVENT，不被联动扩展
+    ASSERT_TRUE(BitPresent(config.dumpEventType, static_cast<size_t>(EventType::ALLOC_EVENT)));
+    ASSERT_FALSE(BitPresent(config.dumpEventType, static_cast<size_t>(EventType::FREE_EVENT)));
+}
+
+TEST(ClientParser, set_analysis_default_config_only_extends_eventType)
+{
+    Config config;
+    memset(&config, 0, sizeof(config));
+    BitField<decltype(config.analysisType)> analysisBit;
+    analysisBit.setBit(static_cast<size_t>(AnalysisType::LEAKS_ANALYSIS));
+    config.analysisType = analysisBit.getValue();
+    config.eventType = 0;
+    config.dumpEventType = 0;
+
+    SetAnalysisDefaultConfig(config);
+
+    // eventType: 被扩展为 ALLOC + FREE
+    ASSERT_TRUE(BitPresent(config.eventType, static_cast<size_t>(EventType::ALLOC_EVENT)));
+    ASSERT_TRUE(BitPresent(config.eventType, static_cast<size_t>(EventType::FREE_EVENT)));
+
+    // dumpEventType: 仍为 0，不被 analysis 联动扩展
+    ASSERT_EQ(config.dumpEventType, 0);
+}
+
+TEST(ClientParser, pass_event_trace_type_none_expect_empty_eventType)
+{
+    std::vector<const char*> argv = {
+        "msmemscope",
+        "--events=none"
+    };
+
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.eventType, 0);
+    ASSERT_EQ(cmd.config.dumpEventType, 0);
+}
+
+TEST(ClientParser, pass_analysis_type_none_expect_empty_analysisType)
+{
+    std::vector<const char*> argv = {
+        "msmemscope",
+        "--analysis=none"
+    };
+
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.analysisType, 0);
+}
+
+TEST(ClientParser, pass_event_trace_type_none_mixed_expect_none_priority)
+{
+    std::vector<const char*> argv = {
+        "msmemscope",
+        "--events=alloc,none"
+    };
+
+    optind = 1;
+    ClientParser cliParser;
+    testing::internal::CaptureStdout();
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    std::string capture = testing::internal::GetCapturedStdout();
+    ASSERT_EQ(cmd.config.eventType, 0);
+    ASSERT_EQ(cmd.config.dumpEventType, 0);
+    // 验证有 warning 输出
+    ASSERT_NE(capture.find("'none' mixed"), std::string::npos);
+}
+
+TEST(ClientParser, pass_analysis_type_none_mixed_expect_none_priority)
+{
+    std::vector<const char*> argv = {
+        "msmemscope",
+        "--analysis=leaks,none"
+    };
+
+    optind = 1;
+    ClientParser cliParser;
+    testing::internal::CaptureStdout();
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    std::string capture = testing::internal::GetCapturedStdout();
+    ASSERT_EQ(cmd.config.analysisType, 0);
+    // 验证有 warning 输出
+    ASSERT_NE(capture.find("'none' mixed"), std::string::npos);
+}
+
+TEST(ClientParser, pass_event_trace_type_alloc_expect_dumpEventType_only_alloc)
+{
+    std::vector<const char*> argv = {
+        "msmemscope",
+        "--events=alloc"
+    };
+
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    // eventType 目前还未被联动扩展（Parse 阶段尚未调用 SetEventDefaultConfig）
+    // dumpEventType 记录用户原始配置
+    ASSERT_EQ(cmd.config.dumpEventType, 1);  // ALLOC_EVENT = bit 0
+    ASSERT_EQ(cmd.config.eventType, 1);
+}
+
+TEST(ClientParser, initial_config_sets_dumpEventType_same_as_eventType)
+{
+    Config config;
+    memset(&config, 0, sizeof(config));
+
+    ClientParser parser;
+    parser.InitialConfig(config);
+
+    // 默认值: alloc + free + launch (bits 0, 1, 2) = 7
+    ASSERT_EQ(config.eventType, 7);
+    ASSERT_EQ(config.dumpEventType, 7);
+}
+
+TEST(ClientParser, pass_events_and_analysis_none_expect_no_collection_no_analysis)
+{
+    std::vector<const char*> argv = {
+        "msmemscope",
+        "--events=none",
+        "--analysis=none"
+    };
+
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.eventType, 0);
+    ASSERT_EQ(cmd.config.dumpEventType, 0);
+    ASSERT_EQ(cmd.config.analysisType, 0);
 }

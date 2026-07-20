@@ -84,7 +84,8 @@ void ShowHelpInfo()
         << "                                             You can choose both separated by, or ，." << std::endl
         << "    --events=event1,event2                   Set the trace event type." << std::endl
         << "                                             You can combine any of the following options:" << std::endl
-        << "                                             alloc,free,launch,access,traceback " << std::endl
+        << "                                             alloc,free,launch,access,traceback" << std::endl
+        << "                                             Use 'none' to disable all event types." << std::endl
         << "                                             (default:alloc,free,launch)." << std::endl
         << "    --steps=1,2,3,...                        Select the steps to collect memory information." << std::endl
         << "                                             The input step numbers need to be separated by, or ，."
@@ -106,6 +107,7 @@ void ShowHelpInfo()
         << "                                               - decompose : Enables memory categorization" << std::endl
         << "                                               - inefficient : Enables inefficient memory recognition"
         << std::endl
+        << "                                               - none : Disables all analysis features" << std::endl
         << "                                             Leave empty to disable all analysis features." << std::endl
         << "    --compare                                Enable memory data comparison." << std::endl
         << "    --watch                                  Enable watch ability." << std::endl
@@ -341,6 +343,17 @@ void ParseAnalysis(const std::string &param, Config &config, bool &printHelpInfo
         std::string analysisMethod = *it;
         if (!analysisMethod.empty())
         {
+            if (analysisMethod == "none")
+            {
+                // none 关键字：清空所有分析类型
+                if (tokens.size() > 1)
+                {
+                    std::cout << "[msmemscope] Warn: 'none' mixed with other analysis types, "
+                              << "all analysis cleared." << std::endl;
+                }
+                config.analysisType = 0;
+                return;
+            }
             if (analysisMp.count(analysisMethod))
             {
                 analysisTypeBit.setBit(static_cast<size_t>(analysisMp[analysisMethod]));
@@ -575,6 +588,24 @@ void ParseEventTraceType(const std::string param, Config &config, bool &printHel
             continue;
         }
 
+        if (event == "none")
+        {
+            // none 关键字：清空所有事件类型，忽略其他 token
+            if (tokens.size() > 1)
+            {
+                std::cout << "[msmemscope] Warn: 'none' mixed with other event types, "
+                          << "all events cleared." << std::endl;
+            }
+            config.eventType = 0;
+            config.dumpEventType = 0;
+            // traceback 状态一并清理
+            if (PythonTrace::GetInstance().IsTraceActive())
+            {
+                PythonTrace::GetInstance().Stop();
+            }
+            return;
+        }
+
         if (eventsMp.count(event))
         {
             eventsTypeBit.setBit(static_cast<size_t>(eventsMp[event]));
@@ -601,6 +632,8 @@ void ParseEventTraceType(const std::string param, Config &config, bool &printHel
     }
 
     config.eventType = eventsTypeBit.getValue();
+    // 记录用户原始事件配置作为落盘配置，不受后续联动规则影响
+    config.dumpEventType = eventsTypeBit.getValue();
     return;
 }
 
@@ -948,6 +981,7 @@ void ClientParser::InitialConfig(Config &config)
     eventBit.setBit(static_cast<size_t>(EventType::FREE_EVENT));
     eventBit.setBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
     config.eventType = eventBit.getValue();
+    config.dumpEventType = eventBit.getValue();
 
     BitField<decltype(config.analysisType)> analysisBit;
     analysisBit.setBit(static_cast<size_t>(AnalysisType::LEAKS_ANALYSIS));
