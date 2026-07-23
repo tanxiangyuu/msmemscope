@@ -278,6 +278,7 @@ void JsonConfig::SaveConfigToJson(const MemScope::Config& config)
     Utility::JsonManager::GetInstance().SetValue("pyStackDepth", config.pyStackDepth);
     Utility::JsonManager::GetInstance().SetValue("levelType", config.levelType);
     Utility::JsonManager::GetInstance().SetValue("eventType", config.eventType);
+    Utility::JsonManager::GetInstance().SetValue("dumpEventType", config.dumpEventType);
     Utility::JsonManager::GetInstance().SetValue("analysisType", config.analysisType);
     Utility::JsonManager::GetInstance().SetValue("collectMode", config.collectMode);
     Utility::JsonManager::GetInstance().SetValue("outputDir", config.outputDir);
@@ -335,6 +336,7 @@ bool JsonConfig::ReadJsonConfig(MemScope::Config& config)
     Utility::JsonManager::GetInstance().GetUint8Value("collectMode", config.collectMode);
     Utility::JsonManager::GetInstance().GetUint8Value("dataFormat", config.dataFormat);
     Utility::JsonManager::GetInstance().GetUint8Value("eventType", config.eventType);
+    Utility::JsonManager::GetInstance().GetUint8Value("dumpEventType", config.dumpEventType);
     Utility::JsonManager::GetInstance().GetUint8Value("levelType", config.levelType);
     Utility::JsonManager::GetInstance().GetUint8Value("logLevel", config.logLevel);
 

@@ -17,6 +17,7 @@
 
 #include "dump.h"
 
+#include "bit_field.h"
 #include "constant.h"
 #include "event_dispatcher.h"
 #include "event_trace/event_report.h"
@@ -202,8 +203,37 @@ void Dump::DumpSystemEvent(std::shared_ptr<SystemEvent>& event)
     WriteToFile(event);
 }
 
+bool Dump::ShouldDumpEvent(EventBaseType type) const
+{
+    // 对于无法映射到用户可配 EventType 的事件类型（MSTX, SYSTEM, SNAPSHOT, CLEAN_UP, MEMORY_OWNER），始终落盘
+    switch (type)
+    {
+        case EventBaseType::MALLOC:
+            return BitField<decltype(config_.dumpEventType)>(config_.dumpEventType)
+                .checkBit(static_cast<size_t>(EventType::ALLOC_EVENT));
+        case EventBaseType::FREE:
+            return BitField<decltype(config_.dumpEventType)>(config_.dumpEventType)
+                .checkBit(static_cast<size_t>(EventType::FREE_EVENT));
+        case EventBaseType::OP_LAUNCH:
+        case EventBaseType::KERNEL_LAUNCH:
+            return BitField<decltype(config_.dumpEventType)>(config_.dumpEventType)
+                .checkBit(static_cast<size_t>(EventType::LAUNCH_EVENT));
+        case EventBaseType::ACCESS:
+            return BitField<decltype(config_.dumpEventType)>(config_.dumpEventType)
+                .checkBit(static_cast<size_t>(EventType::ACCESS_EVENT));
+        default:
+            // MSTX, SYSTEM, SNAPSHOT, CLEAN_UP, MEMORY_OWNER 等不可控事件始终落盘
+            return true;
+    }
+}
+
 void Dump::WriteToFile(const std::shared_ptr<EventBase>& event)
 {
+    // 落盘前校验事件是否在用户配置的 dumpEventType 范围内
+    if (!ShouldDumpEvent(event->eventType))
+    {
+        return;
+    }
     if (event->device == GD_INVALID_NUM)
     {
         sharedEventLists_.push_back(event);

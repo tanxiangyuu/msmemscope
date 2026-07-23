@@ -18,23 +18,26 @@
 #ifndef DUMP_H
 #define DUMP_H
 
-#include <unordered_map>
 #include <mutex>
+#include <unordered_map>
 
 #include "analyzer_base.h"
 #include "config_info.h"
 #include "data_handler.h"
 #include "file_write_manager.h"
 
-namespace MemScope {
+namespace MemScope
+{
 
-class Dump : public AnalyzerBase {
-public:
+class Dump : public AnalyzerBase
+{
+   public:
     static Dump& GetInstance(Config config);
     void EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state) override;
     void WritePublicEventToFile();
     void FflushEventToFile() const;
-private:
+
+   private:
     explicit Dump(Config config);
     ~Dump() override;
     Dump(const Dump&) = delete;
@@ -52,12 +55,13 @@ private:
     void DumpSnapshotEvent(std::shared_ptr<SnapshotEvent>& snapshotEvent);
 
     void WriteToFile(const std::shared_ptr<EventBase>& event);
+    bool ShouldDumpEvent(EventBaseType type) const;
 
     Config config_;
     std::unordered_map<int32_t, std::unique_ptr<DataHandler>> handlerMap_;
     std::vector<std::shared_ptr<EventBase>> sharedEventLists_;
 };
 
-}
+}  // namespace MemScope
 
 #endif
