@@ -2,7 +2,7 @@
 
 | Release Version| Release Date       | Release Tag      | Compatibility   |
   | ------- | --------------- | ------------- | ------------- |
-  | 26.0.0-alpha.1 | 2026/02/04  | tag_MindStudio_26.0.0-alpha.1 | Compatible with Ascend CANN 8.5.0 and earlier versions. For details about how to obtain the CANN installation package, see [CANN Installation Guide](https://www.hiascend.com/cann).|
+  | 26.0.0-alpha.1 | 2026/02/04  | tag_MindStudio_26.0.0-alpha.1 | Compatible with Ascend CANN 8.5.0 and earlier versions. For details about how to obtain the CANN installation package, see [CANN Quick Installation](https://www.hiascend.com/en/cann/download).|
 
 ## SHA256 Checksum of the Installation Package
 
