@@ -34,6 +34,7 @@ using TraceCbFunc = std::function<void(std::string, std::string, MemScope::PyTra
 void RegisterTraceCb(TraceCbFunc call);
 void UnRegisterTraceCb();
 bool IsPyInterpRepeInited();
+bool IsPyVersionAtLeast39();
 void PythonCallstack(uint32_t pyDepth, std::string& pyStack);
 Version GetPyVersion();
 void GetPyFuncInfo(PyFrameObject* frame, std::string& info, std::string& hash);
@@ -214,10 +215,28 @@ void MemScopePythonCall(const std::string& module, const std::string& function);
 
 }  // namespace Utility
 
+/* py帧走链共享核心(py采集模块在namespace hostmem内无前缀调用,钩子侧与hal/mstx共用):
+ * 仅走链,帧→(code,file,func,line)逐帧回调,格式化/缓存归属调用方;帧/code引用统一Inc/DecRef,
+ * 回调内有效、回调返回后失效;调用方必须已持GIL(钩子采集经PyInterpGuard临时获取);
+ * 空指针/字段NULL全防御,无失败分支;直接访问code公开字段co_filename/co_name(3.9+全版本稳定,
+ * 3.13t列另有风险),相比属性查找更快且无异常抛出路径 */
+typedef void (*PyFrameVisitor)(void* ctx, PyCodeObject* code, const char* filename, const char* funcname, int lineno,
+                               uint32_t depth);
+
+class PyStackCore
+{
+   public:
+    // 自当前线程帧向root逐帧回调,至多maxDepth帧;filename/funcname为借用PyUnicode_AsUTF8结果,
+    // 仅回调期内有效;返回实际回调帧数(0=无帧/参数非法)
+    static uint32_t WalkFrames(uint32_t maxDepth, PyFrameVisitor visitor, void* ctx);
+};
+
 /**************************** 以下为模板函数的实现，调用者无需关注 ***********************************/
 extern "C"
 {
     void Py_IncRef(PyObject*) __attribute__((weak));
+    int PyGILState_Check(void) __attribute__((weak));
+    int Py_IsInitialized(void) __attribute__((weak));
     void Py_DecRef(PyObject*) __attribute__((weak));
     void PyErr_Clear(void) __attribute__((weak));
     PyObject* PyList_New(Py_ssize_t size) __attribute__((weak));

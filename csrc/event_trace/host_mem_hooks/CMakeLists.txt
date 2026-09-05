@@ -1,11 +1,16 @@
 # host堆内存钩子so:LD_PRELOAD劫持malloc族,经纯C ABI bind桥接
 # 与libascend_leaks交互(不解析任何C++符号)
-add_library(msmemscope_host_mem_hook SHARED host_mem_hooks.cpp)
+add_library(msmemscope_host_mem_hook SHARED host_mem_hooks.cpp py_stack_capture.cpp)
+
+# Python头(py栈采集): py_stack_capture.cpp include <Python.h>/<frameobject.h>,
+# 弱符号解析到宿主解释器,本so不链接libpython
+find_package(Python3 REQUIRED COMPONENTS Development)
 
 target_include_directories(msmemscope_host_mem_hook PUBLIC
   ${FRAMEWORK_INC_DIR}
   ${EVENT_TRACE_INC_DIR}
   ${SECUREC_INC_DIR}
+  ${Python3_INCLUDE_DIRS}
 )
 
 # 帧指针快速走栈(决策⑩)前提: 本so全部函数保留帧指针,fp链自劫持入口无断点直达

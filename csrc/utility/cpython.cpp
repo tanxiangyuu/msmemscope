@@ -97,6 +97,12 @@ bool IsPyInterpRepeInited()
     return false;
 }
 
+bool IsPyVersionAtLeast39()
+{
+    static Version ver = GetPyVersion();  // 非const: Version::operator<非const成员
+    return !(ver < VER39);
+}
+
 PyInterpGuard::PyInterpGuard() : gstate(PyGILState_Ensure()) {}
 
 PyInterpGuard::~PyInterpGuard() { PyGILState_Release(gstate); }
@@ -114,6 +120,44 @@ bool IsPythonThread()
     return false;
 }
 
+namespace
+{
+// WalkFrames本地格式化(hal/mstx路径,无缓存): 核心无失败分支,每帧格式化不可失败,
+// 修复旧实现"错误return只带前导引号的残缺串"缺陷
+struct BuildStackCtx
+{
+    std::string* out;
+};
+
+void AppendFrameStr(void* ctx, PyCodeObject* /*code*/, const char* filename, const char* funcname, int lineno,
+                    uint32_t /*depth*/)
+{
+    BuildStackCtx* c = static_cast<BuildStackCtx*>(ctx);
+    // 逐段append,避免构造完整临时串(pyStack已reserve)
+    c->out->append(filename);
+    c->out->append("(");
+    c->out->append(std::to_string(lineno));
+    c->out->append("): ");
+    c->out->append(funcname);
+    c->out->push_back('\n');
+}
+
+void BuildPyStackString(uint32_t pyDepth, std::string& pyStack)
+{
+    pyStack.reserve(PRE_ALLOC_SIZE);
+    pyStack += "\"";
+    BuildStackCtx ctx{&pyStack};
+    uint32_t walked = PyStackCore::WalkFrames(pyDepth, AppendFrameStr, &ctx);
+    if (walked == 0)
+    {
+        // 无帧→NA完整串(修复:旧实现frame==NULL直接return空串,调用方无从区分)
+        pyStack = "\"NA\"";
+        return;
+    }
+    pyStack += "\"";
+}
+}  // namespace
+
 void PythonCallstack(uint32_t pyDepth, std::string& pyStack)
 {
     thread_local static std::once_flag flag;
@@ -125,74 +169,20 @@ void PythonCallstack(uint32_t pyDepth, std::string& pyStack)
         pyStack = "\"NA\"";
         return;
     }
-    PyInterpGuard stat{};
-    static Version version = GetPyVersion();
-    if (version < VER39)
+    if (!IsPyVersionAtLeast39())
     {
         pyStack = "\"NA\"";
         return;
     }
-    PyFrameObject* frame = PyEval_GetFrame();
-    if (frame == nullptr)
+    if (PyGILState_Check != nullptr && PyGILState_Check() == 1)
     {
+        // Check快路径: 已持GIL直接走链,免Ensure阻塞
+        BuildPyStackString(pyDepth, pyStack);
         return;
     }
-    Py_IncRef(reinterpret_cast<PyObject*>(frame));
-    size_t depth = 0;
-    pyStack.reserve(PRE_ALLOC_SIZE);
-    pyStack += "\"";
-    while (frame && depth < pyDepth)
-    {
-        PyCodeObject* code = PyFrame_GetCode(frame);
-        if (code == nullptr)
-        {
-            break;
-        }
-        PythonObject codeObj(reinterpret_cast<PyObject*>(code));
-        auto funcName = codeObj.Get("co_name");
-        auto fileName = codeObj.Get("co_filename");
-        if (funcName == nullptr || fileName == nullptr)
-        {
-            std::cerr << "Error: Failed to get code object attributes." << std::endl;
-            return;
-        }
-
-        auto funcNameStrObj = PyObject_Str(funcName);
-        auto fileNameStrObj = PyObject_Str(fileName);
-        if (funcNameStrObj == nullptr || fileNameStrObj == nullptr)
-        {
-            std::cerr << "Error: PyObject_Str failed for funcName." << std::endl;
-            return;
-        }
-
-        const char* funcNameCStr = PyUnicode_AsUTF8(funcNameStrObj);
-        const char* fileNameCStr = PyUnicode_AsUTF8(fileNameStrObj);
-        if (funcNameCStr == nullptr || fileNameCStr == nullptr)
-        {
-            std::cerr << "Error: Failed to convert code object attributes to UTF8 string." << std::endl;
-            return;
-        }
-
-        // 逐段append，避免构造完整临时串（pyStack已reserve）
-        pyStack.append(fileNameCStr);
-        pyStack.append("(");
-        pyStack += std::to_string(PyFrame_GetLineNumber(frame));
-        pyStack.append("): ");
-        pyStack.append(funcNameCStr);
-        pyStack.push_back('\n');
-
-        PyFrameObject* prevFrame = PyFrame_GetBack(frame);
-        Py_DecRef(reinterpret_cast<PyObject*>(frame));
-        frame = prevFrame;
-        Py_DecRef(reinterpret_cast<PyObject*>(code));
-        depth++;
-    }
-    if (frame != nullptr)
-    {
-        Py_DecRef(reinterpret_cast<PyObject*>(frame));
-    }
-    pyStack += "\"";
-    return;
+    // Ensure兜底: 未持GIL行为与现状一致(阻塞取GIL后采集),hal/mstx零回归
+    PyInterpGuard stat{};
+    BuildPyStackString(pyDepth, pyStack);
 }
 
 PythonObject::PythonObject() {}
@@ -1049,3 +1039,55 @@ void MemScopePythonCall(const std::string& module, const std::string& function)
 }
 
 }  // namespace Utility
+
+// PyStackCore定义在全局作用域(声明见cpython.h,namespace Utility之外):
+// WalkFrames为hal/mstx侧与钩子侧py采集共享的帧走链核心,两方均无前缀调用
+uint32_t PyStackCore::WalkFrames(uint32_t maxDepth, PyFrameVisitor visitor, void* ctx)
+{
+    if (maxDepth == 0 || visitor == nullptr || PyEval_GetFrame == nullptr || PyFrame_GetCode == nullptr ||
+        PyFrame_GetBack == nullptr || Py_IncRef == nullptr || Py_DecRef == nullptr)
+    {
+        return 0;
+    }
+    PyFrameObject* frame = PyEval_GetFrame();
+    if (frame == nullptr)
+    {
+        return 0;
+    }
+    // 帧串获取: 直接访问code对象公开字段(3.9+全版本稳定),无属性查找的异常抛出
+    // 路径;PyUnicode_AsUTF8返回借用utf8视图(仅回调期内有效),NULL/失败按空串
+    const auto utf8OrEmpty = [](PyObject* o) -> const char*
+    {
+        if (PyUnicode_AsUTF8 == nullptr)
+        {
+            return "";
+        }
+        const char* s = o != nullptr ? PyUnicode_AsUTF8(o) : nullptr;
+        return s != nullptr ? s : "";
+    };
+    Py_IncRef(reinterpret_cast<PyObject*>(frame));
+    uint32_t depth = 0;
+    while (frame != nullptr && depth < maxDepth)
+    {
+        PyCodeObject* code = PyFrame_GetCode(frame);
+        if (code == nullptr)
+        {
+            break;  // 无code不回调: frame强引用随循环出口统一释放
+        }
+        const char* filename = utf8OrEmpty(code->co_filename);
+        const char* funcname = utf8OrEmpty(code->co_name);
+        visitor(ctx, code, filename, funcname, PyFrame_GetLineNumber(frame), depth);
+        // 引用守恒: PyFrame_GetBack返回新引用(3.9+文档定义),直接作下轮frame
+        // 并在本轮DecRef原frame,两两平衡,tstate持有的引用不动
+        PyFrameObject* prevFrame = PyFrame_GetBack(frame);
+        Py_DecRef(reinterpret_cast<PyObject*>(frame));
+        frame = prevFrame;
+        Py_DecRef(reinterpret_cast<PyObject*>(code));
+        depth++;
+    }
+    if (frame != nullptr)
+    {
+        Py_DecRef(reinterpret_cast<PyObject*>(frame));  // 截断/无code退出: 释放未消费的强引用
+    }
+    return depth;
+}

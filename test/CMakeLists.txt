@@ -49,7 +49,9 @@ target_link_libraries(memscope_test gtest_main dl pthread stdc++fs ${Python3_LIB
 # 落入有限自举竞技场,耗尽后bad_alloc→terminate→abort。子套件经本专用二进制运行,
 # 与主测试二进制的符号污染隔离;构建依赖保证父用例运行前子二进制已就绪
 add_executable(memscope_hostmem_child_test ./event_trace/test_host_mem_hook.cpp)
-target_link_libraries(memscope_hostmem_child_test gtest_main dl pthread)
+# 链接libpython——py采集用例在子进程内Py_Initialize内嵌解释器构造已知帧链
+# (钩子so弱符号PyGILState_Check等经全局查找序解析到本二进制导出的python符号)
+target_link_libraries(memscope_hostmem_child_test gtest_main dl pthread ${Python3_LIBRARIES})
 # P3变体行接收符号msmemscope_hostmem_report_stack_variant由本二进制定义:钩子闭窗经
 # dlsym(RTLD_DEFAULT)解析,-rdynamic将可执行文件符号导出进动态符号表——查找序中
 # 主可执行文件先于LD_PRELOAD对象与其DT_NEEDED(libascend_leaks.so,新版本自带同名
