@@ -14,6 +14,7 @@ msMemScope工具基于采集的内存数据，提供泄漏、对比、监测、�
 |OOM分析|当NPU训练/推理过程中发生OOM（Out of Memory，显存溢出）时，msMemScope工具可自动采集触发OOM的操作信息、最近未释放的内存分配记录和占用最大的内存分配记录，帮助快速定位OOM根因。|
 |一键分析|为了提高msMemScope内存分析的易用性，支持一键开启内存拆解和内存快照功能，对vLLM/FSDP/verl的核心函数自动打点，供用户快速分析。|
 |NPU Sanitizer自定义算子打点|对于开发者自行编写的自定义算子，msMemScope联动NPU Sanitizer提供了自定义算子打点功能。开发者通过MSTX接口上报一条格式化字符串，即可将自定义算子的显存读写信息送入Sanitizer分析管线，检测多流同步错误。|
+|Host堆内存泄漏检测|针对训练与推理过程中宿主侧进程堆内存长时间未释放导致的内存增长问题，msMemScope工具对检测区间内申请且未释放的Host堆内存块按调用栈聚合分析，输出泄漏概览报告与逐块明细，实现Host堆内存泄漏的定位与分析。|
 
 ## 使用前准备
 
@@ -98,6 +99,143 @@ msMemScope支持对指定范围内的内存事件进行离线泄漏分析。使�
     **图 3**  offline leakage analysis <a id="analysis"></a>
 
     ![](../figures/offline_leakage_analysis.png)
+
+## Host堆内存泄漏检测功能介绍
+
+### 功能说明
+
+Host堆内存泄漏检测针对训练与推理过程中宿主侧进程（CPU侧）堆内存长期未释放导致的内存增长问题，对检测区间（窗口）内申请且未释放的Host堆内存块按调用栈聚合，输出泄漏概览报告与逐块明细，帮助定位泄漏调用栈与泄漏规模。
+
+- **单账本 + 闭窗快照**：钩子侧块表为唯一账本，窗口期间数据零跨层传输，窗口结束时一次性聚合，热路径开销低（默认全量追踪，不依赖采样）。
+- **泄漏定位**：输出TOP N泄漏点调用栈（默认10个）、未释放块大小排布、逐块明细（可选）。
+- **诚实性标注**：块阈值过滤、采样、表满降级、截断等追踪决策在报告“数据健康度分析”章节如实标注，无运行中隐式丢包。
+- **两种使用方式**：支持命令行方式和Python接口方式。
+
+Host堆内存泄漏检测与显存（Device侧）内存泄漏分析相互独立，可分别使用；与分析项`leaks`、`decompose`、`inefficient`、`oom`互斥，不可在同一配置中同时启用。
+
+### 使用示例
+
+检测区间（窗口）语义如下：
+
+- **命令行方式**：目标进程启动即开窗，进程退出时自动闭窗并输出报告。
+- **Python接口方式**：`msmemscope.start()`开窗、`msmemscope.stop()`关窗，每对start/stop对应一个检测窗口、输出一份报告；`analysis`中包含`host-leaks`是窗口开启的前提（使能配置），采集停止时自动闭窗并输出报告。
+
+**命令行方式**
+
+1. 使用msMemScope启动用户程序，Application为用户程序及其参数。
+
+    ```shell
+    msmemscope --analysis=host-leaks [--host-leak-mode=MODE] [--block-size-threshold=N] [--sample-rate=N] ${Application}
+    ```
+
+    例如：
+
+    ```shell
+    msmemscope --analysis=host-leaks --block-size-threshold=1024 --sample-rate=1 --output-path=./output python ./train.py
+    ```
+
+    > [!NOTE]
+    >
+    > - 命令行方式下，`--analysis`中包含`host-leaks`时，msMemScope启动器自动按Host模式装配钩子（`LD_PRELOAD`仅装载`libmsmemscope_host_mem_hook.so`），无需手工设置环境变量。
+    > - 也可通过`source msmemscope --load-api-env=host`手动装载Host钩子环境（Python接口方式必需），使用完毕后执行`source msmemscope --unload-api-env`清除。
+
+2. 目标进程退出后，在输出目录下生成泄漏概览报告，详见[输出说明](#host堆内存泄漏检测输出说明)。
+
+**Python接口方式**
+
+1. 设置环境变量，装载Host钩子。
+
+    ```shell
+    source msmemscope --load-api-env=host
+    ```
+
+2. 在用户脚本中配置使能并启停检测。
+
+    ```python
+    import msmemscope
+    # 配置使能: analysis中包含host-leaks为开窗前提(可随时调整host_leak_mode等参数)
+    msmemscope.config(analysis=["host-leaks"], host_leak_mode="summary", block_size_threshold="1024")
+    msmemscope.start()          # 开窗: 开始检测区间
+    # ... 训练若干step ...
+    msmemscope.stop()           # 关窗: 结束检测区间,闭窗聚合输出报告
+    ```
+
+    每对`start()`/`stop()`对应一个检测窗口，输出一份概览报告（窗口序号递增）；检测期间也可随时下发`config(analysis=[])`停止检测并闭窗。
+
+    > [!NOTE]
+    >
+    > - `analysis`中包含`host-leaks`时，若当前进程的Host钩子未装配（未执行`source msmemscope --load-api-env=host`），接口将抛出`ValueError`，提示先装载环境。
+    > - 窗口关闭后报告立即输出；进程退出时若有未关闭窗口，将自动闭窗。
+
+### 参数说明
+
+Host堆内存泄漏检测参数如[**表 1**  Host堆内存泄漏检测CLI参数说明](#host堆内存泄漏检测cli参数说明)所示。
+
+**表 1**  Host堆内存泄漏检测CLI参数说明<a id="host堆内存泄漏检测cli参数说明"></a>
+
+|参数|默认值|说明|
+|--|--|--|
+|`--analysis=host-leaks`|—（默认分析项为`leaks`）|启用Host堆内存泄漏检测。与`leaks`、`decompose`、`inefficient`、`oom`互斥，同一配置中不可同时启用。|
+|`--host-leak-mode <MODE>`|`summary`|上报模式：`summary`=仅输出按调用栈聚合的概览报告；`event`=除概览报告外，额外输出逐块明细CSV。|
+|`--block-size-threshold <N>`|`0`|块大小阈值（字节）：只记录size≥N的分配。默认0表示全量追踪；显式设置>0时，小于阈值的分配不进入账本，其数量与总量在报告的“数据健康度分析”章节标注。|
+|`--sample-rate <N>`|`1`|显式采样率倒数（2的幂向下归一）：1=不采样；N>1表示仅记录约1/N的分配，报告标注采样视图。仅在极端分配率场景下使用。|
+
+阈值与采样率在窗口开启时快照生效，窗口期内修改不生效（对当前窗口无影响，自下一窗口起生效）。
+
+Python接口方式通过`msmemscope.config(**kwargs)`下发相同配置，对应键如[**表 2**  Host堆内存泄漏检测Python config键说明](#host堆内存泄漏检测python-config键说明)所示（值须为字符串）。
+
+**表 2**  Host堆内存泄漏检测Python config键说明<a id="host堆内存泄漏检测python-config键说明"></a>
+
+|config键|默认值|说明|
+|--|--|--|
+|`analysis=["host-leaks"]`（或`analysis="host-leaks"`）|—|使能Host堆内存泄漏检测（开窗前提），互斥校验与CLI相同。窗口的实际开/关由`start()`/`stop()`控制。|
+|`host_leak_mode`|`"summary"`|上报模式，对应`--host-leak-mode`。|
+|`block_size_threshold`|`"0"`|块大小阈值，对应`--block-size-threshold`。|
+|`sample_rate`|`"1"`|采样率倒数，对应`--sample-rate`。|
+
+### 输出说明<a id="host堆内存泄漏检测输出说明"></a>
+
+Host堆内存泄漏检测的输出文件保存在`{output}/msmemscope_{*PID*}_{_timestamp_}_ascend/host_leak/`目录下（`{output}`为`--output-path`指定的输出目录，默认为`./memscopeDumpResults`），如[**表 3**  Host堆内存泄漏检测输出文件说明](#host堆内存泄漏检测输出文件明细表)所示。
+
+**表 3**  Host堆内存泄漏检测输出文件说明<a id="host堆内存泄漏检测输出文件明细表"></a>
+
+|输出文件|存在条件|内容|
+|--|--|--|
+|`leak_overview_{*stage*}.txt`|默认输出，summary与event模式均生成|泄漏概览报告：数据健康度分析、总泄漏量、泄漏块大小排布、开窗前free大小排布、TOP N泄漏点调用栈。`{stage}`为窗口序号。|
+|`block_detail_{*stage*}.csv`|仅`--host-leak-mode=event`且窗口内存在未释放块时生成|逐块泄漏明细：`addr,size,alloc_ts,call_stack`，按块大小降序，调用栈文本内联（RFC 4180引号字段）。|
+
+两份文件与同窗号一一对应，字段及格式详见《[输出文件说明](./output_file_spec.md)》。
+
+### 报告解读<a id="host堆内存泄漏检测报告解读"></a>
+
+泄漏概览报告（`leak_overview_{*stage*}.txt`）按以下章节输出：
+
+|章节|含义|
+|--|--|
+|Data Health Analysis（数据健康度分析）|如实标注本窗口的追踪决策：检测窗口起止时间、上报模式、总申请/释放计数、去重调用栈数（键深K=20，类=前K帧相同的归因语义）、未归因块数（栈表超限转未知桶）、死栈淘汰统计、截断标注（bit0=块表满转溢出通道、bit1=栈表满转未知桶、bit2=溢出账本满记账停止）、溢出通道统计、开窗前free统计、采样率（非1时标注采样视图）、块阈值与未追踪统计、符号化覆盖率。窗口数据不完整时明确标注“不可作为泄漏结论”。|
+|Total Unfreed（总泄漏量）|本窗口内申请且未释放的块数/字节合计（含未知桶与溢出通道存活块），闭窗遍历的精确值。|
+|Unfreed Block Size Distribution（泄漏块大小排布）|未释放块按大小分桶的块数/字节/占比（默认7桶：0~256B、256B~1K、1K~4K、4K~32K、32K~256K、256K~1M、1M以上）。|
+|Pre-Window Free Size Distribution（开窗前free大小排布）|开窗前申请、窗口期间释放的内存按大小归桶统计（独立通道，不参与泄漏判定，供缓存老化场景分析）。|
+|TOP N Leak Sites（TOP N泄漏点）|按未释放字节降序的泄漏点调用栈列表，每行含未释放/申请/释放统计与完整符号化栈文本。未归因块所在行为未知桶行，栈文本缺失标注`(unresolved stack)`。|
+
+### 注意事项
+
+- 使用环境需为Linux操作系统（x86_64或aarch64）。
+- Host堆内存泄漏检测与显存（Device侧）内存泄漏分析相互独立；与分析项`leaks`、`decompose`、`inefficient`、`oom`互斥，不可在同一配置中同时启用。
+- 本功能只覆盖标准堆分配接口（`malloc`/`calloc`/`realloc`/`posix_memalign`/`aligned_alloc`/`memalign`/`valloc`/`pvalloc`），`mmap`等非堆分配不记账。
+- 开窗前已分配的存量内存不进入账本；窗口期间释放的开窗前内存计入“开窗前free”独立通道，不并入总申请/释放计数，也不参与泄漏判定。
+- 设置`--block-size-threshold`或`--sample-rate`时，报告中的未释放量为对应追踪决策下的视图，报告会如实标注，不表示全量结果。
+- `block_detail_{*stage*}.csv`逐块明细仅覆盖块表口径；溢出通道块（块表满降级转入）无栈归因，不进入明细，但已计入总泄漏量与大小排布。概览总泄漏量与明细之和的差值即溢出通道块。
+- fork出的子进程不纳入检测（钩子在子进程中自动停用），分布式训练场景各进程独立开窗、独立报告。
+- 检测窗口内的快照与统计在闭窗时一次性拉取；极端早期退出导致统计不可得时，报告以`Snapshot: unavailable`标注，不输出臆测数据。
+- 进程退出时若窗口未关闭，msMemScope将自动闭窗并输出报告（闭窗聚合最长等待120s）。
+
+### 限制说明
+
+- 本功能定位于区间内未释放的Host堆内存检测，报告结论针对检测窗口，不能直接外推为进程整体泄漏。
+- 极高频分配（百万次/秒级）且长存活块数超大的场景下，块表安全阀（默认2000万条）触顶后申请转入溢出通道（无栈归因）；溢出账本也满时记账停止，窗口数据为截断点前的完整前缀，报告明示不可作为泄漏结论。此类场景建议显式设置块阈值或采样率。
+- 栈表容量（默认40万条）触顶时，死栈（已全部释放的调用栈）会被回收腾位，其历史计数折叠并入未知桶行；全活表场景下新调用栈归入未知桶。归因粒度退化但记账不中断，报告如实标注。
+- 键深K默认20帧：调用栈前20帧相同的申请归为同一“类”；K可在报告标注中查看，实际键深与运行库相关，不同库版本下K帧一致性的类语义可能不同。
 
 ## 内存对比分析功能介绍
 

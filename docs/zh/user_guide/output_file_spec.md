@@ -13,6 +13,8 @@ msMemScope工具进行内存分析后，输出的文件如[**表 1**  输出文�
 |memscope_dump_{_timestamp_}.db|db格式的内存信息结果文件，默认保存在msmemscope_{*PID*}_{_timestamp_}_ascend/device_{*device_id*}/dump目录下，可使用MindStudio Insight工具展示，展示结果及具体操作请参见[MindStudio Insight内存调优](https://gitcode.com/Ascend/msinsight/blob/master/docs/zh/user_guide/memory_tuning.md)。|
 |python_trace_{_TID_}_{_timestamp_}.csv|Python Trace采集的结果文件，默认保存在msmemscope_{*PID*}_{_timestamp_}_ascend/device_{*device_id*}/dump目录下，具体详情信息可参见[python_trace_{_TID_}_{_timestamp_}.csv文件说明](#python_trace_tid_timestampcsv文件说明)。|
 |config.json|Python接口自定义采集的配置信息文件，默认保存在msmemscope_{*PID*}_{_timestamp_}_ascend目录下。|
+|leak_overview_{*stage*}.txt|Host堆内存泄漏检测的泄漏概览报告，默认保存在msmemscope_{*PID*}_{_timestamp_}_ascend/host_leak目录下，具体详情信息可参见[leak_overview_{*stage*}.txt文件说明](#leak_overview_stagetxt文件说明)。|
+|block_detail_{*stage*}.csv|Host堆内存泄漏检测的泄漏代码块详情文件（仅event模式且窗口内存在未释放块时生成），默认保存在msmemscope_{*PID*}_{_timestamp_}_ascend/host_leak目录下，具体详情信息可参见[block_detail_{*stage*}.csv文件说明](#block_detail_stagecsv文件说明)。|
 
 ## memscope_dump_{_timestamp_}.csv文件说明
 
@@ -64,3 +66,39 @@ Python Trace采集结果文件的字段解释如[**表 4**  python_trace_{_TID_}
 |EndTime(ns)|结束时间戳。|
 |Thread Id|线程ID。|
 |Process Id|进程ID。|
+
+## leak_overview_{_stage_}.txt文件说明
+
+Host堆内存泄漏检测的泄漏概览报告文件，检测窗口关闭后生成（summary与event模式均输出）。文件保存在`msmemscope_{*PID*}_{_timestamp_}_ascend/host_leak`目录下，`{stage}`为窗口序号。
+
+报告按章节组织，如[**表 5**  leak_overview_{_stage_}.txt报告章节说明](#leak_overview_stagetxt报告章节说明)所示。
+
+**表 5**  leak_overview_{_stage_}.txt报告章节说明<a id="leak_overview_stagetxt报告章节说明"></a>
+
+|章节|内容|
+|--|--|
+|Data Health Analysis|数据健康度分析：如实标注本窗口的追踪决策。包括检测窗口起止时间与时长、上报模式、总申请/释放计数、去重调用栈数（含记账键深K与类归因语义）、未归因块数及占比、死栈淘汰统计（仅发生时输出）、截断标注（bit0=块表满转溢出通道、bit1=栈表满转未知桶、bit2=溢出账本满记账停止，仅bit2构成数据不完整）、溢出通道分流与逆向修正统计、开窗前free统计、采样率（非1时标注采样视图）、块大小阈值与未追踪统计、符号化覆盖率（未解析栈数）。统计不可得时标注`Snapshot: unavailable`。|
+|Total Unfreed|总泄漏量：本窗口内申请且未释放的字节数/块数合计（含未知桶与溢出通道存活块）及平均值、最大值。|
+|Unfreed Block Size Distribution|泄漏块大小排布：未释放块按大小分桶的块数、字节、占总泄漏量百分比。默认7桶：0~256B、256B~1K、1K~4K、4K~32K、32K~256K、256K~1M、1M以上。|
+|Pre-Window Free Size Distribution|开窗前free大小排布：开窗前申请、窗口期间释放的内存按大小分桶的释放次数与字节数。|
+|TOP N Leak Sites|TOP N泄漏点：按未释放字节降序的泄漏点列表，每行包含未释放块数/字节、申请/释放统计及完整符号化调用栈文本。默认N=10。未知桶行为`(unknown bucket: unattributed blocks)`，栈文本缺失标注`(unresolved stack)`。|
+
+## block_detail_{_stage_}.csv文件说明
+
+Host堆内存泄漏检测的泄漏代码块详情文件，仅在`--host-leak-mode=event`且窗口内存在未释放块时生成。文件保存在`msmemscope_{*PID*}_{_timestamp_}_ascend/host_leak`目录下，与同窗号概览报告对应。
+
+文件为CSV格式，表头为首行`addr,size,alloc_ts,call_stack`，逐块一行、块大小降序（相同大小按地址升序），字段如[**表 6**  block_detail_{_stage_}.csv文件字段及含义](#block_detail_stagecsv文件字段及含义)所示。
+
+**表 6**  block_detail_{_stage_}.csv文件字段及含义<a id="block_detail_stagecsv文件字段及含义"></a>
+
+|字段|含义|格式|
+|--|--|--|
+|addr|未释放块起始地址|`0x`前缀 + 16位小写十六进制零填充。|
+|size|块大小（字节）|十进制。|
+|alloc_ts|窗口内分配时间戳（纳秒）|十进制。|
+|call_stack|完整符号化调用栈文本（自顶帧到root帧，帧间以换行分隔）|双引号包裹字符串（RFC 4180引号字段，内嵌换行保留，内部`"`转义为`""`）。栈文本缺失时写`(unresolved stack)`；未知桶（栈表超限块）写`(unknown bucket: unattributed blocks)`。|
+
+> [!NOTE]
+>
+> - 明细文件仅覆盖块表口径，溢出通道块（块表满降级转入，无栈归因）不进入明细；概览报告的Total Unfreed含溢出通道存活块，两者差值即溢出通道块。
+> - 调用栈文本逐块内联自含，不依赖同窗概览报告即可独立解析。
