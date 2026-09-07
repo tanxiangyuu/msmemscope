@@ -89,7 +89,7 @@ class CpuTensorDumpTestCase(BaseTest):
 
 
 class CpuTensorCapturedTestCase(BaseTest):
-    """CPU tensors (attr ``total:``) are captured with a Python call stack, dedup intact.
+    """CPU tensors (attr ``used:``, non-pinned) are captured with a Python call stack, dedup intact.
 
     The smoke script creates exactly three CPU tensors (``torch.tensor`` / ``.to("cpu")`` /
     ``.cpu()``); an already-CPU ``.cpu()`` and a ``.view()`` must not add events, and an
@@ -109,8 +109,8 @@ class CpuTensorCapturedTestCase(BaseTest):
 
         try:
             host = df[df["Event Type"] == "HOST"]
-            cpu_malloc = host[(host["Event"] == "MALLOC") & host["Attr"].str.contains("total:", na=False)]
-            cpu_free = host[(host["Event"] == "FREE") & host["Attr"].str.contains("total:", na=False)]
+            cpu_malloc = host[(host["Event"] == "MALLOC") & ~host["Attr"].str.contains("pinned:true", na=False)]
+            cpu_free = host[(host["Event"] == "FREE") & ~host["Attr"].str.contains("pinned:true", na=False)]
             malloc_cnt = len(cpu_malloc)
             free_cnt = len(cpu_free)
             stack = cpu_malloc["Call Stack(Python)"]
