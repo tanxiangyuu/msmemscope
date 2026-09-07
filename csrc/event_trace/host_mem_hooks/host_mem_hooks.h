@@ -151,6 +151,15 @@ extern "C"
         uint64_t evictedStackCount;
         uint64_t evictedAllocCount;
         uint64_t evictedAllocBytes;
+        /* 节拍快照序列(泄漏点置信度分析): 序列起点时间戳(拍0对齐,与块allocTs
+         * 同一时钟——CLOCK_REALTIME,分析器据此将拍号映射到窗口时间轴)与节拍间隔
+         * (默认1e9ns,测试harness可经MSMEMSCOPE_HOSTMEM_BEAT_NS覆盖,须开窗前设置)。
+         * 窗口关闭态为冻结值;窗口未产出序列(预热线程未创建/窗口过短)时=0 */
+        uint64_t seriesStartTsNs;
+        uint64_t seriesBeatIntervalNs;
+        /* 序列标注: bit0=本窗口预热线程创建失败(符号化与序列采集整体缺失,
+         * 分析器按no_warmup_thread降级标注) */
+        uint32_t seriesFlags;
     } MsmemscopeHostmemStats;
 
     /* SVC表：钩子实现，bind返回给libascend_leaks */
@@ -171,12 +180,26 @@ extern "C"
         /* 闭窗栈统计快照（leak_overview数据源）：对每个栈调用emit一行，unfreed系列为闭窗
          * 块表遍历聚合的精确值（真源是块表），alloc/freed系列为栈计数器值；
          * frameDesc为闭窗符号化文本（'\n'分隔帧描述；stackId=0为未知桶行，frameDesc为空）。
+         * 追加三字段（置信度因子数据源）：maxAllocTsNs=未释放块最新分配时刻、
+         * freedLifetimeSumNs=已释放块寿命和（free路径锁内累加freeTs−allocTs）、
+         * liveAgeSumNs=未释放块年龄和（闭窗遍历块表顺带统计）。
          * 仅窗口关闭态调用（闭窗聚合已就绪）；emit内部不得回调钩子 */
         void (*dump_stack_stats)(void (*emit)(void* ctx, uint64_t stackId, uint64_t allocCount, uint64_t allocBytes,
                                               uint64_t freedCount, uint64_t freedBytes, uint64_t unfreedCount,
-                                              uint64_t unfreedBytes, uint64_t maxBlockSize, const char* frameDesc,
+                                              uint64_t unfreedBytes, uint64_t maxBlockSize, uint64_t maxAllocTsNs,
+                                              uint64_t freedLifetimeSumNs, uint64_t liveAgeSumNs, const char* frameDesc,
                                               size_t len),
                                  void* ctx);
+        /* 闭窗节拍快照序列（泄漏点置信度数据源）：预热线程1s节拍对全局top-K栈
+         * （按liveBytes降序,K=256）每拍记录一行，行=(beat, liveBytes, liveCount)。
+         * emit(ctx, stackId, beat, liveBytes, liveCount, flags)；按栈分组、栈内按
+         * beat升序；flags bit0=槽曾被驱逐（序列保留至闭窗交付、下窗不续，分析器
+         * 按series_evicted降级标注）。beat=拍号（0起，经stats.seriesStartTsNs/
+         * seriesBeatIntervalNs映射到时间轴）。未入top-K的栈无行。
+         * 仅窗口关闭态调用（停预热线程join后序列冻结，无并发）；emit内部不得回调钩子 */
+        void (*dump_unfreed_series)(void (*emit)(void* ctx, uint64_t stackId, uint32_t beat, uint64_t liveBytes,
+                                                 uint32_t liveCount, uint32_t flags),
+                                    void* ctx);
         /* 闭窗大小排布（leak_overview数据源）：对每个桶调用emit(ctx, rangeLow, rangeHigh,
          * blockCount, blockBytes)，rangeLow含、rangeHigh不含（末桶rangeHigh=UINT64_MAX）。
          * 与per-stack聚合同一次闭窗遍历得出；仅窗口关闭态调用 */

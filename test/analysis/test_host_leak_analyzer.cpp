@@ -21,7 +21,8 @@
  * 验证:窗口状态机只由STAGE事件驱动、per-pid隔离、event/summary两种模式的
  * 输出件(leak_overview_<stage>.txt + block_detail_<stage>.csv)、概览报告
  * 各章节内容(数据健康度/总泄漏量/大小排布/TOP N)与诚实性标注(截断/采样/
- * 阈值/未知桶/未符号化)。
+ * 阈值/未知桶/未符号化)。置信度视图(节拍序列+五因子LSI+常驻子块+降级标注+
+ * 周转NOTE)经UT-A4黄金报告与UT-CA1..5覆盖;纯算法因子在test_host_confidence。
  * 注:本测试进程无钩子so(bind不执行),但测试缝注入假svc后闭窗快照全部可拉取;
  * 未注入(置nullptr)时statsAvailable=false,概览以"Snapshot: unavailable"标注
  */
@@ -137,7 +138,20 @@ struct FakeStackRow
     uint64_t unfreedCount = 0;
     uint64_t unfreedBytes = 0;
     uint64_t maxBlockSize = 0;
+    uint64_t maxAllocTsNs = 0;        // 未释放块最新分配时刻(常驻判据条件(2))
+    uint64_t freedLifetimeSumNs = 0;  // 已释放块寿命和(S因子数据源)
+    uint64_t liveAgeSumNs = 0;        // 未释放块年龄和(S因子数据源)
     std::string frameDesc;  // 闭窗符号化文本('\n'分隔;空=未符号化/未知桶)
+};
+
+// 节拍快照序列行(dump_unfreed_series投影;flags bit0=槽被驱逐)
+struct FakeSeriesRow
+{
+    uint64_t stackId = 0;
+    uint32_t beat = 0;
+    uint64_t liveBytes = 0;
+    uint32_t liveCount = 0;
+    uint32_t flags = 0;
 };
 
 struct FakeBucket
@@ -160,6 +174,7 @@ struct FakeSvcData
 {
     MsmemscopeHostmemStats stats{};
     std::vector<FakeStackRow> stacks;
+    std::vector<FakeSeriesRow> series;  // dump_unfreed_series投影(置信度数据源)
     std::vector<FakeBucket> buckets;
     std::vector<FakeBucket> preWindowBuckets;  // dump_pre_window_distribution投影
     std::vector<FakeBlock> blocks;
@@ -194,7 +209,8 @@ void FakeSvcDumpLiveBlocks(void (*emit)(void* ctx, uint64_t addr, uint64_t size,
 
 void FakeSvcDumpStackStats(void (*emit)(void* ctx, uint64_t stackId, uint64_t allocCount, uint64_t allocBytes,
                                         uint64_t freedCount, uint64_t freedBytes, uint64_t unfreedCount,
-                                        uint64_t unfreedBytes, uint64_t maxBlockSize, const char* frameDesc,
+                                        uint64_t unfreedBytes, uint64_t maxBlockSize, uint64_t maxAllocTsNs,
+                                        uint64_t freedLifetimeSumNs, uint64_t liveAgeSumNs, const char* frameDesc,
                                         size_t len), void* ctx)
 {
     if (emit == nullptr)
@@ -204,7 +220,21 @@ void FakeSvcDumpStackStats(void (*emit)(void* ctx, uint64_t stackId, uint64_t al
     for (const auto& r : g_fakeSvcData.stacks)
     {
         emit(ctx, r.stackId, r.allocCount, r.allocBytes, r.freedCount, r.freedBytes, r.unfreedCount, r.unfreedBytes,
-             r.maxBlockSize, r.frameDesc.data(), r.frameDesc.size());
+             r.maxBlockSize, r.maxAllocTsNs, r.freedLifetimeSumNs, r.liveAgeSumNs, r.frameDesc.data(),
+             r.frameDesc.size());
+    }
+}
+
+void FakeSvcDumpUnfreedSeries(void (*emit)(void* ctx, uint64_t stackId, uint32_t beat, uint64_t liveBytes,
+                                           uint32_t liveCount, uint32_t flags), void* ctx)
+{
+    if (emit == nullptr)
+    {
+        return;
+    }
+    for (const auto& s : g_fakeSvcData.series)
+    {
+        emit(ctx, s.stackId, s.beat, s.liveBytes, s.liveCount, s.flags);
     }
 }
 
@@ -235,7 +265,8 @@ void FakeSvcDumpPreWindowDist(void (*emit)(void* ctx, uint64_t rangeLow, uint64_
 }
 
 const MsmemscopeHostmemSvc g_fakeSvc = {FakeSvcSetEnabled, FakeSvcGetStats, FakeSvcDumpLiveBlocks,
-                                        FakeSvcDumpStackStats, FakeSvcDumpSizeDist, FakeSvcDumpPreWindowDist};
+                                        FakeSvcDumpStackStats, FakeSvcDumpUnfreedSeries, FakeSvcDumpSizeDist,
+                                        FakeSvcDumpPreWindowDist};
 
 EventReport& FakeReport()
 {
@@ -318,28 +349,36 @@ TEST_F(HostLeakAnalyzerTest, per_pid_isolation)
     Dispatch(CreateStageEnd(1234, 1, 300));
 }
 
-// UT-A4: event模式黄金报告——闭窗快照(stats+栈统计+大小排布+逐块明细)经假svc
-// 注入,验证leak_overview_1.txt各章节内容与block_detail_1.csv(块大小降序、
-// 地址列0x+16位hex)
+// UT-A4: event模式黄金报告——闭窗快照(stats+栈统计+节拍序列+大小排布+逐块明细)
+// 经假svc注入,验证leak_overview_1.txt各章节内容与block_detail_1.csv(块大小降序、
+// 地址列0x+16位hex)。栈5为持续增长泄漏(每拍+1000B×101拍),置信度全链路:
+// G=1.0/R=1.0/S=0.5(无free样本)/P=0.0(斜率平稳)/E=1.0(101块)→LSI=82
+// (0.26+0.21+0.06+0.29)×100,常驻判据双条件均不满足→suspected_leak进疑似榜
 TEST_F(HostLeakAnalyzerTest, golden_event_mode_report)
 {
     const uint64_t pid = 1234;
-    // stats: 全局合计(钩子原子计数器口径,闭窗冻结值)
-    g_fakeSvcData.stats.liveBlockCount = 2;
-    g_fakeSvcData.stats.totalAllocCount = 3;
-    g_fakeSvcData.stats.totalAllocBytes = 300;
+    const uint64_t ns = 1000000000ULL;
+    const uint64_t windowStart = 100 * ns;  // 100s
+    const uint64_t windowEnd = 200 * ns;    // 200s
+    // stats: 全局合计(钩子原子计数器口径,闭窗冻结值)+序列锚点
+    g_fakeSvcData.stats.liveBlockCount = 101;
+    g_fakeSvcData.stats.totalAllocCount = 102;
+    g_fakeSvcData.stats.totalAllocBytes = 101100;
     g_fakeSvcData.stats.totalFreedCount = 1;
     g_fakeSvcData.stats.totalFreedBytes = 100;
     g_fakeSvcData.stats.sampleRate = 1;
     g_fakeSvcData.stats.truncated = 0;
-    // 栈统计:栈5两块存活(100+200B),栈6全释放(不进入TOP)
+    g_fakeSvcData.stats.seriesStartTsNs = windowStart;  // 拍0对齐窗口起点
+    g_fakeSvcData.stats.seriesBeatIntervalNs = ns;
+    // 栈统计:栈5持续增长泄漏(101块×1000B全部未释放),栈6全释放(不进入TOP)
     FakeStackRow stack5;
     stack5.stackId = 5;
-    stack5.allocCount = 2;
-    stack5.allocBytes = 300;
-    stack5.unfreedCount = 2;
-    stack5.unfreedBytes = 300;
-    stack5.maxBlockSize = 200;
+    stack5.allocCount = 101;
+    stack5.allocBytes = 101000;
+    stack5.unfreedCount = 101;
+    stack5.unfreedBytes = 101000;
+    stack5.maxBlockSize = 1000;
+    stack5.maxAllocTsNs = windowEnd - ns;  // 窗口尾部新分配(常驻判据条件(2)不满足)
     stack5.frameDesc = "main\nfoo() [0x1]\n";
     FakeStackRow stack6;
     stack6.stackId = 6;
@@ -349,10 +388,14 @@ TEST_F(HostLeakAnalyzerTest, golden_event_mode_report)
     stack6.freedBytes = 100;
     g_fakeSvcData.stacks.push_back(stack5);
     g_fakeSvcData.stacks.push_back(stack6);
-    // 大小排布桶(钩子默认桶界256/1K/4K/32K/256K/1M):存活块100B→[0,256),
-    // 200B→[256,1K)
-    g_fakeSvcData.buckets.push_back(FakeBucket{0, 256, 1, 100});
-    g_fakeSvcData.buckets.push_back(FakeBucket{256, 1024, 1, 200});
+    // 节拍序列:栈5每拍+1000B(拍0..100,与allocBytes口径一致:live(100)=101000B)
+    for (uint32_t b = 0; b <= 100; ++b)
+    {
+        g_fakeSvcData.series.push_back(FakeSeriesRow{5, b, 1000ULL * (b + 1), b + 1, 0});
+    }
+    // 大小排布桶(钩子默认桶界256/1K/4K/32K/256K/1M):1000B块落在[0,256)与[256,1K)
+    g_fakeSvcData.buckets.push_back(FakeBucket{0, 256, 51, 51000});
+    g_fakeSvcData.buckets.push_back(FakeBucket{256, 1024, 50, 50000});
     g_fakeSvcData.buckets.push_back(FakeBucket{1024, 4096, 0, 0});
     g_fakeSvcData.buckets.push_back(FakeBucket{4096, 32768, 0, 0});
     g_fakeSvcData.buckets.push_back(FakeBucket{32768, 262144, 0, 0});
@@ -362,29 +405,39 @@ TEST_F(HostLeakAnalyzerTest, golden_event_mode_report)
     g_fakeSvcData.blocks.push_back(FakeBlock{0x1000, 100, 1100, 5});
     g_fakeSvcData.blocks.push_back(FakeBlock{0x2000, 200, 1200, 5});
 
-    Dispatch(CreateStageStart(pid, 1, 1000));
-    Dispatch(CreateStageEnd(pid, 1, 2000));
+    Dispatch(CreateStageStart(pid, 1, windowStart));
+    Dispatch(CreateStageEnd(pid, 1, windowEnd));
 
     // 概览报告各章节
     const std::string text = ReadAllText(REPORT_DIR + "/leak_overview_1.txt");
     // 头部与窗口
     EXPECT_NE(text.find("====== Host Leak Overview: stage=1, pid=1234 ======"), std::string::npos);
-    EXPECT_NE(text.find("Window: 1000 -> 2000 (duration: 0s)"), std::string::npos);
+    EXPECT_NE(text.find("Window: 100000000000 -> 200000000000 (duration: 100s)"), std::string::npos);
     EXPECT_NE(text.find("Mode: event"), std::string::npos);
     // 数据健康度:全局合计/唯一栈数/符号化
-    EXPECT_NE(text.find("Tracked: 3 allocations / 300B allocated; 1 freed / 100B"), std::string::npos);
+    EXPECT_NE(text.find("Tracked: 102 allocations / 101100B allocated; 1 freed / 100B"), std::string::npos);
     EXPECT_NE(text.find("Distinct stacks: 2 (key depth K=20, category semantics)"), std::string::npos);
     EXPECT_NE(text.find("Symbolized: 1/1 stacks (unresolved: 0)"), std::string::npos);
     // 总泄漏量:桶合计为权威真源
-    EXPECT_NE(text.find("Total unfreed: 300 bytes in 2 blocks (avg 150B, max 200B)"), std::string::npos);
+    EXPECT_NE(text.find("Total unfreed: 101000 bytes in 101 blocks (avg 1000B, max 1000B)"), std::string::npos);
     // 大小排布:首桶下界0渲染为"0"(非"0M"),1K缩写
     EXPECT_NE(text.find("[0, 256)"), std::string::npos);
     EXPECT_NE(text.find("[256, 1K)"), std::string::npos);
-    // TOP:仅栈5(未释放>0),栈6全释放不出行
-    EXPECT_NE(text.find("1. 300B unfreed (2 blocks, avg 150B) | alloc 2x300B, freed 0x0B"), std::string::npos);
-    EXPECT_NE(text.find("   main"), std::string::npos);
-    EXPECT_NE(text.find("   foo() [0x1]"), std::string::npos);
+    // TOP N(置信度视图):序列元信息行(拍数=窗口时长折算,锚点=窗口起点)
+    EXPECT_NE(text.find("--- TOP 10 Leak Sites (by LSI desc) ---"), std::string::npos);
+    EXPECT_NE(text.find("Series: top-k=256, max-stacks=1024, beats=101(100s, 1s/beat)"), std::string::npos);
+    // 疑似榜条目(4行):状态/LSI/五因子/统计列/增长与降级/栈文本
+    EXPECT_NE(text.find("  1. [suspected_leak] LSI 82"), std::string::npos);
+    EXPECT_NE(text.find("Growth 1.00  Release 1.00  Lifetime 0.50  Pattern 0.00"), std::string::npos);
+    EXPECT_NE(text.find("Scale 1.00  unfreed/alloc 1.00"), std::string::npos);
+    EXPECT_NE(text.find("unfreed 101000B(101 blocks) | alloc 101x1000B, freed 0x0B"), std::string::npos);
+    EXPECT_NE(text.find("growth 1000B/beat  pts 96  degraded -  stack 0x5"), std::string::npos);
+    EXPECT_NE(text.find("     main"), std::string::npos);
+    EXPECT_NE(text.find("     foo() [0x1]"), std::string::npos);
+    // 栈6全释放不入候选集;常驻子块与周转NOTE均不出现
     EXPECT_EQ(text.find("stack 6"), std::string::npos);
+    EXPECT_EQ(text.find("Resident baselines"), std::string::npos);
+    EXPECT_EQ(text.find("NOTE: "), std::string::npos);
     // 无截断/采样/阈值标注
     EXPECT_EQ(text.find("Truncated:"), std::string::npos);
     EXPECT_EQ(text.find("Sampling:"), std::string::npos);
@@ -600,7 +653,9 @@ TEST_F(HostLeakAnalyzerTest, unresolved_stack_placeholder)
     stack5.allocBytes = 4096;
     stack5.unfreedCount = 1;
     stack5.unfreedBytes = 4096;
-    stack5.maxBlockSize = 4096;  // frameDesc留空:未符号化
+    stack5.maxBlockSize = 4096;
+    stack5.maxAllocTsNs = 190;  // 窗口尾部(常驻条件(2)不满足,留疑似榜)
+    // frameDesc留空:未符号化
     g_fakeSvcData.stacks.push_back(stack5);
     g_fakeSvcData.buckets.push_back(FakeBucket{4096, 16384, 1, 4096});
 
@@ -608,7 +663,7 @@ TEST_F(HostLeakAnalyzerTest, unresolved_stack_placeholder)
     Dispatch(CreateStageEnd(pid, 5, 200));
 
     const std::string text = ReadAllText(REPORT_DIR + "/leak_overview_5.txt");
-    EXPECT_NE(text.find("(unresolved stack 5)"), std::string::npos);
+    EXPECT_NE(text.find("(unresolved stack 0x5)"), std::string::npos);
     EXPECT_NE(text.find("Symbolized: 0/1 stacks (unresolved: 1)"), std::string::npos);
     RemoveReportFiles(REPORT_DIR, "5");
 }
@@ -662,6 +717,7 @@ TEST_F(HostLeakAnalyzerTest, top_n_env_override)
     big.unfreedCount = 2;
     big.unfreedBytes = 2000;
     big.maxBlockSize = 1000;
+    big.maxAllocTsNs = 190;  // 窗口尾部(常驻条件(2)不满足,留疑似榜)
     big.frameDesc = "big\n";
     FakeStackRow small;
     small.stackId = 2;
@@ -670,6 +726,7 @@ TEST_F(HostLeakAnalyzerTest, top_n_env_override)
     small.unfreedCount = 1;
     small.unfreedBytes = 1000;
     small.maxBlockSize = 1000;
+    small.maxAllocTsNs = 190;
     small.frameDesc = "small\n";
     g_fakeSvcData.stacks.push_back(big);
     g_fakeSvcData.stacks.push_back(small);
@@ -679,9 +736,16 @@ TEST_F(HostLeakAnalyzerTest, top_n_env_override)
     Dispatch(CreateStageEnd(pid, 7, 200));
 
     const std::string text = ReadAllText(REPORT_DIR + "/leak_overview_7.txt");
-    EXPECT_NE(text.find("--- TOP 1 Leak Sites (by unfreed bytes) ---"), std::string::npos);
-    EXPECT_NE(text.find("1. 2000B unfreed"), std::string::npos);
-    EXPECT_EQ(text.find("2. 1000B unfreed"), std::string::npos) << "TOP N=1 must cap rows";
+    // 置信度视图:两栈均无序列(no_series降级,G/P=0,LSI由R/S/E支撑),
+    // 规模2块>1块→大栈LSI更高置顶,TOP N=1仅出行大栈
+    EXPECT_NE(text.find("--- TOP 1 Leak Sites (by LSI desc) ---"), std::string::npos);
+    EXPECT_NE(text.find("Series: top-k=256, max-stacks=1024, beats=1(0s, 1s/beat)"), std::string::npos);
+    EXPECT_NE(text.find("1. [growth_watch] LSI 34"), std::string::npos);
+    EXPECT_NE(text.find("degraded no_series"), std::string::npos);
+    EXPECT_NE(text.find("stack 0x1"), std::string::npos);
+    EXPECT_NE(text.find("unfreed 2000B(2 blocks)"), std::string::npos);
+    EXPECT_EQ(text.find("2. ["), std::string::npos) << "TOP N=1 must cap rows";
+    EXPECT_EQ(text.find("unfreed 1000B"), std::string::npos) << "small stack must not render";
     unsetenv("MSMEMSCOPE_HOSTMEM_TOP_N");
     RemoveReportFiles(REPORT_DIR, "7");
 }
@@ -779,6 +843,7 @@ TEST_F(HostLeakAnalyzerTest, multi_window_isolation)
     stack6.unfreedCount = 1;
     stack6.unfreedBytes = 2048;
     stack6.maxBlockSize = 2048;
+    stack6.maxAllocTsNs = 390;  // 窗口尾部(常驻条件(2)不满足,留疑似榜)
     stack6.frameDesc = "win2\n";
     g_fakeSvcData.stacks.push_back(stack6);
     g_fakeSvcData.buckets.push_back(FakeBucket{1024, 4096, 1, 2048});
@@ -790,9 +855,233 @@ TEST_F(HostLeakAnalyzerTest, multi_window_isolation)
     EXPECT_EQ(ws.stacks.size(), 1u);  // 仅栈6
     EXPECT_EQ(ws.stacks[0].stackId, 6u);
     const std::string text = ReadAllText(REPORT_DIR + "/leak_overview_2.txt");
-    EXPECT_NE(text.find("1. 2048B unfreed"), std::string::npos);
+    EXPECT_NE(text.find("unfreed 2048B(1 blocks)"), std::string::npos);
     EXPECT_NE(text.find("win2"), std::string::npos) << "window2 own stack must render in its report";
     EXPECT_EQ(text.find("win1"), std::string::npos) << "window1 stack leaked into window2 report";
+    RemoveReportFiles(REPORT_DIR, "1");
+    RemoveReportFiles(REPORT_DIR, "2");
+}
+
+// UT-CA1: 闭窗经dump_unfreed_series拉取节拍序列——窗口状态携带系列(多栈分组、
+// flags bit0→槽被驱逐标注)
+TEST_F(HostLeakAnalyzerTest, stage_end_pulls_series)
+{
+    const uint64_t pid = 1234;
+    g_fakeSvcData.stats.totalAllocCount = 2;
+    g_fakeSvcData.stats.totalAllocBytes = 2000;
+    g_fakeSvcData.stats.seriesStartTsNs = 100;
+    g_fakeSvcData.stats.seriesBeatIntervalNs = 1000000000ULL;
+    g_fakeSvcData.series.push_back(FakeSeriesRow{5, 0, 1000, 1, 0});
+    g_fakeSvcData.series.push_back(FakeSeriesRow{5, 1, 2000, 1, 0});
+    g_fakeSvcData.series.push_back(FakeSeriesRow{7, 0, 3000, 2, 0x1});  // 栈7槽被驱逐
+    FakeStackRow stack5;
+    stack5.stackId = 5;
+    stack5.allocCount = 2;
+    stack5.allocBytes = 2000;
+    stack5.unfreedCount = 2;
+    stack5.unfreedBytes = 2000;
+    stack5.maxAllocTsNs = 190;
+    g_fakeSvcData.stacks.push_back(stack5);
+    g_fakeSvcData.buckets.push_back(FakeBucket{1024, 4096, 1, 2000});
+
+    Dispatch(CreateStageStart(pid, 1, 100));
+    Dispatch(CreateStageEnd(pid, 1, 200));
+
+    const auto& ws = HostLeakAnalyzer::GetInstance().windows_.at(pid);
+    ASSERT_EQ(ws.series.size(), 2u);  // 栈5与栈7(栈7无候选行仍保留序列)
+    EXPECT_EQ(ws.series[0].stackId, 5u);
+    EXPECT_FALSE(ws.series[0].evicted);
+    ASSERT_EQ(ws.series[0].points.size(), 2u);
+    EXPECT_EQ(ws.series[0].points[0].beat, 0u);
+    EXPECT_EQ(ws.series[0].points[1].liveBytes, 2000u);
+    EXPECT_EQ(ws.series[1].stackId, 7u);
+    EXPECT_TRUE(ws.series[1].evicted);  // flags bit0→槽被驱逐标注
+    RemoveReportFiles(REPORT_DIR, "1");
+}
+
+// UT-CA2: 预热线程创建失败(纯C进程/资源耗尽)全窗无序列——统一no_warmup_thread
+// 降级,G/P=0中性,报告如实标注
+TEST_F(HostLeakAnalyzerTest, warmup_thread_failed_degrade)
+{
+    const uint64_t pid = 1234;
+    g_fakeSvcData.stats.totalAllocCount = 1;
+    g_fakeSvcData.stats.totalAllocBytes = 4096;
+    g_fakeSvcData.stats.seriesFlags = 0x1;  // bit0=预热线程创建失败
+    FakeStackRow stack5;
+    stack5.stackId = 5;
+    stack5.allocCount = 1;
+    stack5.allocBytes = 4096;
+    stack5.unfreedCount = 1;
+    stack5.unfreedBytes = 4096;
+    stack5.maxBlockSize = 4096;
+    stack5.maxAllocTsNs = 190;  // 窗口尾部(常驻条件(2)不满足,留疑似榜)
+    stack5.frameDesc = "f\n";
+    g_fakeSvcData.stacks.push_back(stack5);
+    g_fakeSvcData.buckets.push_back(FakeBucket{4096, 16384, 1, 4096});
+
+    Dispatch(CreateStageStart(pid, 5, 100));
+    Dispatch(CreateStageEnd(pid, 5, 200));
+
+    const std::string text = ReadAllText(REPORT_DIR + "/leak_overview_5.txt");
+    // 降级标注no_warmup_thread覆盖全窗候选栈;条目仍出(LSI由R/S/E支撑)
+    EXPECT_NE(text.find("1. [growth_watch] LSI 31"), std::string::npos);
+    EXPECT_NE(text.find("degraded no_warmup_thread"), std::string::npos);
+    EXPECT_NE(text.find("stack 0x5"), std::string::npos);
+    RemoveReportFiles(REPORT_DIR, "5");
+}
+
+// UT-CA3: 常驻基线子块——早期突发+G≈0栈判常驻(early)出子块(省略Pattern因子),
+// 不占疑似榜名额;疑似榜只含真泄漏栈
+TEST_F(HostLeakAnalyzerTest, resident_baseline_subblock)
+{
+    const uint64_t pid = 1234;
+    const uint64_t ns = 1000000000ULL;
+    const uint64_t windowStart = 100 * ns;
+    const uint64_t windowEnd = 200 * ns;
+    g_fakeSvcData.stats.totalAllocCount = 102;
+    g_fakeSvcData.stats.totalAllocBytes = 101000 + 1048576;
+    g_fakeSvcData.stats.seriesStartTsNs = windowStart;
+    g_fakeSvcData.stats.seriesBeatIntervalNs = ns;
+    // 栈5:窗口前1%分配的1MiB常驻池(序列平稳G≈0)→常驻early
+    FakeStackRow stack5;
+    stack5.stackId = 5;
+    stack5.allocCount = 1;
+    stack5.allocBytes = 1048576;
+    stack5.unfreedCount = 1;
+    stack5.unfreedBytes = 1048576;
+    stack5.maxBlockSize = 1048576;
+    stack5.maxAllocTsNs = windowStart + ns;  // 前1%分配
+    stack5.frameDesc = "pool\n";
+    g_fakeSvcData.stacks.push_back(stack5);
+    for (uint32_t b = 0; b <= 100; ++b)
+    {
+        // 拍0..4=0(预热段), 拍5..100=1MiB平稳
+        g_fakeSvcData.series.push_back(FakeSeriesRow{5, b, b < 5 ? 0 : 1048576, b < 5 ? 0 : 1, 0});
+    }
+    // 栈6:持续增长泄漏(每拍+1000B×101拍)→LSI=82疑似
+    FakeStackRow stack6;
+    stack6.stackId = 6;
+    stack6.allocCount = 101;
+    stack6.allocBytes = 101000;
+    stack6.unfreedCount = 101;
+    stack6.unfreedBytes = 101000;
+    stack6.maxBlockSize = 1000;
+    stack6.maxAllocTsNs = windowEnd - ns;
+    stack6.frameDesc = "leak\n";
+    g_fakeSvcData.stacks.push_back(stack6);
+    for (uint32_t b = 0; b <= 100; ++b)
+    {
+        g_fakeSvcData.series.push_back(FakeSeriesRow{6, b, 1000ULL * (b + 1), b + 1, 0});
+    }
+    g_fakeSvcData.buckets.push_back(FakeBucket{0, 256, 51, 51000});
+    g_fakeSvcData.buckets.push_back(FakeBucket{256, 1024, 50, 50000});
+    g_fakeSvcData.buckets.push_back(FakeBucket{1048576, UINT64_MAX, 1, 1048576});
+
+    Dispatch(CreateStageStart(pid, 3, windowStart));
+    Dispatch(CreateStageEnd(pid, 3, windowEnd));
+
+    const std::string text = ReadAllText(REPORT_DIR + "/leak_overview_3.txt");
+    // 疑似榜:仅栈6(1号)
+    EXPECT_NE(text.find("1. [suspected_leak] LSI 82"), std::string::npos);
+    EXPECT_NE(text.find("Pattern 0.00"), std::string::npos);  // 疑似榜含Pattern
+    // 常驻子块:栈5,省略Pattern(不参与常驻判定),单独编号
+    EXPECT_NE(text.find("Resident baselines (1 stacks, 1MiB;"), std::string::npos);
+    EXPECT_NE(text.find("1. [resident/early] LSI 31"), std::string::npos);
+    EXPECT_NE(text.find("Lifetime 0.50  Scale 0.15"), std::string::npos);  // Lifetime后直接Scale
+    EXPECT_NE(text.find("unfreed 1048576B(1 blocks)"), std::string::npos);
+    // 常驻栈不进疑似榜编号(无2号)
+    EXPECT_EQ(text.find("2. ["), std::string::npos);
+    RemoveReportFiles(REPORT_DIR, "3");
+}
+
+// UT-CA4: 周转NOTE——开窗前free(窗口外分配的释放)占窗口内总申请过半→NOTE行
+// 提示缓存周转形态(与常驻turnover判据呼应)
+TEST_F(HostLeakAnalyzerTest, cache_turnover_note)
+{
+    const uint64_t pid = 1234;
+    g_fakeSvcData.stats.totalAllocCount = 10;
+    g_fakeSvcData.stats.totalAllocBytes = 100000;
+    g_fakeSvcData.stats.preWindowFreeCount = 5;
+    g_fakeSvcData.stats.preWindowFreeBytes = 65536;  // 64KiB>0.5×100000→NOTE
+    FakeStackRow stack5;
+    stack5.stackId = 5;
+    stack5.allocCount = 10;
+    stack5.allocBytes = 100000;
+    stack5.unfreedCount = 1;
+    stack5.unfreedBytes = 4000;
+    stack5.maxBlockSize = 4000;
+    stack5.maxAllocTsNs = 190;
+    stack5.frameDesc = "buf\n";
+    g_fakeSvcData.stacks.push_back(stack5);
+    g_fakeSvcData.buckets.push_back(FakeBucket{1024, 4096, 1, 4000});
+
+    Dispatch(CreateStageStart(pid, 6, 100));
+    Dispatch(CreateStageEnd(pid, 6, 200));
+
+    const std::string text = ReadAllText(REPORT_DIR + "/leak_overview_6.txt");
+    // NOTE文本按落盘规范逐字保留(含判据章节引用)
+    EXPECT_NE(text.find("NOTE: 64KiB pre-window allocations were freed within this window "
+                       "(cache turnover pattern); resident "
+                       "classification includes the unfreed/alloc turnover criterion (§3.1.4 conditions 4-5)"),
+              std::string::npos);
+    RemoveReportFiles(REPORT_DIR, "6");
+}
+
+// UT-CA5: 节拍序列跨窗隔离——STAGE_START清零窗口状态,上一窗序列不进入本窗置信度
+TEST_F(HostLeakAnalyzerTest, series_window_isolation)
+{
+    const uint64_t pid = 1234;
+    // 窗口1:栈5带增长序列
+    g_fakeSvcData.stats.totalAllocCount = 101;
+    g_fakeSvcData.stats.totalAllocBytes = 101000;
+    g_fakeSvcData.stats.seriesStartTsNs = 100;
+    g_fakeSvcData.stats.seriesBeatIntervalNs = 1000000000ULL;
+    FakeStackRow stack5;
+    stack5.stackId = 5;
+    stack5.allocCount = 101;
+    stack5.allocBytes = 101000;
+    stack5.unfreedCount = 101;
+    stack5.unfreedBytes = 101000;
+    stack5.maxBlockSize = 1000;
+    stack5.maxAllocTsNs = 190;
+    g_fakeSvcData.stacks.push_back(stack5);
+    for (uint32_t b = 0; b <= 100; ++b)
+    {
+        g_fakeSvcData.series.push_back(FakeSeriesRow{5, b, 1000ULL * (b + 1), b + 1, 0});
+    }
+    g_fakeSvcData.buckets.push_back(FakeBucket{0, 256, 51, 51000});
+    g_fakeSvcData.buckets.push_back(FakeBucket{256, 1024, 50, 50000});
+    Dispatch(CreateStageStart(pid, 1, 100));
+    Dispatch(CreateStageEnd(pid, 1, 200));
+    ASSERT_TRUE(FileExists(REPORT_DIR + "/leak_overview_1.txt"));
+
+    // 窗口2:全新记账且无序列交付——栈5'须为no_series降级(不得沿用窗口1的序列)
+    ResetFakeSvcData();
+    g_fakeSvcData.stats.totalAllocCount = 101;
+    g_fakeSvcData.stats.totalAllocBytes = 101000;
+    g_fakeSvcData.stats.seriesStartTsNs = 300;
+    g_fakeSvcData.stats.seriesBeatIntervalNs = 1000000000ULL;
+    FakeStackRow stack5b;
+    stack5b.stackId = 5;
+    stack5b.allocCount = 101;
+    stack5b.allocBytes = 101000;
+    stack5b.unfreedCount = 101;
+    stack5b.unfreedBytes = 101000;
+    stack5b.maxBlockSize = 1000;
+    stack5b.maxAllocTsNs = 390;
+    g_fakeSvcData.stacks.push_back(stack5b);
+    g_fakeSvcData.buckets.push_back(FakeBucket{0, 256, 51, 51000});
+    g_fakeSvcData.buckets.push_back(FakeBucket{256, 1024, 50, 50000});
+    Dispatch(CreateStageStart(pid, 2, 300));
+    Dispatch(CreateStageEnd(pid, 2, 400));
+
+    const auto& ws = HostLeakAnalyzer::GetInstance().windows_.at(pid);
+    EXPECT_TRUE(ws.series.empty());  // 开窗清零,序列不跨窗
+    const std::string text = ReadAllText(REPORT_DIR + "/leak_overview_2.txt");
+    // 无序列→G/P=0中性,LSI由R/S/E支撑(56=100×(0.21R+0.12S+0.29E),
+    // R=1.0/S=0.5/E=1.0);若窗口1序列泄漏,此处会得G=1→LSI 82
+    EXPECT_NE(text.find("1. [growth_watch] LSI 56"), std::string::npos);
+    EXPECT_NE(text.find("degraded no_series"), std::string::npos);
     RemoveReportFiles(REPORT_DIR, "1");
     RemoveReportFiles(REPORT_DIR, "2");
 }

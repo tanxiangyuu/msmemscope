@@ -112,12 +112,20 @@ class EventReport
                                             uint64_t stackId),
                                void* ctx);
     // 闭窗栈统计快照(leak_overview数据源):对每个栈emit一行(per-stack申请/释放/未释放
-    // +闭窗符号化文本,stackId=0为未知桶行);仅窗口关闭态有效;钩子未装配返回false
+    // +生命周期三字段maxAllocTsNs/freedLifetimeSumNs/liveAgeSumNs+闭窗符号化文本,
+    // stackId=0为未知桶行);仅窗口关闭态有效;钩子未装配返回false
     bool DumpHostMemStackStats(void (*emit)(void* ctx, uint64_t stackId, uint64_t allocCount, uint64_t allocBytes,
                                             uint64_t freedCount, uint64_t freedBytes, uint64_t unfreedCount,
-                                            uint64_t unfreedBytes, uint64_t maxBlockSize, const char* frameDesc,
+                                            uint64_t unfreedBytes, uint64_t maxBlockSize, uint64_t maxAllocTsNs,
+                                            uint64_t freedLifetimeSumNs, uint64_t liveAgeSumNs, const char* frameDesc,
                                             size_t len),
                                void* ctx);
+    // 闭窗节拍快照序列(leak_overview置信度数据源):预热线程1s节拍对全局top-K栈
+    // (按liveBytes降序,K=256)每拍一行(beat/liveBytes/liveCount,flags bit0=槽被驱逐);
+    // 按栈分组、栈内按beat升序;仅窗口关闭态有效;钩子未装配返回false
+    bool DumpHostMemUnfreedSeries(void (*emit)(void* ctx, uint64_t stackId, uint32_t beat, uint64_t liveBytes,
+                                               uint32_t liveCount, uint32_t flags),
+                                  void* ctx);
     // 闭窗大小排布(leak_overview数据源):存活块按大小范围分桶;仅窗口关闭态有效
     bool DumpHostMemSizeDist(void (*emit)(void* ctx, uint64_t rangeLow, uint64_t rangeHigh, uint64_t blockCount,
                                           uint64_t blockBytes),

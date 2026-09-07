@@ -64,12 +64,18 @@ struct StackRecord
     // 所有+1在栈分片锁临界区内(除InsertBlock块引用+1在块表锁内,有调用方在途
     // ref兜底,期间refs恒>=2);-1恰一次于dispose(块释放/捕获后终态)。块表持
     // owner指针期间refs>=2(块引用兜底),与淘汰判读(refs==1)互斥
-    std::atomic<uint32_t> refs{1};        // 1=在表pin + 存活块数 + 在途lookup数
-    std::atomic<int64_t> liveBytes{0};    // 当前存活字节(泄漏量真相源,与闭窗
-                                          // 报告unfreedBytes同构——top泄漏点
-                                          // 符号采样的排序键)
-    std::atomic<uint64_t> allocCount{0};  // 本窗口内申请次数(InsertBlock临界区内自增)
-    std::atomic<uint64_t> allocBytes{0};  // 本窗口内申请字节(同上)
+    std::atomic<uint32_t> refs{1};              // 1=在表pin + 存活块数 + 在途lookup数
+    std::atomic<int64_t> liveBytes{0};          // 当前存活字节(泄漏量真相源,与闭窗
+                                                // 报告unfreedBytes同构——top泄漏点
+                                                // 符号采样的排序键)
+    std::atomic<uint64_t> liveCount{0};         // 当前存活块数(InsertBlock锁内++/
+                                                // CaptureAndRemoveBlock锁内--;闭窗冻结
+                                                // 后读——节拍序列liveCount列数据源)
+    std::atomic<uint64_t> freedLifetimeSum{0};  // 已释放块寿命和(free路径锁内累加
+                                                // freeTs−allocTs,与liveBytes同原子模式;
+                                                // 闭窗冻结后读——生命周期因子数据源)
+    std::atomic<uint64_t> allocCount{0};        // 本窗口内申请次数(InsertBlock临界区内自增)
+    std::atomic<uint64_t> allocBytes{0};        // 本窗口内申请字节(同上)
     // py调用栈: pyBuf为RealMalloc底座串。写者唯一性: 采集在持GIL线程上执行,
     // GIL互斥两个采集线程;发布=release store pyState(CAPTURED),
     // store前的pyBuf写入对acquire读者可见。读者(闭窗组装/淘汰/清表)仅在
