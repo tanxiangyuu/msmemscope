@@ -391,17 +391,18 @@ TEST_F(HostLeakAnalyzerTest, golden_event_mode_report)
     EXPECT_EQ(text.find("Size threshold:"), std::string::npos);
 
     // block_detail:表头+2行,块大小降序(0x2000的200B在前),地址列0x+16位hex,
-    // call_stack列内联完整栈文本(RFC 4180引号字段,帧间换行保留;frameDesc尾换行
-    // 保留在引号内,故多行结构)
+    // 调用栈两列——Call Stack(C)=纯C栈文本(RFC 4180引号字段,帧间换行保留;
+    // frameDesc尾换行保留在引号内,故多行结构),Call Stack(Python)=py帧文本
+    // (frameDesc无marker的纯C栈行Python列为空"")
     const std::string csv = ReadAllText(REPORT_DIR + "/block_detail_1.csv");
     const std::string expectCsv =
-        "addr,size,alloc_ts,Call Stack(C)\n"
+        "addr,size,alloc_ts,Call Stack(C),Call Stack(Python)\n"
         "0x0000000000002000,200,1200,\"main\n"
         "foo() [0x1]\n"
-        "\"\n"
+        "\",\"\"\n"
         "0x0000000000001000,100,1100,\"main\n"
         "foo() [0x1]\n"
-        "\"\n";
+        "\",\"\"\n";
     EXPECT_EQ(csv, expectCsv);
 
     RemoveReportFiles(REPORT_DIR, "1");
@@ -412,9 +413,9 @@ TEST_F(HostLeakAnalyzerTest, golden_event_mode_report)
 TEST_F(HostLeakAnalyzerTest, block_detail_call_stack_escaping_and_placeholders)
 {
     const uint64_t pid = 1234;
-    g_fakeSvcData.stats.liveBlockCount = 4;
-    g_fakeSvcData.stats.totalAllocCount = 4;
-    g_fakeSvcData.stats.totalAllocBytes = 400;
+    g_fakeSvcData.stats.liveBlockCount = 5;
+    g_fakeSvcData.stats.totalAllocCount = 5;
+    g_fakeSvcData.stats.totalAllocBytes = 500;
     // 栈8:frameDesc含双引号(符号名带引号,如printf("fmt")),验证RFC 4180转义
     FakeStackRow stack8;
     stack8.stackId = 8;
@@ -432,28 +433,49 @@ TEST_F(HostLeakAnalyzerTest, block_detail_call_stack_escaping_and_placeholders)
     stack9.unfreedCount = 1;
     stack9.unfreedBytes = 100;
     stack9.maxBlockSize = 100;
+    // 栈10:混合栈文本(C栈+marker+py帧,marker文本与钩子侧组装共用同一宏,
+    // 验证block_detail按marker拆两列)
+    FakeStackRow stack10;
+    stack10.stackId = 10;
+    stack10.allocCount = 1;
+    stack10.allocBytes = 100;
+    stack10.unfreedCount = 1;
+    stack10.unfreedBytes = 100;
+    stack10.maxBlockSize = 100;
+    stack10.frameDesc = std::string("main\nfoo() [0x1]\n") + MSMEMSCOPE_HOSTMEM_MIXED_STACK_MARKER +
+                        "train.py(42): run()\n";
     g_fakeSvcData.stacks.push_back(stack8);
     g_fakeSvcData.stacks.push_back(stack9);
-    g_fakeSvcData.buckets.push_back(FakeBucket{0, 256, 4, 400});
-    // 全部100B→按地址升序;栈8块验证转义,栈9块验证未解析占位,stackId=0块验证未知桶占位
+    g_fakeSvcData.stacks.push_back(stack10);
+    g_fakeSvcData.buckets.push_back(FakeBucket{0, 256, 5, 500});
+    // 全部100B→按地址升序;栈8块验证转义,栈9块验证未解析占位,stackId=0块验证未知桶占位,
+    // 栈10块验证混合栈拆两列
     g_fakeSvcData.blocks.push_back(FakeBlock{0x3000, 100, 1300, 8});
     g_fakeSvcData.blocks.push_back(FakeBlock{0x4000, 100, 1400, 9});
     g_fakeSvcData.blocks.push_back(FakeBlock{0x5000, 100, 1500, 0});
     g_fakeSvcData.blocks.push_back(FakeBlock{0x6000, 100, 1600, 8});
+    g_fakeSvcData.blocks.push_back(FakeBlock{0x7000, 100, 1700, 10});
 
     Dispatch(CreateStageStart(pid, 4, 1000));
     Dispatch(CreateStageEnd(pid, 4, 2000));
 
     const std::string csv = ReadAllText(REPORT_DIR + "/block_detail_4.csv");
-    EXPECT_NE(csv.find("addr,size,alloc_ts,Call Stack(C)"), std::string::npos);
+    EXPECT_NE(csv.find("addr,size,alloc_ts,Call Stack(C),Call Stack(Python)"), std::string::npos);
     // 引号转义:帧内'"'→'""'(printf("x")帧;frameDesc尾换行保留在引号内)
     EXPECT_NE(csv.find("\"main\nprintf(\"\"x\"\")\n\""), std::string::npos);
-    // 占位:未知桶与未解析(引号包裹)
+    // 占位:未知桶与未解析(引号包裹,Python列为空"")
     EXPECT_NE(csv.find("\"(unknown bucket: unattributed blocks)\""), std::string::npos);
     EXPECT_NE(csv.find("\"(unresolved stack)\""), std::string::npos);
-    // 未知桶与未解析栈的块仍在明细中(自含性,不丢块)
-    EXPECT_NE(csv.find("0x0000000000004000,100,1400,\"(unresolved stack)\""), std::string::npos);
-    EXPECT_NE(csv.find("0x0000000000005000,100,1500,\"(unknown bucket: unattributed blocks)\""), std::string::npos);
+    // 未知桶与未解析栈的块仍在明细中(自含性,不丢块),Python列为空
+    EXPECT_NE(csv.find("0x0000000000004000,100,1400,\"(unresolved stack)\",\"\""), std::string::npos);
+    EXPECT_NE(csv.find("0x0000000000005000,100,1500,\"(unknown bucket: unattributed blocks)\",\"\""),
+              std::string::npos);
+    // 混合栈拆分:marker前→Call Stack(C),marker后→Call Stack(Python)
+    EXPECT_NE(csv.find("0x0000000000007000,100,1700,\"main\n"
+                       "foo() [0x1]\n"
+                       "\",\"train.py(42): run()\n"
+                       "\""),
+              std::string::npos);
 
     RemoveReportFiles(REPORT_DIR, "4");
 }

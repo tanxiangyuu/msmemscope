@@ -66,6 +66,12 @@
  * 悬垂。被淘汰条目经stats.evictedStackCount/AllocCount/AllocBytes交付统计。
  */
 
+/* 混合栈marker: 闭窗frameDesc中C栈文本与py帧文本之间的分隔文本(py采集模块
+ * 组装时追加,见py_stack_capture.cpp kMixedMarker)。分析器按此文本将frameDesc
+ * 拆分为block_detail CSV的Call Stack(C)/Call Stack(Python)两列——单一事实
+ * 来源,钩子侧与分析器侧共用,避免双份常量漂移 */
+#define MSMEMSCOPE_HOSTMEM_MIXED_STACK_MARKER "\n---- python frames ----\n"
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -80,6 +86,11 @@ extern "C"
          * （无块表条目、无计数），报告标注sampled=1/N的采样视图 */
         uint32_t sampleRate;
         uint64_t blockThreshold; /* 块大小阈值（字节），size<该值的分配不采集（默认0=全部采集，显式>0按字节过滤） */
+        /* python调用栈采集深度（config.pyStackDepth; 0=禁用。约束阈值经
+         * MSMEMSCOPE_HOSTMEM_PYSTACK_*环境变量配置,不占用ABI字段;环境变量为
+         * 调试接口,不对外文档化）。置于末尾保持
+         * 结构体前段ABI兼容（16B→24B,新增字段仅追加读取） */
+        uint32_t pyStackDepth;
     } MsmemscopeHostmemParams;
 
     /* API表：libascend_leaks实现并注册，钩子调用 */

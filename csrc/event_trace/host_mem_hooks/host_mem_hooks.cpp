@@ -90,8 +90,15 @@
 #include <utility>
 #include <vector>
 
+#include "py_stack_capture.h"
+
 namespace
 {
+
+// 共享类型与分配桥来自host_mem_common.h(namespace hostmem):
+// StackRecord(栈表条目,py采集跨TU访问)/RealMallocAllocator(容器底座)/
+// SharedRealAlloc族桥。本文件内原调用点经using namespace保持零改动
+using namespace hostmem;
 
 // =============================================================================
 // 常量与配置(环境变量可覆盖,构造期一次性读取)
@@ -296,6 +303,13 @@ void ResolveAllRealFns()
     }
 }
 
+// RealMalloc族保持匿名namespace原定义(实现单一,竞技场兜底/惰性解析
+// 不拆);共享出口为host_mem_common.h的桥SharedRealAlloc/SharedRealFree/
+// SharedRealUsableSize(定义在文件尾转调,见host_mem_common.h注释)。模板
+// RealMallocAllocator改由host_mem_common.h提供(allocate经SharedRealAlloc桥,
+// 语义与旧实现等价——竞技场兜底内建于RealMalloc)。文件内调用点经匿名
+// namespace顶部using namespace保持零改动
+
 // 真函数调用入口(判空,未解析时先惰性解析再兜底竞技场)
 void* RealMalloc(size_t size)
 {
@@ -457,53 +471,6 @@ void* RealPvalloc(size_t size)
 }
 
 // =============================================================================
-// 钩子内自定义allocator(场景B硬性要求): 分配经real_malloc不经PLT,
-// 构造早期由竞技场兜底;失败抛bad_alloc交调用方降级(丢包计数)——
-// 绝不trap杀宿主:钩子寄生在任意宿主进程,崩溃请求可能源自内部异常状态
-// (如曾出现的哈希表负桶数请求),宿主自身的malloc可能完全正常
-// =============================================================================
-
-template <typename T>
-struct RealMallocAllocator
-{
-    using value_type = T;
-
-    RealMallocAllocator() = default;
-    template <typename U>
-    RealMallocAllocator(const RealMallocAllocator<U>&)
-    {
-    }
-
-    T* allocate(std::size_t n)
-    {
-        void* p = RealMalloc(n * sizeof(T));
-        if (p == nullptr)
-        {
-            p = ArenaAlloc(n * sizeof(T));
-        }
-        if (p == nullptr)
-        {
-            throw std::bad_alloc();  // 真OOM或请求溢出:由LookupOrRegisterStack/InsertBlock捕获降级
-        }
-        return static_cast<T*>(p);
-    }
-
-    void deallocate(T* p, std::size_t) { RealFree(p); }
-};
-
-template <typename T, typename U>
-bool operator==(const RealMallocAllocator<T>&, const RealMallocAllocator<U>&)
-{
-    return true;
-}
-
-template <typename T, typename U>
-bool operator!=(const RealMallocAllocator<T>&, const RealMallocAllocator<U>&)
-{
-    return false;
-}
-
-// =============================================================================
 // 闭窗快照类型(栈统计行/大小排布桶/合计快照): 仅CloseAggregate构造,
 // 经dump_stack_stats/dump_size_distribution/get_stats交付分析器
 // =============================================================================
@@ -583,8 +550,9 @@ std::atomic<bool> g_mainStarted{false};
 // atExit析构兜底报告的口径一致
 std::atomic<bool> g_exiting{false};
 // 符号化预热线程: 1s节拍top-K dladdr采样(见WarmupThreadMain)。
-// 开窗时创建(EnsureWarmupThread),闭窗时先置g_warmupStop再join(StopWarmupThread)
-// ——join使预热写入的g_symCache对闭窗聚合线程可见且不再并发;窗口关闭态无预热
+// 线程生命周期=窗口: 开窗时创建(EnsureWarmupThread),闭窗时置g_warmupStop→join→
+// 复位创建/停止标志(StopWarmupThread),下窗口重建——join使预热写入的g_symCache
+// 对闭窗聚合线程可见且不再并发;窗口关闭态无预热线程
 std::atomic<bool> g_warmupThreadCreated{false};
 std::atomic<bool> g_warmupStop{false};
 pthread_t g_warmupThread{};
@@ -870,27 +838,10 @@ struct StackKeyHash
     }
 };
 
-struct StackEntry
-{
-    uint64_t stackId = 0;  // 单调递增,低6位=所属分片号,0保留未知栈
-    // 全深度PC(登记慢路径采集,闭窗聚合符号化用;符号化后释放)与帧数
-    uintptr_t* fullPcs = nullptr;
-    uint32_t fullCount = 0;
-    bool warmedUp = false;  // 稳态预热已选中过(分片锁内写/读)。不能用缓存命中
-                            // 判"已预热":fullPcs[0]是hook锚点帧,全栈共享同一
-                            // pc,首个栈预热后其余栈全被误判跳过
-    // 引用计数refs(在表pin+存活块数+在途lookup数,见文件头引用契约): 1=仅pin,
-    // 零存活块零在途;refs==1条目可被淘汰(栈表满→死栈回收,见EvictDeadStackLocked)。
-    // 增减relaxed: 所有+1在栈分片锁临界区内(除InsertBlock块引用+1在块表锁内,
-    // 有调用方在途ref兜底,期间refs恒>=2);-1恰一次于dispose(块释放/捕获后
-    // 终态)。块表持owner指针期间refs>=2(块引用兜底),与淘汰判读(refs==1)互斥
-    std::atomic<uint32_t> refs{1};        // 1=在表pin + 存活块数 + 在途lookup数
-    std::atomic<int64_t> liveBytes{0};    // 当前存活字节(泄漏量真相源,与闭窗
-                                          // 报告unfreedBytes同构——top泄漏点
-                                          // 符号采样的排序键)
-    std::atomic<uint64_t> allocCount{0};  // 本窗口内申请次数(InsertBlock临界区内自增)
-    std::atomic<uint64_t> allocBytes{0};  // 本窗口内申请字节(同上)
-};
+// StackEntry定义提升为共享StackRecord(host_mem_common.h)——py采集
+// 模块需跨TU访问pyBuf/pyState。原定义与本文件内全部注释移至该头(字段语义/
+// 引用契约注释见py_stack_capture.h与下方LookupOrRegisterStack/InsertBlock)
+using StackEntry = StackRecord;
 
 struct StackShard
 {
@@ -1458,6 +1409,17 @@ bool SampleGateHit()
     return (x & (rate - 1)) == 0;
 }
 
+// py栈串释放(拆除/清表共用): acquire读pyState==CAPTURED才释放——写者store前置
+// release,读判与GIL下写者无竞态(采集store前不读/不写pyBuf,见PyStackCapture注释)
+void ReleasePyBufLocked(StackEntry& e)
+{
+    if (e.pyState.load(std::memory_order_acquire) == PY_STACK_CAPTURED)
+    {
+        RealFree(e.pyBuf);
+        e.pyBuf = nullptr;
+    }
+}
+
 // 死栈桶采样淘汰(必持栈分片锁,表满登记路径调用): 栈表触顶时回收"死栈"
 // (refs==1=仅pin,零存活块零在途)条目,让表占用与持有存活内存的路径对齐。
 // 采样: 8个随机桶(xorshift64,种子为全局原子递增计数器,每次调用取新种子),
@@ -1524,6 +1486,7 @@ bool EvictDeadStackLocked(StackShard& shard)
     g_evictedAllocCount.fetch_add(ac, std::memory_order_relaxed);
     g_evictedAllocBytes.fetch_add(ab, std::memory_order_relaxed);
     RealFree(vit->second.fullPcs);  // 符号化PC释放(可null,RealFree防御)
+    ReleasePyBufLocked(vit->second);
     shard.map.erase(vit);
     g_stackCount.fetch_sub(1, std::memory_order_relaxed);
     return true;
@@ -2025,6 +1988,16 @@ bool RecordMalloc(uint64_t addr, size_t size)
         // 溢出通道块(kOverflow)无栈归因但不属未知桶,不计入未归因
         g_unattributedCount.fetch_add(1, std::memory_order_relaxed);
     }
+    // py采集钩点: 每次分配在块表插入后做一次O(1)约束判定——内部配置门
+    // (1次原子读,未启用即返)+约束门(~5ns两次原子读+比较,不达标即返),达标
+    // (泄漏候选: liveBytes>10M&&存活块>50 或 liveBytes>50M&&存活块>10)且
+    // pyState==NONE才走链补采py栈(每栈至多一次)。仅kTable且归因完整时执行:
+    // 块已入表,owner的liveBytes为分配时刻当前存活真值(约束判据真源)。
+    // 采集路径全部纯检查不等待(未持GIL直接跳过,NA由闭窗派生),热路径零阻塞
+    if (r == BlockInsertResult::kTable && owner != nullptr)
+    {
+        PyStackCapture::CaptureIfEnabled(*owner);
+    }
     return true;
 }
 
@@ -2472,9 +2445,10 @@ void* WarmupThreadMain(void*)
     return nullptr;
 }
 
-// 预热线程创建(开窗时调用): 首次创建后常驻到StopWarmupThread;幂等(已创建直接
-// 返回)。失败(线程资源耗尽)仅记日志——预热是符号质量的尽力而为,缺线程时闭窗
-// 格式化作模块快照兜底,功能不受损
+// 预热线程创建(开窗时调用): 线程生命周期=窗口——闭窗StopWarmupThread join销毁
+// 后已复位创建标志,本函数按需重建;同窗口内幂等(已创建直接返回)。失败(线程
+// 资源耗尽)仅记日志——预热是符号质量的尽力而为,缺线程时闭窗格式化作模块快照
+// 兜底,功能不受损
 bool EnsureWarmupThread()
 {
     if (g_warmupThreadCreated.load(std::memory_order_relaxed))
@@ -2491,10 +2465,13 @@ bool EnsureWarmupThread()
     return true;
 }
 
-// 预热线程停止(闭窗第一步,CloseAggregate之前): 置g_warmupStop→join。join双重
-// 作用: ①g_symCache/g_symBuf由预热线程独占写入,join后闭窗聚合(同一调用线程)
-// 读取无并发,无锁共享安全;②join兼作沉降期——g_enabled已在先置false,in-flight
-// free在关闸后自然drain,闭窗聚合不撕裂计数
+// 预热线程停止(闭窗第一步,CloseAggregate之前): 置g_warmupStop→join→复位标志。
+// join双重作用: ①g_symCache/g_symBuf由预热线程独占写入,join后闭窗聚合(同一调用
+// 线程)读取无并发,无锁共享安全;②join兼作沉降期——g_enabled已在先置false,
+// in-flight free在关闸后自然drain,闭窗聚合不撕裂计数。
+// 复位(线程生命周期=窗口): join后线程已退出,复位创建标志使下窗口EnsureWarmup
+// Thread重建;停止标志须先于创建标志复位(新线程创建即读循环条件,残留true会让
+// 新线程首拍退出)。两者均在g_svcMtx临界区内(开窗/闭窗同一把锁),无并发窗口
 void StopWarmupThread()
 {
     if (!g_warmupThreadCreated.load(std::memory_order_relaxed))
@@ -2503,6 +2480,8 @@ void StopWarmupThread()
     }
     g_warmupStop.store(true, std::memory_order_release);
     pthread_join(g_warmupThread, nullptr);
+    g_warmupStop.store(false, std::memory_order_release);
+    g_warmupThreadCreated.store(false, std::memory_order_release);
 }
 
 // 清表(开窗时调用,窗口关闭态无生产者): 栈表连待符号化缓冲一并释放,块表双数组
@@ -2517,6 +2496,7 @@ void ClearTables()
         {
             RealFree(kv.second.fullPcs);
             kv.second.fullPcs = nullptr;
+            ReleasePyBufLocked(kv.second);  // 窗口关闭态无生产者,pyBuf冻结态
         }
         shard.map.clear();
         pthread_mutex_unlock(&shard.mtx);
@@ -2756,28 +2736,29 @@ void CloseAggregate()
     {
         StackEntry* e = le.first;
         StackStatRow& row = g_closeStats[le.second];
-        if (e->fullPcs == nullptr || e->fullCount == 0)
+        if (e->fullPcs != nullptr && e->fullCount != 0)
         {
-            continue;
+            uint32_t depth = g_stackDepth.load(std::memory_order_relaxed);
+            if (depth == 0 || depth > MAX_STACK_DEPTH)
+            {
+                depth = DEFAULT_STACK_DEPTH;
+            }
+            if (EnsureSymBuf(static_cast<size_t>(depth) * kFrameReserve + 16))
+            {
+                const size_t off = BuildFrameDesc(e->fullPcs, e->fullCount);
+                try
+                {
+                    row.frameDesc.assign(g_symBuf, off);
+                }
+                catch (...)
+                {
+                    // std::string分配失败(bad_alloc):文本缺失,统计值优先
+                }
+            }
         }
-        uint32_t depth = g_stackDepth.load(std::memory_order_relaxed);
-        if (depth == 0 || depth > MAX_STACK_DEPTH)
-        {
-            depth = DEFAULT_STACK_DEPTH;
-        }
-        if (!EnsureSymBuf(static_cast<size_t>(depth) * kFrameReserve + 16))
-        {
-            continue;
-        }
-        const size_t off = BuildFrameDesc(e->fullPcs, e->fullCount);
-        try
-        {
-            row.frameDesc.assign(g_symBuf, off);
-        }
-        catch (...)
-        {
-            // std::string分配失败(bad_alloc):文本缺失,统计值优先
-        }
+        // 混合栈组装: 已采集追加marker+pyBuf;未采集且精确unfreed满足泄漏候选约束→派生NA
+        // (泄漏点无py的诚实标注)
+        PyStackCapture::AppendMixedStack(row.frameDesc, *e, row.unfreedBytes, row.unfreedCount);
     }
     // 排序: unfreedBytes降序, stackId升序(报告可读性与确定性)
     std::sort(g_closeStats.begin(), g_closeStats.end(),
@@ -2936,6 +2917,9 @@ void SvcSetEnabled(int enabled)
                 rate = pow2;
             }
             g_sampleRate.store(rate, std::memory_order_relaxed);
+            // py采集参数通道(0=禁用,默认零开销;约束阈值经环境变量在Configure内读取,
+            // 开窗调用非热路径)
+            PyStackCapture::Configure(params.pyStackDepth);
         }
 
         // 2. 清零块表/栈表/窗口计数器(上一窗口已闭+聚合完成,表冻结无争用)
@@ -3048,6 +3032,10 @@ void SvcSetEnabled(int enabled)
     // 缓存满提前停;明显小于=采样吞吐不足(调TOP_LEAK_SYMBOLIZE_K/INTERVAL)
     fprintf(stderr, "[msmemscope] hostmem: [pid=%llu] symCache: %zu entries (warmup coverage, cap=%zu)\n",
             static_cast<unsigned long long>(getpid()), g_symCache.size(), static_cast<size_t>(SYM_CACHE_MAX_ENTRIES));
+    // py采集收尾——清空帧串缓存(解释器存活性门控DecRef键)+配置复位。
+    // 闭窗聚合已完成,pyBuf已消费(混合栈文本在CloseAggregate内组装进frameDesc);
+    // 残余pyBuf随下次开窗ClearTables释放(此处不动栈表,闭窗态条目留存)
+    PyStackCapture::Shutdown();
     g_closing.store(false, std::memory_order_release);
     pthread_mutex_unlock(&g_svcMtx);
 }
@@ -3840,3 +3828,19 @@ extern "C" uint64_t msmemscope_hostmem_selfcheck(void)
     }
     return violations;
 }
+
+// 真分配桥实现(声明见host_mem_common.h,py采集模块跨TU复用)。
+// 转调匿名namespace真分配设施(匿名namespace成员对TU内代码全局可见,::前缀
+// 解析;竞技场兜底/惰性解析/抑制守卫单一实现保留在本文件,py模块不重复)。
+// 桥名与内部实现名不同名(SharedReal* vs Real*): 本文件顶部using namespace
+// hostmem注入桥声明,同名会与匿名实现构成重载二义——改名即脱钩
+namespace hostmem
+{
+
+void* SharedRealAlloc(size_t size) { return ::RealMalloc(size); }
+
+void SharedRealFree(void* ptr) { ::RealFree(ptr); }
+
+size_t SharedRealUsableSize(void* ptr) { return static_cast<size_t>(::RealUsableSize(ptr)); }
+
+}  // namespace hostmem

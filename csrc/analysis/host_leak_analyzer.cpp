@@ -26,6 +26,7 @@
 #include <fstream>
 #include <iomanip>
 #include <sstream>
+#include <utility>
 
 #include "config_info.h"
 #include "event_trace/event_report.h"
@@ -86,7 +87,7 @@ uint64_t EnvOrDefault(const char* name, uint64_t def)
 
 // 明细CSV批量写盘缓冲:1MB堆缓冲攒行,近满时write整块刷出(代替ostream逐字段
 // operator<<——百万行级明细上逐字段流式写出是写盘路径的主放大项)。
-// 行长为变长(call_stack列内联完整栈文本),近满判断按单行最坏长度(见写盘处)
+// 行长为变长(call_stack两列内联完整栈文本),近满判断按单行最坏长度(见写盘处)
 constexpr size_t kDetailBufSize = 1u << 20;
 
 // 0x%016llx等价手写(地址列与Uint64ToHexString逐字节一致:0x前缀+16位小写零填充);
@@ -120,8 +121,8 @@ char* AppendU64(char* p, uint64_t value)
     return p;
 }
 
-// RFC 4180引号字段追加:双引号包裹,内部'"'转义为'""'(换行保留不转义——call_stack
-// 列帧间以'\n'分隔,与NPU dump文件Call Stack(C)列同构);返回结束指针
+// RFC 4180引号字段追加:双引号包裹,内部'"'转义为'""'(换行保留不转义——调用栈
+// 两列帧间以'\n'分隔,与NPU dump文件Call Stack列同构);返回结束指针
 char* AppendQuotedField(char* p, const char* text, size_t len)
 {
     *p++ = '"';
@@ -753,11 +754,14 @@ void HostLeakAnalyzer::WriteWindowReport(uint64_t pid, WindowState& ws, bool atE
     }
     out.close();
 
-    // 逐块明细CSV(仅event模式;供时间序列等后续消费方使用)。call_stack列内联
-    // 完整符号化调用栈文本(RFC 4180引号字段:双引号包裹、内部'"'转义、换行保留,
-    // 与NPU dump文件Call Stack(C)列同构),逐块自含,不依赖同窗概览报告即可解析。
-    // 写盘走1MB堆缓冲攒行+整块write(见kDetailBufSize注释):行长为变长,近满按
-    // 单行最坏长度(固定列61 + 引号字段2×栈文本+2 + 换行)判断
+    // 逐块明细CSV(仅event模式;供时间序列等后续消费方使用)。调用栈拆两列:
+    // Call Stack(C)=纯C栈文本,Call Stack(Python)=py帧文本(混合栈frameDesc按
+    // marker拆分,见host_mem_hooks.h MSMEMSCOPE_HOSTMEM_MIXED_STACK_MARKER;
+    // 无py文本行Python列为空""——纯C栈/占位行)。RFC 4180引号字段:双引号包裹、
+    // 内部'"'转义、换行保留(与NPU dump文件Call Stack列同构),逐块自含,不依赖
+    // 同窗概览报告即可解析。写盘走1MB堆缓冲攒行+整块write(见kDetailBufSize注释):
+    // 行长为变长,近满按单行最坏长度(固定列62 + 引号字段2×(C+Python)文本+4 +
+    // 换行)判断
     if (!summaryMode && !ws.blocks.empty())
     {
         const std::string detailPath = dir + "/block_detail_" + stage + ".csv";
@@ -774,33 +778,62 @@ void HostLeakAnalyzer::WriteWindowReport(uint64_t pid, WindowState& ws, bool atE
                           }
                           return a.addr < b.addr;
                       });
-            // stackId→栈文本映射(闭窗符号化产物frameDesc,'\n'分隔帧描述;缺失/未知桶
-            // 按占位处理)。同一栈多块共享同一文本,映射一次建表,逐块O(1)查
-            std::unordered_map<uint64_t, const std::string*> stackText;
+            // stackId→(C栈文本, py帧文本)映射: 闭窗frameDesc为混合栈文本
+            // (marker分隔;未采集派生NA时py文本为"NA\n";无marker=纯C栈)。
+            // 建表时按marker一次性拆分为两列文本——同一栈多块共享拆分结果,
+            // 逐块O(1)查零拆分开销。缺失/未知桶按占位处理(占位行Python列为空)
+            struct StackText
+            {
+                std::string c;   // marker前: 纯C栈文本
+                std::string py;  // marker后: py帧文本(空=该行Python列为空)
+            };
+            std::unordered_map<uint64_t, StackText> stackText;
             stackText.reserve(ws.stacks.size());
             for (const auto& row : ws.stacks)
             {
-                stackText.emplace(row.stackId, &row.frameDesc);
+                StackText st;
+                const auto mp = row.frameDesc.find(MSMEMSCOPE_HOSTMEM_MIXED_STACK_MARKER);
+                if (mp == std::string::npos)
+                {
+                    st.c = row.frameDesc;
+                }
+                else
+                {
+                    st.c.assign(row.frameDesc, 0, mp);
+                    st.py.assign(row.frameDesc, mp + sizeof(MSMEMSCOPE_HOSTMEM_MIXED_STACK_MARKER) - 1,
+                                 std::string::npos);
+                }
+                stackText.emplace(row.stackId, std::move(st));
             }
-            detail << "addr,size,alloc_ts,Call Stack(C)\n";
+            detail << "addr,size,alloc_ts,Call Stack(C),Call Stack(Python)\n";
             std::vector<char> buf(kDetailBufSize);
             char* p = buf.data();
             for (const auto& block : ws.blocks)
             {
-                // call_stack列文本:未知桶/未符号化占位,或该栈frameDesc原样内联
-                const std::string* text = nullptr;
+                // 两列文本:未知桶/未符号化占位(C列,Python列为空),或该栈marker
+                // 拆分文本(C列=纯C栈,Python列=py帧文本)
+                const std::string* cText = nullptr;
+                const std::string* pyText = nullptr;
                 if (block.stackId == 0)
                 {
-                    text = &kUnknownBucketLabel;
+                    cText = &kUnknownBucketLabel;
                 }
                 else
                 {
                     const auto it = stackText.find(block.stackId);
-                    text = (it != stackText.end() && !it->second->empty()) ? it->second : &kUnresolvedStackLabel;
+                    if (it != stackText.end() && !it->second.c.empty())
+                    {
+                        cText = &it->second.c;
+                        pyText = it->second.py.empty() ? nullptr : &it->second.py;
+                    }
+                    else
+                    {
+                        cText = &kUnresolvedStackLabel;
+                    }
                 }
-                // 行最坏长度:固定列(0x+16位hex 18 + size/alloc_ts各≤20 + 3分隔符)
-                // + 引号字段(最坏全量'"'转义翻倍 + 2引号) + 换行
-                const size_t rowMax = 61 + 2 * text->size() + 3;
+                // 行最坏长度:固定列(0x+16位hex 18 + size/alloc_ts各≤20 + 4分隔符)
+                // + 引号字段(C 2×+2, Python 2×+2,最坏全量'"'转义翻倍) + 换行
+                const size_t rowMax = 67 + 2 * (cText->size() + (pyText == nullptr ? 0 : pyText->size()));
                 if (static_cast<size_t>(buf.data() + buf.size() - p) < rowMax)
                 {
                     detail.write(buf.data(), static_cast<std::streamsize>(p - buf.data()));
@@ -812,7 +845,10 @@ void HostLeakAnalyzer::WriteWindowReport(uint64_t pid, WindowState& ws, bool atE
                 *p++ = ',';
                 p = AppendU64(p, block.allocTs);
                 *p++ = ',';
-                p = AppendQuotedField(p, text->data(), text->size());
+                p = AppendQuotedField(p, cText->data(), cText->size());
+                *p++ = ',';
+                p = AppendQuotedField(p, pyText == nullptr ? "" : pyText->data(),
+                                      pyText == nullptr ? 0 : pyText->size());
                 *p++ = '\n';
             }
             if (p > buf.data())

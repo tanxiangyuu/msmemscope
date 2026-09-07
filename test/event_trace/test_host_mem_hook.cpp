@@ -22,6 +22,8 @@
  */
 #include <gtest/gtest.h>
 
+#include <Python.h>  // py采集用例内嵌解释器(Py_Initialize/PyRun_SimpleString)
+
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -73,6 +75,8 @@ std::vector<RecStage> g_recStages;
 std::atomic<uint32_t> g_paramDepth{16};
 std::atomic<uint64_t> g_paramThreshold{0};
 std::atomic<uint32_t> g_paramSampleRate{1};
+// py栈采集深度(默认0=禁用,热路径零开销;置非0启用,约束阈值经环境变量)
+std::atomic<uint32_t> g_paramPyStackDepth{0};
 std::atomic<int> g_suppressFlag{0};  // is_suppressed回调返回值
 
 void CbReportStage(int isStart, uint64_t timestamp, uint64_t stageId)
@@ -95,6 +99,7 @@ void CbGetParams(MsmemscopeHostmemParams* params)
     params->stackDepth = g_paramDepth.load(std::memory_order_relaxed);
     params->sampleRate = g_paramSampleRate.load(std::memory_order_relaxed);
     params->blockThreshold = g_paramThreshold.load(std::memory_order_relaxed);
+    params->pyStackDepth = g_paramPyStackDepth.load(std::memory_order_relaxed);
 }
 
 // 阈值RAII守卫:用例退出路径(含ASSERT失败中断)统一复位,避免泄漏到后续用例
@@ -114,6 +119,72 @@ struct SampleRateGuard
     SampleRateGuard(const SampleRateGuard&) = delete;
     SampleRateGuard& operator=(const SampleRateGuard&) = delete;
 };
+
+// py采集深度RAII守卫(开窗快照前设置,退出复位为0=禁用)
+struct PyStackGuard
+{
+    explicit PyStackGuard(uint32_t value) { g_paramPyStackDepth.store(value); }
+    ~PyStackGuard() { g_paramPyStackDepth.store(0); }
+    PyStackGuard(const PyStackGuard&) = delete;
+    PyStackGuard& operator=(const PyStackGuard&) = delete;
+};
+
+// 约束阈值环境变量RAII守卫(钩子开窗时Configure读取;退出复位原值/清除)
+struct EnvGuard
+{
+    EnvGuard(const char* name, const char* value)
+        : name_(name), prev_(std::getenv(name) != nullptr ? strdup(std::getenv(name)) : nullptr)
+    {
+        setenv(name, value, 1);
+    }
+    ~EnvGuard()
+    {
+        if (prev_ != nullptr)
+        {
+            setenv(name_, prev_, 1);
+            free(prev_);
+        }
+        else
+        {
+            unsetenv(name_);
+        }
+    }
+    EnvGuard(const EnvGuard&) = delete;
+    EnvGuard& operator=(const EnvGuard&) = delete;
+
+   private:
+    const char* name_;
+    char* prev_;
+};
+
+// 内嵌解释器RAII: 声明在前→先构造(解释器自举分配落在开窗前/窗口外),后析构
+// (闭窗后finalize,钩子Shutdown已清PyCodeFrameCache);Py_Initialize后主线程持GIL,
+// 脚本执行期间分配天然满足GIL守卫(Ensure幂等)
+struct PyScaffold
+{
+    PyScaffold() { Py_Initialize(); }
+    ~PyScaffold() { Py_Finalize(); }
+    PyScaffold(const PyScaffold&) = delete;
+    PyScaffold& operator=(const PyScaffold&) = delete;
+};
+
+// 混合栈marker(与钩子内部kMixedMarker同值): C栈文本尾部追加该行分隔py帧文本/NA标注,
+// 分析器按文本拆C栈/py帧两列
+constexpr const char* PY_MIXED_MARKER = "\n---- python frames ----\n";
+
+// py采集脚本: 模块级_leaked持引用保持存活,循环内同一调用点分配200KB×12≈2.4M,
+// 配合压低阈值(1M/5块)在循环中途跨过约束判定;帧链=create_string_buffer→alloc_blocks
+// →脚本顶层(共3帧),funcname可精确断言
+constexpr const char* PY_ALLOC_SCRIPT =
+    "import ctypes\n"
+    "_leaked = []\n"
+    "def alloc_blocks(n):\n"
+    "    global _leaked\n"
+    "    for _ in range(n):\n"
+    "        _leaked.append(ctypes.create_string_buffer(200 * 1024))\n"
+    "alloc_blocks(12)\n";
+constexpr size_t PY_BLOCK_SIZE = 200 * 1024;
+constexpr int PY_ALLOC_COUNT = 12;
 
 // dlsym取得钩子bind入口并注册记录表;父进程(未preload)返回nullptr
 const MsmemscopeHostmemSvc* BindHookApi()
@@ -1648,6 +1719,261 @@ TEST_F(HostMemHookChild, hammer_refs_integrity)
             free(p);
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// py调用栈采集用例(UT-P4/P6/P7/P8/P12/P15/P18/P20/P21)
+// ---------------------------------------------------------------------------
+
+// 目标栈行定位: 按闭窗未释放计数/字节下界匹配(create_string_buffer请求200KB
+// 分配同大小+1终止符;下界防头开销差异,count精确)
+const StackStatCollector::Row* FindUnfreedRow(const StackStatCollector& coll, uint64_t count,
+                                              uint64_t bytesLowerBound)
+{
+    for (const auto& r : coll.rows)
+    {
+        if (r.unfreedCount == count && r.unfreedBytes >= bytesLowerBound)
+        {
+            return &r;
+        }
+    }
+    return nullptr;
+}
+
+// py帧数统计: marker之后文本的换行数(每帧以'\n'结尾);无marker返回0
+size_t CountPyFrames(const std::string& frameDesc)
+{
+    const size_t pos = frameDesc.find(PY_MIXED_MARKER);
+    if (pos == std::string::npos)
+    {
+        return 0;
+    }
+    size_t frames = 0;
+    for (size_t i = pos + strlen(PY_MIXED_MARKER); i < frameDesc.size(); ++i)
+    {
+        if (frameDesc[i] == '\n')
+        {
+            ++frames;
+        }
+    }
+    return frames;
+}
+
+// UT-P4/P18/P20: 约束门控采集主路径——脚本分配循环中途跨过阈值(第6块: 1.2M>1M且存活块6>5)
+// 补采py栈;闭窗frameDesc=混合栈(marker+py帧,funcname精确断言);每栈至多一次(marker恰1);
+// pyBuf在栈条目生命周期内稳定
+TEST_F(HostMemHookChild, py_stack_gate_capture)
+{
+    PyScaffold py;
+    PyStackGuard pyGuard(32);
+    EnvGuard envBytes("MSMEMSCOPE_HOSTMEM_PYSTACK_LIVE_BYTES", "1048576");
+    EnvGuard envBlocks("MSMEMSCOPE_HOSTMEM_PYSTACK_LIVE_BLOCKS", "5");
+    const MsmemscopeHostmemSvc* svc = BindHookApi();
+    ASSERT_NE(svc, nullptr);
+    ResetWindowState(svc);
+    ClearRecords();
+    ThresholdGuard thresholdGuard(4096);  // 过滤解释器/框架小分配噪声
+
+    svc->set_enabled(1);
+    ASSERT_EQ(PyRun_SimpleString(PY_ALLOC_SCRIPT), 0) << "python script failed";
+    svc->set_enabled(0);
+    ASSERT_TRUE(WaitForStageEnd());
+
+    StackStatCollector coll;
+    svc->dump_stack_stats(CollectStackStat, &coll);
+    const StackStatCollector::Row* row =
+        FindUnfreedRow(coll, PY_ALLOC_COUNT, PY_BLOCK_SIZE * PY_ALLOC_COUNT);
+    ASSERT_NE(row, nullptr) << "target stack row not found";
+    EXPECT_NE(row->frameDesc.find(PY_MIXED_MARKER), std::string::npos) << row->frameDesc;
+    EXPECT_NE(row->frameDesc.find("alloc_blocks"), std::string::npos) << row->frameDesc;
+    // 分配发生在ctypes.create_string_buffer内(3.x纯python包装),帧链=create_string_buffer
+    // →alloc_blocks→脚本顶层(共3帧),funcname可精确断言
+    EXPECT_EQ(CountPyFrames(row->frameDesc), 3u) << row->frameDesc;
+    size_t markers = 0;
+    for (size_t pos = 0; (pos = row->frameDesc.find(PY_MIXED_MARKER, pos)) != std::string::npos;
+         pos += strlen(PY_MIXED_MARKER))
+    {
+        ++markers;
+    }
+    EXPECT_EQ(markers, 1u) << "py stack must be captured at most once per stack";
+}
+
+// UT-P6/P7: 采集开关——pyStackDepth=0(默认)时零py路径:约束达标也不采集,
+// frameDesc与py禁用时一致(纯C栈文本,无marker)
+TEST_F(HostMemHookChild, py_stack_disabled_by_default)
+{
+    PyScaffold py;
+    EnvGuard envBytes("MSMEMSCOPE_HOSTMEM_PYSTACK_LIVE_BYTES", "1048576");
+    EnvGuard envBlocks("MSMEMSCOPE_HOSTMEM_PYSTACK_LIVE_BLOCKS", "5");
+    const MsmemscopeHostmemSvc* svc = BindHookApi();
+    ASSERT_NE(svc, nullptr);
+    ResetWindowState(svc);
+    ClearRecords();
+    ThresholdGuard thresholdGuard(4096);
+
+    svc->set_enabled(1);
+    ASSERT_EQ(PyRun_SimpleString(PY_ALLOC_SCRIPT), 0) << "python script failed";
+    svc->set_enabled(0);
+    ASSERT_TRUE(WaitForStageEnd());
+
+    StackStatCollector coll;
+    svc->dump_stack_stats(CollectStackStat, &coll);
+    const StackStatCollector::Row* row =
+        FindUnfreedRow(coll, PY_ALLOC_COUNT, PY_BLOCK_SIZE * PY_ALLOC_COUNT);
+    ASSERT_NE(row, nullptr) << "target stack row not found";
+    EXPECT_EQ(row->frameDesc.find(PY_MIXED_MARKER), std::string::npos)
+        << "py disabled: frameDesc must equal pure C-stack text: " << row->frameDesc;
+}
+
+// UT-P20: 约束未达标不采集——阈值调高(100M/10块)后2.4M/12块不满足任一档,
+// 热路径门控与闭窗NA判据均不成立:frameDesc纯C栈(无marker)
+TEST_F(HostMemHookChild, py_stack_gate_not_met)
+{
+    PyScaffold py;
+    PyStackGuard pyGuard(32);
+    EnvGuard envBytes("MSMEMSCOPE_HOSTMEM_PYSTACK_LIVE_BYTES", "104857600");
+    EnvGuard envBlocks("MSMEMSCOPE_HOSTMEM_PYSTACK_LIVE_BLOCKS", "10");
+    const MsmemscopeHostmemSvc* svc = BindHookApi();
+    ASSERT_NE(svc, nullptr);
+    ResetWindowState(svc);
+    ClearRecords();
+    ThresholdGuard thresholdGuard(4096);
+
+    svc->set_enabled(1);
+    ASSERT_EQ(PyRun_SimpleString(PY_ALLOC_SCRIPT), 0) << "python script failed";
+    svc->set_enabled(0);
+    ASSERT_TRUE(WaitForStageEnd());
+
+    StackStatCollector coll;
+    svc->dump_stack_stats(CollectStackStat, &coll);
+    const StackStatCollector::Row* row =
+        FindUnfreedRow(coll, PY_ALLOC_COUNT, PY_BLOCK_SIZE * PY_ALLOC_COUNT);
+    ASSERT_NE(row, nullptr) << "target stack row not found";
+    EXPECT_EQ(row->frameDesc.find(PY_MIXED_MARKER), std::string::npos) << row->frameDesc;
+}
+
+// UT-P8/P15: 无解释器进程自动退化——不Py_Initialize,约束达标的纯C栈不采集,
+// 闭窗按精确unfreed判据派生NA(诚实标注): marker+"NA\n",无py帧
+TEST_F(HostMemHookChild, py_stack_na_no_interpreter)
+{
+    PyStackGuard pyGuard(32);
+    EnvGuard envBytes("MSMEMSCOPE_HOSTMEM_PYSTACK_LIVE_BYTES", "1048576");
+    EnvGuard envBlocks("MSMEMSCOPE_HOSTMEM_PYSTACK_LIVE_BLOCKS", "5");
+    const MsmemscopeHostmemSvc* svc = BindHookApi();
+    ASSERT_NE(svc, nullptr);
+    ResetWindowState(svc);
+    ClearRecords();
+    ThresholdGuard thresholdGuard(4096);
+
+    svc->set_enabled(1);
+    std::vector<void*> blocks;
+    blocks.reserve(PY_ALLOC_COUNT);
+    for (int i = 0; i < PY_ALLOC_COUNT; ++i)
+    {
+        void* p = malloc(PY_BLOCK_SIZE);
+        ASSERT_NE(p, nullptr);
+        blocks.push_back(p);
+    }
+    svc->set_enabled(0);
+    ASSERT_TRUE(WaitForStageEnd());
+
+    StackStatCollector coll;
+    svc->dump_stack_stats(CollectStackStat, &coll);
+    const StackStatCollector::Row* row =
+        FindUnfreedRow(coll, PY_ALLOC_COUNT, PY_BLOCK_SIZE * PY_ALLOC_COUNT);
+    ASSERT_NE(row, nullptr) << "target stack row not found";
+    ASSERT_NE(row->frameDesc.find(PY_MIXED_MARKER), std::string::npos)
+        << "NA must be derived at close: " << row->frameDesc;
+    EXPECT_NE(row->frameDesc.find("NA"), std::string::npos) << row->frameDesc;
+    for (void* p : blocks)
+    {
+        free(p);
+    }
+}
+
+// UT-P21: 未持GIL线程采集——helper纯C线程(无GIL/py帧)达标分配经PyInterpGuard短暂取GIL后
+// 走链得0帧(NONE),闭窗NA交付;主线程周期让出GIL模拟真实时间片切换(持GIL必让出,
+// Ensure不无限期阻塞)
+TEST_F(HostMemHookChild, py_stack_na_no_gil)
+{
+    PyScaffold py;
+    PyStackGuard pyGuard(32);
+    EnvGuard envBytes("MSMEMSCOPE_HOSTMEM_PYSTACK_LIVE_BYTES", "1048576");
+    EnvGuard envBlocks("MSMEMSCOPE_HOSTMEM_PYSTACK_LIVE_BLOCKS", "5");
+    const MsmemscopeHostmemSvc* svc = BindHookApi();
+    ASSERT_NE(svc, nullptr);
+    ResetWindowState(svc);
+    ClearRecords();
+    ThresholdGuard thresholdGuard(4096);
+
+    constexpr int kWorkerBlocks = 6;  // 6×200KB=1.2M>1M且6块>5: 约束达标
+    std::vector<void*> blocks;
+    std::atomic<bool> done{false};
+    svc->set_enabled(1);
+    std::thread worker([&blocks, &done]() {
+        for (int i = 0; i < kWorkerBlocks; ++i)
+        {
+            void* p = malloc(PY_BLOCK_SIZE);
+            if (p != nullptr)
+            {
+                blocks.push_back(p);
+            }
+        }
+        done.store(true);
+    });
+    // 主线程周期让出GIL(PyEval_SaveThread/RestoreThread)模拟真实时间片切换:
+    // worker的PyInterpGuard短暂等待后必获GIL,限时验证
+    for (int i = 0; i < 200 && !done.load(); ++i)
+    {
+        PyThreadState* saved = PyEval_SaveThread();
+        usleep(10000);
+        PyEval_RestoreThread(saved);
+    }
+    ASSERT_TRUE(done.load()) << "worker blocked on GIL acquisition";
+    worker.join();
+    svc->set_enabled(0);
+    ASSERT_TRUE(WaitForStageEnd());
+
+    StackStatCollector coll;
+    svc->dump_stack_stats(CollectStackStat, &coll);
+    const StackStatCollector::Row* row = FindUnfreedRow(coll, kWorkerBlocks, kWorkerBlocks * PY_BLOCK_SIZE);
+    ASSERT_NE(row, nullptr) << "target stack row not found";
+    ASSERT_NE(row->frameDesc.find(PY_MIXED_MARKER), std::string::npos) << row->frameDesc;
+    EXPECT_NE(row->frameDesc.find("NA"), std::string::npos) << row->frameDesc;
+    for (void* p : blocks)
+    {
+        free(p);
+    }
+}
+
+// UT-P12: 深度截断——pyStackDepth=5,采集py帧数≤5(脚本帧链3帧全采);
+// 深链截断由WalkFrames maxDepth保证,scratch 32KB边界收集侧截断不越界
+TEST_F(HostMemHookChild, py_stack_depth_limit)
+{
+    PyScaffold py;
+    PyStackGuard pyGuard(5);
+    EnvGuard envBytes("MSMEMSCOPE_HOSTMEM_PYSTACK_LIVE_BYTES", "1048576");
+    EnvGuard envBlocks("MSMEMSCOPE_HOSTMEM_PYSTACK_LIVE_BLOCKS", "5");
+    const MsmemscopeHostmemSvc* svc = BindHookApi();
+    ASSERT_NE(svc, nullptr);
+    ResetWindowState(svc);
+    ClearRecords();
+    ThresholdGuard thresholdGuard(4096);
+
+    svc->set_enabled(1);
+    ASSERT_EQ(PyRun_SimpleString(PY_ALLOC_SCRIPT), 0) << "python script failed";
+    svc->set_enabled(0);
+    ASSERT_TRUE(WaitForStageEnd());
+
+    StackStatCollector coll;
+    svc->dump_stack_stats(CollectStackStat, &coll);
+    const StackStatCollector::Row* row =
+        FindUnfreedRow(coll, PY_ALLOC_COUNT, PY_BLOCK_SIZE * PY_ALLOC_COUNT);
+    ASSERT_NE(row, nullptr) << "target stack row not found";
+    ASSERT_NE(row->frameDesc.find(PY_MIXED_MARKER), std::string::npos) << row->frameDesc;
+    const size_t frames = CountPyFrames(row->frameDesc);
+    EXPECT_GE(frames, 1u);
+    EXPECT_LE(frames, 5u) << row->frameDesc;
 }
 
 // ---------------------------------------------------------------------------

@@ -1811,12 +1811,16 @@ extern "C" void msmemscope_hostmem_get_params(MsmemscopeHostmemParams* params)
         // 显式采样率倒数(默认1=不采样;config.sampleRate),钩子按2的幂归一化
         params->sampleRate = config.sampleRate;
         params->blockThreshold = config.blockSizeThreshold;
+        // py采集深度(0=禁用,钩子侧零开销;enablePyStack总开关,
+        // pyStackDepth为0时同样禁用)
+        params->pyStackDepth = config.enablePyStack ? config.pyStackDepth : 0;
     }
     catch (...)
     {
         params->stackDepth = 50;
         params->sampleRate = 1;
         params->blockThreshold = 0;
+        params->pyStackDepth = 0;
     }
 }
 
