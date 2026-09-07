@@ -18,10 +18,13 @@
 #include "memory_state_manager.h"
 
 #include <algorithm>
+#include <cstdio>
 
 #include "analysis/event_dispatcher.h"
 #include "framework/event_router.h"
 #include "log.h"
+#include "trace_manager/event_trace_manager.h"
+#include "utility/file.h"
 #include "utility/file_write_manager.h"
 #include "utility/utils.h"
 
@@ -92,8 +95,7 @@ std::string OwnerLabelManager::GetOwnerStr() const
     return result;
 }
 
-uint64_t MemoryState::count = 0;
-std::mutex MemoryState::mtx;
+std::atomic<uint64_t> MemoryState::count{0};
 
 MemoryStateManager& MemoryStateManager::GetInstance()
 {
@@ -101,6 +103,13 @@ MemoryStateManager& MemoryStateManager::GetInstance()
     // C++ 保证函数内静态变量按构造的相反顺序析构，因此先触发构造的单例会后析构。
     EventDispatcher::GetInstance();
     Utility::FileWriteManager::GetInstance();
+    // Dump::WriteToFile → GetConfig() 访问 ConfigManager，需确保其在本对象之后析构
+    ConfigManager::Instance();
+    // Dump::WriteToFile → MakeDataHandler → CsvHandler::Init() 访问 FileCreateManager，
+    // 需确保其在本对象之后析构；outputDir 取当前已生效的配置值。
+    // 注意：本调用可能先于用户config()发生（hook影子采集路径），此时以默认outputDir固化
+    // projectDir_，由SetEffectiveConfig在配置生效时经RefreshOutputDir纠正
+    Utility::FileCreateManager::GetInstance(GetConfig().outputDir);
     static MemoryStateManager manager{};
     return manager;
 }
@@ -118,10 +127,10 @@ MemoryState* MemoryStateManager::AddEvent(std::shared_ptr<MemoryEvent>& event)
     auto& statesMap = statesPool.statesMap;
 
     // 定位事件所属state：
-    // - 先按key(pid, device, addr)精确哈希；未命中时对非MALLOC事件（FREE/ACCESS等）遍历匹配
+    // - 先按key(pid, device, addr)精确哈希；未命中时对非分配事件（FREE/ACCESS等）遍历匹配
     //   （含地址区间containment）：device缺失的FREE事件（hal/host内存）借此回填device后再哈希
     //   精确定位；ACCESS等地址落在已分配块区间内的事件并入所属块state
-    // - MALLOC事件不做模糊匹配（MALLOC冲突语义）
+    // - 分配事件（MALLOC）不做模糊匹配（MALLOC冲突语义）
     MemoryState* located = nullptr;
     MemoryStateKey key{event->pid, event->device, event->addr};
     auto stateIt = statesMap.find(key);
@@ -129,7 +138,7 @@ MemoryState* MemoryStateManager::AddEvent(std::shared_ptr<MemoryEvent>& event)
     {
         located = &stateIt->second;
     }
-    else if (event->eventType != EventBaseType::MALLOC)
+    else if (!IsAllocEventType(event->eventType))
     {
         located = FindStateByPidAndAddr(statesMap, key, static_cast<uint64_t>(event->size));
     }
@@ -145,9 +154,9 @@ MemoryState* MemoryStateManager::AddEvent(std::shared_ptr<MemoryEvent>& event)
         }
 
         // hal和host内存存在free事件没有size信息，在此处匹配到malloc事件并填写size
-        if (event->eventType == EventBaseType::FREE &&
+        if (IsFreeEventType(event->eventType) &&
             (event->poolType == PoolType::HAL || event->poolType == PoolType::HOST) &&
-            firstEvent->eventType == EventBaseType::MALLOC)
+            IsAllocEventType(firstEvent->eventType))
         {
             event->size = firstEvent->size;
             if (event->device == DEVICE_ID_CPU)
@@ -158,7 +167,7 @@ MemoryState* MemoryStateManager::AddEvent(std::shared_ptr<MemoryEvent>& event)
         }
     }
 
-    if (event->eventType == EventBaseType::MALLOC)
+    if (IsAllocEventType(event->eventType))
     {
         if (located != nullptr)
         {
@@ -203,7 +212,7 @@ void MemoryStateManager::UpdateUsage(const std::shared_ptr<MemoryEvent>& event)
     if (event->poolType == PoolType::HAL)
     {
         // HAL 事件（DEVICE 空间）：used = 本进程 HAL 维度活跃累计（MALLOC 含本次、FREE 不含本次）
-        halUsed_[event->device] += (event->eventType == EventBaseType::MALLOC ? size : -size);
+        halUsed_[event->device] += (IsAllocEventType(event->eventType) ? size : -size);
         if (halUsed_[event->device] < 0)
         {
             // 事件缺失/重复 FREE 导致累计为负：截断为 0，曲线不出现负数毛刺
@@ -229,7 +238,7 @@ void MemoryStateManager::UpdateUsage(const std::shared_ptr<MemoryEvent>& event)
     {
         // CPU tensor数据内存事件（事件模型：poolType=HOST、isPinned=false），
         // total = 活跃CPU tensor数据内存累计（仅落盘，不参与分析）
-        hostTensorTotal_ += (event->eventType == EventBaseType::MALLOC ? size : -size);
+        hostTensorTotal_ += (IsAllocEventType(event->eventType) ? size : -size);
         if (hostTensorTotal_ < 0)
         {
             LOG_WARN("host tensor total goes negative (%lld), truncated to 0", hostTensorTotal_);
@@ -428,8 +437,8 @@ std::vector<LiveBlockInfo> MemoryStateManager::QueryLiveBlocks(const LiveBlockFi
         for (const auto& statePair : poolPair.second.statesMap)
         {
             const auto& state = statePair.second;
-            // 跳过幽灵state（events中只有FREE事件，无对应MALLOC）
-            if (state.events.empty() || state.events[0]->eventType != EventBaseType::MALLOC)
+            // 跳过幽灵state（events中只有FREE事件，无对应分配事件）
+            if (state.events.empty() || !IsAllocEventType(state.events[0]->eventType))
             {
                 continue;
             }
@@ -529,13 +538,27 @@ void MemoryStateManager::PromoteShadowStates(const PromoteCallback& dumpFunc)
 
 MemoryStateManager::~MemoryStateManager()
 {
-    for (auto& state : GetAllStateKeys())
+    try
     {
-        std::shared_ptr<EventBase> event =
-            std::make_shared<CleanUpEvent>(EventSubType::PROC_EXIT, state.first, state.second.pid, state.second.addr);
-        // 从key回填device，保证DeteleState的key(pid, device, addr)一致
-        event->device = state.second.device;
-        EventHandler(event);
+        for (auto& state : GetAllStateKeys())
+        {
+            std::shared_ptr<EventBase> event = std::make_shared<CleanUpEvent>(EventSubType::PROC_EXIT, state.first,
+                                                                              state.second.pid, state.second.addr);
+            // 从key回填device，保证DeteleState的key(pid, device, addr)一致
+            event->device = state.second.device;
+            EventHandler(event);
+        }
+    }
+    catch (const std::exception& e)
+    {
+        // 析构阶段：各单例析构顺序不确定，Dump/FileCreateManager等可能已销毁，
+        // 异常必须在此吞掉，否则逃逸出析构函数 → std::terminate。
+        // 一旦出错后续迭代必然同因失败，无需继续。
+        fprintf(stderr, "[msmemscope] cleanup aborted: %s\n", e.what());
+    }
+    catch (...)
+    {
+        fprintf(stderr, "[msmemscope] cleanup aborted: unknown error\n");
     }
 }
 
