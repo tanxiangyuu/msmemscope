@@ -56,6 +56,20 @@ _CPU_TENSOR_FACTORIES = [
     "randn_like",
     "randint_like",
     "frombuffer",
+    "normal",
+    "bernoulli",
+    "multinomial",
+    "diag",
+    "triu",
+    "tril",
+    "block_diag",
+    "kron",
+    "vander",
+    "complex",
+    "polar",
+    "bartlett_window",
+    "blackman_window",
+    "hamming_window",
 ]
 
 
