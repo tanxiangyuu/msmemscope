@@ -36,6 +36,7 @@
 #include <cstdio>
 #include <cstring>
 #include <functional>
+#include <map>
 #include <mutex>
 #include <set>
 #include <string>
@@ -280,7 +281,8 @@ void CollectDumpItem(void* ctx, uint64_t addr, uint64_t size, uint64_t allocTs, 
     static_cast<DumpCollector*>(ctx)->items.push_back(DumpCollector::Item{addr, size, allocTs, stackId});
 }
 
-// dump_stack_stats收集回调(闭窗per-stack聚合快照)
+// dump_stack_stats收集回调(闭窗per-stack聚合快照;maxAllocTsNs/freedLifetimeSumNs/
+// liveAgeSumNs为置信度因子扩展字段,闭窗冻结值)
 struct StackStatCollector
 {
     struct Row
@@ -293,6 +295,9 @@ struct StackStatCollector
         uint64_t unfreedCount;
         uint64_t unfreedBytes;
         uint64_t maxBlockSize;
+        uint64_t maxAllocTsNs;
+        uint64_t freedLifetimeSumNs;
+        uint64_t liveAgeSumNs;
         std::string frameDesc;  // 闭窗符号化文本;stackId=0为未知桶行(空文本)
     };
     std::vector<Row> rows;
@@ -300,6 +305,7 @@ struct StackStatCollector
 
 void CollectStackStat(void* ctx, uint64_t stackId, uint64_t allocCount, uint64_t allocBytes, uint64_t freedCount,
                       uint64_t freedBytes, uint64_t unfreedCount, uint64_t unfreedBytes, uint64_t maxBlockSize,
+                      uint64_t maxAllocTsNs, uint64_t freedLifetimeSumNs, uint64_t liveAgeSumNs,
                       const char* frameDesc, size_t len)
 {
     auto* collector = static_cast<StackStatCollector*>(ctx);
@@ -312,6 +318,9 @@ void CollectStackStat(void* ctx, uint64_t stackId, uint64_t allocCount, uint64_t
     row.unfreedCount = unfreedCount;
     row.unfreedBytes = unfreedBytes;
     row.maxBlockSize = maxBlockSize;
+    row.maxAllocTsNs = maxAllocTsNs;
+    row.freedLifetimeSumNs = freedLifetimeSumNs;
+    row.liveAgeSumNs = liveAgeSumNs;
     if (frameDesc != nullptr && len > 0)
     {
         row.frameDesc.assign(frameDesc, len);
@@ -336,6 +345,26 @@ void CollectBucket(void* ctx, uint64_t rangeLow, uint64_t rangeHigh, uint64_t bl
 {
     auto* collector = static_cast<BucketCollector*>(ctx);
     collector->buckets.push_back(BucketCollector::Bucket{rangeLow, rangeHigh, blockCount, blockBytes});
+}
+
+// dump_unfreed_series收集回调(闭窗节拍快照序列:beat升序、flags bit0=驱逐标注)
+struct SeriesCollector
+{
+    struct Row
+    {
+        uint64_t stackId;
+        uint32_t beat;
+        uint64_t liveBytes;
+        uint32_t liveCount;
+        uint32_t flags;
+    };
+    std::vector<Row> rows;
+};
+
+void CollectSeriesRow(void* ctx, uint64_t stackId, uint32_t beat, uint64_t liveBytes, uint32_t liveCount,
+                      uint32_t flags)
+{
+    static_cast<SeriesCollector*>(ctx)->rows.push_back(SeriesCollector::Row{stackId, beat, liveBytes, liveCount, flags});
 }
 }  // namespace
 
@@ -2098,6 +2127,186 @@ bool WaitChildExit(pid_t pid, int timeoutMs, int* statusOut)
     waitpid(pid, &status, 0);
     *statusOut = status;
     return false;
+}
+
+// UT-H19: 节拍快照序列采集——节拍间隔经MSMEMSCOPE_HOSTMEM_BEAT_NS缩短至5ms下限
+// (测试harness专用覆盖,须开窗前设置),窗口内大块分配后放行数个节拍,闭窗
+// dump_unfreed_series必交付该栈多拍序列:拍号严格升序、行值=拍内liveBytes/
+// liveCount存活快照(块未释放则恒定)、槽未被驱逐(flags=0);stats同源交付
+// 序列起点(>0)/覆盖后的间隔/标注(0=预热线程在位)
+TEST_F(HostMemHookChild, series_beat_rows_collected)
+{
+    const MsmemscopeHostmemSvc* svc = BindHookApi();
+    ASSERT_NE(svc, nullptr);
+    ResetWindowState(svc);
+    ClearRecords();
+    ThresholdGuard thresholdGuard(4096);  // 过滤框架小分配噪声,保证top-K唯一性
+
+    EnvGuard beatEnv("MSMEMSCOPE_HOSTMEM_BEAT_NS", "5000000");  // 5ms节拍(下限)
+    svc->set_enabled(1);
+
+    void* blocks[3] = {nullptr, nullptr, nullptr};
+    for (int i = 0; i < 3; ++i)
+    {
+        blocks[i] = malloc(100000);
+        ASSERT_NE(blocks[i], nullptr);
+    }
+    // 放行≥3个节拍(5ms×3=15ms,余量30ms): 闭窗时该栈至少2行
+    usleep(30000);
+    svc->set_enabled(0);
+    ASSERT_TRUE(WaitForStageEnd()) << "STAGE_END not reported";
+
+    MsmemscopeHostmemStats stats{};
+    svc->get_stats(&stats);
+    EXPECT_GT(stats.seriesStartTsNs, 0u);              // 序列起点已锚定(拍0对齐)
+    EXPECT_EQ(stats.seriesBeatIntervalNs, 5000000u);   // 覆盖后的间隔交付分析器
+    EXPECT_EQ(stats.seriesFlags, 0u);                  // 预热线程在位
+
+    // 序列按栈分组(交付序=活跃槽逐栈+槽内拍序,分组后仍保拍序)
+    SeriesCollector sc;
+    svc->dump_unfreed_series(CollectSeriesRow, &sc);
+    std::map<uint64_t, std::vector<SeriesCollector::Row>> byStack;
+    for (const auto& r : sc.rows)
+    {
+        byStack[r.stackId].push_back(r);
+    }
+    // 定位本分配栈(末行liveBytes=300000=3×100000): 全进程唯一300KB存活栈
+    std::vector<SeriesCollector::Row>* ours = nullptr;
+    for (auto& kv : byStack)
+    {
+        if (!kv.second.empty() && kv.second.back().liveBytes == 300000u)
+        {
+            ASSERT_EQ(ours, nullptr) << "ambiguous series stack (multiple 300KB stacks)";
+            ours = &kv.second;
+        }
+    }
+    ASSERT_NE(ours, nullptr) << "allocation stack missing from series (not in top-K at sample time)";
+    // 至少2行(分配后≥2节拍);行值=存活快照,块不释放则单调不降(允许首拍落在
+    // 3次malloc中间的理论竞态:微秒级窗口,断言放宽为非降+末行精确)
+    ASSERT_GE(ours->size(), 2u);
+    for (size_t i = 0; i < ours->size(); ++i)
+    {
+        EXPECT_LE((*ours)[i].liveBytes, 300000u);
+        EXPECT_LE((*ours)[i].liveCount, 3u);
+        EXPECT_EQ((*ours)[i].flags, 0u);  // 槽未被驱逐
+        if (i > 0)
+        {
+            EXPECT_GT((*ours)[i].beat, (*ours)[i - 1].beat);
+            EXPECT_GE((*ours)[i].liveBytes, (*ours)[i - 1].liveBytes);
+            EXPECT_GE((*ours)[i].liveCount, (*ours)[i - 1].liveCount);
+        }
+    }
+    EXPECT_EQ(ours->back().liveBytes, 300000u);  // 末行=3块全量
+    EXPECT_EQ(ours->back().liveCount, 3u);
+}
+
+// UT-H20: free路径生命周期累加——块释放时锁内累加freeTs−allocTs;闭窗
+// dump_stack_stats交付该栈freedLifetimeSumNs>0;块已全部释放→maxAllocTs/liveAgeSum
+// 保持0(顺带统计仅针对未释放块)
+TEST_F(HostMemHookChild, freed_lifetime_accumulated_at_free)
+{
+    const MsmemscopeHostmemSvc* svc = BindHookApi();
+    ASSERT_NE(svc, nullptr);
+    ResetWindowState(svc);
+    ClearRecords();
+    ThresholdGuard thresholdGuard(4096);
+
+    svc->set_enabled(1);
+    void* p = malloc(100000);
+    ASSERT_NE(p, nullptr);
+    usleep(20000);  // 寿命样本: freeTs−allocTs≈20ms>0
+    free(p);
+    svc->set_enabled(0);
+    ASSERT_TRUE(WaitForStageEnd()) << "STAGE_END not reported";
+
+    StackStatCollector sc;
+    svc->dump_stack_stats(CollectStackStat, &sc);
+    bool found = false;
+    for (const auto& r : sc.rows)
+    {
+        if (r.allocCount == 1u && r.freedCount == 1u && r.unfreedCount == 0u)
+        {
+            found = true;
+            EXPECT_GT(r.freedLifetimeSumNs, 0u) << "free path must accumulate freeTs-allocTs";
+            EXPECT_EQ(r.maxAllocTsNs, 0u) << "no live blocks: maxAllocTs stays 0";
+            EXPECT_EQ(r.liveAgeSumNs, 0u) << "no live blocks: liveAgeSum stays 0";
+        }
+    }
+    EXPECT_TRUE(found) << "freed stack row missing from close stats";
+}
+
+// UT-H21: 闭窗年龄统计基准交叉验证——同一调用点两块(时间拉开50ms),闭窗后
+// dump_live_blocks逐块投影与dump_stack_stats交叉:maxAllocTs=存活块最大allocTs
+// (精确相等);liveAgeSum=Σ(closeTs−allocTs)(closeTs=闭窗时刻≤STAGE_END时刻,
+// 差值=闭窗聚合耗时,毫秒级)——40ms松弛既容忍聚合耗时、又必捕获基准错误
+// (误用开窗时刻/0时偏差≈整窗时长100ms级)
+TEST_F(HostMemHookChild, close_live_age_cross_check)
+{
+    const MsmemscopeHostmemSvc* svc = BindHookApi();
+    ASSERT_NE(svc, nullptr);
+    ResetWindowState(svc);
+    ClearRecords();
+    ThresholdGuard thresholdGuard(4096);
+
+    svc->set_enabled(1);
+    // 同一调用点两块(循环体同一行),间距50ms: 年龄差可辨、同栈同桶
+    void* blocks[2] = {nullptr, nullptr};
+    for (int i = 0; i < 2; ++i)
+    {
+        blocks[i] = malloc(100000);
+        ASSERT_NE(blocks[i], nullptr);
+        if (i == 0)
+        {
+            usleep(50000);
+        }
+    }
+    svc->set_enabled(0);
+    ASSERT_TRUE(WaitForStageEnd()) << "STAGE_END not reported";
+
+    // STAGE_END时刻(≥closeTs,同一时钟;差值=闭窗聚合+派发耗时)
+    uint64_t stageEndTs = 0;
+    {
+        std::lock_guard<std::mutex> lock(g_recMtx);
+        for (const auto& s : g_recStages)
+        {
+            if (!s.isStart)
+            {
+                stageEndTs = s.timestamp;
+            }
+        }
+    }
+    ASSERT_GT(stageEndTs, 0u);
+
+    // 存活块投影: 阈值过滤下仅本用例两块,逐块求maxAllocTs与年龄和上界
+    DumpCollector dc;
+    svc->dump_live_blocks(CollectDumpItem, &dc);
+    ASSERT_EQ(dc.items.size(), 2u) << "threshold filter must isolate the two test blocks";
+    uint64_t maxAllocTs = 0;
+    uint64_t ageUpper = 0;  // Σ(stageEndTs−allocTs): 年龄和上界(closeTs≤stageEndTs)
+    for (const auto& it : dc.items)
+    {
+        EXPECT_EQ(it.size, 100000u);
+        if (it.allocTs > maxAllocTs)
+        {
+            maxAllocTs = it.allocTs;
+        }
+        ageUpper += stageEndTs - it.allocTs;
+    }
+
+    StackStatCollector sc;
+    svc->dump_stack_stats(CollectStackStat, &sc);
+    bool found = false;
+    for (const auto& r : sc.rows)
+    {
+        if (r.unfreedCount == 2u && r.unfreedBytes == 200000u)
+        {
+            found = true;
+            EXPECT_EQ(r.maxAllocTsNs, maxAllocTs) << "latest alloc ts must match live blocks";
+            EXPECT_LE(r.liveAgeSumNs, ageUpper) << "age reference must not be after close";
+            EXPECT_GE(r.liveAgeSumNs + 40000000ull, ageUpper) << "age reference must be close (not window start/0)";
+        }
+    }
+    EXPECT_TRUE(found) << "allocation stack row missing from close stats";
 }
 }  // namespace
 
