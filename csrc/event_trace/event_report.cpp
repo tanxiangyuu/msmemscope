@@ -1959,7 +1959,9 @@ bool EventReport::DumpHostMemLiveBlocks(void (*emit)(void* ctx, uint64_t addr, u
 bool EventReport::DumpHostMemStackStats(void (*emit)(void* ctx, uint64_t stackId, uint64_t allocCount,
                                                      uint64_t allocBytes, uint64_t freedCount, uint64_t freedBytes,
                                                      uint64_t unfreedCount, uint64_t unfreedBytes,
-                                                     uint64_t maxBlockSize, const char* frameDesc, size_t len),
+                                                     uint64_t maxBlockSize, uint64_t maxAllocTsNs,
+                                                     uint64_t freedLifetimeSumNs, uint64_t liveAgeSumNs,
+                                                     const char* frameDesc, size_t len),
                                         void* ctx)
 {
     if (svcHostMem_ == nullptr || destroyed_.load() || emit == nullptr)
@@ -1967,6 +1969,18 @@ bool EventReport::DumpHostMemStackStats(void (*emit)(void* ctx, uint64_t stackId
         return false;
     }
     svcHostMem_->dump_stack_stats(emit, ctx);
+    return true;
+}
+
+bool EventReport::DumpHostMemUnfreedSeries(void (*emit)(void* ctx, uint64_t stackId, uint32_t beat, uint64_t liveBytes,
+                                                        uint32_t liveCount, uint32_t flags),
+                                           void* ctx)
+{
+    if (svcHostMem_ == nullptr || destroyed_.load() || emit == nullptr)
+    {
+        return false;
+    }
+    svcHostMem_->dump_unfreed_series(emit, ctx);
     return true;
 }
 

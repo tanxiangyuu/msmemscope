@@ -155,6 +155,16 @@ constexpr size_t TOP_LEAK_SYMBOLIZE_K = 256;                     // 每次采样
 constexpr size_t TOP_LEAK_CANDS_PER_SHARD = 32;                  // 每分片候选上限(收集排序,锁内无分配)
 constexpr uint64_t TOP_LEAK_SAMPLE_INTERVAL_NS = 1000000000ull;  // 采样节拍1s(预热线程)
 
+// 节拍快照序列(泄漏点置信度分析,见StackSeries): 预热线程每节拍对全局top-K栈
+// (按liveBytes降序,与符号化top-K同源同K)记录一行(liveBytes/liveCount原子值,
+// 仅读不触碰fullPcs)。序列恒开启(编译期常量,无开关)。有界性: 栈槽
+// SERIES_MAX_STACKS(槽满驱逐"最近未见"最久者,其序列保留至闭窗交付并标注) ×
+// 每栈行SERIES_MAX_ROWS(写满折半折叠) × 16B ≈ 16MB理论上限,懒分配下典型窗口
+// 仅数MB;驱逐槽的归档列表亦有上限(超额丢最旧,有界防长窗口反复驱逐膨胀)
+constexpr size_t SERIES_MAX_STACKS = 1024;   // 序列栈槽上限
+constexpr size_t SERIES_MAX_ROWS = 1024;     // 每栈序列行数上限(满后折半折叠)
+constexpr size_t SERIES_MAX_EVICTED = 1024;  // 驱逐槽归档上限(超额丢最旧,见EvictSeriesSlot)
+
 // 自旋等待的CPU让步提示(竞争窗口内短停,配合有界重试,绝不长时间阻塞业务线程)
 inline void CpuRelax()
 {
@@ -487,6 +497,13 @@ struct StackStatRow
     uint64_t unfreedCount;
     uint64_t unfreedBytes;
     uint64_t maxBlockSize;
+    // 置信度分析字段: maxAllocTsNs=未释放块最新分配时刻(闭窗遍历块表顺带统计,
+    // 常驻判据条件(2)); freedLifetimeSumNs=已释放块寿命和(free路径锁内累加,
+    // 生命周期因子meanFreedLife数据源); liveAgeSumNs=未释放块年龄和(闭窗遍历
+    // 块表顺带统计,meanLiveAge数据源)
+    uint64_t maxAllocTsNs;
+    uint64_t freedLifetimeSumNs;
+    uint64_t liveAgeSumNs;
     std::string frameDesc;
 };
 
@@ -526,6 +543,12 @@ struct CloseSnapshot
     uint64_t evictedAllocBytes = 0;
     uint32_t sampleRate = 1;
     uint32_t truncated = 0;
+    // 节拍序列快照(与dump_unfreed_series同源): 起点时间戳(拍0对齐,CLOCK_REALTIME,
+    // 与块allocTs同钟)/节拍间隔(默认1e9ns,测试harness可覆盖)/标注(bit0=预热线程创建失败)。
+    // 窗口未产出序列时seriesStartTsNs=0,分析器据此判无序列可用
+    uint64_t seriesStartTsNs = 0;
+    uint64_t seriesBeatIntervalNs = 0;
+    uint32_t seriesFlags = 0;
 };
 
 // =============================================================================
@@ -674,6 +697,157 @@ std::vector<uint64_t, RealMallocAllocator<uint64_t>>
     g_sizeBucketBounds;  // 大小桶边界(构造期解析)
 CloseSnapshot g_closeSnapshot;
 
+// =============================================================================
+// 节拍快照序列(泄漏点置信度分析数据源)
+// =============================================================================
+// 预热线程每1s节拍(与符号化采样同拍)对全局top-K栈(按liveBytes降序,K=256)各
+// 追加一行至该栈的StackSeries。序列槽独立于栈表(stackId索引,栈表死栈回收
+// 不影响序列);仅预热线程写,开窗清空/闭窗冻结时均无并发——无锁。
+// 行数达SERIES_MAX_ROWS时相邻行就地折叠(beat=首行拍号,字节和/计数和),内存
+// 恒定;槽满时驱逐lastSeenBeat最小者,序列移入归档(标记evicted)保留至闭窗交付
+struct SeriesRow
+{
+    uint32_t beat;       // 拍号(0起,节拍间隔默认1e9ns,经stats.seriesStartTsNs映射)
+    int64_t liveBytes;   // 拍末存活字节(折叠后=覆盖拍字节和)
+    uint32_t liveCount;  // 拍末存活块数(折叠后=覆盖拍计数和)
+};
+
+struct StackSeries
+{
+    uint64_t stackId = 0;  // 归栈id(低6位为分片号,0保留未知栈;序列不采集未知桶)
+    std::vector<SeriesRow, RealMallocAllocator<SeriesRow>> rows;  // 懒分配(首行append时分配)
+    uint64_t lastSeenBeat = 0;  // 最近一次记录行的拍号(槽驱逐判据: 最小者=最久未见)
+    bool evicted = false;       // 槽被驱逐(序列保留至闭窗交付,下窗不续)
+};
+
+// 栈槽映射与驱逐归档(容器RealMalloc底座;init_priority顺序保护见g_preWindowDistCount
+// 处注释——HostMemHookInit的pendingOpen开窗路径触发ClearTables清理序列,须先于
+// 动态初始化重放完成构造)
+__attribute__((
+    init_priority(105))) std::unordered_map<uint64_t, StackSeries, std::hash<uint64_t>, std::equal_to<uint64_t>,
+                                            RealMallocAllocator<std::pair<const uint64_t, StackSeries>>>
+    g_seriesSlots;
+__attribute__((init_priority(105))) std::vector<StackSeries, RealMallocAllocator<StackSeries>>
+    g_seriesEvicted;  // 驱逐槽归档(有界)
+// 拍号与序列起点。拍号仅预热线程读写;起点预热线程写、SvcGetStats开启态无锁
+// 读(尽力而为值,原子防撕裂)。窗口未开/未采样时起点=0
+uint64_t g_seriesBeat = 0;
+std::atomic<uint64_t> g_seriesStartTsNs{0};
+// 上次节拍采样时刻(节拍门基准): 仅预热线程读写;开窗清表归零——否则上一窗口的
+// 采样时刻滞留,新窗口首拍要等满一个节拍间隔才采样(短于间隔的窗口零序列)
+uint64_t g_lastSampleNs = 0;
+// 本窗口预热线程创建失败(EnsureWarmupThread失败,符号化与序列整体缺失):
+// 开窗置位/清表复位/闭窗冻结进快照,分析器按no_warmup_thread降级标注
+std::atomic<bool> g_warmupThreadFailed{false};
+
+// 序列行折叠: 相邻行就地合并(beat=首行拍号,字节和/计数和),行数减半。
+// 仅预热线程调用(无锁);rows容量保持SERIES_MAX_ROWS上限
+void FoldSeriesRowsHalf(std::vector<SeriesRow, RealMallocAllocator<SeriesRow>>& rows)
+{
+    const size_t n = rows.size();
+    const size_t half = n / 2;
+    for (size_t i = 0; i < half; ++i)
+    {
+        SeriesRow m{};
+        m.beat = rows[i * 2].beat;  // 保留首行拍号(行序/单调性保持,分析器按相邻行拍差折算覆盖拍数)
+        m.liveBytes = rows[i * 2].liveBytes + rows[i * 2 + 1].liveBytes;
+        m.liveCount = rows[i * 2].liveCount + rows[i * 2 + 1].liveCount;
+        rows[i] = m;
+    }
+    rows.resize(half);
+}
+
+// 逐出行: 行满(SERIES_MAX_ROWS)先折叠再追加。仅预热线程调用(无锁)
+void AppendSeriesRow(StackSeries& slot, uint32_t beat, int64_t liveBytes, uint32_t liveCount)
+{
+    if (slot.rows.size() >= SERIES_MAX_ROWS)
+    {
+        FoldSeriesRowsHalf(slot.rows);
+    }
+    SeriesRow r{};
+    r.beat = beat;
+    r.liveBytes = liveBytes;
+    r.liveCount = liveCount;
+    try
+    {
+        slot.rows.push_back(r);
+    }
+    catch (...)
+    {
+        // 序列容器分配失败(bad_alloc): 该拍行丢弃,序列其余数据保留(尽力而为,
+        // 置信度分析为增值功能,降级不阻塞)
+    }
+}
+
+// 槽驱逐: 槽满时驱逐lastSeenBeat最小(最近未见最久)者,移入归档(标记evicted)
+// 保留至闭窗交付;归档有界(SERIES_MAX_EVICTED),超额丢最旧归档防无限膨胀。
+// 仅预热线程调用(无锁);返回false=无可驱逐槽(空表/同名),调用方跳过该拍记录
+bool EvictSeriesSlot(uint64_t newStackId)
+{
+    auto victim = g_seriesSlots.end();
+    uint64_t victimBeat = UINT64_MAX;
+    for (auto it = g_seriesSlots.begin(); it != g_seriesSlots.end(); ++it)
+    {
+        if (it->second.lastSeenBeat < victimBeat)
+        {
+            victim = it;
+            victimBeat = it->second.lastSeenBeat;
+        }
+    }
+    if (victim == g_seriesSlots.end() || victim->first == newStackId)
+    {
+        return false;  // 无活跃槽可驱逐(空表/同名): 调用方不再入槽
+    }
+    victim->second.evicted = true;
+    if (g_seriesEvicted.size() >= SERIES_MAX_EVICTED)
+    {
+        g_seriesEvicted.erase(g_seriesEvicted.begin());  // 丢最旧归档(诚实降级,见函数头注释)
+    }
+    g_seriesEvicted.push_back(std::move(victim->second));
+    g_seriesSlots.erase(victim);
+    return true;
+}
+
+// 序列候选(全局合并用,仅预热线程栈上): stackId+拍末值,不持有条目指针——
+// 序列记录仅读id与原子值,不触碰条目内存(无需ref钉住,与符号化候选不同)
+struct SeriesCand
+{
+    uint64_t stackId;
+    uint64_t liveBytes;
+    uint32_t liveCount;
+};
+
+// 序列行记录: 槽存在→追加;不存在→入槽(槽满先驱逐);失败/异常→该拍跳过
+// (尽力而为)。仅预热线程调用
+void RecordSeriesRow(uint64_t stackId, uint32_t beat, int64_t liveBytes, uint32_t liveCount)
+{
+    auto it = g_seriesSlots.find(stackId);
+    if (it == g_seriesSlots.end())
+    {
+        if (g_seriesSlots.size() >= SERIES_MAX_STACKS && !EvictSeriesSlot(stackId))
+        {
+            return;  // 槽满且无法驱逐: 该栈本拍不入序列(下拍重试)
+        }
+        try
+        {
+            StackSeries s{};
+            s.stackId = stackId;
+            auto res = g_seriesSlots.emplace(stackId, std::move(s));
+            if (!res.second)
+            {
+                return;  // 竞态防护(单写者下不可达): 另一写者已入槽,追加由下方路径处理
+            }
+            it = res.first;
+        }
+        catch (...)
+        {
+            return;  // 映射分配失败(bad_alloc): 本拍跳过,尽力而为
+        }
+    }
+    it->second.lastSeenBeat = beat;
+    AppendSeriesRow(it->second, beat, liveBytes, liveCount);
+}
+
 MsmemscopeHostmemApi g_api{};  // bind注册的回调表(release发布,enabled acquire可见)
 
 size_t g_maxStacksPerShard = DEFAULT_MAX_STACKS / STACK_SHARDS;
@@ -682,6 +856,13 @@ size_t g_maxOverflowPerShard = DEFAULT_MAX_OVERFLOW / BLOCK_SHARDS;  // 溢出�
 
 // 开窗/闭窗串行化(config线程调用,防重入)
 pthread_mutex_t g_svcMtx = PTHREAD_MUTEX_INITIALIZER;
+// 闭窗快照锁(get_stats与快照写互斥): 快照在SvcSetEnabled持g_svcMtx内写入
+// (CloseAggregate冻结/ClearTables重置),而get_stats被设计允许开启态调用(尽力
+// 而为值)——无锁读快照与写并发是数据竞争(理论UB)。独立锁而非复用g_svcMtx:
+// SvcSetEnabled持g_svcMtx调用report_stage会同步派发进分析器,分析器再调
+// get_stats,复用同一把锁即同线程自锁死锁。本锁仅保护快照字段读写,临界区内
+// 不嵌套任何其他锁,锁序恒为 g_svcMtx→g_snapshotMtx,无环
+pthread_mutex_t g_snapshotMtx = PTHREAD_MUTEX_INITIALIZER;
 
 // 构造完成标志+构造期暂存开窗请求(均由g_svcMtx保护):本so DT_NEEDED依赖
 // libascend_leaks,其静态初始化先于本so构造执行——期间分析器驱动的set_enabled(true)
@@ -1704,6 +1885,14 @@ BlockInsertResult InsertBlock(uint64_t addr, uint64_t size, uint64_t ts, StackEn
         {
             old.owner->refs.fetch_sub(1, std::memory_order_relaxed);  // 旧块引用-1(虚拟释放)
             old.owner->liveBytes.fetch_sub(static_cast<int64_t>(old.size), std::memory_order_relaxed);
+            // 生命周期统计随虚拟释放一并累加(与CaptureAndRemoveBlock同口径:
+            // liveCount--/寿命和+=ts−allocTs,ts即本次覆盖时刻,保持liveCount与
+            // liveBytes同进退)
+            old.owner->liveCount.fetch_sub(1, std::memory_order_relaxed);
+            if (ts >= old.allocTs)
+            {
+                old.owner->freedLifetimeSum.fetch_add(ts - old.allocTs, std::memory_order_relaxed);
+            }
         }
         g_totalFreedCount.fetch_add(1, std::memory_order_relaxed);
         g_totalFreedBytes.fetch_add(old.size, std::memory_order_relaxed);
@@ -1730,6 +1919,8 @@ BlockInsertResult InsertBlock(uint64_t addr, uint64_t size, uint64_t ts, StackEn
         owner->allocBytes.fetch_add(size, std::memory_order_relaxed);
         owner->refs.fetch_add(1, std::memory_order_relaxed);  // 块引用+1(调用方在途ref兜底)
         owner->liveBytes.fetch_add(static_cast<int64_t>(size), std::memory_order_relaxed);
+        owner->liveCount.fetch_add(1,
+                                   std::memory_order_relaxed);  // 存活块数+1(与liveBytes同进退,见host_mem_common.h契约)
     }
     else
     {
@@ -1743,8 +1934,10 @@ BlockInsertResult InsertBlock(uint64_t addr, uint64_t size, uint64_t ts, StackEn
 }
 
 // 块表查询并删除(free/realloc捕获路径): 返回BlockRemoveResult——
-// kBlock=命中块表(释放记账已在锁内完成: 减liveBytes+增g_totalFreed*;块引用refs
-// 不减——捕获即转移给out,调用方持有并终态恰一次dispose,见引用契约);
+// kBlock=命中块表(释放记账已在锁内完成: 减liveBytes+减liveCount+寿命和累加
+// freeTs−allocTs+增g_totalFreed*;块引用refs不减——捕获即转移给out,调用方持有
+// 并终态恰一次dispose,见引用契约);freeTsNs仅kBlock写入(释放时刻,生命周期
+// 累加用;ReinsertBlock按同值回退,保证在途realloc的"in/out"对称);
 // kOverflow=命中溢出账本(逆向修正已在锁内完成: 增g_overflowFreed*+增g_totalFreed*,
 // 条目已移除——溢出申请已并入g_totalAlloc*,其释放须回扣g_totalFreed*维持全局
 // 不变量);
@@ -1753,7 +1946,7 @@ BlockInsertResult InsertBlock(uint64_t addr, uint64_t size, uint64_t ts, StackEn
 // 有界且极罕见——瞬时竞争非数据降级,不置截断标注)。
 // 命中块表时防御性清除溢出账本同名残留(地址复用/锁耗尽残留下同一地址
 // 两账本互斥,防双记账)
-BlockRemoveResult CaptureAndRemoveBlock(uint64_t addr, BlockEntry& out)
+BlockRemoveResult CaptureAndRemoveBlock(uint64_t addr, BlockEntry& out, uint64_t& freeTsNs)
 {
     BlockShard& shard = g_blockShards[BlockShardIndex(addr)];
     for (int spin = 0; spin < BLOCK_LOCK_SPINS; ++spin)
@@ -1777,9 +1970,19 @@ BlockRemoveResult CaptureAndRemoveBlock(uint64_t addr, BlockEntry& out)
                     g_blockCount.fetch_sub(1, std::memory_order_relaxed);
                     if (out.owner != nullptr)
                     {
-                        // 块引用转移: 捕获即转移给out,调用方持有并终态恰一次dispose,
+                        // 块引用转移: 捕获即转移给out,调用方终态恰一次dispose,
                         // 此处不减refs——realloc在途窗口靠此引用钉住条目(见引用契约)
                         out.owner->liveBytes.fetch_sub(static_cast<int64_t>(out.size), std::memory_order_relaxed);
+                        // 生命周期统计: 存活块数-1与寿命和+=freeTs−allocTs(free路径
+                        // O(1)累加——已释放块的寿命无法从闭窗快照复原,须在块表条目
+                        // 仍含allocTs的此刻累加;时钟读仅命中块表时发生)。freeTsNs回传
+                        // 调用方,realloc失败回插按同值回退(见ReinsertBlock)
+                        out.owner->liveCount.fetch_sub(1, std::memory_order_relaxed);
+                        freeTsNs = NowNs();
+                        if (freeTsNs >= out.allocTs)
+                        {
+                            out.owner->freedLifetimeSum.fetch_add(freeTsNs - out.allocTs, std::memory_order_relaxed);
+                        }
                     }
                     g_totalFreedCount.fetch_add(1, std::memory_order_relaxed);
                     g_totalFreedBytes.fetch_add(out.size, std::memory_order_relaxed);
@@ -1817,19 +2020,14 @@ BlockRemoveResult CaptureAndRemoveBlock(uint64_t addr, BlockEntry& out)
 }
 
 // 块表回插(realloc失败恢复,源为块表kBlock): 捕获记录原样放回,并恢复
-// CaptureAndRemoveBlock已做的释放记账(重增liveBytes+回扣g_totalFreed*)——
-// 每个在途realloc在闭窗边界都完整表现为"in"或"out",不变量不被撕裂。
-// 引用契约: 捕获时块引用已转移给rec(调用方持有),回插成功=引用归块(不增不减,
-// 无fetch_add);转溢出/转溢出失败/自旋耗尽=块离开栈归因或不可见,转移引用
-// 恰一次dispose(refs-1)。
-// 表满/容量不可得→转溢出账本(与InsertBlock同降级语义,记账继续): 撤销捕获时的
-// 释放记账(块仍存活,回扣g_totalFreed*)并计入溢出通道(g_overflowAlloc*,不重复
-// g_totalAlloc*——块已在原分配时计数);owner计数不恢复(块离开原栈归因,转入
-// 无栈溢出通道)。溢出账本亦满(InsertOverflowLocked失败,bit2已置位)→块自此
-// 不可见,尽力而为(记账已停止,超出截断点的边界行为不保证)
-// trylock失败→有界自旋重试(失败=块表缺口,后续free未命中,该块自窗口报告消失);
-// 重试耗尽静默跳过(不置截断标注,同CaptureAndRemoveBlock——瞬时竞争非数据降级)
-void ReinsertBlock(uint64_t addr, const BlockEntry& rec)
+// CaptureAndRemoveBlock已做的释放记账(重增liveBytes/liveCount+回扣g_totalFreed*+
+// 回退寿命和freeTsNs−allocTs——freeTsNs为捕获时同值,在途realloc的"in/out"对称)。
+// 引用契约: 捕获时块引用已转移给rec(调用方持有),回插成功=引用归块(不增不减);
+// 转溢出/失败/自旋耗尽=块离开栈归因或不可见,转移引用恰一次dispose(refs-1)。
+// 转溢出(与InsertBlock同降级语义,记账继续): 撤销捕获时的释放记账,计入溢出通道
+// (g_overflowAlloc*,不重复g_totalAlloc*——原分配已计数);owner计数不恢复(块离开
+// 原栈归因;生命周期/liveCount不回退);溢出账本亦满(bit2已置位)→块不可见
+void ReinsertBlock(uint64_t addr, const BlockEntry& rec, uint64_t freeTsNs)
 {
     BlockShard& shard = g_blockShards[BlockShardIndex(addr)];
     for (int spin = 0; spin < BLOCK_LOCK_SPINS; ++spin)
@@ -1860,8 +2058,14 @@ void ReinsertBlock(uint64_t addr, const BlockEntry& rec)
         {
             if (rec.owner != nullptr)
             {
-                // 回插成功: 引用归块(捕获时已转移,不增不减);重增liveBytes
+                // 回插成功: 引用归块(捕获时已转移,不增不减);重增liveBytes/liveCount,
+                // 寿命和按捕获同值回退(块回原栈,生命周期样本不虚增)
                 rec.owner->liveBytes.fetch_add(static_cast<int64_t>(rec.size), std::memory_order_relaxed);
+                rec.owner->liveCount.fetch_add(1, std::memory_order_relaxed);
+                if (freeTsNs >= rec.allocTs)
+                {
+                    rec.owner->freedLifetimeSum.fetch_sub(freeTsNs - rec.allocTs, std::memory_order_relaxed);
+                }
             }
             g_totalFreedCount.fetch_sub(1, std::memory_order_relaxed);
             g_totalFreedBytes.fetch_sub(rec.size, std::memory_order_relaxed);
@@ -2024,7 +2228,8 @@ void RecordPreWindowFree(uint64_t addr)
 void RecordFree(uint64_t addr)
 {
     BlockEntry rec{};
-    const BlockRemoveResult r = CaptureAndRemoveBlock(addr, rec);
+    uint64_t freeTsNs = 0;  // 释放时刻(仅kBlock写入,生命周期累加;realloc失败回插按同值回退)
+    const BlockRemoveResult r = CaptureAndRemoveBlock(addr, rec, freeTsNs);
     if (r == BlockRemoveResult::kBlock)
     {
         if (rec.owner != nullptr)
@@ -2248,8 +2453,7 @@ void WarmUpFrame(uintptr_t pc)
 // 补全
 void SampleTopLeaks()
 {
-    if (g_symCache.size() >= SYM_CACHE_MAX_ENTRIES || g_closing.load(std::memory_order_acquire) ||
-        g_exiting.load(std::memory_order_relaxed))
+    if (g_closing.load(std::memory_order_acquire) || g_exiting.load(std::memory_order_relaxed))
     {
         return;
     }
@@ -2269,13 +2473,18 @@ void SampleTopLeaks()
         sCacheReserved = true;  // 成败均只试一次: 失败后由emplace按需rehash兜底
     }
     // 收集: 每分片top-TOP_LEAK_CANDS_PER_SHARD(liveBytes降序,插入排序维护,锁内
-    // 无分配);trylock失败分片让位下轮(生产者在锁内,零等待)。候选并入全局数组
-    // (64×32=2048,预热线程栈上~32KB,默认线程栈内可承受)。map遍历=全条目扫描,
+    // 无分配);trylock失败分片让位下轮(生产者在锁内,零等待)。两路候选同一次扫描
+    // 收集: 符号化候选(既有条件——未预热且登记PC在位,锁内钉ref防跨锁悬垂)与
+    // 序列候选(放宽条件——liveBytes>0即可,已预热栈持续入榜;仅读id/原子值,
+    // 不触碰fullPcs,无需钉ref)。候选并入全局数组(64×32=2048,预热线程栈上
+    // ~76KB: 符号化16+16KB、序列40KB,默认线程栈内可承受)。map遍历=全条目扫描,
     // 覆盖所有liveBytes>0条目(含未挂链的登记态),不依赖pending链形态
     constexpr size_t kMaxCands = STACK_SHARDS * TOP_LEAK_CANDS_PER_SHARD;
     StackEntry* cands[kMaxCands];
     uint64_t candBytes[kMaxCands];
     size_t nCand = 0;
+    SeriesCand seriesCands[kMaxCands];
+    size_t nSeriesCand = 0;
     for (size_t s = 0; s < STACK_SHARDS; ++s)
     {
         StackShard& shard = g_stackShards[s];
@@ -2286,16 +2495,44 @@ void SampleTopLeaks()
         StackEntry* local[TOP_LEAK_CANDS_PER_SHARD];
         uint64_t localBytes[TOP_LEAK_CANDS_PER_SHARD];
         size_t ln = 0;
+        StackEntry* seriesLocal[TOP_LEAK_CANDS_PER_SHARD];
+        uint64_t seriesLocalBytes[TOP_LEAK_CANDS_PER_SHARD];
+        size_t sln = 0;
         for (auto& kv : shard.map)
         {
             StackEntry& e = kv.second;
-            if (e.liveBytes.load(std::memory_order_relaxed) == 0 || e.warmedUp || e.fullPcs == nullptr ||
-                e.fullCount == 0)
+            const uint64_t b = e.liveBytes.load(std::memory_order_relaxed);
+            if (b == 0)
             {
                 continue;
             }
-            const uint64_t b = e.liveBytes.load(std::memory_order_relaxed);
-            size_t pos = ln < TOP_LEAK_CANDS_PER_SHARD ? ln : TOP_LEAK_CANDS_PER_SHARD;
+            // 序列候选(放宽条件): 仅liveBytes>0,与符号化/预热状态无关
+            size_t pos = sln < TOP_LEAK_CANDS_PER_SHARD ? sln : TOP_LEAK_CANDS_PER_SHARD;
+            while (pos > 0 && seriesLocalBytes[pos - 1] < b)
+            {
+                if (pos < TOP_LEAK_CANDS_PER_SHARD)
+                {
+                    seriesLocal[pos] = seriesLocal[pos - 1];
+                    seriesLocalBytes[pos] = seriesLocalBytes[pos - 1];
+                }
+                --pos;
+            }
+            if (pos < TOP_LEAK_CANDS_PER_SHARD)
+            {
+                seriesLocal[pos] = &e;
+                seriesLocalBytes[pos] = b;
+                if (sln < TOP_LEAK_CANDS_PER_SHARD)
+                {
+                    ++sln;
+                }
+            }
+            // 符号化候选(既有条件): 未预热且登记PC在位(与序列条件互斥不互斥——
+            // 同一栈可同时入选两路)
+            if (e.warmedUp || e.fullPcs == nullptr || e.fullCount == 0)
+            {
+                continue;
+            }
+            pos = ln < TOP_LEAK_CANDS_PER_SHARD ? ln : TOP_LEAK_CANDS_PER_SHARD;
             while (pos > 0 && localBytes[pos - 1] < b)
             {
                 if (pos < TOP_LEAK_CANDS_PER_SHARD)
@@ -2330,6 +2567,46 @@ void SampleTopLeaks()
             candBytes[nCand] = localBytes[i];
             ++nCand;
         }
+        // 序列候选锁外取拍末值(条目不触碰,无悬垂风险): stackId+锁内读的liveBytes
+        // +liveCount原子值一并快照,此后不再解引用条目指针
+        for (size_t i = 0; i < sln && nSeriesCand < kMaxCands; ++i)
+        {
+            seriesCands[nSeriesCand].stackId = seriesLocal[i]->stackId;
+            seriesCands[nSeriesCand].liveBytes = seriesLocalBytes[i];
+            seriesCands[nSeriesCand].liveCount = seriesLocal[i]->liveCount.load(std::memory_order_relaxed);
+            ++nSeriesCand;
+        }
+    }
+    // 序列全局top-TOP_LEAK_SYMBOLIZE_K(与符号化同K)并逐栈追加一拍记录;
+    // 恒执行——符号化缓存满仅跳过符号化阶段,序列不随之停采
+    const size_t kSeries = nSeriesCand < TOP_LEAK_SYMBOLIZE_K ? nSeriesCand : TOP_LEAK_SYMBOLIZE_K;
+    for (size_t i = 0; i < kSeries; ++i)
+    {
+        size_t best = i;
+        for (size_t j = i + 1; j < nSeriesCand; ++j)
+        {
+            if (seriesCands[j].liveBytes > seriesCands[best].liveBytes)
+            {
+                best = j;
+            }
+        }
+        const SeriesCand tmp = seriesCands[i];
+        seriesCands[i] = seriesCands[best];
+        seriesCands[best] = tmp;
+    }
+    for (size_t i = 0; i < kSeries; ++i)
+    {
+        RecordSeriesRow(seriesCands[i].stackId, g_seriesBeat, static_cast<int64_t>(seriesCands[i].liveBytes),
+                        seriesCands[i].liveCount);
+    }
+    // 符号化缓存满: 仅跳过符号化阶段(序列已记录,预热引用在此统一释放)
+    if (g_symCache.size() >= SYM_CACHE_MAX_ENTRIES)
+    {
+        for (size_t i = 0; i < nCand; ++i)
+        {
+            cands[i]->refs.fetch_sub(1, std::memory_order_relaxed);
+        }
+        return;
     }
     // 全局top-TOP_LEAK_SYMBOLIZE_K(简单选择排序,K×N≈50万次比较,微秒级)
     const size_t k = nCand < TOP_LEAK_SYMBOLIZE_K ? nCand : TOP_LEAK_SYMBOLIZE_K;
@@ -2395,19 +2672,40 @@ void SampleTopLeaks()
     }
 }
 
-// 采样节拍门(仅预热线程调用):距上次采样≥TOP_LEAK_SAMPLE_INTERVAL_NS才执行一次
-// 全量top-K采样,间隔内单次比较即返。预热线程主循环每1s调用一次(见
-// WarmupThreadMain),closing/exiting/缓存满由SampleTopLeaks内部立即返回兜底
+// 节拍间隔(测试harness专用覆盖,非用户参数无文档承诺): 环境变量
+// MSMEMSCOPE_HOSTMEM_BEAT_NS缩短节拍以加速序列采集用例,须在开窗
+// (set_enabled(1))前设置、窗口内不改动(闭窗快照与节拍门各取当前值,窗口内
+// 变更会混拍——harness专用特性不设防护)。每次调用现读(节拍门1Hz量级,
+// getenv开销可忽略);下限5ms防预热线程自旋;默认1s与符号化采样同拍。
+uint64_t SeriesBeatIntervalNs()
+{
+    const char* v = std::getenv("MSMEMSCOPE_HOSTMEM_BEAT_NS");
+    if (v == nullptr || v[0] == '\0')
+    {
+        return TOP_LEAK_SAMPLE_INTERVAL_NS;
+    }
+    const uint64_t parsed = static_cast<uint64_t>(std::strtoull(v, nullptr, 10));
+    constexpr uint64_t kMinBeatNs = 5000000ull;  // 下限5ms
+    return (parsed < kMinBeatNs) ? kMinBeatNs : parsed;
+}
+
+// 采样节拍门(仅预热线程): 距上次采样≥节拍间隔才执行一次top-K采样,否则立即
+// 返回。首拍(拍0)采样时刻锚定序列起点g_seriesStartTsNs(CLOCK_REALTIME,与块
+// allocTs同钟——分析器拍→窗口时间轴映射的锚点)
 void MaybeSampleTopLeaks()
 {
-    static uint64_t sLastSampleNs = 0;
     const uint64_t now = MonotonicNs();
-    if (now - sLastSampleNs < TOP_LEAK_SAMPLE_INTERVAL_NS)
+    if (now - g_lastSampleNs < SeriesBeatIntervalNs())
     {
         return;
     }
-    sLastSampleNs = now;
-    SampleTopLeaks();
+    g_lastSampleNs = now;
+    if (g_seriesBeat == 0)
+    {
+        g_seriesStartTsNs.store(NowNs(), std::memory_order_relaxed);
+    }
+    SampleTopLeaks();  // 本拍拍号=g_seriesBeat
+    g_seriesBeat += 1;
 }
 
 // 符号化预热线程主体: 1s节拍——①1Hz刷新模块可执行段快照(dl锁暴露类
@@ -2440,7 +2738,7 @@ void* WarmupThreadMain(void*)
             // 兜底(绝不trap杀宿主): 预热线程内任何异常(dladdr内部/容器分配等)
             // 一律吞掉降级,下轮节拍继续——线程函数逃逸异常即std::terminate杀宿主
         }
-        usleep(TOP_LEAK_SAMPLE_INTERVAL_NS / 1000);  // 1s节拍(函数内节流门兜底)
+        usleep(SeriesBeatIntervalNs() / 1000);  // 节拍(函数内节流门兜底)
     }
     return nullptr;
 }
@@ -2550,10 +2848,23 @@ void ClearTables()
     g_unattrWindowBase.store(g_unattributedCount.load(std::memory_order_relaxed), std::memory_order_relaxed);
     // 闭窗快照产物清理(跨窗口不保留):g_closeSnapshot.valid=false使get_stats回落
     // 实时计数器,防新窗口未闭窗时误读旧窗口冻结值
+    pthread_mutex_lock(&g_snapshotMtx);
+    g_closeSnapshot = CloseSnapshot{};
+    pthread_mutex_unlock(&g_snapshotMtx);
     g_closeStats.clear();
     g_closeSizeDist.clear();
     g_closePreWindowDist.clear();
     g_closeSnapshot = CloseSnapshot{};
+    // 节拍序列清理(下窗开启清空,与栈表/快照同生命周期): 活跃槽/驱逐归档整体
+    // 清空(上一窗口序列数据已在闭窗时经dump_unfreed_series交付),拍号/起点/节拍
+    // 门基准归零(归零后新窗口首拍立即采样,见g_lastSampleNs注释)。
+    // 窗口关闭态无预热线程(已join),无并发
+    g_seriesSlots.clear();
+    g_seriesEvicted.clear();
+    g_seriesBeat = 0;
+    g_seriesStartTsNs.store(0, std::memory_order_relaxed);
+    g_lastSampleNs = 0;
+    g_warmupThreadFailed.store(false, std::memory_order_relaxed);
 }
 
 // =============================================================================
@@ -2597,10 +2908,17 @@ struct UnfreedAgg
     uint64_t count = 0;
     uint64_t bytes = 0;
     uint64_t maxBlockSize = 0;
+    // 置信度分析顺带统计: 未释放块最新分配时刻(常驻early判据)与年龄和
+    // (meanLiveAge数据源,以闭窗时刻为基准: Σ(closeTs−allocTs))
+    uint64_t maxAllocTs = 0;
+    uint64_t liveAgeSum = 0;
 };
 
 void CloseAggregate()
 {
+    // 闭窗时刻(未释放块年龄基准,CLOCK_REALTIME与allocTs同钟;一次读取全窗共用)
+    const uint64_t closeTs = NowNs();
+
     // 步骤0: 大小排布桶预置(bounds为各桶下界,末桶上界UINT64_MAX)
     g_closeSizeDist.clear();
     const size_t bucketCount = g_sizeBucketBounds.size() + 1;
@@ -2652,6 +2970,12 @@ void CloseAggregate()
                 {
                     a.maxBlockSize = v.size;
                 }
+                // 置信度顺带统计: 未释放块最新分配时刻与年龄和(闭窗时刻基准)
+                if (v.allocTs > a.maxAllocTs)
+                {
+                    a.maxAllocTs = v.allocTs;
+                }
+                a.liveAgeSum += closeTs > v.allocTs ? closeTs - v.allocTs : 0;
                 const size_t bi = SizeBucketIndex(v.size);
                 g_closeSizeDist[bi].blockCount += 1;
                 g_closeSizeDist[bi].blockBytes += v.size;
@@ -2690,12 +3014,17 @@ void CloseAggregate()
             row.stackId = e.stackId;
             row.allocCount = e.allocCount.load(std::memory_order_relaxed);
             row.allocBytes = e.allocBytes.load(std::memory_order_relaxed);
+            // 生命周期统计(free路径锁内累加值,闭窗冻结后读;0=窗口内无释放样本)
+            row.freedLifetimeSumNs = e.freedLifetimeSum.load(std::memory_order_relaxed);
             const auto it = unfreed.find(e.stackId);
             if (it != unfreed.end())
             {
                 row.unfreedCount = it->second.count;
                 row.unfreedBytes = it->second.bytes;
                 row.maxBlockSize = it->second.maxBlockSize;
+                // 置信度顺带统计: 未释放块最新分配时刻/年龄和(步骤1聚合值)
+                row.maxAllocTsNs = it->second.maxAllocTs;
+                row.liveAgeSumNs = it->second.liveAgeSum;
             }
             // 释放=申请-未释放派生(不变量恒等;未释放为0则freed=alloc)
             row.freedCount = row.allocCount - row.unfreedCount;
@@ -2722,6 +3051,8 @@ void CloseAggregate()
             row.unfreedCount = it->second.count;
             row.unfreedBytes = it->second.bytes;
             row.maxBlockSize = it->second.maxBlockSize;
+            row.maxAllocTsNs = it->second.maxAllocTs;
+            row.liveAgeSumNs = it->second.liveAgeSum;
         }
         row.freedCount = row.allocCount - row.unfreedCount;
         row.freedBytes = row.allocBytes - row.unfreedBytes;
@@ -2777,14 +3108,16 @@ void CloseAggregate()
     // = totalAlloc − 块表存活 − 溢出存活(overflowLive=overflowAlloc−overflowFreed,
     // 即步骤1遍历的溢出账本真值overflowLiveBlocks)——global不变量"申请=释放+未释放"
     // 在含溢出通道的完整账本下精确成立
+    pthread_mutex_lock(&g_snapshotMtx);
     g_closeSnapshot.valid = true;
     g_closeSnapshot.liveBlockCount = liveBlocks;
-    g_closeSnapshot.totalAllocCount = g_totalAllocCount.load(std::memory_order_relaxed);
-    g_closeSnapshot.totalAllocBytes = g_totalAllocBytes.load(std::memory_order_relaxed);
-    g_closeSnapshot.totalFreedCount =
-        g_totalAllocCount.load(std::memory_order_relaxed) - liveBlocks - overflowLiveBlocks;
-    g_closeSnapshot.totalFreedBytes =
-        g_totalAllocBytes.load(std::memory_order_relaxed) - liveBytesTotal - overflowLiveBytes;
+    // 释放=同一采样派生(目标进程存活,计数持续变化,两次采样会不一致)
+    const uint64_t allocCount = g_totalAllocCount.load(std::memory_order_relaxed);
+    const uint64_t allocBytes = g_totalAllocBytes.load(std::memory_order_relaxed);
+    g_closeSnapshot.totalAllocCount = allocCount;
+    g_closeSnapshot.totalAllocBytes = allocBytes;
+    g_closeSnapshot.totalFreedCount = allocCount - liveBlocks - overflowLiveBlocks;
+    g_closeSnapshot.totalFreedBytes = allocBytes - liveBytesTotal - overflowLiveBytes;
     g_closeSnapshot.untrackedCount = g_untrackedCount.load(std::memory_order_relaxed);
     g_closeSnapshot.untrackedBytes = g_untrackedBytes.load(std::memory_order_relaxed);
     // 溢出通道快照: alloc/freed为窗口累计转出/逆向修正,存活=alloc-freed
@@ -2832,6 +3165,13 @@ void CloseAggregate()
     }
     g_closeSnapshot.sampleRate = g_sampleRate.load(std::memory_order_relaxed);
     g_closeSnapshot.truncated = g_truncated.load(std::memory_order_relaxed);
+    // 节拍序列快照(与dump_unfreed_series同源): 起点/间隔/标注。预热线程已join
+    // (StopWarmupThread),冻结无并发;窗口未产出序列(线程创建失败/窗口过短)时
+    // 起点=0,分析器据此判无序列可用
+    g_closeSnapshot.seriesStartTsNs = g_seriesStartTsNs.load(std::memory_order_relaxed);
+    g_closeSnapshot.seriesBeatIntervalNs = SeriesBeatIntervalNs();
+    g_closeSnapshot.seriesFlags = g_warmupThreadFailed.load(std::memory_order_relaxed) ? 1u : 0u;
+    pthread_mutex_unlock(&g_snapshotMtx);
 }
 
 // =============================================================================
@@ -2926,9 +3266,12 @@ void SvcSetEnabled(int enabled)
         ClearTables();
 
         // 3. 预热线程就绪(首次创建;须先于门控开启,窗口期dladdr预热尽早覆盖)。
-        //    失败(线程资源耗尽)仅记日志——预热是符号质量的尽力而为,窗口照常开
+        //    失败(线程资源耗尽)仅记日志——预热是符号质量的尽力而为,窗口照常开;
+        //    置g_warmupThreadFailed(闭窗经stats.seriesFlags交付,分析器按
+        //    no_warmup_thread降级——全窗无序列,置信度仅R/S/E支撑)
         if (!EnsureWarmupThread())
         {
+            g_warmupThreadFailed.store(true, std::memory_order_relaxed);
             fprintf(stderr, "[msmemscope] hostmem: [pid=%llu] warmup thread create failed, symbol warmup degraded\n",
                     static_cast<unsigned long long>(getpid()));
         }
@@ -3047,7 +3390,10 @@ void SvcGetStats(MsmemscopeHostmemStats* stats)
         return;
     }
     // 窗口关闭态: 返回闭窗冻结值(CloseAggregate产物,与dump_*同源一致);
-    // 开启态: 实时计数器尽力而为值(未释放=申请-释放派生,与快照口径一致)
+    // 开启态: 实时计数器尽力而为值(未释放=申请-释放派生,与快照口径一致)。
+    // 快照分支持g_snapshotMtx(与CloseAggregate冻结/开窗重置互斥,防撕裂);
+    // 开启态实时值为原子读,无需锁
+    pthread_mutex_lock(&g_snapshotMtx);
     if (g_closeSnapshot.valid)
     {
         stats->liveBlockCount = g_closeSnapshot.liveBlockCount;
@@ -3068,8 +3414,13 @@ void SvcGetStats(MsmemscopeHostmemStats* stats)
         stats->evictedAllocBytes = g_closeSnapshot.evictedAllocBytes;
         stats->sampleRate = g_closeSnapshot.sampleRate;
         stats->truncated = g_closeSnapshot.truncated;
+        stats->seriesStartTsNs = g_closeSnapshot.seriesStartTsNs;
+        stats->seriesBeatIntervalNs = g_closeSnapshot.seriesBeatIntervalNs;
+        stats->seriesFlags = g_closeSnapshot.seriesFlags;
+        pthread_mutex_unlock(&g_snapshotMtx);
         return;
     }
+    pthread_mutex_unlock(&g_snapshotMtx);
     const uint64_t allocCount = g_totalAllocCount.load(std::memory_order_relaxed);
     const uint64_t allocBytes = g_totalAllocBytes.load(std::memory_order_relaxed);
     stats->liveBlockCount = g_blockCount.load(std::memory_order_relaxed);
@@ -3090,6 +3441,10 @@ void SvcGetStats(MsmemscopeHostmemStats* stats)
     stats->evictedAllocBytes = g_evictedAllocBytes.load(std::memory_order_relaxed);
     stats->sampleRate = g_sampleRate.load(std::memory_order_relaxed);
     stats->truncated = g_truncated.load(std::memory_order_relaxed);
+    // 开启态: 序列为尽力而为实时值(原子读,防与预热线程写竞争)
+    stats->seriesStartTsNs = g_seriesStartTsNs.load(std::memory_order_relaxed);
+    stats->seriesBeatIntervalNs = SeriesBeatIntervalNs();
+    stats->seriesFlags = g_warmupThreadFailed.load(std::memory_order_relaxed) ? 1u : 0u;
 }
 
 void SvcDumpLiveBlocks(void (*emit)(void* ctx, uint64_t addr, uint64_t size, uint64_t allocTs, uint64_t stackId),
@@ -3126,7 +3481,9 @@ void SvcDumpLiveBlocks(void (*emit)(void* ctx, uint64_t addr, uint64_t size, uin
 
 void SvcDumpStackStats(void (*emit)(void* ctx, uint64_t stackId, uint64_t allocCount, uint64_t allocBytes,
                                     uint64_t freedCount, uint64_t freedBytes, uint64_t unfreedCount,
-                                    uint64_t unfreedBytes, uint64_t maxBlockSize, const char* frameDesc, size_t len),
+                                    uint64_t unfreedBytes, uint64_t maxBlockSize, uint64_t maxAllocTsNs,
+                                    uint64_t freedLifetimeSumNs, uint64_t liveAgeSumNs, const char* frameDesc,
+                                    size_t len),
                        void* ctx)
 {
     if (emit == nullptr)
@@ -3138,7 +3495,36 @@ void SvcDumpStackStats(void (*emit)(void* ctx, uint64_t stackId, uint64_t allocC
     for (const StackStatRow& r : g_closeStats)
     {
         emit(ctx, r.stackId, r.allocCount, r.allocBytes, r.freedCount, r.freedBytes, r.unfreedCount, r.unfreedBytes,
-             r.maxBlockSize, r.frameDesc.data(), r.frameDesc.size());
+             r.maxBlockSize, r.maxAllocTsNs, r.freedLifetimeSumNs, r.liveAgeSumNs, r.frameDesc.data(),
+             r.frameDesc.size());
+    }
+}
+
+void SvcDumpUnfreedSeries(void (*emit)(void* ctx, uint64_t stackId, uint32_t beat, uint64_t liveBytes,
+                                       uint32_t liveCount, uint32_t flags),
+                          void* ctx)
+{
+    if (emit == nullptr)
+    {
+        return;
+    }
+    // 仅窗口关闭态调用(停预热线程join后序列冻结,无并发读;开启态为空——序列随
+    // ClearTables清空)。交付活跃槽与驱逐归档槽(先活跃后归档,槽内按beat升序);
+    // flags bit0=驱逐标注。未入top-K的栈无行(分析器按无序列降级)
+    for (const auto& kv : g_seriesSlots)
+    {
+        const StackSeries& s = kv.second;
+        for (const SeriesRow& r : s.rows)
+        {
+            emit(ctx, s.stackId, r.beat, static_cast<uint64_t>(r.liveBytes), r.liveCount, 0u);
+        }
+    }
+    for (const StackSeries& s : g_seriesEvicted)
+    {
+        for (const SeriesRow& r : s.rows)
+        {
+            emit(ctx, s.stackId, r.beat, static_cast<uint64_t>(r.liveBytes), r.liveCount, 1u);
+        }
     }
 }
 
@@ -3172,8 +3558,8 @@ void SvcDumpPreWindowDist(void (*emit)(void* ctx, uint64_t rangeLow, uint64_t ra
     }
 }
 
-const MsmemscopeHostmemSvc g_svcTable = {SvcSetEnabled,     SvcGetStats,     SvcDumpLiveBlocks,
-                                         SvcDumpStackStats, SvcDumpSizeDist, SvcDumpPreWindowDist};
+const MsmemscopeHostmemSvc g_svcTable = {SvcSetEnabled,        SvcGetStats,     SvcDumpLiveBlocks,   SvcDumpStackStats,
+                                         SvcDumpUnfreedSeries, SvcDumpSizeDist, SvcDumpPreWindowDist};
 
 // =============================================================================
 // fork安全: prepare冻结(锁全部分片)→parent释放→child退出监控(g_forked置位)
@@ -3581,7 +3967,8 @@ extern "C" void* realloc(void* ptr, size_t size)
     // 淘汰;终态: size==0/成功=dispose,失败=ReinsertBlock接管(回插归块/转溢出
     // dispose),每块恰被记账一次
     BlockEntry oldRec{};
-    const BlockRemoveResult oldRes = CaptureAndRemoveBlock(reinterpret_cast<uint64_t>(ptr), oldRec);
+    uint64_t oldFreeTsNs = 0;  // 释放时刻(仅kBlock写入;失败回插按同值回退生命周期累加)
+    const BlockRemoveResult oldRes = CaptureAndRemoveBlock(reinterpret_cast<uint64_t>(ptr), oldRec, oldFreeTsNs);
 
     if (size == 0)
     {
@@ -3606,7 +3993,7 @@ extern "C" void* realloc(void* ptr, size_t size)
         // dispose);kOverflow→ReinsertOverflowBlock(溢出块无owner,无dispose)
         if (oldRes == BlockRemoveResult::kBlock)
         {
-            ReinsertBlock(reinterpret_cast<uint64_t>(ptr), oldRec);
+            ReinsertBlock(reinterpret_cast<uint64_t>(ptr), oldRec, oldFreeTsNs);
         }
         else if (oldRes == BlockRemoveResult::kOverflow)
         {

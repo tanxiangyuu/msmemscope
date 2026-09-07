@@ -27,6 +27,7 @@
 
 #include "event.h"
 #include "event_dispatcher.h"
+#include "host_confidence.h"
 #include "host_mem_hooks/host_mem_hooks.h"
 
 namespace MemScope
@@ -65,6 +66,7 @@ class HostLeakAnalyzer
 
    private:
     struct WindowState;
+    struct StackRow;
 
    private:
     HostLeakAnalyzer();
@@ -84,14 +86,23 @@ class HostLeakAnalyzer
     // dump_*投影收集回调(纯C签名,ctx为对应收集向量*)
     static void CollectStackStatsCb(void* ctx, uint64_t stackId, uint64_t allocCount, uint64_t allocBytes,
                                     uint64_t freedCount, uint64_t freedBytes, uint64_t unfreedCount,
-                                    uint64_t unfreedBytes, uint64_t maxBlockSize, const char* frameDesc, size_t len);
+                                    uint64_t unfreedBytes, uint64_t maxBlockSize, uint64_t maxAllocTsNs,
+                                    uint64_t freedLifetimeSumNs, uint64_t liveAgeSumNs, const char* frameDesc,
+                                    size_t len);
     static void CollectSizeDistCb(void* ctx, uint64_t rangeLow, uint64_t rangeHigh, uint64_t blockCount,
                                   uint64_t blockBytes);
     static void CollectLiveBlockCb(void* ctx, uint64_t addr, uint64_t size, uint64_t allocTs, uint64_t stackId);
+    static void CollectSeriesCb(void* ctx, uint64_t stackId, uint32_t beat, uint64_t liveBytes, uint32_t liveCount,
+                                uint32_t flags);
+    // 置信度条目落盘(疑似榜与常驻子块共用,4行/条目; row=候选栈闭窗行,与
+    // r.stackId对应,缺失(防御)时统计列按0渲染)
+    static void WriteConfidenceEntry(std::ofstream& out, const PerStackResult& r, const StackRow* row, size_t idx,
+                                     bool resident);
 
    private:
-    // 闭窗快照per-stack行(dump_stack_stats投影;frameDesc=闭窗符号化文本,
-    // '\n'分隔帧描述,空=未符号化/未知桶)
+    // 闭窗快照per-stack行(dump_stack_stats投影;frameDesc='\n'分隔帧描述,
+    // 空=未符号化/未知桶;maxAllocTsNs/freedLifetimeSumNs/liveAgeSumNs为
+    // 置信度因子数据源: 最新分配时刻/已释放寿命和/未释放年龄和)
     struct StackRow
     {
         uint64_t stackId = 0;
@@ -102,6 +113,9 @@ class HostLeakAnalyzer
         uint64_t unfreedCount = 0;
         uint64_t unfreedBytes = 0;
         uint64_t maxBlockSize = 0;
+        uint64_t maxAllocTsNs = 0;
+        uint64_t freedLifetimeSumNs = 0;
+        uint64_t liveAgeSumNs = 0;
         std::string frameDesc;
     };
     // 闭窗大小排布桶(dump_size_distribution投影;rangeLow含、rangeHigh不含,末桶
@@ -121,6 +135,13 @@ class HostLeakAnalyzer
         uint64_t allocTs = 0;
         uint64_t stackId = 0;
     };
+    // 节拍序列收集器(dump_unfreed_series投影): 回调以stackId→下标索引就地
+    // 聚合(同栈多拍连续,索引命中即尾插); flags bit0=槽被驱逐
+    struct SeriesCollector
+    {
+        std::vector<StackSeries> series;
+        std::unordered_map<uint64_t, size_t> index;
+    };
     // 单pid窗口状态(实际进程内host事件恒为单pid,per-pid隔离为防御性设计)
     struct WindowState
     {
@@ -137,6 +158,9 @@ class HostLeakAnalyzer
         // 与buckets同构(范围口径一致),闭窗时随buckets一并拉取
         std::vector<SizeBucket> preWindowBuckets;
         std::vector<LiveBlock> blocks;  // dump_live_blocks投影(event模式)
+        // dump_unfreed_series投影: 节拍快照序列(置信度因子数据源;闭窗冻结态),
+        // 拍号→时间轴映射经stats.seriesStartTsNs/seriesBeatIntervalNs
+        std::vector<StackSeries> series;
     };
 
     std::unordered_map<uint64_t /*pid*/, WindowState> windows_;
