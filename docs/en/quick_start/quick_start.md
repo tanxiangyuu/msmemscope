@@ -8,7 +8,8 @@ msMemScope collects memory events and conducts memory leak detection, memory com
 
 ### Environment Setup
 
-For details, [msMemScope Installation Guide](../install_guide/install_guide.md).
+Refer to [msMemScope Installation Guide](../install_guide/install_guide.md) to install msMemScope.<br>
+The following example is designed based on PyTorch and Ascend for PyTorch. Please first download and install [Ascend for PyTorch](https://www.hiascend.com/en/developer/software/ai-frameworks/pytorch/download).
 
 ## Procedure
 
@@ -30,16 +31,12 @@ For details, [msMemScope Installation Guide](../install_guide/install_guide.md).
 
       Note: `path` is the msMemScope installation directory.
 
-   3. Run the following commands to set environment variables to use msMemScope's Python APIs.
+   3. Run the following commands to set environment variables to use msMemScope's Python APIs. You are advised to add the following commands to the environment variable setting script.
 
       ```bash
-      source msmemscope --load-api-env
-      ```
-
-      Note: This command sets environment variables required for Python APIs usage. After you finish using msMemScope, run the following command to clear them to avoid conflicts with other tools.
-
-      ```bash
-      source msmemscope --unload-api-env
+      msMemScope_DIR="path"    # Replace path with the actual msMemScope path.
+      export LD_LIBRARY_PATH=${msMemScope_DIR}/lib64:${LD_LIBRARY_PATH}
+      export LD_PRELOAD=${msMemScope_DIR}/lib64/libleaks_ascend_hal_hook.so:${msMemScope_DIR}/lib64/libascend_mstx_hook.so:${msMemScope_DIR}/lib64/libascend_kernel_hook.so:${msMemScope_DIR}/lib64/libatb_abi_0_hook.so:${msMemScope_DIR}/lib64/libatb_abi_1_hook.so
       ```
 
 2. Access the repository and then run the following command to go to the `example` directory in the repository.
