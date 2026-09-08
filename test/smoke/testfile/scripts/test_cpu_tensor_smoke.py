@@ -25,7 +25,7 @@ def main():
 
     mstx_id = mstx.range_start("step start", None)
 
-    x = torch.randn(16, 16).to("npu:0")
+    x = torch.randn(16, 16, device="npu:0")  # 直接落 NPU，不产生 CPU tensor（保持 3 条 CPU tensor 语义）
     torch.tensor([1.0, 2.0, 3.0])     # Method 1: torch.tensor  -> MALLOC (size 12)
     c1 = x.to("cpu")                   # Method 2: Tensor.to('cpu') -> MALLOC (size 1024)
     c2 = x.cpu()                       # Method 3: Tensor.cpu() -> MALLOC (size 1024)

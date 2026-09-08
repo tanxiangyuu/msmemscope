@@ -467,22 +467,24 @@ TEST_F(MemoryStateManagerTest, host_events_update_used_and_process_used)
     EXPECT_EQ(MemoryStateManager::GetInstance().halUsed_[0], 100);
 }
 
-// CPU tensor 数据内存（poolType=HOST、isPinned=false）：total=活跃CPU tensor累计，不回填 used/processUsed
-TEST_F(MemoryStateManagerTest, cpu_tensor_events_update_total_not_host_used)
+// CPU tensor 数据内存（poolType=HOST、isPinned=false）：used=活跃CPU tensor累计、processUsed=进程VmRSS，与锁页 used 隔离
+TEST_F(MemoryStateManagerTest, cpu_tensor_events_update_used_and_process_used)
 {
     auto t1 = CreateHostMalloc(0x1000, 100, false);
     Handle(t1);
-    EXPECT_EQ(t1->total, 100);
+    EXPECT_EQ(t1->used, 100);
+    EXPECT_GT(t1->processUsed, 0);  // 进程 VmRSS 必然大于 0
     EXPECT_EQ(MemoryStateManager::GetInstance().hostTensorTotal_, 100);
     EXPECT_EQ(MemoryStateManager::GetInstance().hostUsed_, 0);  // 与锁页内存隔离
 
     auto t2 = CreateHostMalloc(0x2000, 50, false);
     Handle(t2);
-    EXPECT_EQ(t2->total, 150);
+    EXPECT_EQ(t2->used, 150);
 
     auto f1 = CreateHostFree(0x1000, 100, false);
     Handle(f1);
-    EXPECT_EQ(f1->total, 50);
+    EXPECT_EQ(f1->used, 50);
+    EXPECT_GT(f1->processUsed, 0);
     EXPECT_EQ(MemoryStateManager::GetInstance().hostTensorTotal_, 50);
     EXPECT_EQ(MemoryStateManager::GetInstance().hostUsed_, 0);
 }

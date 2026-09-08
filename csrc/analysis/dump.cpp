@@ -123,7 +123,7 @@ void Dump::DumpMemoryEvent(std::shared_ptr<MemoryEvent>& event, MemoryState* sta
     // 统计键按事件类别输出（值<0 表示无统计值，对应字段直接省略）：
     // 合成事件（影子转正/虚拟释放）isShadowEvent=true，无事件时刻的累计/查询语义，不输出统计键
     // 锁页内存与CPU tensor数据内存统一为HOST事件类型（poolType=HOST），按 isPinned 区分：
-    // 锁页内存 isPinned=true，标记pinned:true；CPU tensor数据内存 isPinned=false，输出total字段
+    // 锁页内存 isPinned=true，标记pinned:true；CPU tensor数据内存 isPinned=false；两者均输出 used + process_used
     if (!event->isShadowEvent && event->eventType != EventBaseType::ACCESS)
     {
         if (event->poolType == PoolType::HAL)
@@ -152,7 +152,11 @@ void Dump::DumpMemoryEvent(std::shared_ptr<MemoryEvent>& event, MemoryState* sta
         }
         else if (event->poolType == PoolType::HOST)  // CPU tensor数据内存
         {
-            attr += "total:" + std::to_string(event->total) + ",";  // 活跃CPU tensor数据内存累计
+            attr += "used:" + std::to_string(event->used) + ",";  // 活跃CPU tensor数据内存累计
+            if (event->processUsed >= 0)
+            {
+                attr += "process_used:" + std::to_string(event->processUsed) + ",";  // 进程VmRSS
+            }
         }
         else if (IsMemoryPool(event->poolType))  // PTA_CACHING/PTA_WORKSPACE/ATB/MINDSPORE
         {

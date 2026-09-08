@@ -237,14 +237,15 @@ void MemoryStateManager::UpdateUsage(const std::shared_ptr<MemoryEvent>& event)
     else if (event->poolType == PoolType::HOST)
     {
         // CPU tensor数据内存事件（事件模型：poolType=HOST、isPinned=false），
-        // total = 活跃CPU tensor数据内存累计（仅落盘，不参与分析）
+        // used = 活跃CPU tensor数据内存累计（仅落盘，不参与分析），processUsed = 进程VmRSS
         hostTensorTotal_ += (IsAllocEventType(event->eventType) ? size : -size);
         if (hostTensorTotal_ < 0)
         {
             LOG_WARN("host tensor total goes negative (%lld), truncated to 0", hostTensorTotal_);
             hostTensorTotal_ = 0;
         }
-        event->total = hostTensorTotal_;
+        event->used = hostTensorTotal_;
+        event->processUsed = static_cast<int64_t>(Utility::GetProcessVmRss());
     }
     // 池事件：used/total/processUsed 均不动——used/total 报告时已填（HealthAnalyzer 依赖），
     // processUsed 由报告层按设备读 dcmi_get_npu_proc_mem_info 查询缓存（QueryProcessUsed 写入）填值

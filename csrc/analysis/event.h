@@ -166,7 +166,7 @@ class MemoryEvent : public EventBase
 {
    public:
     int64_t size = 0;
-    int64_t total = 0;
+    int64_t total = 0;  // 池事件总大小（totalReserved）；HOST 事件改用 used 累计
     int64_t used = 0;
     // 统计字段（MemoryStateManager 累计/查询后回填，dump 时值<0 的字段省略不输出）：
     int64_t processUsed = -1;  // 本进程显存用量（池事件=该设备 HAL 维度活跃累计；HOST 事件=VmRSS；
