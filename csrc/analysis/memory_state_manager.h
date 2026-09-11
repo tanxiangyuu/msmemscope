@@ -134,6 +134,13 @@ struct LiveBlockFilter
     bool excludeShadowCreated = true;  // 排除影子期创建的块（含已消亡的SHADOW_FREED）
 };
 
+// 池级占用统计（display memory summary 数据源；current/peak 均 mtx_ 保护）
+struct PoolUsage
+{
+    int64_t current = 0;
+    int64_t peak = 0;
+};
+
 // 存活块聚合信息（供LeakAnalyzer等只读查询，不持有引用）
 struct LiveBlockInfo
 {
@@ -191,8 +198,23 @@ class MemoryStateManager : StateManager
     void UpdateProcessUsedCache(int32_t devId, int64_t used);
     int64_t GetProcessUsed(int32_t devId) const;  // 无缓存值/越界返回 -1
 
+    // display memory 数据源只读查询（与现有统计同锁 mtx_）：
+    // 峰值语义=进程全程——TRACE_START/ResetUsageBaseline 不重置峰值，仅重建 current（历史最大保留）
+    int64_t GetHalUsed(int32_t devId) const;  // 无记录返回 0
+    int64_t GetHalPeak(int32_t devId) const;  // 无记录返回 0
+    int64_t GetHostPinnedUsed() const;
+    int64_t GetHostPinnedPeak() const;
+    int64_t GetHostTensorUsed() const;
+    int64_t GetHostTensorPeak() const;
+    int64_t GetPoolCurrent(PoolType pool, int32_t devId) const;  // 无记录返回 0
+    int64_t GetPoolPeak(PoolType pool, int32_t devId) const;     // 无记录返回 0
+    // 当前使用卡号集合：hal 有数据(used/peak任一) ∪ device/process 缓存非 -1 的设备
+    std::vector<int32_t> GetUsedDeviceList() const;
+
    private:
     MemoryState* FindStateInPool(const PoolType& poolType, const MemoryStateKey& key, uint64_t size);
+    // 存活块查询内部实现:调用方须已持 mtx_（ResetUsageBaseline 复用，避免二次加锁）
+    std::vector<LiveBlockInfo> QueryLiveBlocksLocked(const LiveBlockFilter& filter) const;
     ~MemoryStateManager() override;
     std::unordered_map<PoolType, Pool> poolsMap_;
     mutable std::mutex mtx_;          // QueryLiveBlocks 等 const 成员函数需加锁
@@ -203,6 +225,14 @@ class MemoryStateManager : StateManager
     std::unordered_map<int32_t, int64_t> halUsed_;
     int64_t hostUsed_ = 0;
     int64_t hostTensorTotal_ = 0;  // 活跃CPU tensor数据内存累计（poolType=HOST）
+    // 峰值字段（进程全程语义，ResetUsageBaseline 不重置）：per-device HAL 活跃峰值 / 锁页内存峰值 /
+    // CPU tensor 数据内存峰值
+    std::unordered_map<int32_t, int64_t> halPeak_;
+    int64_t hostPeak_ = 0;
+    int64_t hostTensorPeak_ = 0;
+    // 其余池（PTA_CACHING/PTA_WORKSPACE/MINDSPORE/ATB）占用统计（池事件，display memory summary 数据源）：
+    // current = MALLOC+=size / FREE-=size（负截断 0），peak = 进程全程历史最大（不随 TRACE_START 重置）
+    std::unordered_map<PoolType, std::unordered_map<int32_t, PoolUsage>> poolUsage_;
     // per-device 整卡用量缓存（初始 -1=未知）：采集层查询成功后写入、池事件读取（mtx_ 保护）
     std::array<int64_t, 16> deviceUsedCache_ = []()
     {

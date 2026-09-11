@@ -19,7 +19,6 @@
 
 #include <cstdlib>
 #include <cstring>
-#include <fstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -28,6 +27,7 @@
 #include "cpython.h"
 #include "describerobject.h"
 #include "event_report.h"
+#include "loaded_so.h"
 #include "oom_handler.h"
 #include "op_handler.h"
 #include "recordfuncobject.h"
@@ -43,40 +43,7 @@ namespace
 {
 // host内存泄漏检测:python config()入口的preload状态校验。
 // /proc/self/maps为ground truth,MSMEMSCOPE_API_ENV标记(wrapper source时导出)作旁证,
-// 两者均未检测到才报错
-constexpr const char* HOST_HOOK_SO_NAME = "libmsmemscope_host_mem_hook.so";
-const char* const NPU_HOOK_SO_NAMES[] = {"libleaks_ascend_hal_hook.so", "libascend_mstx_hook.so",
-                                         "libascend_kernel_hook.so", "libatb_abi_0_hook.so", "libatb_abi_1_hook.so"};
-
-bool IsSoLoaded(const char* soName)
-{
-    std::ifstream mapsFile("/proc/self/maps");
-    if (!mapsFile.is_open())
-    {
-        return false;
-    }
-    std::string line;
-    while (std::getline(mapsFile, line))
-    {
-        if (line.find(soName) != std::string::npos)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool IsNpuHookLoaded()
-{
-    for (const char* soName : NPU_HOOK_SO_NAMES)
-    {
-        if (IsSoLoaded(soName))
-        {
-            return true;
-        }
-    }
-    return false;
-}
+// 两者均未检测到才报错(IsSoLoaded等见utility/loaded_so)
 
 bool IsApiEnvMode(const char* mode)
 {
