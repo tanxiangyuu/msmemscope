@@ -54,6 +54,11 @@
  *   所有+1在栈分片锁临界区内(除InsertBlock块引用+1在块表锁内,有调用方在途ref
  *   兜底,期间refs恒>=2);-1恰一次于dispose(释放侧对条目最后一次触碰)。
  *   块表持owner指针期间refs>=2,淘汰判读(refs==1)与之互斥——指针永不悬垂。
+ *   py采集的在途lookup引用跨CaptureIfEnabled全程持有(RecordMalloc dispose后移):
+ *   采集期(含GIL阻塞)refs>=2,死栈淘汰与开窗清表均不触条目;清表遇refs>1条目
+ *   原地复位继续服务新窗口(见ClearTables),采集发布经SharedStackPublishPyStack
+ *   桥在栈分片锁内完成(与复位互斥、双采集锁内终判)——采集写pyBuf/终态dispose
+ *   永不命中已释放内存。
  *   失效模式: 漏dispose→退化今天行为(安全);双重dispose→refs提前归0→淘汰后
  *   指针悬垂(唯一致命方向,selfcheck绊线+UT红线覆盖)。
  *
@@ -505,6 +510,11 @@ struct StackStatRow
     uint64_t freedLifetimeSumNs;
     uint64_t liveAgeSumNs;
     std::string frameDesc;
+    // 快照符号化数据(步骤2冻结内深拷贝): 恢复门控后新采集可能更新/释放栈条目,
+    // 符号化读行内拷贝不与采集竞争(fullPcs创建后不变但pyBuf经发布桥再写)
+    std::vector<uint64_t> pcs;
+    std::string pyText;
+    uint32_t pyState = 0;
 };
 
 // 大小排布桶: [rangeLow, rangeHigh),末桶rangeHigh=UINT64_MAX
@@ -740,6 +750,11 @@ uint64_t g_lastSampleNs = 0;
 // 开窗置位/清表复位/闭窗冻结进快照,分析器按no_warmup_thread降级标注
 std::atomic<bool> g_warmupThreadFailed{false};
 
+// 节拍序列锁（中间快照与预热线程并发协调）：预热线程RecordSeriesRow写持锁，
+// SvcDumpInterimSnapshot读持锁拷贝（逐槽深拷贝，锁内分配经真函数不落记账）。
+// 预热线程1Hz调用，快照至多等一拍；闭窗（停线程join）后无并发，锁空闲。
+pthread_mutex_t g_seriesMtx = PTHREAD_MUTEX_INITIALIZER;
+
 // 序列行折叠: 相邻行就地合并(beat=首行拍号,字节和/计数和),行数减半。
 // 仅预热线程调用(无锁);rows容量保持SERIES_MAX_ROWS上限
 void FoldSeriesRowsHalf(std::vector<SeriesRow, RealMallocAllocator<SeriesRow>>& rows)
@@ -818,9 +833,10 @@ struct SeriesCand
 };
 
 // 序列行记录: 槽存在→追加;不存在→入槽(槽满先驱逐);失败/异常→该拍跳过
-// (尽力而为)。仅预热线程调用
+// (尽力而为)。写读经g_seriesMtx持锁协调(1Hz调用,竞争可忽略;闭窗停线程后无并发)
 void RecordSeriesRow(uint64_t stackId, uint32_t beat, int64_t liveBytes, uint32_t liveCount)
 {
+    pthread_mutex_lock(&g_seriesMtx);
     auto it = g_seriesSlots.find(stackId);
     if (it == g_seriesSlots.end())
     {
@@ -846,6 +862,7 @@ void RecordSeriesRow(uint64_t stackId, uint32_t beat, int64_t liveBytes, uint32_
     }
     it->second.lastSeenBeat = beat;
     AppendSeriesRow(it->second, beat, liveBytes, liveCount);
+    pthread_mutex_unlock(&g_seriesMtx);
 }
 
 MsmemscopeHostmemApi g_api{};  // bind注册的回调表(release发布,enabled acquire可见)
@@ -864,6 +881,16 @@ pthread_mutex_t g_svcMtx = PTHREAD_MUTEX_INITIALIZER;
 // 不嵌套任何其他锁,锁序恒为 g_svcMtx→g_snapshotMtx,无环
 pthread_mutex_t g_snapshotMtx = PTHREAD_MUTEX_INITIALIZER;
 
+// 中间快照冻结标志: 快照期置位——ShouldTrace放行冻结期free(命中删除),
+// RecordMalloc冻结分支(统计计入+跳过计数,不插表不采栈)。与g_enabled配合:
+// 先置标志再关g_enabled(alloc在"标志已置、门控未关"窗口计入frozenSkip);
+// 恢复先开g_enabled再清标志。随ClearTables开窗复位
+std::atomic<bool> g_snapshotFrozen{false};
+// 冻结期跳过计数（本窗口内）：中间快照冻结期间到达的申请（已计入
+// g_totalAllocCount/Bytes）不插块表不采栈，随快照stats交付报告标注
+std::atomic<uint64_t> g_frozenSkipAllocCount{0};
+std::atomic<uint64_t> g_frozenSkipAllocBytes{0};
+
 // 构造完成标志+构造期暂存开窗请求(均由g_svcMtx保护):本so DT_NEEDED依赖
 // libascend_leaks,其静态初始化先于本so构造执行——期间分析器驱动的set_enabled(true)
 // 若直接开窗,运行参数/容量环境变量尚未解析(覆盖永不生效),STAGE_START也会提前到
@@ -881,10 +908,6 @@ inline bool ShouldTrace()
     {
         return false;
     }
-    if (!g_enabled.load(std::memory_order_acquire))
-    {
-        return false;
-    }
     if (!g_mainStarted.load(std::memory_order_relaxed))
     {
         return false;
@@ -894,6 +917,17 @@ inline bool ShouldTrace()
         return false;  // 退出期:堆环境不可信,不再记账(见g_exiting注释)
     }
     if (g_api.is_suppressed != nullptr && g_api.is_suppressed() != 0)
+    {
+        return false;
+    }
+    // 中间快照冻结期: 记账门控已关(g_enabled=false)但生产者放行——alloc进冻结分支
+    // (统计计入+frozenSkip,不插表),free照常(块表命中删除,快照反映删除后状态;
+    // 不放行则free静默致残留块误计假泄漏)。须先于g_enabled检查
+    if (g_snapshotFrozen.load(std::memory_order_relaxed))
+    {
+        return true;
+    }
+    if (!g_enabled.load(std::memory_order_acquire))
     {
         return false;
     }
@@ -1681,26 +1715,26 @@ bool EvictDeadStackLocked(StackShard& shard)
 // 才计数(块引用refs+1),失败不计数,闭窗快照下"申请=释放+未释放"恒等精确成立。
 // 表满: 先尝试EvictDeadStackLocked回收死栈(refs==1)腾位继续登记;采样无可
 // 淘汰者(全活表)→nullptr并计未归因(块转未知桶stackId=0继续记账,只损失
-// 归因粒度)+置bit1。trylock失败→nullptr计未归因。malloc路径trylock不做
-// 自旋重试,守住热路径延迟预算
+// 归因粒度)+置bit1。快路径trylock失败(采样器/清表短暂持锁)不丢归因→落慢路径
+// 采栈+阻塞重锁复查;热路径命中仍单次trylock零阻塞
 StackEntry* LookupOrRegisterStack(const StackKey& key)
 {
     StackShard& shard = g_stackShards[StackShardIndex(key)];
-    if (pthread_mutex_trylock(&shard.mtx) != 0)
+    if (pthread_mutex_trylock(&shard.mtx) == 0)
     {
-        return nullptr;
-    }
-    auto it = shard.map.find(key);
-    if (it != shard.map.end())
-    {
-        // 快路径: 同一分配点重复命中(AI场景核心优化),不采全深度不符号化
-        it->second.refs.fetch_add(1, std::memory_order_relaxed);  // 在途lookup+1(锁内)
+        auto it = shard.map.find(key);
+        if (it != shard.map.end())
+        {
+            // 快路径: 同一分配点重复命中(AI场景核心优化),不采全深度不符号化
+            it->second.refs.fetch_add(1, std::memory_order_relaxed);  // 在途lookup+1(锁内)
+            pthread_mutex_unlock(&shard.mtx);
+            return &it->second;
+        }
         pthread_mutex_unlock(&shard.mtx);
-        return &it->second;
     }
-    pthread_mutex_unlock(&shard.mtx);
-
-    // 慢路径: 先无锁全深度采栈(避免持锁做μs级 unwind),再重锁复查(期间他线程可能已插入)
+    // 慢路径: 快路径trylock失败(采样器/清表短暂持锁)或键未命中→先无锁全深度采栈
+    // (避免持锁做μs级 unwind),再阻塞重锁复查(期间他线程可能已插入)。trylock失败
+    // 不丢归因: 分片锁绝不嵌套、持锁者临界区有界,阻塞等待安全
     uint32_t depth = g_stackDepth.load(std::memory_order_relaxed);
     if (depth == 0 || depth > MAX_STACK_DEPTH)
     {
@@ -1713,12 +1747,10 @@ StackEntry* LookupOrRegisterStack(const StackKey& key)
         fullCount = static_cast<uint32_t>(CaptureFrames(fullPcs, static_cast<int>(depth)));
     }
 
-    if (pthread_mutex_trylock(&shard.mtx) != 0)
-    {
-        RealFree(fullPcs);
-        return nullptr;
-    }
-    it = shard.map.find(key);
+    // 复查用阻塞锁: 快路径已让位一次,复查再失败即丢归因(采样器/清表持锁瞬间);
+    // 持锁者临界区有界且分片锁绝不嵌套,阻塞等待安全
+    pthread_mutex_lock(&shard.mtx);
+    auto it = shard.map.find(key);
     if (it != shard.map.end())
     {
         // 竞争插入: 他线程已登记,复用其条目
@@ -1831,8 +1863,8 @@ bool InsertOverflowLocked(BlockShard& shard, uint64_t addr, uint64_t size)
 //   ① 插入成功才计数: owner!=nullptr→其allocCount/allocBytes/refs/liveBytes
 //      原子自增(块引用+1: 调用方在途ref兜底,期间refs恒>=2,淘汰判读refs==1
 //      与之互斥,锁内直接fetch_add无需取栈表锁——跨分片并发更新由原子性保证);
-//      owner==nullptr(未知桶)→g_unknownAllocCount/Bytes自增;恒有
-//      g_totalAllocCount/Bytes自增。
+//      owner==nullptr(未知桶)→g_unknownAllocCount/Bytes自增;插入路径恒有
+//      g_totalAllocCount/Bytes自增(冻结入口跨越的申请同样计入但不插表,见门控复核)。
 //      溢出转出亦并入g_totalAllocCount/Bytes(累计值符合区间内实际内存变化),
 //      溢出块无栈归因不计owner
 //   ② 同地址覆盖(前次FREE未达/竞态残留后地址复用)=虚拟释放: 被覆盖旧记录
@@ -1848,12 +1880,24 @@ BlockInsertResult InsertBlock(uint64_t addr, uint64_t size, uint64_t ts, StackEn
     {
         return BlockInsertResult::kFailed;  // 瞬时竞争: 静默跳过(不置截断)
     }
-    // 记账门控锁内复核: 关窗序列先置g_enabled=false再遍历块表闭窗聚合。本锁内
+    // 记账门控锁内复核: 关窗/冻结序列先置g_enabled=false再遍历块表聚合。本锁内
     // 检查+插入与遍历互斥(锁序即序): 插入先于遍历→记录对快照可见;关闸后到达→
     // 复核命中直接跳过——块不可能落表于快照之后(旧行为: 快照后落表的块静默消失
     // 于报告且被派生为已释放)。跳过与kFailed同语义: 静默,不置截断标注
-    if (!g_enabled.load(std::memory_order_relaxed))
+    // (acquire读: 与冻结入口"先置冻结标志再关记账"的release写配对,保证观测到
+    // 关闸的读者必可见冻结标志——relaxed下弱序架构可能读到陈旧false而漏走分支)
+    if (!g_enabled.load(std::memory_order_acquire))
     {
+        // 冻结入口跨越(本线程过冻结分支检查后、入表前冻结开始): 与冻结分支同口径
+        // 计入统计与跳过计数,不插表——否则该申请从所有计数中消失(totalAlloc漏计)。
+        // 关窗路径冻结标志未置,保持原静默跳过语义
+        if (g_snapshotFrozen.load(std::memory_order_relaxed))
+        {
+            g_totalAllocCount.fetch_add(1, std::memory_order_relaxed);
+            g_totalAllocBytes.fetch_add(size, std::memory_order_relaxed);
+            g_frozenSkipAllocCount.fetch_add(1, std::memory_order_relaxed);
+            g_frozenSkipAllocBytes.fetch_add(size, std::memory_order_relaxed);
+        }
         pthread_mutex_unlock(&shard.mtx);
         return BlockInsertResult::kFailed;
     }
@@ -2139,6 +2183,19 @@ bool RecordMalloc(uint64_t addr, size_t size)
     {
         return false;  // 记账停止(块表与溢出账本均满,bit2)
     }
+    // 中间快照冻结期(display host_leak summary): 跳过插表/采栈,但统计计入
+    // (totalAlloc)+跳过计数(frozenSkip)——统计值含冻结期事件,块表不含,报告标注。
+    // 冻结期alloc的free未命中账本,自然落入
+    // 开窗前通道(不并totalFreed),派生口径totalFreed=alloc−表内存活将其计入,
+    // "申请=释放+未释放"保持闭合
+    if (g_snapshotFrozen.load(std::memory_order_relaxed))
+    {
+        g_totalAllocCount.fetch_add(1, std::memory_order_relaxed);
+        g_totalAllocBytes.fetch_add(static_cast<uint64_t>(size), std::memory_order_relaxed);
+        g_frozenSkipAllocCount.fetch_add(1, std::memory_order_relaxed);
+        g_frozenSkipAllocBytes.fetch_add(static_cast<uint64_t>(size), std::memory_order_relaxed);
+        return true;
+    }
     const uint64_t threshold = g_blockThreshold.load(std::memory_order_relaxed);
     if (size < threshold)
     {
@@ -2172,11 +2229,21 @@ bool RecordMalloc(uint64_t addr, size_t size)
 
     // 块阶段(全部记账在InsertBlock的块表锁临界区内完成,见InsertBlock契约)
     const BlockInsertResult r = InsertBlock(addr, static_cast<uint64_t>(size), ts, owner);
+    if (r == BlockInsertResult::kTable && owner != nullptr)
+    {
+        // dispose后移: 在途lookup引用跨py采集全程持有——采集期(含GIL阻塞,可达
+        // 秒级)条目refs>=2,死栈淘汰(EvictDeadStackLocked判读refs==1)与开窗清表
+        // (ClearTables仅释放refs==1条目,refs>1条目原地复位,见其注释)均不触条目:
+        // 采集器写pyBuf/终判/读门控永不命中已释放内存(消除采集期UAF)。
+        // 采集器各出口不释放,此处恰一次dispose;采集未启用时CaptureIfEnabled
+        // 在配置门即返,本路径额外开销=一次调用+一次原子RMW
+        PyStackCapture::CaptureIfEnabled(*owner);
+        owner->refs.fetch_sub(1, std::memory_order_relaxed);
+        return true;
+    }
     if (owner != nullptr)
     {
-        // dispose在途lookup引用(恰一次,覆盖kTable/kOverflow/kFailed):
-        // kTable时InsertBlock已+1块引用,dispose后净+1归块;其余路径无块引用,
-        // dispose归零在途——条目不被无块路径污染(引用契约)
+        // 非kTable(溢出/失败): 无块引用路径,在途lookup引用直接归零(引用契约)
         owner->refs.fetch_sub(1, std::memory_order_relaxed);
     }
     if (r == BlockInsertResult::kFailed)
@@ -2191,16 +2258,6 @@ bool RecordMalloc(uint64_t addr, size_t size)
         // (stackId=0)照常记账,unknownAlloc计数已在InsertBlock临界区内累加;
         // 溢出通道块(kOverflow)无栈归因但不属未知桶,不计入未归因
         g_unattributedCount.fetch_add(1, std::memory_order_relaxed);
-    }
-    // py采集钩点: 每次分配在块表插入后做一次O(1)约束判定——内部配置门
-    // (1次原子读,未启用即返)+约束门(~5ns两次原子读+比较,不达标即返),达标
-    // (泄漏候选: liveBytes>10M&&存活块>50 或 liveBytes>50M&&存活块>10)且
-    // pyState==NONE才走链补采py栈(每栈至多一次)。仅kTable且归因完整时执行:
-    // 块已入表,owner的liveBytes为分配时刻当前存活真值(约束判据真源)。
-    // 采集路径全部纯检查不等待(未持GIL直接跳过,NA由闭窗派生),热路径零阻塞
-    if (r == BlockInsertResult::kTable && owner != nullptr)
-    {
-        PyStackCapture::CaptureIfEnabled(*owner);
     }
     return true;
 }
@@ -2288,20 +2345,25 @@ using SymCacheMap = std::unordered_map<uintptr_t, std::string, std::hash<uintptr
 SymCacheMap g_symCache;
 
 // 单帧符号化(backtrace_symbols风格),返回写入长度(与snprintf同语义:返回期望
-// 长度,实际写入受cap截断)
-int FormatFrame(char* dst, size_t cap, uintptr_t pc)
+// 长度,实际写入受cap截断)。useCache=true查预热帧缓存(闭窗路径,预热线程已join,
+// 纯缓存命中);useCache=false直走无锁模块快照(中间快照路径——预热线程运行中
+// 无锁独占写缓存,读即数据竞争,见SvcDumpInterimSnapshot注释)
+int FormatFrame(char* dst, size_t cap, uintptr_t pc, bool useCache)
 {
-    auto hit = g_symCache.find(pc);
-    if (hit != g_symCache.end())
+    if (useCache)
     {
-        const size_t n = hit->second.size();
-        if (cap > 0 && dst != nullptr)
+        auto hit = g_symCache.find(pc);
+        if (hit != g_symCache.end())
         {
-            const size_t cpy = n < cap - 1 ? n : cap - 1;
-            memcpy(dst, hit->second.data(), cpy);
-            dst[cpy] = '\0';
+            const size_t n = hit->second.size();
+            if (cap > 0 && dst != nullptr)
+            {
+                const size_t cpy = n < cap - 1 ? n : cap - 1;
+                memcpy(dst, hit->second.data(), cpy);
+                dst[cpy] = '\0';
+            }
+            return static_cast<int>(n);
         }
-        return static_cast<int>(n);
     }
     // 退出期符号化禁用dladdr:dladdr内部持glibc全局dl_load_write_lock,退出期可
     // 被应用线程dlopen/dlclose永久持有(曾致预热线程卡死、进程退出挂起),且dladdr
@@ -2331,7 +2393,8 @@ int FormatFrame(char* dst, size_t cap, uintptr_t pc)
 }
 
 // PC数组→引号包裹'\n'分隔帧串,写入g_symBuf并返回长度(不含NUL)。调用方须先
-// EnsureSymBuf(pcCount×kFrameReserve+16)。仅CloseAggregate闭窗符号化使用。
+// EnsureSymBuf(pcCount×kFrameReserve+16)。闭窗符号化(useCache=true)与中间快照
+// 符号化(useCache=false,见FormatFrame)共用。
 // 不变式:帧文本永不侵占缓冲末尾2字节——
 // 每帧可用空间为cap-off-2(snprintf的cap参数传room+1,其NUL落在预留区外),截断
 // 时off按实际写入量min(w,room)收敛,循环出口off≤cap-2,闭引号与NUL必然写入界内。
@@ -2339,7 +2402,7 @@ int FormatFrame(char* dst, size_t cap, uintptr_t pc)
 // len虚大,下游读越界
 constexpr size_t kFrameReserve = 128;  // 每帧预留缓冲(模块名+符号+地址)
 
-size_t BuildFrameDesc(const uintptr_t* pcs, uint32_t pcCount)
+size_t BuildFrameDesc(const uintptr_t* pcs, uint32_t pcCount, bool useCache)
 {
     size_t off = 0;
     g_symBuf[off++] = '"';
@@ -2350,7 +2413,7 @@ size_t BuildFrameDesc(const uintptr_t* pcs, uint32_t pcCount)
             break;  // 剩余不足一帧预算:提前停(宁可少帧,不逐字节逼近尾部)
         }
         const size_t room = g_symBufCap - off - 2;  // 帧文本可用字节(给'"'+NUL留位)
-        int w = FormatFrame(g_symBuf + off, room + 1, pcs[i]);
+        int w = FormatFrame(g_symBuf + off, room + 1, pcs[i], useCache);
         if (w <= 0)
         {
             break;
@@ -2476,9 +2539,11 @@ void SampleTopLeaks()
     // 无分配);trylock失败分片让位下轮(生产者在锁内,零等待)。两路候选同一次扫描
     // 收集: 符号化候选(既有条件——未预热且登记PC在位,锁内钉ref防跨锁悬垂)与
     // 序列候选(放宽条件——liveBytes>0即可,已预热栈持续入榜;仅读id/原子值,
-    // 不触碰fullPcs,无需钉ref)。候选并入全局数组(64×32=2048,预热线程栈上
-    // ~76KB: 符号化16+16KB、序列40KB,默认线程栈内可承受)。map遍历=全条目扫描,
-    // 覆盖所有liveBytes>0条目(含未挂链的登记态),不依赖pending链形态
+    // 不触碰fullPcs,锁内钉ref防锁外解引用悬垂——读任何字段的前提都是节点存活,
+    // 锁外裸解引用与淘汰/清表(refs==1判读)有竞态窗口)。候选并入全局数组
+    // (64×32=2048,预热线程栈上~76KB: 符号化16+16KB、序列40KB,默认线程栈内
+    // 可承受)。map遍历=全条目扫描,覆盖所有liveBytes>0条目(含未挂链的登记态),
+    // 不依赖pending链形态
     constexpr size_t kMaxCands = STACK_SHARDS * TOP_LEAK_CANDS_PER_SHARD;
     StackEntry* cands[kMaxCands];
     uint64_t candBytes[kMaxCands];
@@ -2552,13 +2617,18 @@ void SampleTopLeaks()
                 }
             }
         }
-        // 入选者(本分片top-32)锁内各取一预热引用:候选收集时liveBytes>0仅保证此刻
-        // refs>=2,跨锁符号化期间其块可能全部释放(refs回落1)被表满淘汰(EvictDead
-        // StackLocked判读refs==1)释放fullPcs——锁内取ref钉住条目(淘汰与取ref同锁
-        // 互斥),解析+置位完成后统一dispose,消除悬垂窗口
+        // 入选者(本分片top-32)锁内各取一引用(符号化候选与序列候选同款):
+        // 候选收集时liveBytes>0仅保证此刻refs>=2,跨锁取字段期间其块可能全部释放
+        // (refs回落1)被表满淘汰(EvictDeadStackLocked判读refs==1)或开窗清表释放
+        // ——锁内取ref钉住条目(淘汰/清表与取ref同锁互斥),字段取毕统一dispose,
+        // 消除锁外解引用的悬垂窗口
         for (size_t i = 0; i < ln; ++i)
         {
             local[i]->refs.fetch_add(1, std::memory_order_relaxed);
+        }
+        for (size_t i = 0; i < sln; ++i)
+        {
+            seriesLocal[i]->refs.fetch_add(1, std::memory_order_relaxed);
         }
         pthread_mutex_unlock(&shard.mtx);
         for (size_t i = 0; i < ln && nCand < kMaxCands; ++i)
@@ -2567,14 +2637,18 @@ void SampleTopLeaks()
             candBytes[nCand] = localBytes[i];
             ++nCand;
         }
-        // 序列候选锁外取拍末值(条目不触碰,无悬垂风险): stackId+锁内读的liveBytes
-        // +liveCount原子值一并快照,此后不再解引用条目指针
+        // 序列候选锁外快照(stackId+liveCount原子值;钉ref保证条目存活,见上),
+        // 取毕统一释放引用,此后不再解引用条目指针
         for (size_t i = 0; i < sln && nSeriesCand < kMaxCands; ++i)
         {
             seriesCands[nSeriesCand].stackId = seriesLocal[i]->stackId;
             seriesCands[nSeriesCand].liveBytes = seriesLocalBytes[i];
             seriesCands[nSeriesCand].liveCount = seriesLocal[i]->liveCount.load(std::memory_order_relaxed);
             ++nSeriesCand;
+        }
+        for (size_t i = 0; i < sln; ++i)
+        {
+            seriesLocal[i]->refs.fetch_sub(1, std::memory_order_relaxed);
         }
     }
     // 序列全局top-TOP_LEAK_SYMBOLIZE_K(与符号化同K)并逐栈追加一拍记录;
@@ -2782,21 +2856,48 @@ void StopWarmupThread()
     g_warmupThreadCreated.store(false, std::memory_order_release);
 }
 
-// 清表(开窗时调用,窗口关闭态无生产者): 栈表连待符号化缓冲一并释放,块表双数组
+// 清表(开窗时调用,窗口关闭态无记账生产者): 栈表连待符号化缓冲一并释放,块表双数组
 // 整体释放,全部窗口计数器归零,闭窗快照产物清理(跨窗口不保留,防陈旧数据被新
 // 窗口的dump_*误读)。g_unattributedCount累计不清零(跨窗口差分),仅快照基线
 void ClearTables()
 {
+    size_t survivorStacks = 0;  // 在途采集条目数(采集终态后随窗口流转,计入g_stackCount)
     for (auto& shard : g_stackShards)
     {
         pthread_mutex_lock(&shard.mtx);
-        for (auto& kv : shard.map)
+        for (auto it = shard.map.begin(); it != shard.map.end();)
         {
-            RealFree(kv.second.fullPcs);
-            kv.second.fullPcs = nullptr;
-            ReleasePyBufLocked(kv.second);  // 窗口关闭态无生产者,pyBuf冻结态
+            StackEntry& e = it->second;
+            if (e.refs.load(std::memory_order_relaxed) != 1)
+            {
+                // 在途采集(采集器持在途ref跨窗口,见RecordMalloc dispose后移):
+                // 条目不可释放——采集终态(发布桥/终判/后续dispose)仍触碰其内存,
+                // 直接释放即UAF。保留在表并以"同key新窗口条目"身份继续服务:
+                // 窗口计数器归零(新窗口闭窗按零计数行,与kFailed空条目同语义),
+                // fullPcs/warmedUp沿用(同key=同栈,新窗口可直接符号化);pyBuf按
+                // CAPTURED契约释放并复位pyState,新窗口可重新采集。本路径与采集
+                // 发布桥同栈分片锁互斥(见SharedStackPublishPyStack),复位与发布
+                // 不交错: 发布先于复位→此处ReleasePyBufLocked释放之;复位先于
+                // 发布→发布落在复位后的新窗口条目上,一致无幽灵
+                ReleasePyBufLocked(e);
+                e.pyState.store(PY_STACK_NONE, std::memory_order_relaxed);
+                e.pyLen = 0;
+                e.liveBytes.store(0, std::memory_order_relaxed);
+                e.liveCount.store(0, std::memory_order_relaxed);
+                e.allocCount.store(0, std::memory_order_relaxed);
+                e.allocBytes.store(0, std::memory_order_relaxed);
+                e.freedLifetimeSum.store(0, std::memory_order_relaxed);
+                ++survivorStacks;
+                ++it;
+                continue;
+            }
+            // 正常路径: 释放条目(符号化PC+pyBuf)并从表移除(窗口关闭态无记账
+            // 生产者,pyBuf冻结态)
+            RealFree(e.fullPcs);
+            e.fullPcs = nullptr;
+            ReleasePyBufLocked(e);
+            it = shard.map.erase(it);
         }
-        shard.map.clear();
         pthread_mutex_unlock(&shard.mtx);
     }
     for (auto& shard : g_blockShards)
@@ -2813,7 +2914,7 @@ void ClearTables()
         shard.overflow.clear();  // 溢出账本随块表清空(窗口生命周期=块表,节点经RealMallocAllocator)
         pthread_mutex_unlock(&shard.mtx);
     }
-    g_stackCount.store(0, std::memory_order_relaxed);
+    g_stackCount.store(survivorStacks, std::memory_order_relaxed);  // 在途条目随窗口流转
     g_blockCount.store(0, std::memory_order_relaxed);
     // 窗口计数器归零(本窗口统计量,闭窗后由CloseAggregate冻结进g_closeSnapshot)
     g_truncated.store(0, std::memory_order_relaxed);
@@ -2836,6 +2937,12 @@ void ClearTables()
     // 开窗前free通道归零(次数/总量/分布桶原子向量逐桶清零;向量定容见HostMemHookInit)
     g_preWindowFreeCount.store(0, std::memory_order_relaxed);
     g_preWindowFreeBytes.store(0, std::memory_order_relaxed);
+    // 中间快照冻结状态归零(窗口统计量): 冻结标志防御性复位(正常路径快照恢复时
+    // 已清;此处防快照被打断的残留——开窗时窗口数据已整体重置,残留计数无意义),
+    // 跳过计数随窗口清零
+    g_snapshotFrozen.store(false, std::memory_order_relaxed);
+    g_frozenSkipAllocCount.store(0, std::memory_order_relaxed);
+    g_frozenSkipAllocBytes.store(0, std::memory_order_relaxed);
     for (auto& c : g_preWindowDistCount)
     {
         c.store(0, std::memory_order_relaxed);
@@ -3014,6 +3121,11 @@ void CloseAggregate()
             row.stackId = e.stackId;
             row.allocCount = e.allocCount.load(std::memory_order_relaxed);
             row.allocBytes = e.allocBytes.load(std::memory_order_relaxed);
+            // 在途幸存条目(开窗原地复位)窗口内零记账,不产出统计行(消费端按计数过滤)
+            if (row.allocCount == 0 && row.allocBytes == 0)
+            {
+                continue;
+            }
             // 生命周期统计(free路径锁内累加值,闭窗冻结后读;0=窗口内无释放样本)
             row.freedLifetimeSumNs = e.freedLifetimeSum.load(std::memory_order_relaxed);
             const auto it = unfreed.find(e.stackId);
@@ -3076,7 +3188,7 @@ void CloseAggregate()
             }
             if (EnsureSymBuf(static_cast<size_t>(depth) * kFrameReserve + 16))
             {
-                const size_t off = BuildFrameDesc(e->fullPcs, e->fullCount);
+                const size_t off = BuildFrameDesc(e->fullPcs, e->fullCount, true);  // 闭窗:预热线程已join,查缓存
                 try
                 {
                     row.frameDesc.assign(g_symBuf, off);
@@ -3344,6 +3456,10 @@ void SvcSetEnabled(int enabled)
     // 闭窗聚合(遍历块表/栈表/符号化,同步完成;产物入g_closeStats/g_closeSizeDist/
     // g_closeSnapshot,窗口关闭态可经dump_*/get_stats拉取)
     CloseAggregate();
+    // 派发前释放g_svcMtx: STAGE_END派发链需分析器锁,display快照路径持分析器锁
+    // 等本锁——持锁派发形成环形等待(并发时STAGE_END 15s超时丢弃,闭窗报告丢失)。
+    // 聚合产物已就绪,派发无锁安全;并发开窗由g_closing等待循环兜底
+    pthread_mutex_unlock(&g_svcMtx);
     const uint64_t ts = NowNs();
     // 完整宽度stageId(与开窗同口径,uint64不截断)
     const uint64_t stageId = g_windowId.load(std::memory_order_relaxed);
@@ -3357,6 +3473,7 @@ void SvcSetEnabled(int enabled)
         {
         }
     }
+    pthread_mutex_lock(&g_svcMtx);
     // 窗口时间线:闭窗完成一行(可维护性日志)。此态条目留存表内,下次开窗才清空。
     // unattr=窗口内栈层失败转未知桶的块数(账本完整度100%而unattr上探=栈表拥塞,
     // 与分析器报告的未知栈桶行互证);truncated=截断标注(bit0块表满转溢出/bit1栈表满
@@ -3558,8 +3675,402 @@ void SvcDumpPreWindowDist(void (*emit)(void* ctx, uint64_t rangeLow, uint64_t ra
     }
 }
 
-const MsmemscopeHostmemSvc g_svcTable = {SvcSetEnabled,        SvcGetStats,     SvcDumpLiveBlocks,   SvcDumpStackStats,
-                                         SvcDumpUnfreedSeries, SvcDumpSizeDist, SvcDumpPreWindowDist};
+// 窗口中间快照聚合(display host_leak summary数据源)。与CloseAggregate的差异:
+// 冻结(g_enabled=false)而非关闭——不置g_closing/不停预热线程/不ClearTables/不发
+// STAGE_END,快照完成后窗口原样继续,数据零丢失。冻结期其余线程(应用侧)分配计入
+// totalAlloc+frozenSkip(不插表),快照自身开销全程抑制不计账(见函数首部守卫);
+// free照常(块表命中删除,快照反映删除后状态)。符号化走模块
+// 快照路径(BuildFrameDesc useCache=false,预热线程无锁独占写g_symCache);
+// 序列经g_seriesMtx持锁拷贝(至多等一拍)。产物独立于g_closeStats/g_closeSnapshot,
+// 不随ClearTables清理(与清表由g_svcMtx串行)。分片锁trylock失败→本次快照降级
+// 标注(stats.snapshotDegraded),不污染整窗g_truncated。
+// 冻结时长=聚合+符号化(毫秒~百毫秒级,与闭窗聚合同量级);期间应用侧alloc计入
+// frozenSkip、free正常——冻结窗口外数据精确
+void SvcDumpInterimSnapshot(
+    void (*emitStack)(void* ctx, uint64_t stackId, uint64_t allocCount, uint64_t allocBytes, uint64_t freedCount,
+                      uint64_t freedBytes, uint64_t unfreedCount, uint64_t unfreedBytes, uint64_t maxBlockSize,
+                      uint64_t maxAllocTsNs, uint64_t freedLifetimeSumNs, uint64_t liveAgeSumNs, const char* frameDesc,
+                      size_t len),
+    void (*emitSizeDist)(void* ctx, uint64_t rangeLow, uint64_t rangeHigh, uint64_t blockCount, uint64_t blockBytes),
+    void (*emitPreWindow)(void* ctx, uint64_t rangeLow, uint64_t rangeHigh, uint64_t blockCount, uint64_t blockBytes),
+    void (*emitSeries)(void* ctx, uint64_t stackId, uint32_t beat, uint64_t liveBytes, uint32_t liveCount,
+                       uint32_t flags),
+    MsmemscopeInterimStats* stats, void* ctx)
+{
+    // 快照自身开销全程抑制(thread_local,与预热线程同协议): 行容器/frameDesc文本/
+    // emit收集分配均为簿记而非应用事件——落记账会污染frozenSkip与totalAlloc;emit
+    // 收集容器被收集方留存引用,还会以存活块混入后续快照/闭窗统计。仅作用于本线程,
+    // 冻结期其余线程分配仍照常计入frozenSkip
+    HookSuppressGuard guard;
+    if (stats == nullptr)
+    {
+        return;
+    }
+    *stats = MsmemscopeInterimStats{};
+    // 仅窗口开启态: 关闭态直接返回空(调用方窗口状态判定已拦,此处防御——关闭态
+    // 热路径冻结,无需也禁止再聚合)
+    if (!g_ctorDone || !g_enabled.load(std::memory_order_relaxed))
+    {
+        return;
+    }
+    // 与开窗(清表)/闭窗(聚合)串行: 快照冻结期间start/stop等待本锁(毫秒级);
+    // 快照内不调report_stage,无派发链死锁
+    pthread_mutex_lock(&g_svcMtx);
+    if (!g_enabled.load(std::memory_order_relaxed))
+    {
+        pthread_mutex_unlock(&g_svcMtx);
+        return;
+    }
+    // 冻结(顺序见g_snapshotFrozen注释): 先置冻结标志(alloc计入frozenSkip)再关
+    // 记账门控(free照常处理,RecordFree不查门控;alloc经ShouldTrace冻结放行)
+    g_snapshotFrozen.store(true, std::memory_order_release);
+    g_enabled.store(false, std::memory_order_release);
+
+    // 快照时刻(未释放块年龄基准,与闭窗closeTs同语义)
+    const uint64_t snapTs = NowNs();
+    uint32_t snapDegraded = 0;
+
+    // 步骤0: 大小排布桶预置(与CloseAggregate同界)
+    std::vector<SizeBucket, RealMallocAllocator<SizeBucket>> sizeDist;
+    const size_t bucketCount = g_sizeBucketBounds.size() + 1;
+    sizeDist.reserve(bucketCount);
+    for (size_t i = 0; i < bucketCount; ++i)
+    {
+        SizeBucket b{};
+        b.rangeLow = i == 0 ? 0 : g_sizeBucketBounds[i - 1];
+        b.rangeHigh = i + 1 < bucketCount ? g_sizeBucketBounds[i] : UINT64_MAX;
+        sizeDist.push_back(b);
+    }
+
+    // 步骤1: 块表遍历(per-stack未释放聚合+大小桶+存活合计,与CloseAggregate同源;
+    // 冻结期free已删除的条目不在表内——快照反映删除后状态)。分片trylock失败→
+    // 本次快照降级(bit0),不污染整窗g_truncated;锁内无分配(开放寻址直读)
+    std::unordered_map<uint64_t, UnfreedAgg, std::hash<uint64_t>, std::equal_to<uint64_t>,
+                       RealMallocAllocator<std::pair<const uint64_t, UnfreedAgg>>>
+        unfreed;
+    unfreed.reserve(g_stackCount.load(std::memory_order_relaxed) + 1);  // 免遍历中rehash
+    uint64_t liveBlocks = 0;
+    uint64_t liveBytesTotal = 0;
+    uint64_t overflowLiveBlocks = 0;  // 溢出账本存活块(大小排布已含,派生用)
+    uint64_t overflowLiveBytes = 0;
+    for (auto& shard : g_blockShards)
+    {
+        if (!CloseTryLockShard(shard.mtx))
+        {
+            snapDegraded |= 1u;  // 块表读取降级:数据为前缀(不置整窗g_truncated)
+            continue;
+        }
+        if (shard.keys != nullptr)
+        {
+            for (uint32_t i = 0; i <= shard.capMask; ++i)
+            {
+                if (shard.keys[i] == 0)
+                {
+                    continue;
+                }
+                const BlockEntry& v = shard.vals[i];
+                const uint64_t stackId = v.owner != nullptr ? v.owner->stackId : 0;
+                UnfreedAgg& a = unfreed[stackId];
+                a.count += 1;
+                a.bytes += v.size;
+                if (v.size > a.maxBlockSize)
+                {
+                    a.maxBlockSize = v.size;
+                }
+                // 置信度顺带统计: 未释放块最新分配时刻与年龄和(快照时刻基准)
+                if (v.allocTs > a.maxAllocTs)
+                {
+                    a.maxAllocTs = v.allocTs;
+                }
+                a.liveAgeSum += snapTs > v.allocTs ? snapTs - v.allocTs : 0;
+                const size_t bi = SizeBucketIndex(v.size);
+                sizeDist[bi].blockCount += 1;
+                sizeDist[bi].blockBytes += v.size;
+                liveBlocks += 1;
+                liveBytesTotal += v.size;
+            }
+        }
+        // 溢出账本同锁遍历: 计入大小排布桶(未释放真实排布)+溢出存活合计
+        for (const auto& kv : shard.overflow)
+        {
+            const uint64_t sz = kv.second;
+            const size_t bi = SizeBucketIndex(sz);
+            sizeDist[bi].blockCount += 1;
+            sizeDist[bi].blockBytes += sz;
+            overflowLiveBlocks += 1;
+            overflowLiveBytes += sz;
+        }
+        pthread_mutex_unlock(&shard.mtx);
+    }
+
+    // 步骤2: 栈表遍历(释放=申请−未释放派生;unfreed>0的栈行内深拷贝供符号化——
+    // 恢复门控后新采集可能更新/淘汰栈条目,行内数据无生命周期依赖;快照持
+    // g_svcMtx使ClearTables不可并发)
+    std::vector<StackStatRow, RealMallocAllocator<StackStatRow>> snapStats;
+    snapStats.reserve(g_stackCount.load(std::memory_order_relaxed) + 1);
+    std::vector<size_t, RealMallocAllocator<size_t>> liveIdx;  // unfreed>0的栈行号(符号化用)
+    for (auto& shard : g_stackShards)
+    {
+        if (!CloseTryLockShard(shard.mtx))
+        {
+            snapDegraded |= 2u;  // 栈表读取降级:归因不完整
+            continue;
+        }
+        for (auto& kv : shard.map)
+        {
+            StackEntry& e = kv.second;
+            StackStatRow row{};
+            row.stackId = e.stackId;
+            row.allocCount = e.allocCount.load(std::memory_order_relaxed);
+            row.allocBytes = e.allocBytes.load(std::memory_order_relaxed);
+            // 在途幸存条目(开窗原地复位)窗口内零记账,不产出统计行(消费端按计数过滤)
+            if (row.allocCount == 0 && row.allocBytes == 0)
+            {
+                continue;
+            }
+            // 生命周期统计(free路径锁内累加值,快照时刻读;0=窗口内无释放样本)
+            row.freedLifetimeSumNs = e.freedLifetimeSum.load(std::memory_order_relaxed);
+            const auto it = unfreed.find(e.stackId);
+            if (it != unfreed.end())
+            {
+                row.unfreedCount = it->second.count;
+                row.unfreedBytes = it->second.bytes;
+                row.maxBlockSize = it->second.maxBlockSize;
+                // 置信度顺带统计: 未释放块最新分配时刻/年龄和(步骤1聚合值)
+                row.maxAllocTsNs = it->second.maxAllocTs;
+                row.liveAgeSumNs = it->second.liveAgeSum;
+            }
+            // 释放=申请-未释放派生(不变量恒等;未释放为0则freed=alloc)
+            row.freedCount = row.allocCount - row.unfreedCount;
+            row.freedBytes = row.allocBytes - row.unfreedBytes;
+            const size_t idx = snapStats.size();
+            snapStats.push_back(std::move(row));
+            if (it != unfreed.end())
+            {
+                // 深拷贝符号化数据到行内(锁内读,发布桥同锁互斥): 恢复门控后新采集
+                // 可能更新pyBuf/淘汰条目,行内拷贝符号化无竞争
+                StackStatRow& r = snapStats.back();
+                if (e.fullPcs != nullptr && e.fullCount != 0)
+                {
+                    r.pcs.assign(e.fullPcs, e.fullPcs + e.fullCount);
+                }
+                if (e.pyState.load(std::memory_order_acquire) == PY_STACK_CAPTURED && e.pyBuf != nullptr && e.pyLen > 0)
+                {
+                    r.pyText.assign(e.pyBuf, e.pyLen);
+                    r.pyState = static_cast<uint32_t>(PY_STACK_CAPTURED);
+                }
+                liveIdx.push_back(idx);
+            }
+        }
+        pthread_mutex_unlock(&shard.mtx);
+    }
+
+    // 步骤3: 未知桶行(stackId=0,frameDesc为空): 申请=unknown桶计数,未释放=聚合
+    {
+        StackStatRow row{};
+        row.stackId = 0;
+        row.allocCount = g_unknownAllocCount.load(std::memory_order_relaxed);
+        row.allocBytes = g_unknownAllocBytes.load(std::memory_order_relaxed);
+        const auto it = unfreed.find(0);
+        if (it != unfreed.end())
+        {
+            row.unfreedCount = it->second.count;
+            row.unfreedBytes = it->second.bytes;
+            row.maxBlockSize = it->second.maxBlockSize;
+            row.maxAllocTsNs = it->second.maxAllocTs;
+            row.liveAgeSumNs = it->second.liveAgeSum;
+        }
+        row.freedCount = row.allocCount - row.unfreedCount;
+        row.freedBytes = row.allocBytes - row.unfreedBytes;
+        snapStats.push_back(std::move(row));
+    }
+
+    // 步骤4: 符号化(仅unfreed>0的栈;useCache=false——预热线程运行中g_symCache
+    // 无锁独占写,读即数据竞争;模块快照路径只读无锁)。数据=步骤2行内深拷贝,
+    // 恢复门控后的新采集不触碰行内数据,无条目生命周期依赖。文本缺失不阻断统计行
+    for (const size_t idx : liveIdx)
+    {
+        StackStatRow& row = snapStats[idx];
+        if (!row.pcs.empty())
+        {
+            uint32_t depth = g_stackDepth.load(std::memory_order_relaxed);
+            if (depth == 0 || depth > MAX_STACK_DEPTH)
+            {
+                depth = DEFAULT_STACK_DEPTH;
+            }
+            if (EnsureSymBuf(static_cast<size_t>(depth) * kFrameReserve + 16))
+            {
+                const size_t off = BuildFrameDesc(row.pcs.data(), static_cast<uint32_t>(row.pcs.size()), false);
+                try
+                {
+                    row.frameDesc.assign(g_symBuf, off);
+                }
+                catch (...)
+                {
+                    // std::string分配失败(bad_alloc):文本缺失,统计值优先
+                }
+            }
+        }
+        // 混合栈组装: 行内pyText已含CAPTURED内容(步骤2拷贝);未采集且精确unfreed
+        // 满足泄漏候选约束→派生NA
+        PyStackCapture::AppendMixedStack(row.frameDesc, row.pyState, row.pyText.data(), row.pyText.size(),
+                                         row.unfreedBytes, row.unfreedCount);
+    }
+    // 门控恢复(先开记账再清冻结标志,与冻结入口顺序相反): 冻结窗口=分片拷贝+聚合
+    // +符号化(头注释口径)——期间仅应用侧分配落冻结分支计入frozenSkip(快照自身
+    // 开销已全程抑制);排序及后续读只触碰行内深拷贝,与恢复后的新采集无竞争;
+    // ClearTables仍被g_svcMtx互斥
+    g_enabled.store(true, std::memory_order_release);
+    g_snapshotFrozen.store(false, std::memory_order_release);
+    // 排序: unfreedBytes降序, stackId升序(报告可读性与确定性,同闭窗)
+    std::sort(snapStats.begin(), snapStats.end(),
+              [](const StackStatRow& a, const StackStatRow& b)
+              {
+                  if (a.unfreedBytes != b.unfreedBytes)
+                  {
+                      return a.unfreedBytes > b.unfreedBytes;
+                  }
+                  return a.stackId < b.stackId;
+              });
+
+    // 步骤5: 开窗前free大小排布(原子桶向量→桶,同界;快照独立容器)。向量未定容
+    // (构造期异常)时分布缺失——并入bit2降级标注(节拍序列或开窗前free分布读取失败,
+    // 统计行照常交付,渲染层如实显示unavailable)
+    std::vector<SizeBucket, RealMallocAllocator<SizeBucket>> preWindowDist;
+    if (g_preWindowDistCount.size() < bucketCount || g_preWindowDistBytes.size() < bucketCount)
+    {
+        snapDegraded |= 4u;
+    }
+    else
+    {
+        preWindowDist.reserve(bucketCount);
+        for (size_t i = 0; i < bucketCount; ++i)
+        {
+            SizeBucket b{};
+            b.rangeLow = i == 0 ? 0 : g_sizeBucketBounds[i - 1];
+            b.rangeHigh = i + 1 < bucketCount ? g_sizeBucketBounds[i] : UINT64_MAX;
+            b.blockCount = g_preWindowDistCount[i].load(std::memory_order_relaxed);
+            b.blockBytes = g_preWindowDistBytes[i].load(std::memory_order_relaxed);
+            preWindowDist.push_back(b);
+        }
+    }
+
+    // 步骤6: 节拍序列(预热线程1Hz写,持锁深拷贝;快照至多等一拍。行容器分配
+    // 失败(bad_alloc)跳过该槽——序列降级标注,尽力而为)
+    struct SeriesSnap
+    {
+        uint64_t stackId;
+        std::vector<SeriesRow, RealMallocAllocator<SeriesRow>> rows;
+        bool evicted;
+    };
+    std::vector<SeriesSnap, RealMallocAllocator<SeriesSnap>> seriesSnap;
+    pthread_mutex_lock(&g_seriesMtx);
+    for (const auto& kv : g_seriesSlots)
+    {
+        try
+        {
+            SeriesSnap s;
+            s.stackId = kv.second.stackId;
+            s.evicted = false;
+            s.rows.assign(kv.second.rows.begin(), kv.second.rows.end());
+            seriesSnap.push_back(std::move(s));
+        }
+        catch (...)
+        {
+            snapDegraded |= 4u;  // 序列读取降级(分配失败):部分序列缺失
+        }
+    }
+    for (const StackSeries& s : g_seriesEvicted)
+    {
+        try
+        {
+            SeriesSnap e;
+            e.stackId = s.stackId;
+            e.evicted = true;
+            e.rows.assign(s.rows.begin(), s.rows.end());
+            seriesSnap.push_back(std::move(e));
+        }
+        catch (...)
+        {
+            snapDegraded |= 4u;
+        }
+    }
+    pthread_mutex_unlock(&g_seriesMtx);
+
+    // 步骤7: 合计快照(派生口径同CloseAggregate步骤5: 释放=申请−块表存活−溢出
+    // 存活。冻结期alloc已计入totalAlloc但无表条目——派生freed将其计入(冻结期
+    // alloc的free落入开窗前通道不并totalFreed),"申请=释放+未释放"保持闭合)
+    stats->liveBlockCount = liveBlocks;
+    const uint64_t allocCount = g_totalAllocCount.load(std::memory_order_relaxed);
+    const uint64_t allocBytes = g_totalAllocBytes.load(std::memory_order_relaxed);
+    stats->totalAllocCount = allocCount;
+    stats->totalAllocBytes = allocBytes;
+    stats->totalFreedCount = allocCount - liveBlocks - overflowLiveBlocks;
+    stats->totalFreedBytes = allocBytes - liveBytesTotal - overflowLiveBytes;
+    stats->untrackedCount = g_untrackedCount.load(std::memory_order_relaxed);
+    stats->untrackedBytes = g_untrackedBytes.load(std::memory_order_relaxed);
+    stats->overflowAllocCount = g_overflowAllocCount.load(std::memory_order_relaxed);
+    stats->overflowAllocBytes = g_overflowAllocBytes.load(std::memory_order_relaxed);
+    stats->overflowFreedCount = g_overflowFreedCount.load(std::memory_order_relaxed);
+    stats->overflowFreedBytes = g_overflowFreedBytes.load(std::memory_order_relaxed);
+    stats->preWindowFreeCount = g_preWindowFreeCount.load(std::memory_order_relaxed);
+    stats->preWindowFreeBytes = g_preWindowFreeBytes.load(std::memory_order_relaxed);
+    stats->sampleRate = g_sampleRate.load(std::memory_order_relaxed);
+    stats->truncated = g_truncated.load(std::memory_order_relaxed);
+    stats->evictedStackCount = g_evictedStackCount.load(std::memory_order_relaxed);
+    stats->evictedAllocCount = g_evictedAllocCount.load(std::memory_order_relaxed);
+    stats->evictedAllocBytes = g_evictedAllocBytes.load(std::memory_order_relaxed);
+    stats->frozenSkipAllocCount = g_frozenSkipAllocCount.load(std::memory_order_relaxed);
+    stats->frozenSkipAllocBytes = g_frozenSkipAllocBytes.load(std::memory_order_relaxed);
+    stats->snapTsNs = snapTs;  // 快照时刻(冻结起点): 概览窗口时长/拍数折算基准
+    stats->seriesStartTsNs = g_seriesStartTsNs.load(std::memory_order_relaxed);
+    stats->seriesBeatIntervalNs = SeriesBeatIntervalNs();
+    stats->seriesFlags = g_warmupThreadFailed.load(std::memory_order_relaxed) ? 1u : 0u;
+    stats->snapshotDegraded = snapDegraded;
+
+    pthread_mutex_unlock(&g_svcMtx);
+
+    // emit交付(锁外,门控已恢复;函数首部守卫仍生效,收集分配不计账)。
+    // 回调判空防御(与族内SvcDump*风格一致,防调用方漏传);回调不得回调钩子svc入口
+    if (emitStack != nullptr)
+    {
+        for (const StackStatRow& r : snapStats)
+        {
+            emitStack(ctx, r.stackId, r.allocCount, r.allocBytes, r.freedCount, r.freedBytes, r.unfreedCount,
+                      r.unfreedBytes, r.maxBlockSize, r.maxAllocTsNs, r.freedLifetimeSumNs, r.liveAgeSumNs,
+                      r.frameDesc.data(), r.frameDesc.size());
+        }
+    }
+    if (emitSizeDist != nullptr)
+    {
+        for (const SizeBucket& b : sizeDist)
+        {
+            emitSizeDist(ctx, b.rangeLow, b.rangeHigh, b.blockCount, b.blockBytes);
+        }
+    }
+    if (emitPreWindow != nullptr)
+    {
+        for (const SizeBucket& b : preWindowDist)
+        {
+            emitPreWindow(ctx, b.rangeLow, b.rangeHigh, b.blockCount, b.blockBytes);
+        }
+    }
+    if (emitSeries != nullptr)
+    {
+        for (const SeriesSnap& s : seriesSnap)
+        {
+            for (const SeriesRow& r : s.rows)
+            {
+                emitSeries(ctx, s.stackId, r.beat, static_cast<uint64_t>(r.liveBytes), r.liveCount,
+                           s.evicted ? 1u : 0u);
+            }
+        }
+    }
+}
+
+const MsmemscopeHostmemSvc g_svcTable = {SvcSetEnabled,        SvcGetStats,           SvcDumpLiveBlocks,
+                                         SvcDumpStackStats,    SvcDumpUnfreedSeries,  SvcDumpSizeDist,
+                                         SvcDumpPreWindowDist, SvcDumpInterimSnapshot};
 
 // =============================================================================
 // fork安全: prepare冻结(锁全部分片)→parent释放→child退出监控(g_forked置位)
@@ -3613,6 +4124,17 @@ void ForkChild()
     // COW下不影响父进程。子进程退出时atexit闭窗的set_enabled依赖此锁,不重建则
     // 竞态下子进程退出挂死
     pthread_mutex_init(&g_svcMtx, nullptr);
+
+    // g_seriesMtx同理由重建: fork瞬间预热线程若正持锁(RecordSeriesRow),子进程
+    // 内该线程不存在,锁滞留locked态;中间快照在子进程不可达(g_enabled已关闸),
+    // 重建为防御——与分片锁/g_svcMtx同一重建原则
+    pthread_mutex_init(&g_seriesMtx, nullptr);
+    // 冻结标志复位: fork恰落在父进程中间快照冻结期时,子进程继承frozen=true——
+    // ShouldTrace在g_enabled检查前放行冻结,滞留标志会让子进程在关闸态仍放行
+    // alloc计入frozenSkip(子进程不监控,任何记账都不得发生)
+    g_snapshotFrozen.store(false, std::memory_order_release);
+    g_frozenSkipAllocCount.store(0, std::memory_order_release);
+    g_frozenSkipAllocBytes.store(0, std::memory_order_release);
 
     // 关闸(fork时窗口若开启,子进程生产者即刻静止)+置fork标记(release配对
     // SvcSetEnabled的acquire)。g_closing必须复位:fork发生在父进程关窗聚合期间时
@@ -3738,16 +4260,6 @@ __attribute__((constructor)) void HostMemHookInit()
     // 不随fork在子进程重跑,子进程无钩子状态、无监控——与fork后代不监控语义一致)
     pthread_atfork(ForkPrepare, ForkParent, ForkChild);
 
-    // 进程锚点行(可维护性日志):每个加载本so的进程在stderr打一行pid+生效容量。
-    // 多子进程场景下父/子进程共用同一stderr,各进程summary文件(首行带pid)靠此行
-    // 与各日志行内嵌的[pid]归属匹配;子进程是否加载了钩子、容量env覆盖是否生效
-    // 由此一行可见
-    fprintf(stderr, "[msmemscope] hostmem: [pid=%llu] hook loaded (maxStacks=%llu maxBlocks=%llu maxOverflow=%llu)\n",
-            static_cast<unsigned long long>(getpid()),
-            static_cast<unsigned long long>(g_maxStacksPerShard * STACK_SHARDS),
-            static_cast<unsigned long long>(g_maxBlocksPerShard * BLOCK_SHARDS),
-            static_cast<unsigned long long>(g_maxOverflowPerShard * BLOCK_SHARDS));
-
     // 构造完成:此后set_enabled走正常路径;构造前暂存的开窗请求在此补开(配置
     // 已解析,环容量覆盖生效,STAGE_START不再提前到采集库自身构造期)
     pthread_mutex_lock(&g_svcMtx);
@@ -3787,10 +4299,6 @@ static void TriggerHostMemExitClose()
             return;
         }
     }
-    // 触发行(可维护性日志):exit拦截器/main trampoline路径可见性;闭窗结果由
-    // 采集库侧"window close id=X done"/"closing bit already clear"等打点互证
-    fprintf(stderr, "[msmemscope] hostmem: [pid=%llu] exit path: triggering host mem window close\n",
-            static_cast<unsigned long long>(getpid()));
     g_exitCloseFn();
 }
 
@@ -4229,5 +4737,28 @@ void* SharedRealAlloc(size_t size) { return ::RealMalloc(size); }
 void SharedRealFree(void* ptr) { ::RealFree(ptr); }
 
 size_t SharedRealUsableSize(void* ptr) { return static_cast<size_t>(::RealUsableSize(ptr)); }
+
+// py采集发布桥实现(声明见host_mem_common.h,py_stack_capture.cpp经此发布py栈):
+// 持栈分片锁把pyBuf/pyLen/pyState原子写入条目。锁的必要性:
+// ①与ClearTables在途条目复位(同锁)互斥——裸写与复位并发会把已发布pyBuf置成
+//   "非CAPTURED+非空指针"幽灵(永不释放),或把复位后的条目重新置位;
+// ②双采集竞争终判: pyState检查与写入同一临界区,并发第二采集者锁内读到
+//   CAPTURED即放弃(自行释放其缓冲),"每栈至多一次"在锁内收敛。
+// 采集器持在途ref期间条目恒存活(淘汰/清表仅触refs==1,见ClearTables在途复位),
+// 指针无需再验。返回true=已发布(条目接管pyBuf);false=已被采集,调用方释放pyBuf
+bool SharedStackPublishPyStack(StackRecord& rec, char* pyBuf, uint32_t pyLen)
+{
+    StackShard& shard = g_stackShards[ShardOfStackId(rec.stackId)];
+    pthread_mutex_lock(&shard.mtx);
+    const bool first = rec.pyState.load(std::memory_order_acquire) == PY_STACK_NONE;
+    if (first)
+    {
+        rec.pyBuf = pyBuf;
+        rec.pyLen = pyLen;
+        rec.pyState.store(PY_STACK_CAPTURED, std::memory_order_release);
+    }
+    pthread_mutex_unlock(&shard.mtx);
+    return first;
+}
 
 }  // namespace hostmem

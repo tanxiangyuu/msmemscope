@@ -28,6 +28,7 @@
 #include <list>
 #include <mutex>
 #include <unordered_map>
+#include <vector>
 
 #include "cpython.h"         // PyStackCore::WalkFrames/PyInterpGuard/弱符号
 #include "host_mem_hooks.h"  // MSMEMSCOPE_HOSTMEM_MIXED_STACK_MARKER(混合栈marker单一来源)
@@ -35,8 +36,11 @@
 
 /*
  * 实现要点: 采集全程持GIL(PyInterpGuard Ensure/Release,已持GIL幂等);
- * pyBuf唯一写者,发布=release store pyState(CAPTURED),读者acquire读到后使用;
- * 缓存/容器RealMalloc底座;无解释器/版本<3.9不采集,闭窗按unfreed判据派生NA
+ * pyBuf经SharedStackPublishPyStack桥发布——栈分片锁内终判pyState并原子写入
+ * pyBuf/pyLen/pyState(release store),与清表在途条目复位/并发第二采集互斥;
+ * 读者acquire读CAPTURED后使用;采集期在途ref由RecordMalloc持有(dispose后移),
+ * 条目恒存活;缓存/容器RealMalloc底座;无解释器/版本<3.9不采集,闭窗按unfreed
+ * 判据派生NA
  */
 
 namespace hostmem
@@ -213,21 +217,47 @@ class PyCodeFrameCache
         map_.emplace(code, Entry{copy, len, lit});
     }
 
-    // 关窗清空(与采集写者互斥): 解释器已finalize时不DecRef键(对象可能已销毁)
+    // 关窗清空(与采集写者互斥): 解释器已finalize时不DecRef键(对象可能已销毁)。
+    // 键的DecRef必须持GIL(PyGILState_Ensure): 无GIL解引与解释器线程的IncRef
+    // 并发是数据竞争(UB),计数触0时析构链也须在持GIL线程上跑。锁序约束: 采集
+    // 路径持GIL后才取本锁(GIL→mtx),此处必须释放锁后再取GIL——锁内取GIL构成
+    // 反向锁序(采集持GIL等mtx、本路径持mtx等GIL,死锁)。故分两阶段: 锁内清容器
+    // 释放串+收集键引用,解锁后经PyInterpGuard逐一DecRef(键引用已从缓存转移,
+    // 解锁后新采集重新入缓存者自行IncRef,引用各自配平)
     void Shutdown()
     {
-        std::lock_guard<std::mutex> lock(mtx_);
-        const bool interpAlive = Utility::IsPyInterpRepeInited();
-        for (auto& kv : map_)
+        std::vector<PyCodeObject*, RealMallocAllocator<PyCodeObject*>> keys;
+        try
         {
-            SharedRealFree(kv.second.str);
-            if (interpAlive)
+            std::lock_guard<std::mutex> lock(mtx_);
+            for (auto& kv : map_)
             {
-                Py_DecRef(reinterpret_cast<PyObject*>(kv.first));
+                SharedRealFree(kv.second.str);
+                keys.push_back(kv.first);
+            }
+            map_.clear();
+            lru_.clear();
+        }
+        catch (...)
+        {
+            // 真OOM(收集vector分配失败): 容器仍须清空(防后续访问已释放str)——
+            // 重新持锁清空(此时原lock_guard已随异常逸出析构,未持锁clear与并发
+            // 写者竞态即UB);键引用整体不DecRef(上限8192个code对象泄漏引用,
+            // 优于对未脱离缓存的键二次DecRef)
+            std::lock_guard<std::mutex> lock(mtx_);
+            map_.clear();
+            lru_.clear();
+            keys.clear();
+        }
+        const bool interpAlive = Utility::IsPyInterpRepeInited();
+        if (interpAlive)
+        {
+            Utility::PyInterpGuard guard;  // 未持GIL线程临时取GIL(幂等)
+            for (PyCodeObject* key : keys)
+            {
+                Py_DecRef(reinterpret_cast<PyObject*>(key));
             }
         }
-        map_.clear();
-        lru_.clear();
     }
 
    private:
@@ -309,7 +339,8 @@ void PyStackCapture::CaptureIfEnabled(StackRecord& rec)
     {
         return;
     }
-    // ③ 已采集判定(每栈至多一次;acquire与⑧的release配对,读到CAPTURED即同步pyBuf)
+    // ③ 已采集快速判定(每栈至多一次;acquire与发布桥⑧的release配对,读到CAPTURED
+    // 即同步pyBuf;GIL后⑥有权威复查,发布桥锁内有最终判读)
     if (rec.pyState.load(std::memory_order_acquire) != PY_STACK_NONE)
     {
         return;
@@ -335,6 +366,13 @@ void PyStackCapture::CaptureIfEnabled(StackRecord& rec)
     // 经PyInterpGuard临时取GIL(Ensure/Release RAII,已持GIL幂等);
     // Ensure经解释器tstate池恢复本线程tstate,current_frame保持,采集语义与持GIL一致
     Utility::PyInterpGuard guard;
+    // ⑥后权威复查(③为GIL前预检优化): 全部发布者持GIL,获取GIL后读到CAPTURED
+    // 即他人已采(他人发布必然已持GIL)——双采集竞争在GIL处收敛,免走链;最终
+    // 判读在发布桥分片锁内(与清表复位/并发发布原子,见SharedStackPublishPyStack)
+    if (rec.pyState.load(std::memory_order_acquire) != PY_STACK_NONE)
+    {
+        return;  // 他人已采: 本次作废(在途ref由调用方释放,见RecordMalloc注释)
+    }
     // ⑦ 走链+格式化(GIL下互斥,缓存写者唯一;scratch零堆分配)
     thread_local static std::array<char, PY_SCRATCH_CAP> t_scratch;
     CaptureCtx ctx{t_scratch.data(), t_scratch.size(), 0, &s_frameCache};
@@ -343,8 +381,10 @@ void PyStackCapture::CaptureIfEnabled(StackRecord& rec)
     {
         return;  // 无帧: 保持NONE,下次再试(NA非终态)
     }
-    // ⑧ 发布: RealMalloc pyBuf→release store pyState(写入仅此处在GIL下,
-    // store前完整、store后不改;acquire读者读CAPTURED后使用/释放安全)
+    // ⑧ 发布: RealMalloc pyBuf→发布桥。桥在栈分片锁内做最终pyState判读并原子
+    // 写入pyBuf/pyLen/pyState(release store): 锁内判读与写入同一临界区,双采集
+    // 至多一个发布成功;与ClearTables在途条目复位(同锁)互斥,写绝不与释放/复位
+    // 并发。采集期持在途ref(RecordMalloc dispose后移),条目恒存活,写无UAF
     char* pyBuf = static_cast<char*>(SharedRealAlloc(ctx.off + 1));
     if (pyBuf == nullptr)
     {
@@ -352,9 +392,10 @@ void PyStackCapture::CaptureIfEnabled(StackRecord& rec)
     }
     memcpy(pyBuf, t_scratch.data(), ctx.off);
     pyBuf[ctx.off] = '\0';
-    rec.pyBuf = pyBuf;
-    rec.pyLen = static_cast<uint32_t>(ctx.off);
-    rec.pyState.store(PY_STACK_CAPTURED, std::memory_order_release);
+    if (!SharedStackPublishPyStack(rec, pyBuf, static_cast<uint32_t>(ctx.off)))
+    {
+        SharedRealFree(pyBuf);  // 锁内终判已被采集: 释放本次缓冲(防pyBuf泄漏)
+    }
 }
 
 void PyStackCapture::Shutdown()
@@ -378,6 +419,32 @@ bool PyStackCapture::AppendMixedStack(std::string& frameDesc, const StackRecord&
     // (字节钳制: uint64超INT64_MAX视为INT64_MAX,判据必然成立)
     if (g_pyStackDepth.load(std::memory_order_acquire) != 0 &&
         rec.pyState.load(std::memory_order_relaxed) == PY_STACK_NONE)
+    {
+        const int64_t lb =
+            unfreedBytes > static_cast<uint64_t>(INT64_MAX) ? INT64_MAX : static_cast<int64_t>(unfreedBytes);
+        if (GateSatisfied(lb, unfreedCount))
+        {
+            frameDesc.append(kMixedMarker);
+            frameDesc.append("NA");
+            frameDesc.push_back('\n');
+            return true;
+        }
+    }
+    return false;
+}
+
+bool PyStackCapture::AppendMixedStack(std::string& frameDesc, uint32_t pyState, const char* pyText, size_t pyLen,
+                                      uint64_t unfreedBytes, uint64_t unfreedCount)
+{
+    // 采集态: 追加marker+pyBuf(行内拷贝,快照冻结内锁内完成,无发布桥竞争)
+    if (pyState == PY_STACK_CAPTURED && pyText != nullptr && pyLen > 0)
+    {
+        frameDesc.append(kMixedMarker);
+        frameDesc.append(pyText, pyLen);
+        return true;
+    }
+    // 未采集: 配置门(本窗口启用过py采集)且快照精确unfreed判据达标→派生NA
+    if (g_pyStackDepth.load(std::memory_order_acquire) != 0 && pyState == PY_STACK_NONE)
     {
         const int64_t lb =
             unfreedBytes > static_cast<uint64_t>(INT64_MAX) ? INT64_MAX : static_cast<int64_t>(unfreedBytes);

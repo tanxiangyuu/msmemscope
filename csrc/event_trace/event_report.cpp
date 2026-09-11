@@ -489,12 +489,8 @@ void EventReport::HostMemExitHandler()
     EventReport* instance = g_hostMemReportInstance.load(std::memory_order_acquire);
     if (instance == nullptr)
     {
-        fprintf(stderr, "[msmemscope] host leak [pid=%llu] exit handler: no report instance\n",
-                static_cast<unsigned long long>(getpid()));
-        return;
+        return;  // 未start过无报告实例,安静跳过(实例仅在start时创建)
     }
-    fprintf(stderr, "[msmemscope] host leak [pid=%llu] exit close running (pre-exit interceptor)\n",
-            static_cast<unsigned long long>(getpid()));
     try
     {
         instance->CloseHostMemWindowAtExit();
@@ -695,6 +691,8 @@ bool EventReport::ReportPyStepRecord()
 
     return true;
 }
+
+uint64_t EventReport::GetPyStepId() const { return pyStepId_.load(); }
 
 bool EventReport::ReportMemPoolRecord(EventSubType type, const MemoryUsage& info, CallStackString&& stack)
 {
@@ -1906,12 +1904,7 @@ void EventReport::CloseHostMemWindowAtExit()
         if ((status & 0x4) == 0)
         {
             // closing位已清零:闭窗排空已完成(或从未开始)。若窗口在分析器侧仍open,
-            // 说明闭窗STAGE_END未送达分析器(订阅/派发链断),由~HostLeakAnalyzer兜底——
-            // 此打点与该判断互证
-            fprintf(stderr,
-                    "[msmemscope] host leak [pid=%llu] exit close: closing bit already clear "
-                    "(window closed or never closing)\n",
-                    static_cast<unsigned long long>(getpid()));
+            // 说明闭窗STAGE_END未送达分析器(订阅/派发链断),由~HostLeakAnalyzer兜底
             return;
         }
         const auto now = std::chrono::steady_clock::now();
@@ -2005,6 +1998,25 @@ bool EventReport::DumpHostMemPreWindowDist(void (*emit)(void* ctx, uint64_t rang
         return false;
     }
     svcHostMem_->dump_pre_window_distribution(emit, ctx);
+    return true;
+}
+
+bool EventReport::DumpHostMemInterimSnapshot(
+    void (*emitStack)(void* ctx, uint64_t stackId, uint64_t allocCount, uint64_t allocBytes, uint64_t freedCount,
+                      uint64_t freedBytes, uint64_t unfreedCount, uint64_t unfreedBytes, uint64_t maxBlockSize,
+                      uint64_t maxAllocTsNs, uint64_t freedLifetimeSumNs, uint64_t liveAgeSumNs, const char* frameDesc,
+                      size_t len),
+    void (*emitSizeDist)(void* ctx, uint64_t rangeLow, uint64_t rangeHigh, uint64_t blockCount, uint64_t blockBytes),
+    void (*emitPreWindow)(void* ctx, uint64_t rangeLow, uint64_t rangeHigh, uint64_t blockCount, uint64_t blockBytes),
+    void (*emitSeries)(void* ctx, uint64_t stackId, uint32_t beat, uint64_t liveBytes, uint32_t liveCount,
+                       uint32_t flags),
+    MsmemscopeInterimStats* stats, void* ctx)
+{
+    if (svcHostMem_ == nullptr || destroyed_.load() || emitStack == nullptr)
+    {
+        return false;
+    }
+    svcHostMem_->dump_interim_snapshot(emitStack, emitSizeDist, emitPreWindow, emitSeries, stats, ctx);
     return true;
 }
 

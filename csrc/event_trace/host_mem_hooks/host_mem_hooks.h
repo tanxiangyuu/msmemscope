@@ -162,6 +162,45 @@ extern "C"
         uint32_t seriesFlags;
     } MsmemscopeHostmemStats;
 
+    /* 窗口中间快照统计（display host_leak summary数据源，dump_interim_snapshot交付）：
+     * 字段语义同MsmemscopeHostmemStats（Tracked为派生口径：totalFreed=totalAlloc−块表
+     * 存活−溢出存活，与闭窗快照同源一致）；另加frozenSkip系列（冻结期跳过记账但已
+     * 计入totalAllocCount/Bytes的申请——统计值含冻结期事件，块表不含，报告标注）。
+     * series三字段为快照时刻的当前值（窗口未产出序列时起点=0）。
+     * snapshotDegraded：本次快照读取降级（bit0=块表分片锁获取失败数据为前缀、
+     * bit1=栈表分片锁获取失败归因不完整、bit2=节拍序列或开窗前free分布读取失败），
+     * 区别于整窗truncated标注——仅影响本次快照，不污染整窗状态 */
+    typedef struct MsmemscopeInterimStats
+    {
+        uint64_t liveBlockCount;
+        uint64_t totalAllocCount;
+        uint64_t totalAllocBytes;
+        uint64_t totalFreedCount;
+        uint64_t totalFreedBytes;
+        uint64_t untrackedCount;
+        uint64_t untrackedBytes;
+        uint64_t overflowAllocCount;
+        uint64_t overflowAllocBytes;
+        uint64_t overflowFreedCount;
+        uint64_t overflowFreedBytes;
+        uint64_t preWindowFreeCount;
+        uint64_t preWindowFreeBytes;
+        uint32_t sampleRate;
+        uint32_t truncated;
+        uint64_t evictedStackCount;
+        uint64_t evictedAllocCount;
+        uint64_t evictedAllocBytes;
+        uint64_t frozenSkipAllocCount;
+        uint64_t frozenSkipAllocBytes;
+        /* 快照时刻(冻结起点,与块allocTs同钟——CLOCK_REALTIME): 中间概览的
+         * 窗口时长/节拍拍数折算基准(闭窗概览用STAGE_END事件时刻) */
+        uint64_t snapTsNs;
+        uint64_t seriesStartTsNs;
+        uint64_t seriesBeatIntervalNs;
+        uint32_t seriesFlags;
+        uint32_t snapshotDegraded;
+    } MsmemscopeInterimStats;
+
     /* SVC表：钩子实现，bind返回给libascend_leaks */
     typedef struct MsmemscopeHostmemSvc
     {
@@ -212,6 +251,26 @@ extern "C"
         void (*dump_pre_window_distribution)(void (*emit)(void* ctx, uint64_t rangeLow, uint64_t rangeHigh,
                                                           uint64_t blockCount, uint64_t blockBytes),
                                              void* ctx);
+        /* 窗口中间快照（display host_leak summary数据源）：窗口开启态调用——
+         * 冻结记账门控→持锁遍历聚合（per-stack未释放/大小桶/开窗前free分布，与闭窗
+         * 聚合同源）→放锁→符号化（模块快照路径，不查预热帧缓存——预热线程无锁独占
+         * 写缓存）→恢复门控。不闭窗/不清零/不发STAGE_END，窗口数据零丢失。快照期间
+         * 其余线程到达的申请计入统计（frozenSkip）不入块表（快照自身开销经抑制守卫
+         * 不计账），free照常处理（命中删除，快照反映
+         * 删除后状态）。仅窗口开启态有效（关闭态stats清零直接返回）；emit不得回调钩子 */
+        void (*dump_interim_snapshot)(void (*emit_stack)(void* ctx, uint64_t stackId, uint64_t allocCount,
+                                                         uint64_t allocBytes, uint64_t freedCount, uint64_t freedBytes,
+                                                         uint64_t unfreedCount, uint64_t unfreedBytes,
+                                                         uint64_t maxBlockSize, uint64_t maxAllocTsNs,
+                                                         uint64_t freedLifetimeSumNs, uint64_t liveAgeSumNs,
+                                                         const char* frameDesc, size_t len),
+                                      void (*emit_size_dist)(void* ctx, uint64_t rangeLow, uint64_t rangeHigh,
+                                                             uint64_t blockCount, uint64_t blockBytes),
+                                      void (*emit_pre_window)(void* ctx, uint64_t rangeLow, uint64_t rangeHigh,
+                                                              uint64_t blockCount, uint64_t blockBytes),
+                                      void (*emit_series)(void* ctx, uint64_t stackId, uint32_t beat,
+                                                          uint64_t liveBytes, uint32_t liveCount, uint32_t flags),
+                                      MsmemscopeInterimStats* stats, void* ctx);
     } MsmemscopeHostmemSvc;
 
     /*

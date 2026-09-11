@@ -63,7 +63,11 @@ struct StackRecord
     // refs==1条目可被淘汰(栈表满→死栈回收,见EvictDeadStackLocked)。增减relaxed:
     // 所有+1在栈分片锁临界区内(除InsertBlock块引用+1在块表锁内,有调用方在途
     // ref兜底,期间refs恒>=2);-1恰一次于dispose(块释放/捕获后终态)。块表持
-    // owner指针期间refs>=2(块引用兜底),与淘汰判读(refs==1)互斥
+    // owner指针期间refs>=2(块引用兜底),与淘汰判读(refs==1)互斥。
+    // py采集的在途lookup引用跨CaptureIfEnabled全程持有(RecordMalloc dispose后移,
+    // 见其注释): 采集期(含GIL阻塞)refs>=2,死栈淘汰与开窗清表(ClearTables仅释放
+    // refs==1条目,refs>1条目原地复位)均不触条目——采集写pyBuf/终态dispose永不
+    // 命中已释放内存。采集器各出口不释放,在途ref在RecordMalloc内恰一次dispose
     std::atomic<uint32_t> refs{1};              // 1=在表pin + 存活块数 + 在途lookup数
     std::atomic<int64_t> liveBytes{0};          // 当前存活字节(泄漏量真相源,与闭窗
                                                 // 报告unfreedBytes同构——top泄漏点
@@ -77,9 +81,11 @@ struct StackRecord
     std::atomic<uint64_t> allocCount{0};        // 本窗口内申请次数(InsertBlock临界区内自增)
     std::atomic<uint64_t> allocBytes{0};        // 本窗口内申请字节(同上)
     // py调用栈: pyBuf为RealMalloc底座串。写者唯一性: 采集在持GIL线程上执行,
-    // GIL互斥两个采集线程;发布=release store pyState(CAPTURED),
-    // store前的pyBuf写入对acquire读者可见。读者(闭窗组装/淘汰/清表)仅在
-    // pyState==CAPTURED时读pyBuf/释放pyBuf,与写者无竞态(见CaptureIfEnabled注释)
+    // GIL互斥两个采集线程;发布经SharedStackPublishPyStack桥在栈分片锁内完成
+    // (pyState检查+pyBuf/pyLen写入+pyState release store同一临界区)——与清表
+    // 在途条目复位(ClearTables同锁)互斥,与并发第二采集锁内终判。读者(闭窗组装/
+    // 淘汰/清表)仅在pyState==CAPTURED时读pyBuf/释放pyBuf,与写者无竞态(见
+    // CaptureIfEnabled与SharedStackPublishPyStack注释)
     char* pyBuf = nullptr;
     uint32_t pyLen = 0;
     std::atomic<uint32_t> pyState{PY_STACK_NONE};
@@ -93,6 +99,13 @@ struct StackRecord
 void* SharedRealAlloc(size_t size);
 void SharedRealFree(void* ptr);
 size_t SharedRealUsableSize(void* ptr);
+
+// py采集发布桥(host_mem_hooks.cpp实现,见其注释): 持栈分片锁把pyBuf/pyLen/
+// pyState原子写入条目——与清表在途条目复位同锁互斥、与并发第二采集锁内终判
+// (pyState==NONE才发布),杜绝双采集覆盖与"复位后幽灵pyBuf"。采集器持在途ref
+// 期间条目恒存活(淘汰/清表仅触refs==1)。返回true=已发布(条目接管pyBuf);
+// false=已被采集,调用方必须释放自己分配的pyBuf
+bool SharedStackPublishPyStack(StackRecord& rec, char* pyBuf, uint32_t pyLen);
 
 // 钩子内自定义allocator(场景B): 分配经SharedRealAlloc不经PLT,构造早期由
 // 竞技场兜底(SharedRealAlloc内部);失败抛bad_alloc交调用方降级(丢包计数)——绝不trap杀宿主:
