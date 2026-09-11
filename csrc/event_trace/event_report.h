@@ -92,6 +92,8 @@ class EventReport
     bool ReportAddrInfo(EventSubType type, uint64_t addr,
                         const std::vector<std::pair<OwnerLevel, std::string>>& labels);
     bool ReportPyStepRecord();
+    // step控制字回显:进程级step计数只读(与ReportPyStepRecord同源pyStepId_)
+    uint64_t GetPyStepId() const;
     bool ReportMemorySnapshot(const MemorySnapshotInfo& memory_info, CallStackString&& stack);
     void ReportMemorySnapshotOnOOM(const CallStackString& stack = CallStackString());
     bool ReportOOMTrigger(const OOMTriggerInfo& info);
@@ -135,6 +137,25 @@ class EventReport
     bool DumpHostMemPreWindowDist(void (*emit)(void* ctx, uint64_t rangeLow, uint64_t rangeHigh, uint64_t blockCount,
                                                uint64_t blockBytes),
                                   void* ctx);
+    // 窗口中间快照(display host_leak summary数据源):窗口开启态调用——
+    // 钩子冻结记账门控→持锁聚合(per-stack未释放/大小桶/开窗前free/节拍序列)→
+    // 符号化(模块快照路径)→恢复门控;不闭窗不清零,窗口数据零丢失。emit签名与
+    // dump_*对应项一致(ctx统一传入),stats见MsmemscopeInterimStats(含frozenSkip
+    // 冻结期跳过计数与snapshotDegraded本次快照降级位);关闭态stats清零返回false。
+    // 钩子未装配返回false
+    bool DumpHostMemInterimSnapshot(void (*emitStack)(void* ctx, uint64_t stackId, uint64_t allocCount,
+                                                      uint64_t allocBytes, uint64_t freedCount, uint64_t freedBytes,
+                                                      uint64_t unfreedCount, uint64_t unfreedBytes,
+                                                      uint64_t maxBlockSize, uint64_t maxAllocTsNs,
+                                                      uint64_t freedLifetimeSumNs, uint64_t liveAgeSumNs,
+                                                      const char* frameDesc, size_t len),
+                                    void (*emitSizeDist)(void* ctx, uint64_t rangeLow, uint64_t rangeHigh,
+                                                         uint64_t blockCount, uint64_t blockBytes),
+                                    void (*emitPreWindow)(void* ctx, uint64_t rangeLow, uint64_t rangeHigh,
+                                                          uint64_t blockCount, uint64_t blockBytes),
+                                    void (*emitSeries)(void* ctx, uint64_t stackId, uint32_t beat, uint64_t liveBytes,
+                                                       uint32_t liveCount, uint32_t flags),
+                                    MsmemscopeInterimStats* stats, void* ctx);
     // 测试缝:UT环境无钩子so(bind不执行,svcHostMem_==nullptr),测试注入假svc表驱动分析器;
     // 仅测试用,注入后窗口开关/快照拉取全走注入表
     void SetHostMemSvcForTest(const MsmemscopeHostmemSvc* svc);

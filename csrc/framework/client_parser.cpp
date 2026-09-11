@@ -23,6 +23,9 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cerrno>
+#include <climits>
+#include <cstdlib>
 #include <iostream>
 #include <map>
 #include <unordered_map>
@@ -72,6 +75,8 @@ enum class OptVal : int32_t
     BLOCK_SIZE_THRESHOLD,
     // 显式采样率倒数(1=不采样)
     SAMPLE_RATE,
+    // 进程外控制通道:attach目标pid(--pid)
+    ATTACH_PID,
 };
 constexpr uint16_t INPUT_STR_MAX_LEN = 4096;
 
@@ -142,6 +147,15 @@ void ShowHelpInfo()
         << "Other:" << std::endl
         << "      --log-level <LEVEL>       Log level: debug | info | warning | error [default: info]" << std::endl
         << std::endl
+        << "Control channel (attach to a running process):" << std::endl
+        << "  -p, --pid <PID>              Attach to process <PID> via the out-of-process control channel;" << std::endl
+        << "                                interactive shell with tab completion (start/stop/step," << std::endl
+        << "                                display hook/analyzer/config/memory/host_leak, set config)" << std::endl
+        << "  -c, --command <WORD>         Single-shot control word (with --pid): send one command and exit,"
+        << std::endl
+        << "                                e.g. msmemscope --pid 12345 --command \"display memory summary\""
+        << std::endl
+        << std::endl
         << "Examples:" << std::endl
         << "  # Collect memory events with default options" << std::endl
         << "  msmemscope -- python train.py" << std::endl
@@ -173,6 +187,24 @@ bool UserCommandPrecheck(const UserCommand &userCommand)
     if (!userCommand.config.outputCorrectPaths)
     {
         std::cout << "Please use correct output path!" << std::endl;
+        return false;
+    }
+    // 进程外控制通道互斥校验:attach模式独立于采集/对比/分析
+    const bool attachMode = userCommand.config.attachPid != 0;
+    if (attachMode && userCommand.config.enableCompare)
+    {
+        std::cout << "[msmemscope] Error: --pid cannot be combined with --compare" << std::endl;
+        return false;
+    }
+    if (attachMode && !userCommand.cmd.empty())
+    {
+        std::cout << "[msmemscope] Error: --pid cannot be combined with a launch command "
+                  << "(msmemscope --pid <pid> [--command <control word>])" << std::endl;
+        return false;
+    }
+    if (!userCommand.attachCommand.empty() && !attachMode)
+    {
+        std::cout << "[msmemscope] Error: --command requires --pid" << std::endl;
         return false;
     }
     return true;
@@ -268,6 +300,16 @@ void DoUserCommand(UserCommand userCommand)
         return;
     }
 
+    // attach模式不落配置(不污染目标进程上下文),直接执行attach;
+    // 配置变更经会话内set config控制字完成
+    if (userCommand.config.attachPid != 0)
+    {
+        PrintLogo();
+        Command command{userCommand};
+        command.Exec();
+        return;
+    }
+
     PrintLogo();
     ConfigManager::Instance().SetConfig(userCommand.config);
 
@@ -311,6 +353,9 @@ std::vector<option> GetLongOptArray()
         {"host-leak-mode", required_argument, nullptr, static_cast<int32_t>(OptVal::HOST_LEAK_MODE)},
         {"block-size-threshold", required_argument, nullptr, static_cast<int32_t>(OptVal::BLOCK_SIZE_THRESHOLD)},
         {"sample-rate", required_argument, nullptr, static_cast<int32_t>(OptVal::SAMPLE_RATE)},
+        // 进程外控制通道:--pid attach;--command/-c 单发控制字(非tty/脚本场景)
+        {"pid", required_argument, nullptr, 'p'},
+        {"command", required_argument, nullptr, 'c'},
         {nullptr, 0, nullptr, 0},
     };
     return longOpts;
@@ -1170,6 +1215,43 @@ void ParseUserCommand(const int32_t &opt, const std::string &param, UserCommand 
             break;
         case static_cast<int32_t>(OptVal::SAMPLE_RATE):
             ParseSampleRate(param, userCommand.config, userCommand.printHelpInfo);
+            break;
+        case 'p':  // for --pid(进程外控制通道attach目标)
+        {
+            if (param.empty())
+            {
+                std::cout << "[msmemscope] Error: --pid requires a positive integer" << std::endl;
+                userCommand.printHelpInfo = true;
+                break;
+            }
+            for (char c : param)
+            {
+                if (!std::isdigit(static_cast<unsigned char>(c)))
+                {
+                    std::cout << "[msmemscope] Error: --pid requires a positive integer: " << param << std::endl;
+                    userCommand.printHelpInfo = true;
+                    break;
+                }
+            }
+            if (userCommand.printHelpInfo)
+            {
+                break;
+            }
+            errno = 0;
+            char *end = nullptr;
+            const unsigned long long v = std::strtoull(param.c_str(), &end, 10);
+            if (errno != 0 || end == nullptr || *end != '\0' || v == 0 ||
+                v > static_cast<unsigned long long>(INT32_MAX))
+            {
+                std::cout << "[msmemscope] Error: --pid requires a positive integer: " << param << std::endl;
+                userCommand.printHelpInfo = true;
+                break;
+            }
+            userCommand.config.attachPid = static_cast<uint64_t>(v);
+            break;
+        }
+        case 'c':  // for --command(单发控制字,须与--pid搭配)
+            userCommand.attachCommand = param;
             break;
         default:;
     }

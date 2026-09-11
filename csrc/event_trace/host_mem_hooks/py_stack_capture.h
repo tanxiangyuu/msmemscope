@@ -34,9 +34,10 @@
  * +缓存+scratch格式化+RealMalloc拷贝;走链中Python API可能分配→钩子重入,
  * thread_local重入标记使递归层直接返回(防栈溢出)。
  *
- * 线程模型: 采集在持GIL线程上执行(GIL互斥采集者);pyBuf唯一写者+release store pyState发布,
- * 读者acquire读后释放无竞态;帧串缓存写者与关窗Shutdown互斥锁串行(慢路径,热路径不触锁)
- * 全部容器/串RealMalloc底座。
+ * 线程模型: 采集在持GIL线程上执行(GIL互斥采集者);pyBuf经发布桥(栈分片锁内
+ * 终判+写入)发布——与清表在途条目复位互斥、双采集锁内收敛;读者acquire读后
+ * 释放无竞态;帧串缓存写者与关窗Shutdown互斥锁串行(Shutdown收集键后释放锁再
+ * 持GIL DecRef,锁序与采集GIL→mtx一致,不反向);全部容器/串RealMalloc底座。
  */
 
 namespace hostmem
@@ -72,6 +73,11 @@ class PyStackCapture
     // (泄漏点无py的诚实标注);返回是否追加了py文本
     static bool AppendMixedStack(std::string& frameDesc, const StackRecord& rec, uint64_t unfreedBytes,
                                  uint64_t unfreedCount);
+
+    // 行内数据版(中间快照符号化用): 文本/状态在快照冻结内深拷贝到行内,
+    // 不引用StackRecord——恢复门控后新采集(pyBuf发布桥)不触碰行内数据
+    static bool AppendMixedStack(std::string& frameDesc, uint32_t pyState, const char* pyText, size_t pyLen,
+                                 uint64_t unfreedBytes, uint64_t unfreedCount);
 
    private:
     // 泄漏候选判据,闭窗派生NA与热路径门控共用

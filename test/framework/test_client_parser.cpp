@@ -1702,3 +1702,89 @@ TEST(ClientParser, set_effective_config_expect_project_dir_follow_user_output)
     fileManager.RefreshOutputDir("./testmsmemscope");
     fileManager.SetProjectDir("");
 }
+
+// ==================== 进程外控制通道: --pid/--command 解析与互斥校验 ====================
+
+// --pid解析: 长/短选项均落config.attachPid,不与采集配置耦合
+TEST(ClientParser, pid_parses_positive_integer)
+{
+    std::vector<const char*> argv = {"msmemscope", "--pid", "12345"};
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.attachPid, 12345u);
+    ASSERT_FALSE(cmd.printHelpInfo);
+}
+
+// --pid短选项+--command单发控制字
+TEST(ClientParser, pid_short_option_and_command)
+{
+    std::vector<const char*> argv = {"msmemscope", "-p", "999", "-c", "display memory summary"};
+    optind = 1;
+    ClientParser cliParser;
+    UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+    ASSERT_EQ(cmd.config.attachPid, 999u);
+    ASSERT_EQ(cmd.attachCommand, "display memory summary");
+    ASSERT_FALSE(cmd.printHelpInfo);
+}
+
+// --pid非法值: 空/非数字/混合/0/负/超INT32_MAX → 报错+attachPid不落
+TEST(ClientParser, pid_rejects_invalid_values)
+{
+    const char* invalid[] = {"", "abc", "12x", "0", "-5", "99999999999"};
+    for (const char* bad : invalid)
+    {
+        std::vector<const char*> argv = {"msmemscope", "--pid", bad};
+        optind = 1;
+        ClientParser cliParser;
+        testing::internal::CaptureStdout();
+        UserCommand cmd = cliParser.Parse(argv.size(), const_cast<char**>(argv.data()));
+        std::string capture = testing::internal::GetCapturedStdout();
+        ASSERT_TRUE(cmd.printHelpInfo) << "should reject --pid " << bad;
+        ASSERT_EQ(cmd.config.attachPid, 0u);
+        ASSERT_NE(capture.find("Error: --pid requires a positive integer"), std::string::npos) << bad;
+    }
+}
+
+// 互斥校验(UserCommandPrecheck): --pid不与--compare/启动命令共存;--command须配--pid。
+// 错误路径经Interpretor: precheck失败→ShowHelpInfo,不触发attach执行(成功路径由IT覆盖)
+TEST(ClientParser, pid_mutual_exclusion_errors)
+{
+    // --pid + --compare: 需要两份真实输入文件越过compare自身校验(enableCompare==inputCorrectPaths)
+    const char* p1 = "pid_mutex_a.csv";
+    const char* p2 = "pid_mutex_b.csv";
+    {
+        std::ofstream f1(p1);
+        f1 << "x\n";
+    }
+    {
+        std::ofstream f2(p2);
+        f2 << "x\n";
+    }
+    std::vector<const char*> argv = {"msmemscope", "--pid", "12345", "--compare",
+                                     "--input-path=./pid_mutex_a.csv,./pid_mutex_b.csv"};
+    optind = 1;
+    ClientParser cliParser;
+    testing::internal::CaptureStdout();
+    cliParser.Interpretor(argv.size(), const_cast<char**>(argv.data()));
+    std::string capture = testing::internal::GetCapturedStdout();
+    std::remove(p1);
+    std::remove(p2);
+    ASSERT_NE(capture.find("Error: --pid cannot be combined with --compare"), std::string::npos);
+
+    // --pid + 启动命令
+    argv = {"msmemscope", "--pid", "12345", "--", "python", "train.py"};
+    optind = 1;
+    testing::internal::CaptureStdout();
+    cliParser.Interpretor(argv.size(), const_cast<char**>(argv.data()));
+    capture = testing::internal::GetCapturedStdout();
+    ASSERT_NE(capture.find("Error: --pid cannot be combined with a launch command"), std::string::npos);
+
+    // --command 无 --pid
+    argv = {"msmemscope", "--command", "start"};
+    optind = 1;
+    testing::internal::CaptureStdout();
+    cliParser.Interpretor(argv.size(), const_cast<char**>(argv.data()));
+    capture = testing::internal::GetCapturedStdout();
+    ASSERT_NE(capture.find("Error: --command requires --pid"), std::string::npos);
+}
