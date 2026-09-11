@@ -160,6 +160,8 @@ struct Config
     /* 当前单机最多16卡，用32bits表示足够了，后续有需要再扩充 */
     uint32_t npuSlots;
     bool isEffective;
+    // 进程外控制通道:attach目标进程pid(0=未指定,--pid)
+    uint64_t attachPid = 0;
 };
 
 // 用于承载用户命令行参数的解析结果
@@ -171,6 +173,8 @@ struct UserCommand
     std::vector<std::string> cmd;
     std::vector<std::string> inputPaths;
     std::string outputPath;
+    // 进程外控制通道:-c/--command单发控制字(非空=单发模式)
+    std::string attachCommand;
     /* 日志等级冲突裁决的解析状态：
      * 显式 --log-level 优先于快捷开关；多个快捷开关并存时按"可见度最高者生效" */
     bool logLevelExplicitSet{false};  // 是否显式指定 --log-level

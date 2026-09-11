@@ -79,6 +79,11 @@ class MemoryStateManagerTest : public ::testing::Test
         MemoryStateManager::GetInstance().hostTensorTotal_ = 0;
         MemoryStateManager::GetInstance().deviceUsedCache_.fill(-1);
         MemoryStateManager::GetInstance().processUsedCache_.fill(-1);
+        // 清理display memory新增统计（峰值/池级占用,进程全程语义,跨用例必清）
+        MemoryStateManager::GetInstance().halPeak_.clear();
+        MemoryStateManager::GetInstance().hostPeak_ = 0;
+        MemoryStateManager::GetInstance().hostTensorPeak_ = 0;
+        MemoryStateManager::GetInstance().poolUsage_.clear();
     }
 
     void TearDown() override
@@ -93,6 +98,10 @@ class MemoryStateManagerTest : public ::testing::Test
         MemoryStateManager::GetInstance().hostTensorTotal_ = 0;
         MemoryStateManager::GetInstance().deviceUsedCache_.fill(-1);
         MemoryStateManager::GetInstance().processUsedCache_.fill(-1);
+        MemoryStateManager::GetInstance().halPeak_.clear();
+        MemoryStateManager::GetInstance().hostPeak_ = 0;
+        MemoryStateManager::GetInstance().hostTensorPeak_ = 0;
+        MemoryStateManager::GetInstance().poolUsage_.clear();
     }
 };
 
@@ -351,8 +360,11 @@ std::shared_ptr<MemoryEvent> CreatePoolEvent(EventBaseType type, uint64_t addr, 
     return event;
 }
 
-// AddEvent 内完成统计累计并回填事件字段（生产路径：事件处理阶段一 UpdateMemoryEventState）
-void Handle(std::shared_ptr<MemoryEvent>& event)
+// AddEvent 内完成统计累计并回填事件字段（生产路径：事件处理阶段一 UpdateMemoryEventState）。
+// 按值传参:左值/右值(CreateXxx临时对象)均接受——T&与T重载对左值实参重载决议歧义
+// (C++规则:subsequence比较排除lvalue transformation,identity与copy不可区分);
+// shared_ptr拷贝与原对象共享所有权,AddEvent回填字段原对象可见,与原引用版本等价
+void Handle(std::shared_ptr<MemoryEvent> event)
 {
     MemoryStateManager::GetInstance().AddEvent(event);
 }
@@ -581,4 +593,124 @@ TEST_F(MemoryStateManagerTest, device_used_not_modified_by_usage_update)
     Handle(host);
     EXPECT_EQ(host->deviceUsed, 999);
     EXPECT_EQ(host->processUsed, static_cast<int64_t>(Utility::GetProcessVmRss()));  // HOST 事件仍回填 VmRSS
+}
+
+// ---------- display memory 数据源: 峰值进程全程 / 池级占用 / 卡号集合 ----------
+
+// 峰值语义=进程全程: TRACE_START(ResetUsageBaseline)只重建current,峰值保留历史最大
+TEST_F(MemoryStateManagerTest, hal_peak_is_process_wide_across_baseline_reset)
+{
+    Handle(CreateHalMalloc(0x1000, 0, 100));
+    Handle(CreateHalMalloc(0x2000, 0, 200));
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetHalUsed(0), 300);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetHalPeak(0), 300);
+
+    // free到200: current下降,peak保留
+    Handle(CreateHalFree(0x1000, 0, 100));
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetHalUsed(0), 200);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetHalPeak(0), 300);
+
+    // TRACE_START基线重建: current按存量块(0x2000)重算仍200,峰值不动
+    MemoryStateManager::GetInstance().ResetUsageBaseline();
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetHalUsed(0), 200);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetHalPeak(0), 300);
+
+    // 未记录设备: 0
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetHalUsed(7), 0);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetHalPeak(7), 0);
+}
+
+// 锁页/CPU tensor 分流与峰值(进程全程;free只降current)
+TEST_F(MemoryStateManagerTest, host_pinned_and_tensor_peaks)
+{
+    Handle(CreateHostMalloc(0x1000, 2000, true));   // 锁页内存
+    Handle(CreateHostMalloc(0x2000, 3000, false));  // CPU tensor数据内存
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetHostPinnedUsed(), 2000);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetHostPinnedPeak(), 2000);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetHostTensorUsed(), 3000);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetHostTensorPeak(), 3000);
+
+    // free锁页块: used归零,peak保留;tensor不受影响
+    Handle(CreateHostFree(0x1000, 2000, true));
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetHostPinnedUsed(), 0);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetHostPinnedPeak(), 2000);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetHostTensorUsed(), 3000);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetHostTensorPeak(), 3000);
+}
+
+// 其余池占用: 逐池逐设备 current/peak;FREE(自带size)扣减;peak进程全程
+TEST_F(MemoryStateManagerTest, generic_pool_usage_tracked_per_pool_per_device)
+{
+    // pta dev0: +1000 → current/peak 1000
+    Handle(CreatePoolEvent(EventBaseType::MALLOC, 0x1000, 0, 1000, 1, 1, PoolType::PTA_CACHING));
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetPoolCurrent(PoolType::PTA_CACHING, 0), 1000);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetPoolPeak(PoolType::PTA_CACHING, 0), 1000);
+
+    // 同池不同卡互不影响;不同池同卡互不影响
+    Handle(CreatePoolEvent(EventBaseType::MALLOC, 0x2000, 1, 500, 1, 1, PoolType::PTA_CACHING));
+    Handle(CreatePoolEvent(EventBaseType::MALLOC, 0x3000, 0, 700, 1, 1, PoolType::MINDSPORE));
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetPoolCurrent(PoolType::PTA_CACHING, 1), 500);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetPoolCurrent(PoolType::PTA_CACHING, 0), 1000);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetPoolCurrent(PoolType::MINDSPORE, 0), 700);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetPoolPeak(PoolType::MINDSPORE, 0), 700);
+
+    // 未记录的池/设备返回0(含INVALID)
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetPoolCurrent(PoolType::ATB, 0), 0);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetPoolPeak(PoolType::ATB, 0), 0);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetPoolCurrent(PoolType::INVALID, 0), 0);
+
+    // FREE(自带size)扣减: current归零,peak保留
+    Handle(CreatePoolEvent(EventBaseType::FREE, 0x1000, 0, 1000, 1, 1, PoolType::PTA_CACHING));
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetPoolCurrent(PoolType::PTA_CACHING, 0), 0);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetPoolPeak(PoolType::PTA_CACHING, 0), 1000);
+
+    // TRACE_START基线重建: current按存量块重算,peak保留
+    MemoryStateManager::GetInstance().ResetUsageBaseline();
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetPoolCurrent(PoolType::PTA_CACHING, 1), 500);  // 0x2000存量块
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetPoolCurrent(PoolType::PTA_CACHING, 0), 0);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetPoolPeak(PoolType::PTA_CACHING, 0), 1000);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetPoolCurrent(PoolType::MINDSPORE, 0), 700);
+}
+
+// 池级负数截断: 释放量超过current → 截断0,峰值不受影响
+TEST_F(MemoryStateManagerTest, generic_pool_usage_negative_truncated)
+{
+    Handle(CreatePoolEvent(EventBaseType::MALLOC, 0x1000, 0, 1000, 1, 1, PoolType::PTA_WORKSPACE));
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetPoolCurrent(PoolType::PTA_WORKSPACE, 0), 1000);
+
+    // FREE size 2000 > current 1000 → 截断0
+    Handle(CreatePoolEvent(EventBaseType::FREE, 0x1000, 0, 2000, 1, 1, PoolType::PTA_WORKSPACE));
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetPoolCurrent(PoolType::PTA_WORKSPACE, 0), 0);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetPoolPeak(PoolType::PTA_WORKSPACE, 0), 1000);
+
+    // 截断后再次分配: current从0起,peak仍为历史最大
+    Handle(CreatePoolEvent(EventBaseType::MALLOC, 0x2000, 0, 300, 1, 1, PoolType::PTA_WORKSPACE));
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetPoolCurrent(PoolType::PTA_WORKSPACE, 0), 300);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetPoolPeak(PoolType::PTA_WORKSPACE, 0), 1000);
+}
+
+// GetUsedDeviceList: hal有数据(used/peak任一) ∪ device/process缓存非-1,升序去重;
+// 池级占用设备不入集合
+TEST_F(MemoryStateManagerTest, get_used_device_list_union_and_dedup)
+{
+    EXPECT_TRUE(MemoryStateManager::GetInstance().GetUsedDeviceList().empty());
+
+    // hal dev0有数据 → [0];缓存: dev2=deviceUsed, dev5=processUsed(同设备双缓存只出现一次)
+    Handle(CreateHalMalloc(0x1000, 0, 100));
+    MemoryStateManager::GetInstance().UpdateDeviceUsedCache(2, 100);
+    MemoryStateManager::GetInstance().UpdateDeviceUsedCache(5, 200);
+    MemoryStateManager::GetInstance().UpdateProcessUsedCache(5, 300);
+    // 池级占用设备(dev9)不进入卡号集合
+    Handle(CreatePoolEvent(EventBaseType::MALLOC, 0x2000, 9, 100, 1, 1, PoolType::ATB));
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetUsedDeviceList(), (std::vector<int32_t>{0, 2, 5}));
+
+    // hal free到0: used清零但peak仍在 → dev0仍列出(hal有数据=used/peak任一)
+    Handle(CreateHalFree(0x1000, 0, 100));
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetUsedDeviceList(), (std::vector<int32_t>{0, 2, 5}));
+
+    // 缓存清为-1 → 从列表移除
+    MemoryStateManager::GetInstance().UpdateDeviceUsedCache(2, -1);
+    MemoryStateManager::GetInstance().UpdateProcessUsedCache(5, -1);
+    MemoryStateManager::GetInstance().UpdateDeviceUsedCache(5, -1);
+    EXPECT_EQ(MemoryStateManager::GetInstance().GetUsedDeviceList(), (std::vector<int32_t>{0}));
 }

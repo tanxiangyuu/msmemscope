@@ -202,8 +202,9 @@ MemoryState* MemoryStateManager::AddEvent(std::shared_ptr<MemoryEvent>& event)
 
 void MemoryStateManager::UpdateUsage(const std::shared_ptr<MemoryEvent>& event)
 {
-    // 影子事件不累计：影子期变更不入统计，存量块由 TRACE_START 基线（ResetUsageBaseline）计入
-    if (event->isShadowEvent)
+    // 影子事件不累计：影子期变更不入统计，存量块由 TRACE_START 基线（ResetUsageBaseline）计入；
+    // 仅分配/释放参与增减——访问类事件(ATEN/ATB ACCESS)带size但非增减,误扣generic池current
+    if (event->isShadowEvent || (!IsAllocEventType(event->eventType) && !IsFreeEventType(event->eventType)))
     {
         return;
     }
@@ -211,6 +212,11 @@ void MemoryStateManager::UpdateUsage(const std::shared_ptr<MemoryEvent>& event)
     const int64_t size = event->size;
     if (event->poolType == PoolType::HAL)
     {
+        // 幽灵FREE等无有效设备事件不累计(非法设备号会污染卡号集合与池表)
+        if (event->device < 0 || event->device >= static_cast<int32_t>(deviceUsedCache_.size()))
+        {
+            return;
+        }
         // HAL 事件（DEVICE 空间）：used = 本进程 HAL 维度活跃累计（MALLOC 含本次、FREE 不含本次）
         halUsed_[event->device] += (IsAllocEventType(event->eventType) ? size : -size);
         if (halUsed_[event->device] < 0)
@@ -219,6 +225,11 @@ void MemoryStateManager::UpdateUsage(const std::shared_ptr<MemoryEvent>& event)
             LOG_WARN("[device %d]: hal used goes negative (%lld), truncated to 0", event->device,
                      halUsed_[event->device]);
             halUsed_[event->device] = 0;
+        }
+        // 峰值=进程全程历史最大（display memory summary 数据源，不随 TRACE_START 重置）
+        if (halUsed_[event->device] > halPeak_[event->device])
+        {
+            halPeak_[event->device] = halUsed_[event->device];
         }
         event->used = halUsed_[event->device];
     }
@@ -230,6 +241,10 @@ void MemoryStateManager::UpdateUsage(const std::shared_ptr<MemoryEvent>& event)
         {
             LOG_WARN("host used goes negative (%lld), truncated to 0", hostUsed_);
             hostUsed_ = 0;
+        }
+        if (hostUsed_ > hostPeak_)
+        {
+            hostPeak_ = hostUsed_;
         }
         event->used = hostUsed_;
         event->processUsed = static_cast<int64_t>(Utility::GetProcessVmRss());
@@ -244,8 +259,36 @@ void MemoryStateManager::UpdateUsage(const std::shared_ptr<MemoryEvent>& event)
             LOG_WARN("host tensor total goes negative (%lld), truncated to 0", hostTensorTotal_);
             hostTensorTotal_ = 0;
         }
+
+        if (hostTensorTotal_ > hostTensorPeak_)
+        {
+            hostTensorPeak_ = hostTensorTotal_;
+        }
         event->used = hostTensorTotal_;
         event->processUsed = static_cast<int64_t>(Utility::GetProcessVmRss());
+    }
+    else if (event->poolType == PoolType::PTA_CACHING || event->poolType == PoolType::PTA_WORKSPACE ||
+             event->poolType == PoolType::MINDSPORE || event->poolType == PoolType::ATB)
+    {
+        // 无有效设备号不累计（幽灵FREE等）
+        if (event->device < 0 || event->device >= static_cast<int32_t>(deviceUsedCache_.size()))
+        {
+            return;
+        }
+        // 其余池（display memory summary 数据源）：current = MALLOC+=size / FREE-=size（负截断 0），
+        // peak = 进程全程历史最大；used/total/processUsed 均不动（池事件报告时已填）
+        auto& usage = poolUsage_[event->poolType][event->device];
+        usage.current += (IsAllocEventType(event->eventType) ? size : -size);
+        if (usage.current < 0)
+        {
+            LOG_WARN("[pool %d][device %d]: pool usage goes negative (%lld), truncated to 0",
+                     static_cast<int>(event->poolType), event->device, usage.current);
+            usage.current = 0;
+        }
+        if (usage.current > usage.peak)
+        {
+            usage.peak = usage.current;
+        }
     }
     // 池事件：used/total/processUsed 均不动——used/total 报告时已填（HealthAnalyzer 依赖），
     // processUsed 由报告层按设备读 dcmi_get_npu_proc_mem_info 查询缓存（QueryProcessUsed 写入）填值
@@ -254,14 +297,23 @@ void MemoryStateManager::UpdateUsage(const std::shared_ptr<MemoryEvent>& event)
 void MemoryStateManager::ResetUsageBaseline()
 {
     // 重置后重新累计：start 时刻存量块为当前事实（含影子期已转正块，防累计失真），
-    // 避免与既有累计叠加造成漂移。QueryLiveBlocks 内部加锁，此处不加锁（事件处理单线程）
+    // 避免与既有累计叠加造成漂移。全程持锁——控制通道监听线程并发读卡号集合/池占用，
+    // 无锁写与持锁读构成数据竞争。峰值不重置——峰值语义=进程全程
+    std::lock_guard<std::mutex> lock(mtx_);
     halUsed_.clear();
     hostUsed_ = 0;
     hostTensorTotal_ = 0;
+    for (auto& poolEntry : poolUsage_)
+    {
+        for (auto& devEntry : poolEntry.second)
+        {
+            devEntry.second.current = 0;
+        }
+    }
 
     LiveBlockFilter filter;
-    filter.poolTypes = {PoolType::HAL, PoolType::HOST};
-    for (const auto& blk : QueryLiveBlocks(filter))
+    // 全部池：HAL/HOST 计入既有累计，其余池计入 poolUsage_ current
+    for (const auto& blk : QueryLiveBlocksLocked(filter))
     {
         if (blk.poolType == PoolType::HOST && blk.isPinned)
         {
@@ -271,9 +323,15 @@ void MemoryStateManager::ResetUsageBaseline()
         {
             hostTensorTotal_ += static_cast<int64_t>(blk.size);
         }
-        else
+        else if (blk.poolType == PoolType::HAL)
         {
             halUsed_[blk.device] += static_cast<int64_t>(blk.size);
+        }
+        else if (blk.poolType == PoolType::PTA_CACHING || blk.poolType == PoolType::PTA_WORKSPACE ||
+                 blk.poolType == PoolType::MINDSPORE || blk.poolType == PoolType::ATB)
+        {
+            auto& usage = poolUsage_[blk.poolType][blk.device];
+            usage.current += static_cast<int64_t>(blk.size);
         }
     }
 }
@@ -316,6 +374,114 @@ int64_t MemoryStateManager::GetProcessUsed(int32_t devId) const
     }
     std::lock_guard<std::mutex> lock(mtx_);
     return processUsedCache_[devId];
+}
+
+int64_t MemoryStateManager::GetHalUsed(int32_t devId) const
+{
+    std::lock_guard<std::mutex> lock(mtx_);
+    auto it = halUsed_.find(devId);
+    return it == halUsed_.end() ? 0 : it->second;
+}
+
+int64_t MemoryStateManager::GetHalPeak(int32_t devId) const
+{
+    std::lock_guard<std::mutex> lock(mtx_);
+    auto it = halPeak_.find(devId);
+    return it == halPeak_.end() ? 0 : it->second;
+}
+
+int64_t MemoryStateManager::GetHostPinnedUsed() const
+{
+    std::lock_guard<std::mutex> lock(mtx_);
+    return hostUsed_;
+}
+
+int64_t MemoryStateManager::GetHostPinnedPeak() const
+{
+    std::lock_guard<std::mutex> lock(mtx_);
+    return hostPeak_;
+}
+
+int64_t MemoryStateManager::GetHostTensorUsed() const
+{
+    std::lock_guard<std::mutex> lock(mtx_);
+    return hostTensorTotal_;
+}
+
+int64_t MemoryStateManager::GetHostTensorPeak() const
+{
+    std::lock_guard<std::mutex> lock(mtx_);
+    return hostTensorPeak_;
+}
+
+int64_t MemoryStateManager::GetPoolCurrent(PoolType pool, int32_t devId) const
+{
+    std::lock_guard<std::mutex> lock(mtx_);
+    auto poolIt = poolUsage_.find(pool);
+    if (poolIt == poolUsage_.end())
+    {
+        return 0;
+    }
+    auto devIt = poolIt->second.find(devId);
+    return devIt == poolIt->second.end() ? 0 : devIt->second.current;
+}
+
+int64_t MemoryStateManager::GetPoolPeak(PoolType pool, int32_t devId) const
+{
+    std::lock_guard<std::mutex> lock(mtx_);
+    auto poolIt = poolUsage_.find(pool);
+    if (poolIt == poolUsage_.end())
+    {
+        return 0;
+    }
+    auto devIt = poolIt->second.find(devId);
+    return devIt == poolIt->second.end() ? 0 : devIt->second.peak;
+}
+
+std::vector<int32_t> MemoryStateManager::GetUsedDeviceList() const
+{
+    // 当前使用卡号：hal 有数据(used/peak任一) ∪ device/process 缓存非 -1 的设备（升序，去重）
+    std::lock_guard<std::mutex> lock(mtx_);
+    std::vector<int32_t> devices;
+    auto addDevice = [&devices](int32_t dev)
+    {
+        if (std::find(devices.begin(), devices.end(), dev) == devices.end())
+        {
+            devices.push_back(dev);
+        }
+    };
+    // 仅物理卡号(0..15)入列:幽灵FREE等无有效设备的事件不得污染卡号集合
+    const int32_t maxDev = static_cast<int32_t>(deviceUsedCache_.size());
+    for (const auto& kv : halUsed_)
+    {
+        if (kv.first >= 0 && kv.first < maxDev)
+        {
+            addDevice(kv.first);
+        }
+    }
+    for (const auto& kv : halPeak_)
+    {
+        if (kv.first >= 0 && kv.first < maxDev)
+        {
+            addDevice(kv.first);
+        }
+    }
+    for (size_t i = 0; i < deviceUsedCache_.size(); ++i)
+    {
+        if (deviceUsedCache_[i] >= 0)
+        {
+            addDevice(static_cast<int32_t>(i));
+        }
+    }
+    for (size_t i = 0; i < processUsedCache_.size(); ++i)
+    {
+        if (processUsedCache_[i] >= 0)
+        {
+            addDevice(static_cast<int32_t>(i));
+        }
+    }
+    std::sort(devices.begin(), devices.end());
+    return devices;
 }
 
 bool MemoryStateManager::DeteleState(const PoolType& poolType, const MemoryStateKey& key)
@@ -427,6 +593,11 @@ std::vector<std::pair<PoolType, MemoryStateKey>> MemoryStateManager::GetAllState
 std::vector<LiveBlockInfo> MemoryStateManager::QueryLiveBlocks(const LiveBlockFilter& filter) const
 {
     std::lock_guard<std::mutex> lock(mtx_);
+    return QueryLiveBlocksLocked(filter);
+}
+
+std::vector<LiveBlockInfo> MemoryStateManager::QueryLiveBlocksLocked(const LiveBlockFilter& filter) const
+{
     std::vector<LiveBlockInfo> result;
     for (const auto& poolPair : poolsMap_)
     {
@@ -440,6 +611,13 @@ std::vector<LiveBlockInfo> MemoryStateManager::QueryLiveBlocks(const LiveBlockFi
             const auto& state = statePair.second;
             // 跳过幽灵state（events中只有FREE事件，无对应分配事件）
             if (state.events.empty() || !IsAllocEventType(state.events[0]->eventType))
+            {
+                continue;
+            }
+            // 生命周期已结束(尾部FREE,含containment释放路径):不参与存活判定。
+            // 生产管线stage-3按FREE事件addr删除,此处兜底残留块(内层地址释放删
+            // 不掉块起始key)与测试直连AddEvent绕过stage-3的场景
+            if (IsFreeEventType(state.events.back()->eventType))
             {
                 continue;
             }
