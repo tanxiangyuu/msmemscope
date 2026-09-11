@@ -178,6 +178,10 @@ struct FakeSvcData
     std::vector<FakeBucket> buckets;
     std::vector<FakeBucket> preWindowBuckets;  // dump_pre_window_distribution投影
     std::vector<FakeBlock> blocks;
+    // 窗口中间快照(dump_interim_snapshot投影,display host_leak summary数据源):
+    // 与闭窗投影共享stacks/buckets/preWindowBuckets/series(同一窗口的当前状态),
+    // stats为MsmemscopeInterimStats(含frozenSkip/snapTsNs/snapshotDegraded)
+    MsmemscopeInterimStats interimStats{};
 };
 
 FakeSvcData g_fakeSvcData;
@@ -264,9 +268,58 @@ void FakeSvcDumpPreWindowDist(void (*emit)(void* ctx, uint64_t rangeLow, uint64_
     }
 }
 
-const MsmemscopeHostmemSvc g_fakeSvc = {FakeSvcSetEnabled, FakeSvcGetStats, FakeSvcDumpLiveBlocks,
-                                        FakeSvcDumpStackStats, FakeSvcDumpUnfreedSeries, FakeSvcDumpSizeDist,
-                                        FakeSvcDumpPreWindowDist};
+void FakeSvcDumpInterimSnapshot(void (*emitStack)(void* ctx, uint64_t stackId, uint64_t allocCount,
+                                                  uint64_t allocBytes, uint64_t freedCount, uint64_t freedBytes,
+                                                  uint64_t unfreedCount, uint64_t unfreedBytes, uint64_t maxBlockSize,
+                                                  uint64_t maxAllocTsNs, uint64_t freedLifetimeSumNs,
+                                                  uint64_t liveAgeSumNs, const char* frameDesc, size_t len),
+                                void (*emitSizeDist)(void* ctx, uint64_t rangeLow, uint64_t rangeHigh,
+                                                     uint64_t blockCount, uint64_t blockBytes),
+                                void (*emitPreWindow)(void* ctx, uint64_t rangeLow, uint64_t rangeHigh,
+                                                      uint64_t blockCount, uint64_t blockBytes),
+                                void (*emitSeries)(void* ctx, uint64_t stackId, uint32_t beat, uint64_t liveBytes,
+                                                   uint32_t liveCount, uint32_t flags),
+                                MsmemscopeInterimStats* stats, void* ctx)
+{
+    if (stats != nullptr)
+    {
+        *stats = g_fakeSvcData.interimStats;
+    }
+    if (emitStack != nullptr)
+    {
+        for (const auto& r : g_fakeSvcData.stacks)
+        {
+            emitStack(ctx, r.stackId, r.allocCount, r.allocBytes, r.freedCount, r.freedBytes, r.unfreedCount,
+                      r.unfreedBytes, r.maxBlockSize, r.maxAllocTsNs, r.freedLifetimeSumNs, r.liveAgeSumNs,
+                      r.frameDesc.data(), r.frameDesc.size());
+        }
+    }
+    if (emitSizeDist != nullptr)
+    {
+        for (const auto& b : g_fakeSvcData.buckets)
+        {
+            emitSizeDist(ctx, b.rangeLow, b.rangeHigh, b.blockCount, b.blockBytes);
+        }
+    }
+    if (emitPreWindow != nullptr)
+    {
+        for (const auto& b : g_fakeSvcData.preWindowBuckets)
+        {
+            emitPreWindow(ctx, b.rangeLow, b.rangeHigh, b.blockCount, b.blockBytes);
+        }
+    }
+    if (emitSeries != nullptr)
+    {
+        for (const auto& s : g_fakeSvcData.series)
+        {
+            emitSeries(ctx, s.stackId, s.beat, s.liveBytes, s.liveCount, s.flags);
+        }
+    }
+}
+
+const MsmemscopeHostmemSvc g_fakeSvc = {FakeSvcSetEnabled,      FakeSvcGetStats,     FakeSvcDumpLiveBlocks,
+                                        FakeSvcDumpStackStats,  FakeSvcDumpUnfreedSeries, FakeSvcDumpSizeDist,
+                                        FakeSvcDumpPreWindowDist, FakeSvcDumpInterimSnapshot};
 
 EventReport& FakeReport()
 {
@@ -1084,4 +1137,112 @@ TEST_F(HostLeakAnalyzerTest, series_window_isolation)
     EXPECT_NE(text.find("degraded no_series"), std::string::npos);
     RemoveReportFiles(REPORT_DIR, "1");
     RemoveReportFiles(REPORT_DIR, "2");
+}
+
+// UT-IA1: 窗口关着→"no active window"(false);不查IsTracingEnabled(窗口状态只由
+// STAGE事件驱动,分析器windows_是唯一真相)
+TEST_F(HostLeakAnalyzerTest, interim_no_window)
+{
+    std::string text;
+    EXPECT_FALSE(HostLeakAnalyzer::GetInstance().QueryInterimOverview(text));
+    EXPECT_EQ(text, "no active window");
+}
+
+// UT-IA2: 窗口开着→中间快照渲染(display host_leak summary)。构造复用UT-CA3
+// (栈5=常驻early 1MiB平稳 + 栈6=持续增长LSI 82),interimStats带frozenSkip与
+// snapTsNs。验证:Window行interim标注/冻结标注/疑似榜/常驻子块(interim截断文案
+// "shown of")/拍数按snapTs折算(51拍)/不写报告文件不写CSV
+TEST_F(HostLeakAnalyzerTest, interim_snapshot_golden)
+{
+    const uint64_t pid = 1234;
+    const uint64_t ns = 1000000000ULL;
+    const uint64_t windowStart = 100 * ns;
+    const uint64_t snapTs = 150 * ns;  // 快照时刻(窗口中途)
+    // interim stats: 全局合计(派生口径)+冻结跳过计数+快照时刻+序列锚点
+    MsmemscopeInterimStats& st = g_fakeSvcData.interimStats;
+    st.liveBlockCount = 102;
+    st.totalAllocCount = 102 + 3;  // 冻结期3次alloc计入totalAlloc
+    st.totalAllocBytes = 101000 + 1048576 + 330;
+    st.totalFreedCount = 2;
+    st.totalFreedBytes = 330;
+    st.frozenSkipAllocCount = 3;
+    st.frozenSkipAllocBytes = 330;
+    st.snapTsNs = snapTs;
+    st.seriesStartTsNs = windowStart;
+    st.seriesBeatIntervalNs = ns;
+    st.sampleRate = 1;
+    // 栈5:窗口前1%分配的1MiB常驻池(序列平稳G≈0)→常驻early(同UT-CA3构造)
+    FakeStackRow stack5;
+    stack5.stackId = 5;
+    stack5.allocCount = 1;
+    stack5.allocBytes = 1048576;
+    stack5.unfreedCount = 1;
+    stack5.unfreedBytes = 1048576;
+    stack5.maxBlockSize = 1048576;
+    stack5.maxAllocTsNs = windowStart + ns;
+    stack5.frameDesc = "pool\n";
+    g_fakeSvcData.stacks.push_back(stack5);
+    for (uint32_t b = 0; b <= 100; ++b)
+    {
+        g_fakeSvcData.series.push_back(FakeSeriesRow{5, b, b < 5 ? 0 : 1048576, b < 5 ? 0 : 1, 0});
+    }
+    // 栈6:持续增长泄漏(每拍+1000B×101拍)→LSI=82疑似
+    FakeStackRow stack6;
+    stack6.stackId = 6;
+    stack6.allocCount = 101;
+    stack6.allocBytes = 101000;
+    stack6.unfreedCount = 101;
+    stack6.unfreedBytes = 101000;
+    stack6.maxBlockSize = 1000;
+    stack6.maxAllocTsNs = snapTs - ns;
+    stack6.frameDesc = "leak\n";
+    g_fakeSvcData.stacks.push_back(stack6);
+    for (uint32_t b = 0; b <= 100; ++b)
+    {
+        g_fakeSvcData.series.push_back(FakeSeriesRow{6, b, 1000ULL * (b + 1), b + 1, 0});
+    }
+    g_fakeSvcData.buckets.push_back(FakeBucket{0, 256, 51, 51000});
+    g_fakeSvcData.buckets.push_back(FakeBucket{256, 1024, 50, 50000});
+    g_fakeSvcData.buckets.push_back(FakeBucket{1048576, UINT64_MAX, 1, 1048576});
+
+    Dispatch(CreateStageStart(pid, 3, windowStart));
+    std::string text;
+    ASSERT_TRUE(HostLeakAnalyzer::GetInstance().QueryInterimOverview(text));
+
+    // Window行interim标注(时长=快照时刻-窗口起点,50s)
+    EXPECT_NE(text.find("(interim snapshot, window open)"), std::string::npos);
+    EXPECT_NE(text.find("duration: 50s"), std::string::npos);
+    // 冻结标注(冻结期alloc只统计不入块表)
+    EXPECT_NE(text.find("Snapshot freeze: 3 allocations / 330B during snapshot not captured in block table "
+                       "(stats include them)"),
+              std::string::npos);
+    // Tracked(interim派生口径)
+    EXPECT_NE(text.find("Tracked: 105 allocations / 1149906B allocated; 2 freed / 330B"), std::string::npos);
+    // 疑似榜与常驻子块(interim截断文案"shown of";常驻不占TOP N名额)
+    EXPECT_NE(text.find("1. [suspected_leak] LSI 82"), std::string::npos);
+    EXPECT_NE(text.find("Resident baselines (1 shown of 1 stacks, 1MiB;"), std::string::npos);
+    EXPECT_NE(text.find("1. [resident/early] LSI 31"), std::string::npos);
+    // 拍数按快照时刻折算: (150s-100s)/1s+1=51拍
+    EXPECT_NE(text.find("beats=51(50s, 1s/beat; interim snapshot at "), std::string::npos);
+    // 中间概览不落盘: 不写leak_overview与block_detail
+    EXPECT_FALSE(FileExists(REPORT_DIR + "/leak_overview_3.txt"));
+    EXPECT_EQ(text.find("addr,size,alloc_ts"), std::string::npos);
+}
+
+// UT-IA3: 窗口开着但钩子未装配(bind未执行,SetHostMemSvcForTest(nullptr))→
+// 快照不可得:退化概览标注,窗口状态不被破坏(后续闭窗仍正常)
+TEST_F(HostLeakAnalyzerTest, interim_snapshot_unbound)
+{
+    const uint64_t pid = 1234;
+    FakeReport().SetHostMemSvcForTest(nullptr);  // 未装配态(与SetUp注入相对)
+    Dispatch(CreateStageStart(pid, 4, 100));
+    std::string text;
+    ASSERT_TRUE(HostLeakAnalyzer::GetInstance().QueryInterimOverview(text));
+    EXPECT_NE(text.find("Snapshot: unavailable (host hook not bound / query failed)"), std::string::npos);
+    EXPECT_NE(text.find("(interim snapshot, window open; snapshot unavailable)"), std::string::npos);
+    // 窗口仍开:后续闭窗拉快照出报告不受影响
+    FakeReport().SetHostMemSvcForTest(&g_fakeSvc);
+    Dispatch(CreateStageEnd(pid, 4, 200));
+    EXPECT_FALSE(HostLeakAnalyzer::GetInstance().windows_.at(pid).open);
+    RemoveReportFiles(REPORT_DIR, "4");
 }

@@ -314,13 +314,15 @@ void InefficientAnalyzer::TemporaryIdleness(std::shared_ptr<MemoryEvent>& event,
 
 InefficientAnalyzer::~InefficientAnalyzer() { UnSubscribe(); }
 
+const char* InefficientAnalyzer::GetName() const { return "inefficient"; }
+
 void InefficientAnalyzer::Subscribe()
 {
     auto func = std::bind(&InefficientAnalyzer::EventHandle, this, std::placeholders::_1, std::placeholders::_2);
     std::vector<EventBaseType> eventTypes{EventBaseType::MALLOC, EventBaseType::ACCESS, EventBaseType::FREE,
                                           EventBaseType::OP_LAUNCH};
     EventDispatcher::GetInstance().Subscribe(SubscriberId::INEFFICIENT_ANALYZER, eventTypes,
-                                             EventDispatcher::Priority::High, func);
+                                             EventDispatcher::Priority::High, func, GetName());
 }
 
 void InefficientAnalyzer::UnSubscribe() const

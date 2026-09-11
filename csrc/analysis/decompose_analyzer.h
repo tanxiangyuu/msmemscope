@@ -28,6 +28,7 @@ class DecomposeAnalyzer : public AnalyzerBase
    public:
     static DecomposeAnalyzer& GetInstance();
     void EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state) override;
+    const char* GetName() const override;  // "decompose"(控制通道display analyzer)
     void Subscribe();
     void UnSubscribe() const;
 

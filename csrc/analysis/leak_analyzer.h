@@ -24,6 +24,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "analyzer_base.h"
 #include "comm_def.h"
 #include "config_info.h"
 #include "constant.h"
@@ -68,11 +69,12 @@ struct LeakMemKeyHash
 
 using LeakSumsTable = std::unordered_map<LeakMemKey, LeakInfo, LeakMemKeyHash>;
 
-class LeakAnalyzer
+class LeakAnalyzer : public AnalyzerBase
 {
    public:
     static LeakAnalyzer& GetInstance();
-    void EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state);
+    void EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state) override;
+    const char* GetName() const override;  // "leak"(控制通道display analyzer)
     void Subscribe();
     void UnSubscribe() const;
 

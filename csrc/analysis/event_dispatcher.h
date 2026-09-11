@@ -23,6 +23,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -44,6 +45,8 @@ enum class SubscriberId : uint8_t
     STEP_INNER_ANALYZER,
     // host内存泄漏检测分析器，置于废弃占位之后追加，不改变既有序号
     HOST_LEAKS_ANALYZER,
+    // 进程外控制通道订阅者(display analyzer输出时过滤自身),置于HOST_LEAKS_ANALYZER之后,不改变既有序号
+    CONTROL_CHANNEL,
 };
 
 class EventDispatcher
@@ -64,6 +67,7 @@ class EventDispatcher
         SubscriberId id;
         Priority priority;
         HandlerFunc handler;
+        std::string name;  // 新增:订阅者名字(analyzer GetName返回值,display analyzer枚举来源)
 
         // 用于排序，优先级高的排在前面
         bool operator<(const Subscriber& other) const
@@ -78,8 +82,10 @@ class EventDispatcher
     static EventDispatcher& GetInstance();
     void DispatchEvent(std::shared_ptr<EventBase>& event, MemoryState* state);
     void Subscribe(const SubscriberId& id, const std::vector<EventBaseType>& eventTypes, const Priority& priority,
-                   const HandlerFunc& func);
+                   const HandlerFunc& func, const std::string& name);
     void UnSubscribe(const SubscriberId& id);
+    // 新增:枚举已注册订阅者名字(按首次注册顺序去重,display analyzer数据源)
+    std::vector<std::string> GetSubscriberNames() const;
 
    private:
     EventDispatcher() = default;
@@ -103,6 +109,9 @@ class EventDispatcher
     // 正常路径锁竞争毫秒级,15s上界不可达
     mutable std::timed_mutex mutex_;
     std::unordered_map<EventBaseType, std::vector<Subscriber>> eventSubscribers_;
+    // 名字首次注册序(mutex_保护): 订阅表为unordered_map,按事件类型遍历的顺序
+    // 不确定,GetSubscriberNames的"首次注册序"由此表提供
+    std::vector<std::string> subscriberNameOrder_;
 };
 
 }  // namespace MemScope

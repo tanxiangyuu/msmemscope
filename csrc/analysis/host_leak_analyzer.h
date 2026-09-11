@@ -21,10 +21,12 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <ostream>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include "analyzer_base.h"
 #include "event.h"
 #include "event_dispatcher.h"
 #include "host_confidence.h"
@@ -54,19 +56,25 @@ namespace MemScope
  * 诚实性契约:块表是唯一账本,无丢包/完整度/校准概念;追踪策略(块阈值/采样率/
  * 键深/溢出通道降级/截断)在概览"数据健康度分析"章节如实标注
  */
-class HostLeakAnalyzer
+class HostLeakAnalyzer : public AnalyzerBase
 {
    public:
     static HostLeakAnalyzer& GetInstance();
     // dispatcher入口(经bind回调的C包装层→SendEvent→EventRouter→EventDispatcher同步进入,
     // processMutex_已串行化;内部另有mutex_防御UT直调并发)
-    void EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state);
+    void EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state) override;
+    const char* GetName() const override;  // "host_leak"(控制通道display analyzer)
+    // 窗口中间概览(display host_leak summary数据源):
+    // 窗口开着→经钩子中间快照(不闭窗不清零)渲染概览(内容同leak_overview,
+    // 常驻子块截断≤TOP N(同MSMEMSCOPE_HOSTMEM_TOP_N));窗口关着→false且text="no active window"
+    bool QueryInterimOverview(std::string& text);
     void Subscribe();
     void UnSubscribe() const;
 
    private:
     struct WindowState;
     struct StackRow;
+    struct InterimCollector;  // 中间快照收集器(定义见下方,前向声明供RenderInterimOverview签名)
 
    private:
     HostLeakAnalyzer();
@@ -83,6 +91,13 @@ class HostLeakAnalyzer
     // 报告输出:atExit=true为析构兜底路径(窗口未闭,dump_*不可调,仅stats尽力而为值,
     // 报告标注不完整;正常路径atExit=false且快照齐备)
     void WriteWindowReport(uint64_t pid, WindowState& ws, bool atExit);
+    // 中间概览渲染(display host_leak summary):内容同leak_overview,差异——
+    //   Window行标注(interim snapshot, window open)且时长基准=快照时刻(snapTsNs);
+    //   冻结标注(frozenSkip>0时,冻结期alloc只统计不入块表);
+    //   快照降级标注(snapshotDegraded位,仅影响本次快照不污染整窗);
+    //   常驻子块截断≤TOP N(同MSMEMSCOPE_HOSTMEM_TOP_N,上限1024);不写block_detail CSV
+    void RenderInterimOverview(uint64_t pid, uint64_t stageId, uint64_t startTs, InterimCollector& ic,
+                               std::string& text);
     // dump_*投影收集回调(纯C签名,ctx为对应收集向量*)
     static void CollectStackStatsCb(void* ctx, uint64_t stackId, uint64_t allocCount, uint64_t allocBytes,
                                     uint64_t freedCount, uint64_t freedBytes, uint64_t unfreedCount,
@@ -94,9 +109,23 @@ class HostLeakAnalyzer
     static void CollectLiveBlockCb(void* ctx, uint64_t addr, uint64_t size, uint64_t allocTs, uint64_t stackId);
     static void CollectSeriesCb(void* ctx, uint64_t stackId, uint32_t beat, uint64_t liveBytes, uint32_t liveCount,
                                 uint32_t flags);
+    // 中间快照投影收集回调(纯C签名,ctx为InterimCollector*;签名与闭窗dump_*对应
+    // 项一致,钩子经dump_interim_snapshot锁外emit交付)
+    static void CollectInterimStackCb(void* ctx, uint64_t stackId, uint64_t allocCount, uint64_t allocBytes,
+                                      uint64_t freedCount, uint64_t freedBytes, uint64_t unfreedCount,
+                                      uint64_t unfreedBytes, uint64_t maxBlockSize, uint64_t maxAllocTsNs,
+                                      uint64_t freedLifetimeSumNs, uint64_t liveAgeSumNs, const char* frameDesc,
+                                      size_t len);
+    static void CollectInterimSizeDistCb(void* ctx, uint64_t rangeLow, uint64_t rangeHigh, uint64_t blockCount,
+                                         uint64_t blockBytes);
+    static void CollectInterimPreWindowCb(void* ctx, uint64_t rangeLow, uint64_t rangeHigh, uint64_t blockCount,
+                                          uint64_t blockBytes);
+    static void CollectInterimSeriesCb(void* ctx, uint64_t stackId, uint32_t beat, uint64_t liveBytes,
+                                       uint32_t liveCount, uint32_t flags);
     // 置信度条目落盘(疑似榜与常驻子块共用,4行/条目; row=候选栈闭窗行,与
-    // r.stackId对应,缺失(防御)时统计列按0渲染)
-    static void WriteConfidenceEntry(std::ofstream& out, const PerStackResult& r, const StackRow* row, size_t idx,
+    // r.stackId对应,缺失(防御)时统计列按0渲染)。std::ostream&: 文件报告与
+    // 中间概览string渲染共用
+    static void WriteConfidenceEntry(std::ostream& out, const PerStackResult& r, const StackRow* row, size_t idx,
                                      bool resident);
 
    private:
@@ -161,6 +190,20 @@ class HostLeakAnalyzer
         // dump_unfreed_series投影: 节拍快照序列(置信度因子数据源;闭窗冻结态),
         // 拍号→时间轴映射经stats.seriesStartTsNs/seriesBeatIntervalNs
         std::vector<StackSeries> series;
+    };
+    // 中间快照收集器(dump_interim_snapshot投影,ctx统一为InterimCollector*):
+    // 结构与WindowState快照部分同构(渲染共用),stats为MsmemscopeInterimStats
+    // (Tracked派生口径/frozenSkip/snapTsNs/snapshotDegraded);series经
+    // SeriesCollector模式聚合(同栈多拍连续,索引命中即尾插)
+    struct InterimCollector
+    {
+        bool statsAvailable = false;
+        MsmemscopeInterimStats stats{};
+        std::vector<StackRow> stacks;              // 快照行(含stackId=0未知桶行,钩子侧已排序)
+        std::vector<SizeBucket> buckets;           // 存活块大小排布桶
+        std::vector<SizeBucket> preWindowBuckets;  // 开窗前free大小排布桶
+        std::vector<StackSeries> series;           // 节拍快照序列(快照时刻当前值)
+        SeriesCollector seriesAgg;                 // 收集期聚合器(交付后随collector弃置)
     };
 
     std::unordered_map<uint64_t /*pid*/, WindowState> windows_;

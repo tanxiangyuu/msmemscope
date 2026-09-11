@@ -45,13 +45,15 @@ LeakAnalyzer::LeakAnalyzer()
     Subscribe();
 }
 
+const char* LeakAnalyzer::GetName() const { return "leak"; }
+
 void LeakAnalyzer::Subscribe()
 {
     auto func = std::bind(&LeakAnalyzer::EventHandle, this, std::placeholders::_1, std::placeholders::_2);
     std::vector<EventBaseType> eventList{EventBaseType::MALLOC, EventBaseType::FREE, EventBaseType::MSTX,
                                          EventBaseType::SYSTEM, EventBaseType::CLEAN_UP};
     EventDispatcher::GetInstance().Subscribe(SubscriberId::LEAKS_ANALYZER, eventList, EventDispatcher::Priority::High,
-                                             func);
+                                             func, GetName());
 }
 
 void LeakAnalyzer::UnSubscribe() const { EventDispatcher::GetInstance().UnSubscribe(SubscriberId::LEAKS_ANALYZER); }

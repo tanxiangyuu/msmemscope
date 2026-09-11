@@ -64,6 +64,7 @@ enum class EventBaseType : uint8_t
     CLEAN_UP,
     SNAPSHOT,
     OOM_DETAIL,
+    CONTROL,  // 进程外控制字通信事件(置于INVALID前追加,不破坏既有序号)
     INVALID,
 };
 enum class EventSubType : uint8_t
@@ -279,6 +280,21 @@ class OOMMemRecordEvent : public EventBase
     uint64_t allocTimestamp = 0;
 
     OOMMemRecordEvent() { eventType = EventBaseType::OOM_DETAIL; }
+};
+
+// 进程外控制字通信事件:cmd=控制字(如 "start"/"stop"/"step"/"display"),
+// param=控制字参数(键值式控制字预留,如 "1024");output=处理结果回显文本,
+// 由处理方(ControlCommandHandler::Execute,派发外)填写,监听线程读回组装RESPONSE;
+// ok=业务侧成功标志(拒绝/校验失败置false,经RESPONSE帧ok位回传,单发退出码据此)
+class ControlEvent : public EventBase
+{
+   public:
+    std::string cmd;
+    std::string param;
+    std::string output;
+    bool ok = true;
+
+    ControlEvent() { eventType = EventBaseType::CONTROL; }
 };
 
 }  // namespace MemScope

@@ -34,6 +34,7 @@
 #include "file.h"
 #include "log.h"
 #include "memory_state_manager.h"
+#include "trace_manager/event_trace_manager.h"
 
 namespace MemScope
 {
@@ -67,6 +68,8 @@ constexpr const char* kTopNEnv = "MSMEMSCOPE_HOSTMEM_TOP_N";
 constexpr const char* kKeyFramesEnv = "MSMEMSCOPE_HOSTMEM_STACK_KEY_FRAMES";
 constexpr uint64_t kTopNDefault = 10;
 constexpr uint64_t kKeyFramesDefault = 20;
+// TOP N上限1024:与series max-stacks=1024对齐,疑似榜/常驻子块行数均受此约束
+constexpr uint64_t kTopNMax = 1024;
 
 uint64_t EnvOrDefault(const char* name, uint64_t def)
 {
@@ -85,6 +88,9 @@ uint64_t EnvOrDefault(const char* name, uint64_t def)
         return def;
     }
 }
+
+// TOP N读取:疑似榜与常驻子块共用MSMEMSCOPE_HOSTMEM_TOP_N,超1024截断
+uint64_t GetTopN() { return std::min(EnvOrDefault(kTopNEnv, kTopNDefault), kTopNMax); }
 
 // 明细CSV批量写盘缓冲:1MB堆缓冲攒行,近满时write整块刷出(代替ostream逐字段
 // operator<<——百万行级明细上逐字段流式写出是写盘路径的主放大项)。
@@ -319,13 +325,84 @@ HostLeakAnalyzer::~HostLeakAnalyzer()
     }
 }
 
+const char* HostLeakAnalyzer::GetName() const { return "host_leak"; }
+
+bool HostLeakAnalyzer::QueryInterimOverview(std::string& text)
+{
+    // 窗口状态只由STAGE事件驱动(START开窗/END闭窗)——以windows_为准,不查
+    // IsTracingEnabled: stop后tracing先关、STAGE_END后到,中间时刻tracing已关
+    // 而窗口仍开,快照实际可取,误判no active window误导巡检
+    // 退出期逃生(同EventHandle/析构兜底):15s拿不到锁即放弃,不阻塞控制通道会话
+    // 两阶段: 锁内查窗口→放锁调中间快照(钩子冻结→聚合→符号化,毫秒~百毫秒级,
+    // 期间不持本锁,STAGE_END闭窗/其他巡检不被阻塞)→锁内复检窗口仍开才渲染。
+    // 查与复检之间可能发生闭窗(STAGE_END已处理): 复检不通过即按无窗口提示,
+    // 不渲染过期快照。两段取锁均以unique_lock RAII接管,任何返回路径都解锁
+    uint64_t pid = 0;
+    uint64_t stageId = 0;
+    uint64_t startTs = 0;
+    {
+        if (!mutex_.try_lock_for(std::chrono::seconds(15)))
+        {
+            text = "host_leak analyzer lock busy >15s, interim snapshot skipped";
+            return false;
+        }
+        std::unique_lock<std::timed_mutex> lock(mutex_, std::adopt_lock);
+        bool found = false;
+        for (const auto& window : windows_)
+        {
+            if (!window.second.open)
+            {
+                continue;
+            }
+            pid = window.first;
+            stageId = window.second.stageId;
+            startTs = window.second.startTs;
+            found = true;
+            break;
+        }
+        if (!found)
+        {
+            // 无开启窗口:仅提示(不做最近闭窗概览——闭窗概览已落盘leak_overview报告)
+            text = "no active window";
+            return false;
+        }
+    }
+    InterimCollector ic;
+    // 快照(锁外):返回false=钩子未装配/bind未就绪:渲染退化概览(仅窗口头+
+    // unavailable标注),不猜零值
+    ic.statsAvailable =
+        EventReport::Instance(MemScopeCommType::SHARED_MEMORY)
+            .DumpHostMemInterimSnapshot(&CollectInterimStackCb, &CollectInterimSizeDistCb, &CollectInterimPreWindowCb,
+                                        &CollectInterimSeriesCb, &ic.stats, &ic);
+    ic.series = std::move(ic.seriesAgg.series);
+    // 复检(锁内): 同一窗口(pid+stageId)仍开才渲染本次快照
+    {
+        if (!mutex_.try_lock_for(std::chrono::seconds(15)))
+        {
+            text = "host_leak analyzer lock busy >15s, interim snapshot skipped";
+            return false;
+        }
+        std::unique_lock<std::timed_mutex> lock(mutex_, std::adopt_lock);
+        for (const auto& window : windows_)
+        {
+            if (window.first == pid && window.second.open && window.second.stageId == stageId)
+            {
+                RenderInterimOverview(pid, stageId, startTs, ic, text);
+                return true;
+            }
+        }
+        text = "no active window";
+        return false;
+    }
+}
+
 void HostLeakAnalyzer::Subscribe()
 {
     auto func = std::bind(&HostLeakAnalyzer::EventHandle, this, std::placeholders::_1, std::placeholders::_2);
     // 无逐事件流,仅窗口边界SYSTEM事件(HOST_LEAK_STAGE_START/END)
     std::vector<EventBaseType> eventList{EventBaseType::SYSTEM};
     EventDispatcher::GetInstance().Subscribe(SubscriberId::HOST_LEAKS_ANALYZER, eventList,
-                                             EventDispatcher::Priority::High, func);
+                                             EventDispatcher::Priority::High, func, GetName());
 }
 
 void HostLeakAnalyzer::UnSubscribe() const
@@ -441,8 +518,8 @@ void HostLeakAnalyzer::CollectStackStatsCb(void* ctx, uint64_t stackId, uint64_t
     rows->push_back(std::move(row));
 }
 
-void HostLeakAnalyzer::WriteConfidenceEntry(std::ofstream& out, const PerStackResult& r, const StackRow* row,
-                                            size_t idx, bool resident)
+void HostLeakAnalyzer::WriteConfidenceEntry(std::ostream& out, const PerStackResult& r, const StackRow* row, size_t idx,
+                                            bool resident)
 {
     // 统计列数据源=候选栈闭窗行(row为空=防御,按0渲染,不应发生)
     const uint64_t unfreedBytes = row != nullptr ? row->unfreedBytes : 0;
@@ -577,6 +654,90 @@ void HostLeakAnalyzer::CollectLiveBlockCb(void* ctx, uint64_t addr, uint64_t siz
     block.allocTs = allocTs;
     block.stackId = stackId;
     blocks->push_back(block);
+}
+
+void HostLeakAnalyzer::CollectInterimStackCb(void* ctx, uint64_t stackId, uint64_t allocCount, uint64_t allocBytes,
+                                             uint64_t freedCount, uint64_t freedBytes, uint64_t unfreedCount,
+                                             uint64_t unfreedBytes, uint64_t maxBlockSize, uint64_t maxAllocTsNs,
+                                             uint64_t freedLifetimeSumNs, uint64_t liveAgeSumNs, const char* frameDesc,
+                                             size_t len)
+{
+    // 与CollectStackStatsCb同构(钩子侧快照行已是"未释放量降序,stackId升序"排序,
+    // 渲染直接消费;未知桶stackId=0为最后行)——仅ctx类型不同
+    auto* ic = static_cast<InterimCollector*>(ctx);
+    StackRow row;
+    row.stackId = stackId;
+    row.allocCount = allocCount;
+    row.allocBytes = allocBytes;
+    row.freedCount = freedCount;
+    row.freedBytes = freedBytes;
+    row.unfreedCount = unfreedCount;
+    row.unfreedBytes = unfreedBytes;
+    row.maxBlockSize = maxBlockSize;
+    row.maxAllocTsNs = maxAllocTsNs;
+    row.freedLifetimeSumNs = freedLifetimeSumNs;
+    row.liveAgeSumNs = liveAgeSumNs;
+    if (frameDesc != nullptr && len > 0)
+    {
+        row.frameDesc.assign(frameDesc, len);
+    }
+    ic->stacks.push_back(std::move(row));
+}
+
+void HostLeakAnalyzer::CollectInterimSizeDistCb(void* ctx, uint64_t rangeLow, uint64_t rangeHigh, uint64_t blockCount,
+                                                uint64_t blockBytes)
+{
+    auto* ic = static_cast<InterimCollector*>(ctx);
+    SizeBucket bucket;
+    bucket.rangeLow = rangeLow;
+    bucket.rangeHigh = rangeHigh;
+    bucket.blockCount = blockCount;
+    bucket.blockBytes = blockBytes;
+    ic->buckets.push_back(bucket);
+}
+
+void HostLeakAnalyzer::CollectInterimPreWindowCb(void* ctx, uint64_t rangeLow, uint64_t rangeHigh, uint64_t blockCount,
+                                                 uint64_t blockBytes)
+{
+    auto* ic = static_cast<InterimCollector*>(ctx);
+    SizeBucket bucket;
+    bucket.rangeLow = rangeLow;
+    bucket.rangeHigh = rangeHigh;
+    bucket.blockCount = blockCount;
+    bucket.blockBytes = blockBytes;
+    ic->preWindowBuckets.push_back(bucket);
+}
+
+void HostLeakAnalyzer::CollectInterimSeriesCb(void* ctx, uint64_t stackId, uint32_t beat, uint64_t liveBytes,
+                                              uint32_t liveCount, uint32_t flags)
+{
+    // 与CollectSeriesCb同构(SeriesCollector模式:同栈多拍连续,索引命中即尾插)
+    auto* ic = static_cast<InterimCollector*>(ctx);
+    SeriesCollector& collector = ic->seriesAgg;
+    size_t idx = 0;
+    const auto it = collector.index.find(stackId);
+    if (it == collector.index.end())
+    {
+        StackSeries s;
+        s.stackId = stackId;
+        collector.series.push_back(std::move(s));
+        idx = collector.series.size() - 1;
+        collector.index.emplace(stackId, idx);
+    }
+    else
+    {
+        idx = it->second;
+    }
+    StackSeries& s = collector.series[idx];
+    if ((flags & 0x1u) != 0)
+    {
+        s.evicted = true;
+    }
+    SeriesPoint p;
+    p.beat = beat;
+    p.liveBytes = liveBytes;
+    p.liveCount = liveCount;
+    s.points.push_back(p);
 }
 
 void HostLeakAnalyzer::WriteWindowReport(uint64_t pid, WindowState& ws, bool atExit)
@@ -902,7 +1063,7 @@ void HostLeakAnalyzer::WriteWindowReport(uint64_t pid, WindowState& ws, bool atE
     out << "\n";
 
     // ---- TOP N 泄漏点(置信度研判视图) ----
-    const uint64_t topN = EnvOrDefault(kTopNEnv, kTopNDefault);
+    const uint64_t topN = GetTopN();
     out << "--- TOP " << topN << " Leak Sites (by LSI desc) ---\n";
     // 序列元信息: 拍数=闭窗时刻经序列锚点折算(有序列必有首拍锚点,正常路径锚点
     // 可得); 时长=窗口时长; top-k/max-stacks为节拍采集定值
@@ -1158,6 +1319,398 @@ void HostLeakAnalyzer::WriteWindowReport(uint64_t pid, WindowState& ws, bool atE
     }
 
     LOG_INFO("Host leak report generated: %s", overviewPath.c_str());
+}
+
+void HostLeakAnalyzer::RenderInterimOverview(uint64_t pid, uint64_t stageId, uint64_t startTs, InterimCollector& ic,
+                                             std::string& text)
+{
+    // 中间概览=leak_overview的交互巡检形态:章节结构同闭窗报告,差异——
+    //   Window行标注(interim snapshot, window open),时长基准=快照时刻snapTsNs;
+    //   冻结标注(frozenSkip>0:冻结期alloc只计入统计未入块表);
+    //   快照降级标注(snapshotDegraded位,仅本次快照,不污染整窗truncated);
+    //   常驻子块截断≤TOP N(同MSMEMSCOPE_HOSTMEM_TOP_N;闭窗报告不截断);不写block_detail CSV。
+    // 渲染经ostringstream(终端输出,不与文件报告共享句柄)
+    std::ostringstream out;
+    const bool statsOk = ic.statsAvailable;
+
+    // ---- 数据健康度分析 ----
+    out << "====== Host Leak Overview (interim snapshot): stage=" << stageId << ", pid=" << pid << " ======\n";
+    out << "LSI: Leak Suspicion Index (0-100); higher LSI = more likely a genuine leak. "
+           "See TOP N Leak Sites section for details.\n\n";
+    out << "--- Data Health Analysis ---\n";
+    const uint64_t snapTs = statsOk ? ic.stats.snapTsNs : 0;
+    out << "Window: " << startTs;
+    if (snapTs > 0)
+    {
+        // 时差防护: snapTs来自钩子快照时钟,与startTs(事件时间戳)可能不同源,
+        // 回拨时差分为0而非下溢(对齐下方Series行的既有防护)
+        const uint64_t windowDurSec = (snapTs >= startTs) ? (snapTs - startTs) / 1000000000ULL : 0;
+        out << " -> " << snapTs << " (duration: " << windowDurSec << "s) (interim snapshot, window open)\n";
+    }
+    else
+    {
+        // 快照不可得(钩子未装配/查询失败):时长未知
+        out << " -> unknown (interim snapshot, window open; snapshot unavailable)\n";
+    }
+    const bool summaryMode = GetConfig().hostLeakMode == static_cast<uint8_t>(HostLeakMode::SUMMARY);
+    out << "Mode: " << (summaryMode ? "summary" : "event") << "\n";
+    if (statsOk)
+    {
+        const MsmemscopeInterimStats& st = ic.stats;
+        // Tracked派生口径与闭窗同源:totalFreed=totalAlloc−块表存活−溢出存活
+        // (冻结期alloc已计入totalAlloc,其后续free落入开窗前通道——派生口径
+        // 将冻结期alloc视为已释放,不变量闭合,冻结标注见下)
+        out << "Tracked: " << st.totalAllocCount << " allocations / " << st.totalAllocBytes << "B allocated; "
+            << st.totalFreedCount << " freed / " << st.totalFreedBytes << "B\n";
+        // 冻结标注:快照冻结期到达的申请跳过块表/栈计数,
+        // 只计入totalAlloc+frozenSkip;统计值含冻结期事件,块表不含——概览如实标注
+        if (st.frozenSkipAllocCount > 0)
+        {
+            out << "Snapshot freeze: " << st.frozenSkipAllocCount << " allocations / " << st.frozenSkipAllocBytes
+                << "B during snapshot not captured in block table (stats include them)\n";
+        }
+        uint64_t distinctStacks = 0;
+        for (const auto& row : ic.stacks)
+        {
+            if (row.stackId != 0)
+            {
+                ++distinctStacks;
+            }
+        }
+        out << "Distinct stacks: " << distinctStacks
+            << " (key depth K=" << EnvOrDefault(kKeyFramesEnv, kKeyFramesDefault) << ", category semantics)\n";
+        // 未归因:未知桶未释放量(归因粒度退化,账本未失真);仅>0出行
+        const StackRow* unknown = nullptr;
+        for (const auto& row : ic.stacks)
+        {
+            if (row.stackId == 0)
+            {
+                unknown = &row;
+                break;
+            }
+        }
+        uint64_t totalUnfreedBytes = 0;
+        for (const auto& bucket : ic.buckets)
+        {
+            totalUnfreedBytes += bucket.blockBytes;
+        }
+        if (unknown != nullptr && unknown->unfreedBytes > 0)
+        {
+            out << "Unattributed: " << unknown->unfreedCount << " blocks / " << unknown->unfreedBytes
+                << "B (unknown bucket, "
+                << (totalUnfreedBytes > 0 ? unknown->unfreedBytes * 100 / totalUnfreedBytes : 0) << "%)\n";
+        }
+        // 整窗截断标注(与闭窗同款;bit2构成数据不完整)
+        bool truncatedShown = false;
+        if ((st.truncated & 0x1u) != 0)
+        {
+            out << "Truncated: block table full (allocations -> overflow channel)";
+            truncatedShown = true;
+        }
+        if ((st.truncated & 0x2u) != 0)
+        {
+            out << (truncatedShown ? " | " : "Truncated: ")
+                << "stack table (dead-stack recycling active, no reclaimable stack at full)";
+            truncatedShown = true;
+        }
+        if ((st.truncated & 0x4u) != 0)
+        {
+            out << (truncatedShown ? " | " : "Truncated: ") << "overflow channel full (recording stopped at "
+                << st.liveBlockCount << " live blocks)";
+            truncatedShown = true;
+        }
+        if (truncatedShown)
+        {
+            if ((st.truncated & 0x4u) != 0)
+            {
+                out << " [window data incomplete: not a leak conclusion]";
+            }
+            out << "\n";
+        }
+        // 本次快照读取降级(区别于整窗truncated:仅影响本次快照,窗口继续记账)
+        // bit0=块表分片锁获取失败(数据为前缀) bit1=栈表分片锁获取失败(归因不完整)
+        // bit2=节拍序列或开窗前free分布读取失败
+        if (st.snapshotDegraded != 0)
+        {
+            std::string degraded;
+            if ((st.snapshotDegraded & 0x1u) != 0)
+            {
+                degraded += "block-table read (prefix data)";
+            }
+            if ((st.snapshotDegraded & 0x2u) != 0)
+            {
+                degraded += degraded.empty() ? "stack-table read (partial attribution)"
+                                             : " | stack-table read (partial attribution)";
+            }
+            if ((st.snapshotDegraded & 0x4u) != 0)
+            {
+                degraded +=
+                    degraded.empty() ? "series/pre-window read (partial)" : " | series/pre-window read (partial)";
+            }
+            out << "Snapshot degraded: " << degraded << " (this snapshot only; window continues recording)\n";
+        }
+        if (st.evictedStackCount > 0)
+        {
+            out << "Evicted: " << st.evictedStackCount << " stacks recycled (" << st.evictedAllocCount << " allocs / "
+                << st.evictedAllocBytes << "B folded to unknown bucket)\n";
+        }
+        if (st.overflowAllocCount > 0 || st.overflowFreedCount > 0)
+        {
+            out << "Overflow channel: " << st.overflowAllocCount << " allocations / " << st.overflowAllocBytes
+                << "B diverted; " << st.overflowFreedCount << " freed / " << st.overflowFreedBytes
+                << "B (reverse-corrected)\n";
+        }
+        if (st.preWindowFreeCount > 0)
+        {
+            out << "Pre-window frees: " << st.preWindowFreeCount << " / " << st.preWindowFreeBytes
+                << "B (allocated before window, not in ledger)\n";
+        }
+        if (st.sampleRate > 1)
+        {
+            out << "Sampling: 1/" << st.sampleRate << " (sampled view)\n";
+        }
+        const Config& config = GetConfig();
+        if (config.blockSizeThreshold > 0)
+        {
+            out << "Size threshold: " << config.blockSizeThreshold << "B (untracked: " << st.untrackedCount
+                << " allocations / " << st.untrackedBytes << "B)\n";
+        }
+        uint64_t unfreedStacks = 0;
+        uint64_t symbolizedStacks = 0;
+        for (const auto& row : ic.stacks)
+        {
+            if (row.stackId == 0 || row.unfreedCount == 0)
+            {
+                continue;
+            }
+            unfreedStacks += 1;
+            if (!row.frameDesc.empty())
+            {
+                symbolizedStacks += 1;
+            }
+        }
+        out << "Symbolized: " << symbolizedStacks << "/" << unfreedStacks
+            << " stacks (unresolved: " << (unfreedStacks - symbolizedStacks) << ")\n";
+    }
+    else
+    {
+        out << "Snapshot: unavailable (host hook not bound / query failed)\n";
+    }
+    out << "\n";
+
+    // ---- 总泄漏量(桶合计权威真源,与闭窗同口径) ----
+    uint64_t totalUnfreedBytes = 0;
+    uint64_t totalUnfreedCount = 0;
+    uint64_t maxUnfreedBlock = 0;
+    for (const auto& bucket : ic.buckets)
+    {
+        totalUnfreedBytes += bucket.blockBytes;
+        totalUnfreedCount += bucket.blockCount;
+    }
+    for (const auto& row : ic.stacks)
+    {
+        maxUnfreedBlock = std::max(maxUnfreedBlock, row.maxBlockSize);
+    }
+    out << "--- Total Unfreed ---\n";
+    out << "Total unfreed: " << totalUnfreedBytes << " bytes in " << totalUnfreedCount << " blocks (avg "
+        << (totalUnfreedCount > 0 ? totalUnfreedBytes / totalUnfreedCount : 0) << "B, max " << maxUnfreedBlock
+        << "B)\n";
+    out << "\n";
+
+    // ---- 泄漏块大小排布 ----
+    out << "--- Unfreed Block Size Distribution ---\n";
+    out << std::left << std::setw(16) << "range" << std::right << std::setw(10) << "blocks" << std::setw(12) << "bytes"
+        << std::setw(9) << "% of total" << "\n";
+    for (const auto& bucket : ic.buckets)
+    {
+        const uint64_t pct = totalUnfreedBytes > 0 ? bucket.blockBytes * 100 / totalUnfreedBytes : 0;
+        out << std::left << std::setw(16) << FormatRange(bucket.rangeLow, bucket.rangeHigh) << std::right
+            << std::setw(10) << bucket.blockCount << std::setw(12) << bucket.blockBytes << std::setw(9) << pct << "%\n";
+    }
+    if (ic.buckets.empty())
+    {
+        out << "(no unfreed blocks)\n";
+    }
+    out << "\n";
+
+    // ---- 开窗前free大小排布(独立通道;降级位bit2或空快照=不可得) ----
+    out << "--- Pre-Window Free Size Distribution ---\n";
+    if (!ic.preWindowBuckets.empty())
+    {
+        out << std::left << std::setw(16) << "range" << std::right << std::setw(10) << "frees" << std::setw(12)
+            << "bytes" << "\n";
+        for (const auto& bucket : ic.preWindowBuckets)
+        {
+            out << std::left << std::setw(16) << FormatRange(bucket.rangeLow, bucket.rangeHigh) << std::right
+                << std::setw(10) << bucket.blockCount << std::setw(12) << bucket.blockBytes << "\n";
+        }
+    }
+    else if (!statsOk || (ic.stats.snapshotDegraded & 0x4u) != 0)
+    {
+        out << "(snapshot unavailable)\n";
+    }
+    else
+    {
+        out << "(no pre-window frees)\n";
+    }
+    out << "\n";
+
+    // ---- TOP N 泄漏点(置信度研判视图;时间轴折算基准=快照时刻snapTs) ----
+    const uint64_t topN = GetTopN();
+    out << "--- TOP " << topN << " Leak Sites (by LSI desc) ---\n";
+    std::vector<const StackRow*> rows;
+    rows.reserve(ic.stacks.size());
+    for (const auto& row : ic.stacks)
+    {
+        if (row.unfreedCount == 0)
+        {
+            continue;  // 无未释放块的栈不是泄漏点,不进入TOP
+        }
+        rows.push_back(&row);
+    }
+    // 行排序(钩子侧已排,防御性再排保证确定性):未释放量降序,相同则stackId升序
+    std::sort(rows.begin(), rows.end(),
+              [](const StackRow* a, const StackRow* b)
+              {
+                  if (a->unfreedBytes != b->unfreedBytes)
+                  {
+                      return a->unfreedBytes > b->unfreedBytes;
+                  }
+                  return a->stackId < b->stackId;
+              });
+    if (statsOk)
+    {
+        const uint64_t beatIntervalNs =
+            ic.stats.seriesBeatIntervalNs > 0 ? ic.stats.seriesBeatIntervalNs : 1000000000ULL;
+        const uint64_t seriesStartTs = ic.stats.seriesStartTsNs;
+        uint64_t seriesBeats = 0;
+        if (seriesStartTs > 0 && snapTs > seriesStartTs)
+        {
+            seriesBeats = (snapTs - seriesStartTs) / beatIntervalNs + 1;
+        }
+        else
+        {
+            uint64_t maxDeliveredBeat = 0;
+            for (const auto& s : ic.series)
+            {
+                for (const auto& p : s.points)
+                {
+                    maxDeliveredBeat = std::max(maxDeliveredBeat, static_cast<uint64_t>(p.beat));
+                }
+            }
+            seriesBeats = maxDeliveredBeat + 1;
+        }
+        const uint64_t windowDurSec = (snapTs > startTs) ? (snapTs - startTs) / 1000000000ULL : 0;
+        out << "Series: top-k=256, max-stacks=1024, beats=" << seriesBeats << "(" << windowDurSec
+            << "s, 1s/beat; interim snapshot at " << snapTs << ")\n";
+    }
+    std::unordered_map<uint64_t, StackCloseStats> closeStats;
+    std::unordered_map<uint64_t, const StackRow*> rowById;
+    closeStats.reserve(rows.size());
+    rowById.reserve(rows.size());
+    for (const StackRow* row : rows)
+    {
+        StackCloseStats st;
+        st.allocCount = row->allocCount;
+        st.allocBytes = row->allocBytes;
+        st.unfreedCount = row->unfreedCount;
+        st.unfreedBytes = row->unfreedBytes;
+        st.maxAllocTsNs = row->maxAllocTsNs;
+        st.freedLifetimeSumNs = row->freedLifetimeSumNs;
+        st.liveAgeSumNs = row->liveAgeSumNs;
+        closeStats.emplace(row->stackId, st);
+        rowById.emplace(row->stackId, row);
+    }
+    const bool warmupThreadFailed = statsOk && (ic.stats.seriesFlags & 0x1u) != 0;
+    const std::vector<PerStackResult> confidence =
+        HostConfidence().Compute(ic.series, closeStats, startTs, snapTs, warmupThreadFailed);
+
+    // 分派:疑似榜(LSI降序)与常驻子块(未释放量降序,次键栈号升序;不占TOPN名额)
+    std::vector<const PerStackResult*> suspects;
+    std::vector<const PerStackResult*> residents;
+    suspects.reserve(confidence.size());
+    residents.reserve(confidence.size());
+    for (const auto& result : confidence)
+    {
+        if (result.status == CONF_STATUS_RESIDENT)
+        {
+            residents.push_back(&result);
+        }
+        else
+        {
+            suspects.push_back(&result);
+        }
+    }
+    std::sort(residents.begin(), residents.end(),
+              [&closeStats](const PerStackResult* a, const PerStackResult* b)
+              {
+                  uint64_t aBytes = 0;
+                  uint64_t bBytes = 0;
+                  const auto ait = closeStats.find(a->stackId);
+                  const auto bit = closeStats.find(b->stackId);
+                  if (ait != closeStats.end())
+                  {
+                      aBytes = ait->second.unfreedBytes;
+                  }
+                  if (bit != closeStats.end())
+                  {
+                      bBytes = bit->second.unfreedBytes;
+                  }
+                  if (aBytes != bBytes)
+                  {
+                      return aBytes > bBytes;
+                  }
+                  return a->stackId < b->stackId;
+              });
+    const size_t suspectShown = std::min(suspects.size(), static_cast<size_t>(topN));
+    for (size_t i = 0; i < suspectShown; ++i)
+    {
+        const auto rit = rowById.find(suspects[i]->stackId);
+        WriteConfidenceEntry(out, *suspects[i], rit != rowById.end() ? rit->second : nullptr, i + 1, false);
+    }
+    if (rows.empty())
+    {
+        out << "(no unfreed blocks in this window)\n";
+    }
+
+    // 常驻基线子块(交互巡检截断至TOP N,与疑似榜同env;闭窗报告不截断)
+    if (!residents.empty())
+    {
+        uint64_t residentBytes = 0;
+        for (const PerStackResult* r : residents)
+        {
+            const auto it = closeStats.find(r->stackId);
+            if (it != closeStats.end())
+            {
+                residentBytes += it->second.unfreedBytes;
+            }
+        }
+        const size_t residentShown = std::min(residents.size(), static_cast<size_t>(topN));
+        out << "Resident baselines (" << residentShown << " shown of " << residents.size() << " stacks, "
+            << FormatSizeAbbrev(residentBytes)
+            << "; G≈0 & early-allocated, or turnover (low unfreed/alloc & flat tail); "
+               "excluded from suspect list, no TOP N slot):\n";
+        for (size_t i = 0; i < residentShown; ++i)
+        {
+            const auto rit = rowById.find(residents[i]->stackId);
+            WriteConfidenceEntry(out, *residents[i], rit != rowById.end() ? rit->second : nullptr, i + 1, true);
+        }
+        if (residents.size() > residentShown)
+        {
+            out << "     ... and " << (residents.size() - residentShown)
+                << " more resident stacks (see leak_overview report after window close)\n";
+        }
+    }
+
+    // 周转提示NOTE(与闭窗同款:开窗前free占窗口内总申请过半)
+    if (statsOk && ic.stats.preWindowFreeBytes > 0 && ic.stats.totalAllocBytes > 0 &&
+        static_cast<double>(ic.stats.preWindowFreeBytes) > 0.5 * static_cast<double>(ic.stats.totalAllocBytes))
+    {
+        out << "NOTE: " << FormatSizeAbbrev(ic.stats.preWindowFreeBytes)
+            << " pre-window allocations were freed within this window (cache turnover pattern); resident "
+               "classification includes the unfreed/alloc turnover criterion\n";
+    }
+    text = out.str();
 }
 
 }  // namespace MemScope

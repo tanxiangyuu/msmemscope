@@ -33,9 +33,9 @@ EventDispatcher& EventDispatcher::GetInstance()
 }
 
 void EventDispatcher::Subscribe(const SubscriberId& id, const std::vector<EventBaseType>& eventTypes,
-                                const Priority& priority, const HandlerFunc& func)
+                                const Priority& priority, const HandlerFunc& func, const std::string& name)
 {
-    Subscriber newSubscriber{id, priority, func};
+    Subscriber newSubscriber{id, priority, func, name};
 
     std::lock_guard<std::timed_mutex> lock(mutex_);
     for (auto eventType : eventTypes)
@@ -49,6 +49,17 @@ void EventDispatcher::Subscribe(const SubscriberId& id, const std::vector<EventB
             auto it = std::lower_bound(subscribers.begin(), subscribers.end(), newSubscriber);
             subscribers.insert(it, newSubscriber);
         }
+        else if (!name.empty())
+        {
+            // 同一订阅者重复注册: 保留原优先级,名字以最新注册为准
+            subscriberIt->name = name;
+        }
+    }
+    // 名字首次注册序(去重): 排序列不受事件类型表哈希序影响
+    if (!name.empty() && !eventTypes.empty() &&
+        std::find(subscriberNameOrder_.begin(), subscriberNameOrder_.end(), name) == subscriberNameOrder_.end())
+    {
+        subscriberNameOrder_.push_back(name);
     }
 }
 
@@ -64,6 +75,40 @@ void EventDispatcher::UnSubscribe(const SubscriberId& id)
             subscribers.erase(subIt);
         }
     }
+}
+
+std::vector<std::string> EventDispatcher::GetSubscriberNames() const
+{
+    std::lock_guard<std::timed_mutex> lock(mutex_);
+    // 在线名字集合: 同一订阅者可能注册多种事件类型(去重),退订后不再输出
+    std::vector<std::string> live;
+    for (const auto& pair : eventSubscribers_)
+    {
+        for (const auto& subscriber : pair.second)
+        {
+            if (std::find(live.begin(), live.end(), subscriber.name) == live.end())
+            {
+                live.push_back(subscriber.name);
+            }
+        }
+    }
+    // 按首次注册顺序输出;注册序表未覆盖的在线名字垫后
+    std::vector<std::string> names;
+    for (const auto& registered : subscriberNameOrder_)
+    {
+        if (std::find(live.begin(), live.end(), registered) != live.end())
+        {
+            names.push_back(registered);
+        }
+    }
+    for (const auto& name : live)
+    {
+        if (std::find(names.begin(), names.end(), name) == names.end())
+        {
+            names.push_back(name);
+        }
+    }
+    return names;
 }
 
 void EventDispatcher::DispatchEvent(std::shared_ptr<EventBase>& event, MemoryState* state)

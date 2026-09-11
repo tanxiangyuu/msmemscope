@@ -175,12 +175,14 @@ void DecomposeAnalyzer::UpdateOwner(std::shared_ptr<MemoryOwnerEvent>& event, Me
 
 DecomposeAnalyzer::~DecomposeAnalyzer() { UnSubscribe(); }
 
+const char* DecomposeAnalyzer::GetName() const { return "decompose"; }
+
 void DecomposeAnalyzer::Subscribe()
 {
     auto func = std::bind(&DecomposeAnalyzer::EventHandle, this, std::placeholders::_1, std::placeholders::_2);
     std::vector<EventBaseType> eventList{EventBaseType::MALLOC, EventBaseType::ACCESS, EventBaseType::MEMORY_OWNER};
     EventDispatcher::GetInstance().Subscribe(SubscriberId::DECOMPOSE_ANALYZER, eventList,
-                                             EventDispatcher::Priority::High, func);
+                                             EventDispatcher::Priority::High, func, GetName());
 }
 
 void DecomposeAnalyzer::UnSubscribe() const
