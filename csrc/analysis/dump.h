@@ -34,6 +34,7 @@ class Dump : public AnalyzerBase
    public:
     static Dump& GetInstance();
     void EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state) override;
+    const char* GetName() const override;          // "dump"(控制通道display analyzer)
     void DumpHistoricalState(MemoryState* state);  // 落盘完整MemoryState（用于影子FREE转正）
     void WritePublicEventToFile();
     void FflushEventToFile() const;

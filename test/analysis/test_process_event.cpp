@@ -1135,7 +1135,7 @@ TEST_F(TestProcess, process_memory_owner_event)
         std::placeholders::_1, std::placeholders::_2);
     std::vector<EventBaseType> eventList{EventBaseType::MALLOC, EventBaseType::ACCESS, EventBaseType::MEMORY_OWNER};
     EventDispatcher::GetInstance().Subscribe(
-        SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func);
+        SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func, "decompose");
  
     EventHandler(eventMap["PtaCachingMallocEvent"]);
     EventHandler(eventMap["PtaAccessEvent"]);
@@ -1171,7 +1171,7 @@ TEST_F(TestProcess, process_memory_owner_event_in_torch_step)
         std::placeholders::_1, std::placeholders::_2);
     std::vector<EventBaseType> eventList{EventBaseType::MALLOC, EventBaseType::ACCESS, EventBaseType::MEMORY_OWNER};
     EventDispatcher::GetInstance().Subscribe(
-        SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func);
+        SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func, "decompose");
  
     EventHandler(eventMap["PtaCachingMallocEvent"]);
     EventHandler(eventMap["TorchStepOwnerEvent"]);
@@ -1203,7 +1203,7 @@ TEST_F(TestProcess, process_memory_owner_event_without_malloc)
         std::placeholders::_1, std::placeholders::_2);
     std::vector<EventBaseType> eventList{EventBaseType::MALLOC, EventBaseType::ACCESS, EventBaseType::MEMORY_OWNER};
     EventDispatcher::GetInstance().Subscribe(
-        SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func);
+        SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func, "decompose");
  
     EventHandler(eventMap["PtaAccessEvent"]);
     EventHandler(eventMap["DescribeOwnerEvent"]);
@@ -1236,7 +1236,7 @@ TEST_F(TestProcess, init_memory_owner)
         std::placeholders::_1, std::placeholders::_2);
     std::vector<EventBaseType> eventList{EventBaseType::MALLOC, EventBaseType::ACCESS, EventBaseType::MEMORY_OWNER};
     EventDispatcher::GetInstance().Subscribe(
-        SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func);
+        SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func, "decompose");
  
     EventHandler(eventMap["PtaCachingMallocEvent"]);
     EventHandler(eventMap["PtaCachingFreeEvent"]);
@@ -1283,7 +1283,7 @@ TEST_F(TestProcess, updata_owner_by_access_event)
         std::placeholders::_1, std::placeholders::_2);
     std::vector<EventBaseType> eventList{EventBaseType::MALLOC, EventBaseType::ACCESS, EventBaseType::MEMORY_OWNER};
     EventDispatcher::GetInstance().Subscribe(
-        SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func);
+        SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func, "decompose");
  
     EventHandler(eventMap["PtaCachingMallocEvent"]);
     EventHandler(eventMap["PtaAccessEvent"]);
@@ -1316,7 +1316,7 @@ TEST_F(TestProcess, updata_owner_failed_by_atb_access_event)
         std::placeholders::_1, std::placeholders::_2);
     std::vector<EventBaseType> eventList{EventBaseType::MALLOC, EventBaseType::ACCESS, EventBaseType::MEMORY_OWNER};
     EventDispatcher::GetInstance().Subscribe(
-        SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func);
+        SubscriberId::DECOMPOSE_ANALYZER, eventList, EventDispatcher::Priority::High, func, "decompose");
  
     EventHandler(eventMap["AtbMallocEvent"]);
     EventHandler(eventMap["AtbAccessEvent"]);

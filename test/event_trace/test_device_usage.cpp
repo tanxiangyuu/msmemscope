@@ -79,7 +79,7 @@ class DeviceUsageTest : public ::testing::Test
         EventDispatcher::GetInstance().UnSubscribe(SubscriberId::DUMP);
         auto func = std::bind(&EventCaptor::Handle, &captor_, std::placeholders::_1, std::placeholders::_2);
         EventDispatcher::GetInstance().Subscribe(SubscriberId::DUMP, {EventBaseType::MALLOC, EventBaseType::FREE},
-                                                 EventDispatcher::Priority::Lowest, func);
+                                                 EventDispatcher::Priority::Lowest, func, "dump");
 
         // 清理单例跨用例残留状态（统计累计 + 整卡/本进程用量缓存 + 存量块）
         MemoryStateManager::GetInstance().halUsed_.clear();

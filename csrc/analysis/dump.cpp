@@ -40,9 +40,12 @@ Dump::Dump()
     std::vector<EventBaseType> eventList{
         EventBaseType::FREE,   EventBaseType::MSTX,     EventBaseType::OP_LAUNCH, EventBaseType::KERNEL_LAUNCH,
         EventBaseType::SYSTEM, EventBaseType::SNAPSHOT, EventBaseType::CLEAN_UP,  EventBaseType::OOM_DETAIL};
-    EventDispatcher::GetInstance().Subscribe(SubscriberId::DUMP, eventList, EventDispatcher::Priority::Lowest, func);
+    EventDispatcher::GetInstance().Subscribe(SubscriberId::DUMP, eventList, EventDispatcher::Priority::Lowest, func,
+                                             GetName());
     return;
 }
+
+const char* Dump::GetName() const { return "dump"; }
 
 void Dump::EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state)
 {

@@ -22,6 +22,7 @@
 #include <mutex>
 #include <unordered_map>
 
+#include "analyzer_base.h"
 #include "comm_def.h"
 #include "config_info.h"
 #include "event.h"
@@ -56,11 +57,12 @@ struct MemoryPoolStatus
     GapInfo minGapInfo;  // 记录动态内存和静态内存比值最小的信息
 };
 
-class HealthAnalyzer
+class HealthAnalyzer : public AnalyzerBase
 {
    public:
     static HealthAnalyzer& GetInstance();
-    void EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state);
+    void EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state) override;
+    const char* GetName() const override;  // "health"(控制通道display analyzer)
     void Subscribe();
     void UnSubscribe() const;
 

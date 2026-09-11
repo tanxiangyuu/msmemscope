@@ -45,13 +45,15 @@ HealthAnalyzer::HealthAnalyzer()
     Subscribe();
 }
 
+const char* HealthAnalyzer::GetName() const { return "health"; }
+
 void HealthAnalyzer::Subscribe()
 {
     auto func = std::bind(&HealthAnalyzer::EventHandle, this, std::placeholders::_1, std::placeholders::_2);
     std::vector<EventBaseType> eventList{EventBaseType::MALLOC, EventBaseType::FREE, EventBaseType::MSTX,
                                          EventBaseType::SYSTEM};
     EventDispatcher::GetInstance().Subscribe(SubscriberId::HEALTH_ANALYZER, eventList, EventDispatcher::Priority::High,
-                                             func);
+                                             func, GetName());
 }
 
 void HealthAnalyzer::UnSubscribe() const { EventDispatcher::GetInstance().UnSubscribe(SubscriberId::HEALTH_ANALYZER); }

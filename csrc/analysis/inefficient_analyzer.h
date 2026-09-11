@@ -35,6 +35,7 @@ class InefficientAnalyzer : public AnalyzerBase
    public:
     static InefficientAnalyzer& GetInstance();
     void EventHandle(std::shared_ptr<EventBase>& event, MemoryState* state) override;
+    const char* GetName() const override;  // "inefficient"(控制通道display analyzer)
     struct PidState
     {
         std::vector<std::shared_ptr<MemoryEvent>> apiTmp;
