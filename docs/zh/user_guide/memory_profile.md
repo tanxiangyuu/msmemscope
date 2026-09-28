@@ -46,7 +46,7 @@ msMemScope工具的安装，请参见《[msMemScope工具安装指南](../instal
 
     |参数|说明|
     |--|--|
-    |--load-api-env|设置 API 方式使用所需的环境变量，必须通过`source`方式执行。|
+    |--load-api-env[=npu\|host]|设置 API 方式使用所需的环境变量，必须通过`source`方式执行。可选值：<br> - **npu**：装配NPU钩子链，用于NPU显存采集与分析。不指定取值时默认为npu。<br> - **host**：仅装配Host堆内存泄漏检测钩子。Python接口方式设置analysis="host-leaks"前必须以该模式装载，具体参见[Host堆内存泄漏检测功能介绍](./memory_analysis.md#host堆内存泄漏检测功能介绍)。<br> npu与host互斥，后装载的模式会自动移除另一种模式已设置的`LD_PRELOAD`条目。|
     |--unload-api-env|清除 msMemScope 相关的环境变量条目，保留其他工具的值，必须通过`source`方式执行。|
 
 2. 采集内存。
